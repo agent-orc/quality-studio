@@ -1,0 +1,400 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/f1d2932bc6f083e94bb41fe7c14c19b10c54b55527c589740811c72126002a3e",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+    "displayName": "ReviewModelCatalog.cs"
+  },
+  "reviewedAt": "2026-09-01T09:20:30.7033837Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-35e6a0fc44de4c03a5f4452b9a272921",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 21243,
+      "outputTokens": 5384,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 4142,
+      "durationMs": 159079
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "32f539934e3ab070d5fe39886861a618fd4dd7d41f8eaeb2bf8a32417bd299a3"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+      "selector": "file",
+      "contentHash": "sha256:a2a1d206313a32bb07dcab010df3a131b738208066bbeb52199b36c2df483c66"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 74,
+    "band": "C",
+    "rationale": "The catalog is well documented and mostly defensive, but recommendation behavior can silently diverge from the synchronized policy, input mistakes can weaken correctness floors, and one advertised routing band is unreachable."
+  },
+  "summary": "The resolution and floor-comparison paths are generally clear, but the recommendation path duplicates policy data in code instead of consuming it. Three correctness issues and one testability limitation should be addressed before relying on this as a fully policy-governed router.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Hard-coded route definitions can disagree with the loaded policy, unrecognized review kinds can bypass specialized floors, and the lightest score band cannot be reached."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Documentation and decomposition are strong, but recommendation metadata is duplicated across code and embedded policy resources, creating a significant synchronization hazard."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 90,
+        "band": "A",
+        "rationale": "Names, comments, exception messages, and the separation of selection, recommendation, and floor evaluation make the intended behavior easy to follow."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Model overrides receive useful validation, but recommendation inputs are not validated consistently and null or misspelled kinds produce unsafe or opaque behavior."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "Pure public operations are straightforward to exercise, but policy loading and validation are hard-wired to embedded resources, making malformed-policy and drift scenarios difficult to test in isolation. Coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-302ff230b2571aa50611628c34fd1c4945de8291bb610adf33402837887c3043",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Recommendations duplicate route definitions instead of using the synchronized policy",
+      "description": "Only route ranks are loaded from the policy. The model ID, thinking level, and capability tier returned by Recommend are hard-coded for each route ID. If the synchronized policy changes any of those fields while retaining the route ID, loading succeeds but Recommend silently returns the old route, potentially selecting an unavailable model or violating the policy\u0027s intended correctness floor.",
+      "recommendation": "Load a complete route descriptor for each core-task route, validate its model and thinking level against the catalog, and construct both scored and floor recommendations from those descriptors. Keep only score-to-route-ID decisions in code.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 167,
+              "column": 9
+            },
+            "end": {
+              "line": 178,
+              "column": 50
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:302ff230b2571aa50611628c34fd1c4945de8291bb610adf33402837887c3043",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 167,
+              "column": 9
+            },
+            "end": {
+              "line": 178,
+              "column": 50
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    \u003C= 20 =\u003E (Id: LunaMediumRoute, Model: \u0022gpt-5.6-luna\u0022, Thinking: \u0022medium\u0022, Tier: \u0022light\u0022),\n            \u003C= 50 =\u003E (Id: TerraMediumRoute, Model: \u0022gpt-5.6-terra\u0022, Thinking: \u0022medium\u0022, Tier: \u0022balanced\u0022),\n            \u003C= 69 =\u003E (Id: SolMediumRoute, Model: \u0022gpt-5.6-sol\u0022, Thinking: \u0022medium\u0022, Tier: \u0022frontier\u0022),\n            _ =\u003E (Id: SolXhighRoute, Model: \u0022gpt-5.6-sol\u0022, Thinking: \u0022xhigh\u0022, Tier: \u0022frontier\u0022),\n        };\n        var floor = normalizedKind == \u0022security\u0022\n            ? (Id: SolXhighRoute, Model: \u0022gpt-5.6-sol\u0022, Thinking: \u0022xhigh\u0022, Tier: \u0022frontier\u0022)\n            : aggregate || files \u003E 50\n                ? (Id: SolMediumRoute, Model: \u0022gpt-5.6-sol\u0022, Thinking: \u0022medium\u0022, Tier: \u0022frontier\u0022)\n                : (Id: LunaMediumRoute, Model: \u0022gpt-5.6-luna\u0022, Thinking: \u0022medium\u0022, Tier: \u0022light\u0022);\n        var scoredRank = coreRouteRanks[scoredRoute.Id];\n        var floorRank = coreRouteRanks[floor.Id];",
+            "contentHash": "sha256:a2a1d206313a32bb07dcab010df3a131b738208066bbeb52199b36c2df483c66",
+            "excerptHash": "sha256:3253b7bccdd71cf442f9f5eb702a01e5526cbe3cf0402a0ab76dc5349dda7353"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-e86284d0da0fb4d404f814bf8fbdf42375ff2a204d2c2fa9bc32c88fd2e495c2",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Invalid review kinds can bypass specialized scoring and floors",
+      "description": "Recommend dereferences kind without a null check and treats every value other than the exact strings \u0022security\u0022 and \u0022performance\u0022 as a generic review. A null value therefore causes an incidental NullReferenceException, while a misspelling such as \u0022securty\u0022 silently loses the security score and SolXhigh correctness floor. Undefined ReviewLevel enum values are likewise accepted as non-aggregate scopes.",
+      "recommendation": "Represent review kind with a validated enum or explicitly whitelist supported normalized values and throw a descriptive ArgumentException for null or unknown input. Validate ReviewLevel with Enum.IsDefined before scoring.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 158,
+              "column": 9
+            },
+            "end": {
+              "line": 160,
+              "column": 43
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e86284d0da0fb4d404f814bf8fbdf42375ff2a204d2c2fa9bc32c88fd2e495c2",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 158,
+              "column": 9
+            },
+            "end": {
+              "line": 160,
+              "column": 43
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var score = (normalizedKind == \u0022security\u0022 ? 35 : normalizedKind == \u0022performance\u0022 ? 16 : 10)\n                    \u002B (files == 1 ? 4 : files \u003C= 10 ? 10 : files \u003C= 50 ? 15 : 20)\n                    \u002B (aggregate ? 16 : 4)",
+            "contentHash": "sha256:a2a1d206313a32bb07dcab010df3a131b738208066bbeb52199b36c2df483c66",
+            "excerptHash": "sha256:3d798bd340ee269869364c1202d8dcc1fc0ce232f449af84da87257b1a62ec38"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-9b2438e921c8b6d012c55667e19c24c8c09411cce165ae1434804bdb32a241c2",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "The Luna score band is unreachable for valid inputs",
+      "description": "With files greater than zero, the minimum possible score is 28: generic kind (10), one file (4), non-aggregate scope (4), generic adjustment (5), and the final constant (5). Consequently the \u003C=20 Luna branch can never be selected, despite Luna being declared as a recommendable route and the documented lightest floor.",
+      "recommendation": "Recalibrate the weights or score thresholds so the intended small-review route is reachable, or remove the dead band and document that Terra is the minimum scored recommendation. Add boundary tests for every score band.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 160,
+              "column": 9
+            },
+            "end": {
+              "line": 164,
+              "column": 1
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 169,
+              "column": 13
+            },
+            "end": {
+              "line": 169,
+              "column": 101
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:9b2438e921c8b6d012c55667e19c24c8c09411cce165ae1434804bdb32a241c2",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 160,
+              "column": 9
+            },
+            "end": {
+              "line": 164,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "            \u002B (aggregate ? 16 : 4)\n                    \u002B (normalizedKind == \u0022security\u0022 ? 10 : aggregate ? 8 : 5)\n                    \u002B 5;\n        score = Math.Clamp(score, 0, 100);\n",
+            "contentHash": "sha256:a2a1d206313a32bb07dcab010df3a131b738208066bbeb52199b36c2df483c66",
+            "excerptHash": "sha256:67fea5bd4b62fcc1d5c0e1c1498a85cd87160fe7eb0f99ca9be3af4e0149bd1a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b809030849151ca8a1e64f8e5ead753e628b5a5e33205c985834b8d88bd96e5e",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "Policy validation cannot be tested with controlled catalog inputs",
+      "description": "Construction always reads three fixed manifest resources through a private static loader. This makes important failure paths\u2014missing fields, mismatched route definitions, unknown thinking levels, duplicate aliases, and malformed fallback declarations\u2014difficult to cover without building alternate assemblies or using reflection.",
+      "recommendation": "Add an internal constructor or loader abstraction that accepts streams or parsed documents, while retaining the public constructor as the embedded-resource production path. Unit-test both valid snapshots and each validation failure independently.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 87,
+              "column": 5
+            },
+            "end": {
+              "line": 96,
+              "column": 5
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 227,
+              "column": 5
+            },
+            "end": {
+              "line": 234,
+              "column": 47
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b809030849151ca8a1e64f8e5ead753e628b5a5e33205c985834b8d88bd96e5e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewModelCatalog.cs",
+          "range": {
+            "start": {
+              "line": 87,
+              "column": 5
+            },
+            "end": {
+              "line": 96,
+              "column": 5
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    (Snapshot, thinkingRanks, coreRouteRanks, qualifyingRoutes) = Load();\n        modelsByKey = new Dictionary\u003Cstring, ReviewModelOption\u003E(StringComparer.OrdinalIgnoreCase);\n        foreach (var model in Snapshot.Models)\n        {\n            Add(model.ModelId, model);\n            foreach (var alias in model.Aliases) Add(alias, model);\n        }\n    }\n\n    /",
+            "contentHash": "sha256:a2a1d206313a32bb07dcab010df3a131b738208066bbeb52199b36c2df483c66",
+            "excerptHash": "sha256:720f8dd5045c31b107306281186bbc9e5ec7de1644065662605563befa004063"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

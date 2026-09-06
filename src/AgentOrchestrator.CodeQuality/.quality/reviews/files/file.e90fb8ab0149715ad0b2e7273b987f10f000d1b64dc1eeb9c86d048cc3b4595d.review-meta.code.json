@@ -1,0 +1,426 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/dbc6d37028e6af46ec6be8e69c7104db65456d38a7a4b193f32ab98211cd08e5",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+    "displayName": "ReviewPromptBuilder.cs"
+  },
+  "reviewedAt": "2026-09-01T09:19:51.6227715Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-7f60eee1e2b940f3be724568d3390687",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17997,
+      "outputTokens": 3688,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 2173,
+      "durationMs": 116531
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "29a276adb68ffcd594553408d38e95db37d3cbbb1a9083708e1c55537b6b5e33"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+      "selector": "file",
+      "contentHash": "sha256:f97474e247a94c95a439d0fdb9868eb5ae9cb2c41d1c4f1e94b6097e70b6f3b1"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 38,
+    "band": "F",
+    "rationale": "The file contains a compile-blocking malformed string literal and multiple prompt-construction defects that can corrupt supplied content or permit it to escape its intended data section. The overall design is concise, but these correctness and trust-boundary failures prevent reliable use."
+  },
+  "summary": "The implementation is compact and mostly readable, but it cannot compile as supplied. Its chained global replacements also mishandle the two guideline values and transform tokens occurring inside already-inserted file content, defeating the randomized content boundary. Additional evidence fields are appended without robust structural delimiting or validation, allowing untrusted text to alter the generated prompt.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 25,
+        "band": "F",
+        "rationale": "A malformed C# string literal prevents compilation, and the two indistinguishable guideline replacements do not independently populate global and project guidelines."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "Prompt assembly relies on brittle global replacement of prose and serialized literals rather than unique, explicit template tokens."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 65,
+        "band": "D",
+        "rationale": "The class is short and named reasonably, but the replacement order and implicit dependence on exact template prose obscure important behavior."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "Basic arguments are checked, but externally supplied JSON-like evidence is neither parsed nor validated before prompt construction."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 60,
+        "band": "D",
+        "rationale": "Pure string-returning behavior is easy to assert, but static embedded-resource loading and nondeterministic boundary generation make isolated, deterministic testing harder."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-f1840f5ac6620b9c2659a8332790327bbc07101232d6a476e0b9ca4519053b06",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "critical",
+      "title": "Malformed string literal prevents the project from compiling",
+      "description": "The first argument to \u0060Replace\u0060 contains unescaped quotation marks (\u0060\u0022{\u0022verdict\u0022...\u0060 as source text), so the C# parser terminates the string after the opening brace and treats the remaining text as invalid syntax. Consequently, this class cannot be compiled as supplied. The prior \u0060dotnet-build\u0060 evidence reports no findings, but that repository-level result is inconsistent with the reviewed content and does not negate the directly observable syntax error.",
+      "recommendation": "Encode the JSON placeholder with a raw string literal such as \u0060\u0022\u0022\u0022{\u0022verdict\u0022:\u0022pass\u0022,\u0022sensors\u0022:[]}\u0022\u0022\u0022\u0060, or escape every embedded quotation mark in a conventional string literal. Add a compilation test covering this source and a prompt-generation test for security evidence replacement.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 40,
+              "column": 13
+            },
+            "end": {
+              "line": 40,
+              "column": 52
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f1840f5ac6620b9c2659a8332790327bbc07101232d6a476e0b9ca4519053b06",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 40,
+              "column": 13
+            },
+            "end": {
+              "line": 40,
+              "column": 52
+            }
+          },
+          "capturedExcerpt": {
+            "text": ".Replace(\u0022{{SECURITY_SENSOR_EVIDENCE}}\u0022,",
+            "contentHash": "sha256:f97474e247a94c95a439d0fdb9868eb5ae9cb2c41d1c4f1e94b6097e70b6f3b1",
+            "excerptHash": "sha256:fd49c15b537efce25f4d09fab93450e9e1d7f4c87dafdd5308704a279db08c19"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-60a583b7a97b8d07769600bde2e98ed2d84393b65c1cb32f16fb211125a9d2ce",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Global and project guidelines cannot be populated independently",
+      "description": "Both calls replace the same text, \u0060(none supplied)\u0060, across the entire prompt. The first call replaces every occurrence, leaving nothing for the second call. If global guidelines are supplied, they therefore occupy both guideline sections and project guidelines are ignored; if global guidelines are absent, the first replacement is effectively a no-op and the project value can populate both sections.",
+      "recommendation": "Give each template field a unique token, such as \u0060{{GLOBAL_GUIDELINES}}\u0060 and \u0060{{PROJECT_GUIDELINES}}\u0060, and replace each token exactly once. Add tests for all four supplied/absent combinations.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 38,
+              "column": 13
+            },
+            "end": {
+              "line": 39,
+              "column": 100
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:60a583b7a97b8d07769600bde2e98ed2d84393b65c1cb32f16fb211125a9d2ce",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 38,
+              "column": 13
+            },
+            "end": {
+              "line": 39,
+              "column": 100
+            }
+          },
+          "capturedExcerpt": {
+            "text": ".Replace(\u0022{{GLOBAL_GUIDELINES}}\u0022, FormatGuidelines(globalGuidelines), StringComparison.Ordinal)\n            .Replace(\u0022{{PROJECT_GUIDELINES}}\u0022, FormatGuidelines(projectGuidelines), StringComparison",
+            "contentHash": "sha256:f97474e247a94c95a439d0fdb9868eb5ae9cb2c41d1c4f1e94b6097e70b6f3b1",
+            "excerptHash": "sha256:ef453606a6e9e00f3f6f3b09be0c353695c0a0d83275f6782cac14e4024e1e33"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-0cde5a16158eddb132a83a1b78e00921099beb2b3d19042bdf0ef169979a3c1e",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Later replacements can rewrite file content and forge its randomized boundary",
+      "description": "File content is inserted before several global replacements run. Any later search text appearing in the reviewed file\u2014including \u0060(none supplied)\u0060, the security-scope sentence, or the fixed \u0060QS-CONTENT-24b42f70ebd2c2672b65d949dfdb34fd\u0060 token\u2014is consequently rewritten. In particular, repository content can include that publicly known fixed token; the final replacement converts it into the freshly generated boundary, allowing the content to reproduce a supposedly unpredictable closing marker and escape its data region.",
+      "recommendation": "Render the template without performing replacements over already-inserted values. For example, replace all unique template tokens in one token-aware pass, or generate the boundary first and interpolate values only after the template structure is finalized. Ensure the boundary token found inside \u0060fileContent\u0060 is never transformed, and test adversarial content containing every template token and delimiter.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 37,
+              "column": 22
+            },
+            "end": {
+              "line": 37,
+              "column": 39
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 44,
+              "column": 22
+            },
+            "end": {
+              "line": 44,
+              "column": 66
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0cde5a16158eddb132a83a1b78e00921099beb2b3d19042bdf0ef169979a3c1e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 37,
+              "column": 22
+            },
+            "end": {
+              "line": 37,
+              "column": 39
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\u0022{{FILE_CONTENT}}\u0022",
+            "contentHash": "sha256:f97474e247a94c95a439d0fdb9868eb5ae9cb2c41d1c4f1e94b6097e70b6f3b1",
+            "excerptHash": "sha256:455129b834299fba944f8bbdc74b26cfbf6579a013721c5cbc043c16d5db9b46"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-e6214fd4d7cfd0e56f8a068e87c6ce9f2c6389a7c39c8a130038e0af72144a95",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Evidence values are inserted without a robust content boundary",
+      "description": "Security, coverage, deterministic-analyzer, and thread data can contain prompt syntax. The JSON code fences do not provide isolation because a string can contain a closing fence and new headings, while coverage evidence is appended as unrestricted text. \u0060deterministicEvidence\u0060 and \u0060securitySensorEvidence\u0060 are accepted as strings without JSON parsing, and JSON serialization of \u0060openThreads\u0060 does not prevent Markdown fence termination. Repository-controlled analyzer messages or persistent thread bodies can therefore alter instructions seen by the reviewer.",
+      "recommendation": "Treat every evidence value as untrusted data. Parse JSON inputs into \u0060JsonNode\u0060 values and serialize them canonically, then enclose all dynamic evidence in independently generated, non-rewritten boundaries with explicit instructions that its contents are data. Avoid Markdown fences as the sole trust boundary and add injection-focused tests using backticks, headings, and boundary-like strings.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 41,
+              "column": 17
+            },
+            "end": {
+              "line": 41,
+              "column": 126
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 50,
+              "column": 7
+            },
+            "end": {
+              "line": 52,
+              "column": 38
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 66,
+              "column": 7
+            },
+            "end": {
+              "line": 66,
+              "column": 62
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 76,
+              "column": 6
+            },
+            "end": {
+              "line": 76,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e6214fd4d7cfd0e56f8a068e87c6ce9f2c6389a7c39c8a130038e0af72144a95",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs",
+          "range": {
+            "start": {
+              "line": 41,
+              "column": 17
+            },
+            "end": {
+              "line": 41,
+              "column": 126
+            }
+          },
+          "capturedExcerpt": {
+            "text": "string.IsNullOrWhiteSpace(securitySensorEvidence) ? \u0022{\\\u0022verdict\\\u0022:\\\u0022pass\\\u0022,\\\u0022sensors\\\u0022:[]}\u0022 : securitySensorEv",
+            "contentHash": "sha256:f97474e247a94c95a439d0fdb9868eb5ae9cb2c41d1c4f1e94b6097e70b6f3b1",
+            "excerptHash": "sha256:2e3b057c57c103266d5208b597c69734cfca40c078ec8277a17bed103b1acf83"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

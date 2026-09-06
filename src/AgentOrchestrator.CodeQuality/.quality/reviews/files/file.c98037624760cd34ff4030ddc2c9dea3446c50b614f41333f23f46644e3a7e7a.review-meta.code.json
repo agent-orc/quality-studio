@@ -1,0 +1,542 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/f742249fa6468ea28f063902067be6c320aa20dd360e85facc22cff612db0d0d",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+    "displayName": "AttackCoverageService.cs"
+  },
+  "reviewedAt": "2026-09-01T08:39:16.3957213Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-dab6993e0f384d7ab4fbea7a5f0f0784",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 24140,
+      "outputTokens": 7542,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 5737,
+      "durationMs": 595313
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "39f6aa30c5a179387941490faca7f24f2628a0c8efe9dad1f0ec9c706f66029d"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+      "selector": "file",
+      "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 64,
+    "band": "D",
+    "rationale": "The service has a coherent domain model and useful validation, hashing, and projection structure, but several correctness hazards can make coverage appear current when deterministic results or relevant code have changed. Failed submissions can also mutate finding lifecycle state, and malformed persisted data is not handled consistently."
+  },
+  "summary": "The most serious issues are stale deterministic observations being reused by default, syntax-insensitive source extraction that can omit meaningful code changes, and finding-state mutations occurring before a submission is fully validated and durably appended. Test coverage is unknown. The supplied dotnet-build analyzer reported no findings; the ESLint analyzer was unavailable and is not relevant to this C# file.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 60,
+        "band": "D",
+        "rationale": "Deterministic findings can remain undiscovered after the first observation, and heuristic source parsing can produce incomplete covered-code hashes. Both problems undermine the accuracy of the resulting coverage matrix."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Responsibilities are reasonably separated, but hand-written source parsing, duplicated hash validation, repeated ledger scans, and ordering-dependent side effects make the implementation difficult to evolve safely."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "Names and projection flow are generally understandable, though the meaning of recheckDeterministic conflicts with the expectation that a newly built matrix represents current deterministic inputs, and important transactional ordering is implicit."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "Malformed ledger records can escape the promised line-specific JsonException path, empty finding locations can crash a refresh, and rejected or failed submissions may leave lifecycle state changed."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "The injected clock helps, but static filesystem, hashing, finding-store, and Git operations make failure ordering and edge cases difficult to isolate. No test coverage evidence was supplied, so coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-d54c6211fc1f92a91598239c7c28402a3ce11a689d3d996d64f4f114eb283ff4",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Existing deterministic observations prevent detection of new sensor results",
+      "description": "With the default recheckDeterministic value, the presence of any prior deterministic observation skips the boundary/attack pair before current findings and deterministic inputs are compared. A prior pass can therefore remain an authoritative mechanical pass when the inventory later contains a finding, especially when the boundary, catalogue, and prompt hashes are unchanged. The later alreadyCurrent comparison cannot protect against this because it is unreachable for such pairs.",
+      "recommendation": "Compute the current deterministic inputs on every build and use the alreadyCurrent comparison to avoid duplicate appends. If sensor execution must be optional, distinguish disabling the sensor from forcing an otherwise identical rerun, and include the inventory sensor version in freshness identity.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 410,
+              "column": 17
+            },
+            "end": {
+              "line": 414,
+              "column": 66
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 442,
+              "column": 17
+            },
+            "end": {
+              "line": 451,
+              "column": 45
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:d54c6211fc1f92a91598239c7c28402a3ce11a689d3d996d64f4f114eb283ff4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 410,
+              "column": 17
+            },
+            "end": {
+              "line": 414,
+              "column": 66
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var hasPriorObservation = existing.Concat(appended).Any(observation =\u003E\n                    observation.Source == AttackCoverageSource.DeterministicSensor \u0026\u0026\n                    observation.BoundaryId == boundary.Id \u0026\u0026\n                    observation.AttackId == attack.Entry.Id);\n                if (hasPriorObservation \u0026\u0026 !recheckChanged) contin",
+            "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be",
+            "excerptHash": "sha256:67d13c4157705b2ebcb01a65b2e434d8fe05c4eea82cd0c287aa2f58f65cc43b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b28270050a077fe6aa298eaf59b7587e8f66080d2fe6f7f98fa79c68f6cac716",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Lexical delimiter counting can omit meaningful covered code",
+      "description": "StatementAtLine and MethodBody count delimiters without recognizing strings, character literals, comments, interpolated expressions, or nested language constructs. Method discovery can also match an invocation or comment rather than a declaration. A brace or semicolon inside text can terminate extraction early, allowing later security-relevant edits in the actual handler to leave CoveredCodeHash unchanged.",
+      "recommendation": "Use Roslyn syntax trees to locate the declaration containing the configured line and named handlers, then hash normalized syntax spans. If heuristic extraction must remain, treat ambiguous or unbalanced parsing as an explicit incomplete snapshot rather than a valid coverage hash.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 87,
+              "column": 13
+            },
+            "end": {
+              "line": 93,
+              "column": 108
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 115,
+              "column": 13
+            },
+            "end": {
+              "line": 140,
+              "column": 38
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b28270050a077fe6aa298eaf59b7587e8f66080d2fe6f7f98fa79c68f6cac716",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 87,
+              "column": 13
+            },
+            "end": {
+              "line": 93,
+              "column": 108
+            }
+          },
+          "capturedExcerpt": {
+            "text": "builder.AppendLine(line);\n            foreach (var character in line)\n            {\n                if (character is \u0027(\u0027 or \u0027{\u0027 or \u0027[\u0027) balance\u002B\u002B;\n                else if (character is \u0027)\u0027 or \u0027}\u0027 or \u0027]\u0027) balance--;\n            }\n            if (balance \u003C= 0 \u0026\u0026 (line.Contains(\u0027;\u0027) || current \u003E index \u0026\u0026 line.TrimEnd().EndsWith(\u0027}\u0027))) bre",
+            "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be",
+            "excerptHash": "sha256:b32e6a7ca569f3302ce668404f3b9d912ec9ac779b0ea212bee314771b1f4900"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-64fe77f451a37d0f000b0068fe501be4afb407ca0286c8ba9b2b2b9d463cd478",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "A rejected submission can still mutate finding lifecycle state",
+      "description": "RecordAsync updates the finding state store before constructing and validating the ledger observation. For example, a NotYetChecked submission, a non-finding submission carrying finding fields, or a submission with negative token counts can cause MergeReviewAsync to close prior findings and then fail when AppendAsync validates the observation. Snapshot, Git, cancellation, or append failures can create the same split state.",
+      "recommendation": "Validate every submission and resulting observation invariant before any persistent mutation. Then coordinate the lifecycle update and ledger append transactionally, or introduce an idempotent operation record and recovery procedure so partial failure cannot leave the stores inconsistent.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 356,
+              "column": 9
+            },
+            "end": {
+              "line": 384,
+              "column": 114
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 564,
+              "column": 9
+            },
+            "end": {
+              "line": 566,
+              "column": 42
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:64fe77f451a37d0f000b0068fe501be4afb407ca0286c8ba9b2b2b9d463cd478",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 356,
+              "column": 9
+            },
+            "end": {
+              "line": 384,
+              "column": 114
+            }
+          },
+          "capturedExcerpt": {
+            "text": "await EnsureFindingLifecycleLinkAsync(\n            repositoryRoot, boundary, attack.Entry, submission, cancellationToken).ConfigureAwait(false);\n        var snapshot = await BoundaryCoverageHasher.SnapshotAsync(repositoryRoot, boundary, cancellationToken)\n            .ConfigureAwait(false);\n        var prompt = AttackCoveragePrompt.Reference();\n        var observation = new AttackCoverageObservation(\n            1,\n            string.IsNullOrWhiteSpace(submission.AssessmentId) ? Guid.NewGuid().ToString(\u0022N\u0022) : submission.AssessmentId.Trim(),\n            boundary.Id,\n            attack.Entry.Id,\n            submission.Verdict,\n            submission.Reasoning.Trim(),\n            submission.Evidence,\n            submission.DeterministicSensorInput ?? [],\n            submission.FindingId,\n            submission.FindingFingerprint,\n            submission.Source,\n            submission.Reviewer,\n            prompt.Version,\n            prompt.ContentHash,\n            catalogue.Version,\n            attack.EntryHash,\n            snapshot.BoundaryDefinitionHash,\n            snapshot.CoveredCodeHash,\n            submission.TokenCost,\n            clock().ToUniversalTime(),\n            submission.Commit ?? await GitAsync(repositoryRoot, \u0022rev-parse\u0022, \u0022HEAD\u0022).ConfigureAwait(false),\n            submission.CommitRange);\n        await new AttackCoverageLedger(repositoryRoot).AppendAsync(observation, cancellationToken).ConfigureAwait(",
+            "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be",
+            "excerptHash": "sha256:5bccd549cb48df858b924732f1a3d398644453f63fdfb48a3e990eeae3d76f9c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-7a3da119a10473ea949a199da88f645fe20cae33d615a2bfa3693a56417e0cbc",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Malformed ledger objects bypass line-specific JSON error handling",
+      "description": "JSON deserialization can produce an observation whose Reviewer, TokenCost, or Evidence member is null despite non-nullable annotations. Validate dereferences those members directly, producing NullReferenceException. ReadAsync catches only JsonException, so callers lose the documented line-specific corruption diagnostic and receive an unexpected exception type.",
+      "recommendation": "Explicitly reject null nested objects and collections before reading their members. Keep all persisted-data validation failures as JsonException so ReadAsync can consistently wrap them with the ledger line number.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 228,
+              "column": 13
+            },
+            "end": {
+              "line": 238,
+              "column": 103
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 250,
+              "column": 13
+            },
+            "end": {
+              "line": 251,
+              "column": 74
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7a3da119a10473ea949a199da88f645fe20cae33d615a2bfa3693a56417e0cbc",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 228,
+              "column": 13
+            },
+            "end": {
+              "line": 238,
+              "column": 103
+            }
+          },
+          "capturedExcerpt": {
+            "text": "string.IsNullOrWhiteSpace(observation.Reviewer.Agent) ||\n            string.IsNullOrWhiteSpace(observation.Reviewer.Model) ||\n            string.IsNullOrWhiteSpace(observation.Reviewer.ThinkingLevel) ||\n            string.IsNullOrWhiteSpace(observation.PromptVersion) ||\n            string.IsNullOrWhiteSpace(observation.PromptHash) ||\n            string.IsNullOrWhiteSpace(observation.CatalogueVersion) ||\n            !IsHash(observation.CatalogueEntryHash) ||\n            !IsHash(observation.BoundaryDefinitionHash) ||\n            !IsHash(observation.CoveredCodeHash) ||\n            observation.TokenCost.InputTokens \u003C 0 || observation.TokenCost.OutputTokens \u003C 0 ||\n            observation.TokenCost.CachedInputTokens \u003C 0 || observation.TokenCost.ReasoningOutputTokens ",
+            "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be",
+            "excerptHash": "sha256:c447637cc8fbc78a6583813c6fff00850b4deda27391bd13e77d31c289669918"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-372d84df1bc5798f1d6c64594ad83c2b786eb6a46878311b209e721ba290cdc5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Repository confinement check does not prevent symlink or junction escapes",
+      "description": "ResolveWithinRoot validates only the lexical full path. A path beneath the repository can be a symbolic link or junction targeting a file outside it, and File.ReadAllTextAsync will follow that link. This violates the method\u0027s repository-boundary guarantee and can incorporate out-of-scope source into coverage hashes.",
+      "recommendation": "Resolve existing path components through links and verify the final target remains beneath the canonical repository root. Define and test the desired behavior for repository roots that are themselves filesystem roots.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 145,
+              "column": 9
+            },
+            "end": {
+              "line": 150,
+              "column": 21
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:372d84df1bc5798f1d6c64594ad83c2b786eb6a46878311b209e721ba290cdc5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 145,
+              "column": 9
+            },
+            "end": {
+              "line": 150,
+              "column": 21
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var root = Path.GetFullPath(repositoryRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);\n        var path = Path.GetFullPath(Path.Combine(root, relativePath.Replace(\u0027/\u0027, Path.DirectorySeparatorChar)));\n        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;\n        if (!path.StartsWith(root \u002B Path.DirectorySeparatorChar, comparison))\n            throw new ArgumentException(\u0022Boundary source escapes the repository.\u0022, nameof(relativePath));\n        return path;",
+            "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be",
+            "excerptHash": "sha256:6474f6b63d3d1fec6c22bb32da2544f20fd289c47b766abc28c31271c0c21657"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-7d4c8c4f7135d2ad88d95d4be1515109b8063a492403ed6fbe124248cd6d1063",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Boundary-targeted findings can crash when they have no locations",
+      "description": "FindingTargetsBoundary can accept a finding solely because its JSON evidence contains the boundaryId. RefreshDeterministicAsync then unconditionally reads finding.Locations[0] when building lifecycle identities. A finding with valid boundary evidence but an empty Locations collection therefore causes IndexOutOfRangeException and aborts matrix construction.",
+      "recommendation": "Validate deterministic findings before use and obtain the path with FirstOrDefault, falling back to the boundary path when boundaryId evidence is authoritative. Otherwise reject the finding with a descriptive validation error that identifies it.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 427,
+              "column": 17
+            },
+            "end": {
+              "line": 429,
+              "column": 30
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7d4c8c4f7135d2ad88d95d4be1515109b8063a492403ed6fbe124248cd6d1063",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AttackCoverageService.cs",
+          "range": {
+            "start": {
+              "line": 427,
+              "column": 17
+            },
+            "end": {
+              "line": 429,
+              "column": 30
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var currentFindings = matchingFindings.Select(finding =\u003E new FindingIdentityRecord(\n                        finding.Fingerprint, finding.Id, finding.Locations[0].Path, finding.RuleId))\n                    .ToArray()",
+            "contentHash": "sha256:b89ca0fbd789e16c10fdbfd5229cf6324d002cc85c6e1f725f66ea668b1754be",
+            "excerptHash": "sha256:312e2d4b4cf59317882c1d43c156cc604915c22171f63926857f0b9fd93d004d"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

@@ -1,0 +1,330 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/8eace245049eb836deab9c4f33b41c967b25c0e3cae38e6eafd8496773d906af",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+    "displayName": "QualityRunReportFactory.cs"
+  },
+  "reviewedAt": "2026-09-01T10:23:28.4291954Z",
+  "kind": "security",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-668e9a39178c4b46ba00fe1ea6b6f63e",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 21021,
+      "outputTokens": 4739,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 4065,
+      "durationMs": 113525
+    },
+    "sensors": [
+      {
+        "id": "boundaries",
+        "version": "1.0.0",
+        "resultHash": "sha256:d84dec15f60e857014fdc65258dc42f930d69ee7ab5acffa504dee782357e102"
+      },
+      {
+        "id": "coverage",
+        "version": "1.0.0",
+        "resultHash": "sha256:3d99b484c6837107a635e53bf797c3907eaf9c071606fe9d9c89c850cb7d459b"
+      },
+      {
+        "id": "dependencies",
+        "version": "1.0.0",
+        "resultHash": "sha256:e2c69e44bfa7a2e48e43f1027c39eb0b0d3d72aa652e0b8a67bbbbf220665f2c"
+      },
+      {
+        "id": "gitleaks",
+        "version": "8.24.2",
+        "resultHash": "sha256:8afc917d40b5b3d2f0e567bdc4e9fa4830c9058bccf95775fbc04cb900dfdc2a"
+      }
+    ]
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "cc921697f1bf5f5a8fdcecdd4e90c33cc8fa3fc5775d1be9165bca853a59122a"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+      "selector": "file",
+      "contentHash": "sha256:ccbbf32f78caf488e6988f49dd6d0e79be8c5103d5c91514cda6132369a51f38"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "07e70a9058660aa723faabe5c22053f10e039a4bdfc4e03996540c594dfa2dc9"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-security-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:22775bcc1f7ed6c4a5c60920bac1cabea7b96c36eea12917c6c63c45fd530640"
+    }
+  },
+  "grade": {
+    "score": 59,
+    "band": "F",
+    "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The factory avoids obvious path traversal and repository-root disclosure, and the boundary, configured coverage, gitleaks, and .NET build sensors reported no findings. However, manually reviewed metadata can forge deterministic provenance and malformed metadata can abort report generation. Dependency analysis and ESLint were unavailable, and test coverage is unknown."
+  },
+  "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Two security-relevant weaknesses were identified: deterministic evidence is trusted based only on its position in caller-supplied JSON, and incompletely validated JSON shapes can cause unhandled exceptions. No embedded secrets or direct authorization bypasses were found in this unit. Dependency security remains unassessed because the dependency sensor was unavailable.",
+  "aspects": [
+    {
+      "id": "security",
+      "title": "Security",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Path normalization and repository-root redaction provide useful safeguards, but report integrity and availability can be undermined by unauthenticated provenance claims and malformed captured metadata."
+      }
+    },
+    {
+      "id": "sensor-availability",
+      "title": "Sensor availability",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. The factory avoids obvious path traversal and repository-root disclosure, and the boundary, configured coverage, gitleaks, and .NET build sensors reported no findings. However, manually reviewed metadata can forge deterministic provenance and malformed metadata can abort report generation. Dependency analysis and ESLint were unavailable, and test coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-3db64e8a98cc18dd53e446514771512279af4c061f33a13f6c91950c5273a582",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "medium",
+      "title": "Captured metadata can forge deterministic sensor provenance",
+      "description": "The factory treats every finding nested under \u0060deterministicEvidence\u0060 as deterministic and copies the supplied sensor and producer identifiers into the canonical report. It does not verify that the evidence originated from the configured sensor registry or a separate trusted record. Consequently, any party able to influence \u0060ReviewMetaJson\u0060 can make arbitrary findings appear machine-produced, undermining the report\u0027s provenance and integrity.",
+      "recommendation": "Obtain deterministic evidence from a separately trusted data structure keyed to the configured sensor registry, or authenticate and validate the captured evidence before projection. Reject unknown sensor identities and do not infer trusted provenance solely from JSON nesting.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+          "range": {
+            "start": {
+              "line": 245,
+              "column": 21
+            },
+            "end": {
+              "line": 245,
+              "column": 102
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3db64e8a98cc18dd53e446514771512279af4c061f33a13f6c91950c5273a582",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+          "range": {
+            "start": {
+              "line": 245,
+              "column": 21
+            },
+            "end": {
+              "line": 245,
+              "column": 102
+            }
+          },
+          "capturedExcerpt": {
+            "text": "ParseFinding(finding, snapshot.FindingStates, \u0022deterministic\u0022, sensorId, producer)",
+            "contentHash": "sha256:ccbbf32f78caf488e6988f49dd6d0e79be8c5103d5c91514cda6132369a51f38",
+            "excerptHash": "sha256:1708db909078a17920e3f0a7e07ccb3e5fa9af7ec17c29cb920f809f9f6d6cdb"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-c53aac58bb04d13071d77360fb24fad2e97bd55bf25700ff9b062552da4e36f3",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "medium",
+      "title": "Malformed metadata can abort canonical report generation",
+      "description": "Only root parsing is guarded. Subsequent \u0060AsArray\u0060, \u0060AsObject\u0060, and \u0060GetValue\u003Cstring\u003E\u0060 calls assume exact JSON types and can throw when fields have unexpected shapes. A single malformed captured snapshot can therefore prevent construction of the entire terminal report rather than being rejected or represented as an invalid observation.",
+      "recommendation": "Validate the complete metadata schema before projection, or replace throwing conversions with type checks and \u0060TryGetValue\u0060 logic. Handle invalid individual observations deterministically without terminating generation of the whole report.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+          "range": {
+            "start": {
+              "line": 236,
+              "column": 33
+            },
+            "end": {
+              "line": 236,
+              "column": 84
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+          "range": {
+            "start": {
+              "line": 239,
+              "column": 34
+            },
+            "end": {
+              "line": 239,
+              "column": 98
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+          "range": {
+            "start": {
+              "line": 242,
+              "column": 37
+            },
+            "end": {
+              "line": 242,
+              "column": 88
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c53aac58bb04d13071d77360fb24fad2e97bd55bf25700ff9b062552da4e36f3",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/QualityRunReportFactory.cs",
+          "range": {
+            "start": {
+              "line": 236,
+              "column": 33
+            },
+            "end": {
+              "line": 236,
+              "column": 84
+            }
+          },
+          "capturedExcerpt": {
+            "text": "metadata[\u0022findings\u0022]?.AsArray().OfType\u003CJsonObject\u003E()",
+            "contentHash": "sha256:ccbbf32f78caf488e6988f49dd6d0e79be8c5103d5c91514cda6132369a51f38",
+            "excerptHash": "sha256:147d8920ef485766d36e05a54e39d52c9d3533b679cfd11295077639c4f89208"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T10:17:34.4846679Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T10:17:20.1755481Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty",
+  "security": {
+    "verdict": "unavailable",
+    "combinationRule": "security-sensor-agent-v1",
+    "sensors": [
+      {
+        "id": "boundaries",
+        "version": "1.0.0",
+        "resultHash": "sha256:d84dec15f60e857014fdc65258dc42f930d69ee7ab5acffa504dee782357e102",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "boundary-analyzer": "1.0.0"
+        }
+      },
+      {
+        "id": "coverage",
+        "version": "1.0.0",
+        "resultHash": "sha256:3d99b484c6837107a635e53bf797c3907eaf9c071606fe9d9c89c850cb7d459b",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "parser": "1.0.0",
+          "reports": "6"
+        }
+      },
+      {
+        "id": "dependencies",
+        "version": "1.0.0",
+        "resultHash": "sha256:e2c69e44bfa7a2e48e43f1027c39eb0b0d3d72aa652e0b8a67bbbbf220665f2c",
+        "available": false,
+        "unavailableReason": "npm is unavailable: npm could not be launched.",
+        "verdict": "unavailable",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      },
+      {
+        "id": "gitleaks",
+        "version": "8.24.2",
+        "resultHash": "sha256:8afc917d40b5b3d2f0e567bdc4e9fa4830c9058bccf95775fbc04cb900dfdc2a",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "gitleaks": "8.24.2"
+        }
+      }
+    ]
+  }
+}

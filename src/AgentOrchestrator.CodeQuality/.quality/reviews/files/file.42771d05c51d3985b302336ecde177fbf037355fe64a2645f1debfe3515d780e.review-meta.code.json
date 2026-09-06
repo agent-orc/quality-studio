@@ -1,0 +1,445 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/f5e30d54c1b677ef61262442e8a2e84be6accfffbb31ebae859e941c2b95e484",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+    "displayName": "RepositoryScopeConfigurationStore.cs"
+  },
+  "reviewedAt": "2026-09-01T09:14:13.6881161Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-91cacc56c1304dab83ab40394bee0c31",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18514,
+      "outputTokens": 3558,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 2142,
+      "durationMs": 103760
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "7d3ee392b2e55840f324635ebf3653d21405fe4d10a996ec85e56c2f1559f660"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+      "selector": "file",
+      "contentHash": "sha256:233d6980ca1ea1048396587a1ab306ffc28023bc187266e72bba356f56d58c6f"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 74,
+    "band": "C",
+    "rationale": "The implementation is compact and generally readable, with sensible validation and atomic file replacement, but the read-modify-write transaction is not protected across processes or aliased repository paths. Several malformed inputs are also accepted or reported inconsistently."
+  },
+  "summary": "The store has a clear API and preserves rule ordering, but its atomicity guarantee is incomplete and input validation has edge cases. The most important improvement is coordinating the entire mutation across processes; validation should also reject malformed schema and reason values consistently and normalize patterns in an unambiguous order. Test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Mutations can lose updates when separate processes or differently resolved paths access the same configuration, and whitespace-prefixed rooted patterns are normalized incorrectly."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The implementation is concise and responsibilities are reasonably separated, although filesystem coordination and validation rules are embedded in static operations that will become harder to evolve."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 85,
+        "band": "B",
+        "rationale": "Names and control flow are clear, but the atomicity documentation overstates the synchronization guarantees actually provided."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Most invalid rules receive useful errors, but malformed schema types can leak framework exceptions, non-string reason values can be silently accepted, and cleanup can mask the original write failure."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "Public behavior can be exercised with temporary directories, but hard-coded static filesystem operations and process-local locking make failure injection and concurrency verification unnecessarily difficult."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-6e39a1af5d245448efbde698cff07ec0032c7174abb7da165117f2fc768c2357",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Mutation locking does not protect the file across processes or path aliases",
+      "description": "The gate is an in-memory object keyed by the textual full path. It serializes cooperating store instances in one process, but not another process, and distinct paths resolving to the same directory through junctions or symbolic links can receive different gates. Two callers can therefore read the same configuration and each replace it, silently losing one mutation. Atomic replacement prevents a partially written file but does not make the read-modify-write transaction atomic, contrary to the class documentation.",
+      "recommendation": "Hold an inter-process lock for the complete read-modify-write transaction, using a lock file or a named mutex derived from a canonical physical repository identity. Alternatively, add optimistic concurrency with a version/hash check and retry or reject conflicting writes. Clarify the documentation if multi-process coordination is intentionally unsupported.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 23,
+              "column": 5
+            },
+            "end": {
+              "line": 23,
+              "column": 112
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 56,
+              "column": 9
+            },
+            "end": {
+              "line": 61,
+              "column": 76
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:6e39a1af5d245448efbde698cff07ec0032c7174abb7da165117f2fc768c2357",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 23,
+              "column": 5
+            },
+            "end": {
+              "line": 23,
+              "column": 112
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static readonly ConcurrentDictionary\u003Cstring, object\u003E Gates = new(StringComparer.OrdinalIgnoreCase);",
+            "contentHash": "sha256:233d6980ca1ea1048396587a1ab306ffc28023bc187266e72bba356f56d58c6f",
+            "excerptHash": "sha256:af7691941a56428e24a6ccc8d56884fc25896e844c044948eadf491bf5a3ff1c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-219f9aa535b35d6deecf189ed5ef5f70bbecf34fa24c5803da1d042b2b707db2",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Include rules silently accept malformed reason values",
+      "description": "When a \u0060reason\u0060 property exists but is not a JSON string, it is converted to null. Exclude rules subsequently fail validation, but include rules accept values such as numbers, objects, arrays, booleans, and null because their reason is discarded. This makes parsing less strict than the stated configuration contract and can silently erase malformed data on the next write.",
+      "recommendation": "If \u0060reason\u0060 is present, explicitly require the permitted JSON kind and throw \u0060InvalidDataException\u0060 otherwise. If JSON null is intentionally supported, handle that case explicitly rather than treating every non-string value as absent.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 113,
+              "column": 13
+            },
+            "end": {
+              "line": 115,
+              "column": 23
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:219f9aa535b35d6deecf189ed5ef5f70bbecf34fa24c5803da1d042b2b707db2",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 113,
+              "column": 13
+            },
+            "end": {
+              "line": 115,
+              "column": 23
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var reason = element.TryGetProperty(\u0022reason\u0022, out var reasonElement) \u0026\u0026 reasonElement.ValueKind == JsonValueKind.String\n                ? reasonElement.GetString()\n                : null;",
+            "contentHash": "sha256:233d6980ca1ea1048396587a1ab306ffc28023bc187266e72bba356f56d58c6f",
+            "excerptHash": "sha256:da1dafd949c7106ae32cb4f211c0e217bd81c2f9516607467019a33b7206378a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-e049535315a24f6ea33e7117c7bbbd1f495303bb61f22aa26e251dd540c5c498",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Whitespace before a leading slash bypasses relative-pattern normalization",
+      "description": "The code removes leading slashes before trimming whitespace. Consequently, a value such as \u0060 /src/**\u0060 becomes \u0060/src/**\u0060, while \u0060/src/**\u0060 becomes \u0060src/**\u0060. The former passes validation but is stored in a form that is inconsistent with canonical candidate paths and may unexpectedly match nothing.",
+      "recommendation": "Trim surrounding whitespace before converting separators and removing leading slashes, or reject rooted patterns explicitly. Add tests covering whitespace around rooted and backslash-based patterns.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 153,
+              "column": 9
+            },
+            "end": {
+              "line": 153,
+              "column": 75
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e049535315a24f6ea33e7117c7bbbd1f495303bb61f22aa26e251dd540c5c498",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 153,
+              "column": 9
+            },
+            "end": {
+              "line": 153,
+              "column": 75
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var pattern = rule.Pattern.Replace(\u0027\\\\\u0027, \u0027/\u0027).TrimStart(\u0027/\u0027).Trim()",
+            "contentHash": "sha256:233d6980ca1ea1048396587a1ab306ffc28023bc187266e72bba356f56d58c6f",
+            "excerptHash": "sha256:e9b67d7484d8fa6134e4acda81d53e777da0993389749f0984d504b8cca57634"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-4a7795254b31076f4918a382aba2130319fc454a1e8c2be449cf158c9497d26c",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Malformed schema types produce an inconsistent framework exception",
+      "description": "\u0060GetString()\u0060 is called without first checking that \u0060$schema\u0060 is a string. A numeric, object, array, or boolean schema value therefore throws \u0060InvalidOperationException\u0060 instead of the contextual \u0060InvalidDataException\u0060 used for other invalid configuration content.",
+      "recommendation": "When \u0060$schema\u0060 is present, first require \u0060JsonValueKind.String\u0060, then compare its value and throw a single contextual \u0060InvalidDataException\u0060 for either an invalid type or unsupported URI.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 9
+            },
+            "end": {
+              "line": 103,
+              "column": 112
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:4a7795254b31076f4918a382aba2130319fc454a1e8c2be449cf158c9497d26c",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 9
+            },
+            "end": {
+              "line": 103,
+              "column": 112
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (rootElement.TryGetProperty(\u0022$schema\u0022, out var schemaElement) \u0026\u0026 schemaElement.GetString() != Schema)\n            throw new InvalidDataException($\u0022{RepositoryScope.ConfigurationPath} uses an unsupported schema.\u0022);",
+            "contentHash": "sha256:233d6980ca1ea1048396587a1ab306ffc28023bc187266e72bba356f56d58c6f",
+            "excerptHash": "sha256:072ed3a680ae60088cc19c3428514283b5d0430ec4338260a669a604c8680ac6"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-cfee846bfb395531bd4062ea7c14349193538f7450b4cebd25575c07dbfddffb",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Temporary-file cleanup can mask the original write failure",
+      "description": "If serialization, flushing, or moving the file fails and deleting the temporary file also fails, the exception from \u0060File.Delete\u0060 replaces the original exception. This obscures the operation that actually caused the write to fail and makes diagnosis harder.",
+      "recommendation": "Preserve the primary exception when cleanup also fails, for example by performing best-effort cleanup in a guarded block and recording the cleanup failure separately. A filesystem abstraction would also make these failure paths testable.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 143,
+              "column": 9
+            },
+            "end": {
+              "line": 146,
+              "column": 10
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cfee846bfb395531bd4062ea7c14349193538f7450b4cebd25575c07dbfddffb",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryScopeConfigurationStore.cs",
+          "range": {
+            "start": {
+              "line": 143,
+              "column": 9
+            },
+            "end": {
+              "line": 146,
+              "column": 10
+            }
+          },
+          "capturedExcerpt": {
+            "text": "finally\n        {\n            if (File.Exists(temporary)) File.Delete(temporary);\n        }",
+            "contentHash": "sha256:233d6980ca1ea1048396587a1ab306ffc28023bc187266e72bba356f56d58c6f",
+            "excerptHash": "sha256:4d978c4b82b4e41c8a225732d78f3fb2d4e69ddb294bd6354835bea8a3b14351"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

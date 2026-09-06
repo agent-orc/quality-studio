@@ -1,0 +1,271 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/96e67a6bb2006025e3c1d79655113e3ed82bbf9cda3b037dce65b690de3d3040",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+    "displayName": "ReviewAgent.cs"
+  },
+  "reviewedAt": "2026-09-01T09:15:31.2575454Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-c712303583e24946ba52c12e269caeb7",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17889,
+      "outputTokens": 2346,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 1518,
+      "durationMs": 75066
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "4a5fb04ec4086b39a25f43ce03deed758878023279f240a008cd450db1bdbeb3"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+      "selector": "file",
+      "contentHash": "sha256:b58b6c4d97b4e07a14ee938731c88b335c31d829e29b43554fff828b2aaa0a22"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 82,
+    "band": "B",
+    "rationale": "The implementation is concise and generally correct, with clear cancellation and failure result types. Its main weaknesses are that an optional observer can incorrectly turn an otherwise valid run into an agent failure, and the concrete runner construction leaves no practical unit-testing seam. The successful repository build supports basic compile-time correctness; test coverage remains unknown."
+  },
+  "summary": "The agent streams output, records usage, preserves run metadata on failures, and distinguishes caller-requested cancellation from other exceptions. Error isolation around the observer and dependency injection for the runner would materially improve robustness and testability.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "The streaming, output accumulation, cancellation classification, and result construction are coherent. However, observer behavior can change the outcome of the underlying agent run and discard an output delta."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The class is small and responsibilities are reasonably organized, but direct construction of infrastructure and implicit observer-failure semantics increase coupling."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 91,
+        "band": "A",
+        "rationale": "Names, control flow, immutable result records, and specialized exceptions communicate intent clearly."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Agent failures and requested cancellation retain useful run metadata, but exceptions from the optional observer are misleadingly reported as coding-agent failures."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "The concrete CliRunner is constructed internally and the adapter is resolved inside the class, making isolated tests dependent on real runner configuration. No coverage evidence was supplied, so coverage is treated as unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-04156b419eb224c41fc9765e932a0563d2b094f645d89041e1f511cb4ec0c091",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Observer exceptions are misreported as coding-agent failures",
+      "description": "The optional event observer executes inside the same try block as the agent stream. If it throws, RunAsync stops consuming the stream and wraps the callback exception in ReviewAgentRunException, incorrectly indicating that the coding agent failed. For an OutputDelta, the observer also runs before the text is appended, so the triggering delta is omitted from the captured response and failure diagnostics.",
+      "recommendation": "Define an explicit observer-failure policy. If observation is non-critical, catch and report callback failures separately without interrupting stream processing, and append output before notification. If observer failures must abort the operation, introduce a distinct exception type so callers can distinguish instrumentation failures from agent failures.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+          "range": {
+            "start": {
+              "line": 91,
+              "column": 17
+            },
+            "end": {
+              "line": 91,
+              "column": 60
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:04156b419eb224c41fc9765e932a0563d2b094f645d89041e1f511cb4ec0c091",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+          "range": {
+            "start": {
+              "line": 91,
+              "column": 17
+            },
+            "end": {
+              "line": 91,
+              "column": 60
+            }
+          },
+          "capturedExcerpt": {
+            "text": "_eventObserver?.Invoke(_cliType, runEvent);",
+            "contentHash": "sha256:b58b6c4d97b4e07a14ee938731c88b335c31d829e29b43554fff828b2aaa0a22",
+            "excerptHash": "sha256:18f4a157baf7d7eb400bd861f724a3d32d1ec31cbf24d811d93a3330c7a8ad70"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-e050f8a4d5723d243b08549ac4f752bb69c1009ec46b31a95e93c75d50402cc4",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "medium",
+      "title": "Runner construction prevents isolated unit testing",
+      "description": "The class constructs a concrete CliRunner internally and resolves its adapter during construction and again during execution. Tests cannot supply a deterministic fake stream or simulate completion, cancellation, and failure conditions without relying on the real runner and adapter configuration.",
+      "recommendation": "Inject a narrow runner or driver abstraction, or an adapter factory, while retaining a convenience constructor that creates CliRunner for production. Resolve the driver once when appropriate so construction and execution use the same dependency seam.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+          "range": {
+            "start": {
+              "line": 46,
+              "column": 5
+            },
+            "end": {
+              "line": 46,
+              "column": 40
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+          "range": {
+            "start": {
+              "line": 56,
+              "column": 9
+            },
+            "end": {
+              "line": 56,
+              "column": 61
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e050f8a4d5723d243b08549ac4f752bb69c1009ec46b31a95e93c75d50402cc4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewAgent.cs",
+          "range": {
+            "start": {
+              "line": 46,
+              "column": 5
+            },
+            "end": {
+              "line": 46,
+              "column": 40
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private readonly CliRunner _runner;",
+            "contentHash": "sha256:b58b6c4d97b4e07a14ee938731c88b335c31d829e29b43554fff828b2aaa0a22",
+            "excerptHash": "sha256:8b6646ec3fc5aee42a02986edd8a2e82c62ee0a72138a17f40c9f56cea221a72"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

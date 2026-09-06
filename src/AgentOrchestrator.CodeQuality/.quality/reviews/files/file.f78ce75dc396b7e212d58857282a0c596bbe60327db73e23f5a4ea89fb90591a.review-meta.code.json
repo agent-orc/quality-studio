@@ -1,0 +1,387 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/a51cc4053a0fb84707a0ae70e24080e1fc3ea26a36c98520939f330e90b2c9dc",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+    "displayName": "ReviewMetaDiscovery.cs"
+  },
+  "reviewedAt": "2026-09-01T09:17:11.6195738Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-1ffa5211f4fe47acb07c246c1d5b8dd1",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18074,
+      "outputTokens": 3124,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 1944,
+      "durationMs": 97655
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "5bb6ec58cd4db4d3cf3396a5f75ba4fee7307ea73942a60126421047d737ccd6"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+      "selector": "file",
+      "contentHash": "sha256:6c79f4d7ee6aa42b71511dc51d2394fcf8b820691d19b9e6113385989f5fbb30"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 68,
+    "band": "D",
+    "rationale": "The core matching and hashing flow is understandable, but discovery is fragile: one malformed or inaccessible sidecar can terminate the entire operation, policy drift can be skipped, and aggregate-member paths bypass the confinement checks applied to ordinary file inputs."
+  },
+  "summary": "The implementation has a clear overall structure, but its failure isolation and validation are insufficient for repository-wide discovery. The most important improvements are handling sidecars independently, checking policy hashes even when subject inputs are absent, and applying repository confinement consistently.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "Some documents can be incorrectly reported as current, and aggregate-member hashing does not enforce the same path constraints as normal file inputs."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "The methods are reasonably decomposed, but schema parsing, filesystem traversal, hashing, and attachment are tightly coupled, making changes to validation and failure policy risky."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Names and control flow are generally readable, though implicit decisions to ignore unsupported or missing metadata are not documented and can obscure correctness behavior."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 52,
+        "band": "F",
+        "rationale": "JSON, schema, enumeration, and file-access failures propagate from a single candidate and can prevent all remaining valid review metadata from being discovered."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "The resolver is injectable, but static direct filesystem and JSON operations make malformed-input, traversal, race, and I/O-failure scenarios difficult to isolate. Coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-fe331a8fab875c9473f39910377e81cb5f787992c8f56e571e4713e1a49fc0e4",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "One bad sidecar can abort discovery for the entire repository",
+      "description": "Each candidate is read, parsed, and traversed without per-file error isolation. Invalid JSON, a non-object root, incorrect property types, a disappearing file, or an inaccessible directory/file can throw JsonException, InvalidOperationException, IOException, or UnauthorizedAccessException and prevent later valid sidecars from being attached.",
+      "recommendation": "Process each candidate behind a narrow per-file exception boundary, validate JsonElement.ValueKind before accessing properties or enumerating arrays, and expose diagnostics for rejected sidecars. Also define how directory-enumeration failures should be reported or skipped rather than allowing an incidental repository file to terminate discovery.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 25,
+              "column": 9
+            },
+            "end": {
+              "line": 28,
+              "column": 70
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 67,
+              "column": 9
+            },
+            "end": {
+              "line": 69,
+              "column": 49
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:fe331a8fab875c9473f39910377e81cb5f787992c8f56e571e4713e1a49fc0e4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 25,
+              "column": 9
+            },
+            "end": {
+              "line": 28,
+              "column": 70
+            }
+          },
+          "capturedExcerpt": {
+            "text": "foreach (var path in Directory.EnumerateFiles(root, \u0022*.json\u0022, ConfinedEnumeration)\n                     .Where(path =\u003E path.Contains(\u0022.review-meta.\u0022, StringComparison.Ordinal)))\n        {\n            using var json = JsonDocument.Parse(File.ReadAllText(path)",
+            "contentHash": "sha256:6c79f4d7ee6aa42b71511dc51d2394fcf8b820691d19b9e6113385989f5fbb30",
+            "excerptHash": "sha256:7a771101095057ec8a3e6ea73347579a88bfa17ebb121abf3ff10372f7aa468c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-af265468e26a2de5a65ee23bbbfd5c9183516fe5dc101dda9db3247ab4b55a06",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Missing subjectInputs suppresses policy-drift detection",
+      "description": "When subjectInputs is absent, DetermineState returns Current immediately. Consequently, a document that still contains reviewInputs.effectiveHash is never compared with the current resolved review inputs and can be classified as current despite policy changes.",
+      "recommendation": "Treat an absent subjectInputs property as an empty subject-input collection and continue to the reviewInputs hash comparison. If absence instead denotes a legacy schema, make that compatibility rule explicit and validate the document version before returning Current.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 62,
+              "column": 9
+            },
+            "end": {
+              "line": 65,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:af265468e26a2de5a65ee23bbbfd5c9183516fe5dc101dda9db3247ab4b55a06",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 62,
+              "column": 9
+            },
+            "end": {
+              "line": 65,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "{\n            return ReviewState.Current;\n        }\n",
+            "contentHash": "sha256:6c79f4d7ee6aa42b71511dc51d2394fcf8b820691d19b9e6113385989f5fbb30",
+            "excerptHash": "sha256:3ad3be86fba8e549872f33a23e30e592a098f95ccc60663e8ed8f352f7f90b12"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-43482b61b16d88c991b37b26b01162301512aec3e2dd4cfd59ec13302f424d86",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Aggregate member files bypass repository confinement",
+      "description": "The aggregate-members branch resolves and reads every file-node path directly. Unlike the normal file and aggregate-control branch, it does not call IsConfinedFile first. A hierarchy node with an absolute path, parent traversal, missing file, or reparse-point path can therefore read outside the repository or throw and abort discovery.",
+      "recommendation": "Resolve each aggregate member path, require IsConfinedFile(root, path) before hashing it, and return Stale or a distinct invalid state when any member is unavailable or escapes the repository. Keep the path used in the manifest canonical and repository-relative.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 72,
+              "column": 31
+            },
+            "end": {
+              "line": 80,
+              "column": 29
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:43482b61b16d88c991b37b26b01162301512aec3e2dd4cfd59ec13302f424d86",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 72,
+              "column": 31
+            },
+            "end": {
+              "line": 80,
+              "column": 29
+            }
+          },
+          "capturedExcerpt": {
+            "text": "y(candidate =\u003E candidate.Id, StringComparer.Ordinal)\n                    .Select(candidate =\u003E\n                    {\n                        var contentHash = HashNormalizedText(Path.GetFullPath(candidate.Path, root));\n                        var subjectHash = \u0022sha256:\u0022 \u002B ReviewSubjectHasher.ComputeManifestHash(candidate.Id,\n                            [new SubjectInputHash(candidate.Path, \u0022file\u0022, contentHash)]);\n                        return new AggregateMemberHash(candidate.Id, candidate.Path, subjectHash);\n                    }).ToArray();\n                if (!StringCo",
+            "contentHash": "sha256:6c79f4d7ee6aa42b71511dc51d2394fcf8b820691d19b9e6113385989f5fbb30",
+            "excerptHash": "sha256:77e64e2a99e4a0a33a3d7acc1fa89d4d812ada99703715d25fe2e0fe37f84cfd"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-a5f9ca864f3bc09aad97ee850bdf0290f9eedcb763ee418b12401e0cbcc0627f",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Sidecar identification examines the entire path instead of the filename",
+      "description": "The marker check is applied to the absolute path. If any parent directory contains \u0027.review-meta.\u0027, every JSON file beneath that directory is treated as a candidate sidecar, which can produce false positives and amplify parsing failures.",
+      "recommendation": "Apply the marker check to Path.GetFileName(path), or use a filename pattern that precisely defines the supported sidecar naming convention.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 26,
+              "column": 22
+            },
+            "end": {
+              "line": 26,
+              "column": 86
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a5f9ca864f3bc09aad97ee850bdf0290f9eedcb763ee418b12401e0cbcc0627f",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewMetaDiscovery.cs",
+          "range": {
+            "start": {
+              "line": 26,
+              "column": 22
+            },
+            "end": {
+              "line": 26,
+              "column": 86
+            }
+          },
+          "capturedExcerpt": {
+            "text": ".Where(path =\u003E path.Contains(\u0022.review-meta.\u0022, StringComparison.Or",
+            "contentHash": "sha256:6c79f4d7ee6aa42b71511dc51d2394fcf8b820691d19b9e6113385989f5fbb30",
+            "excerptHash": "sha256:2ac957f04fb4c58075ed71306dbe2597f2624ebba734a1c416cbbd68b307aaf9"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

@@ -1,0 +1,516 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/383bcd6bf7ce1328c11e4d3a77e360741e8a5bc6e3bf44d498fe2889ffe674e3",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+    "displayName": "ReviewThreadManager.cs"
+  },
+  "reviewedAt": "2026-09-01T09:25:13.7066653Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-6cfb40269e054f13bae74ca5881ebcba",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18803,
+      "outputTokens": 4020,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 2472,
+      "durationMs": 116948
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "fb9e9ca2058e3b937a42f1b7a5ae22a493560c9991c43de5a6d7f48c9deb6b23"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+      "selector": "file",
+      "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 70,
+    "band": "C",
+    "rationale": "The implementation has a serious cross-file anchor-healing defect and several robustness gaps around malformed agent and persisted JSON data. The core merge and line-relocation logic is understandable, but validation, resource lifecycle, and clock handling need improvement."
+  },
+  "summary": "The most significant issue is that fingerprint-based healing can attach a detached thread to content from a different file. Public methods also assume structurally valid JSON and ranges, allowing malformed model responses or metadata to terminate processing or produce misleading anchors. Test coverage is unknown because no coverage data was supplied.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "Fingerprint healing does not constrain candidate threads to the requested path, and semantically invalid ranges can be accepted and normalized into plausible but incorrect anchors."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The implementation is reasonably decomposed, but the permanent lock registry and repeated unchecked JSON navigation create lifecycle and schema-maintenance risks."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 83,
+        "band": "B",
+        "rationale": "Names and control flow generally communicate intent well, although implicit JSON schema assumptions and healing invariants are not documented or encoded."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 58,
+        "band": "F",
+        "rationale": "Malformed or partially written metadata and malformed agent updates can throw from public orchestration paths instead of being rejected, skipped, or reported predictably."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Most operations are deterministic and independently callable, but direct use of the system clock makes healing timestamps harder to test reliably. Actual coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-ab2bfd81796b837d7793e570d47a5a2d2c135f9c077dff1f043ca1e69a524c3d",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Fingerprint healing can relocate a thread using the wrong file",
+      "description": "The method examines every detached thread and matches only its fingerprint against findings containing a location for \u0060relativePath\u0060. It never verifies that the thread anchor\u0027s own \u0060path\u0060 equals \u0060relativePath\u0060. A detached thread belonging to another file can therefore receive a range and context hash computed from the current file while retaining its original path, corrupting the anchor metadata.",
+      "recommendation": "Before attempting fingerprint lookup, require the anchor path to equal \u0060relativePath\u0060 using the same explicit comparison semantics as \u0060LoadAndHeal\u0060. Prefer indexing candidates by both fingerprint and normalized path.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 91,
+              "column": 9
+            },
+            "end": {
+              "line": 100,
+              "column": 72
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:ab2bfd81796b837d7793e570d47a5a2d2c135f9c077dff1f043ca1e69a524c3d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 91,
+              "column": 9
+            },
+            "end": {
+              "line": 100,
+              "column": 72
+            }
+          },
+          "capturedExcerpt": {
+            "text": "foreach (var thread in threads.OfType\u003CJsonObject\u003E().Where(candidate =\u003E candidate[\u0022anchorState\u0022]?.GetValue\u003Cstring\u003E() == \u0022detached\u0022))\n        {\n            var anchor = thread[\u0022anchor\u0022]!.AsObject();\n            if (!byFingerprint.TryGetValue(anchor[\u0022fingerprint\u0022]!.GetValue\u003Cstring\u003E(), out var finding) ||\n                finding[\u0022locations\u0022] is not JsonArray locations) continue;\n            var location = locations.OfType\u003CJsonObject\u003E().FirstOrDefault(candidate =\u003E\n                candidate[\u0022path\u0022]?.GetValue\u003Cstring\u003E() == relativePath \u0026\u0026 candidate[\u0022range\u0022] is JsonObject);\n            if (location is null || !TryRange(location[\u0022range\u0022], out var range)) continue;\n            anchor[\u0022lastKnownRange\u0022] = location[\u0022range\u0022]!.DeepClone();\n            anchor[\u0022contextHash\u0022] = ComputeContextHash(content, range);",
+            "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba",
+            "excerptHash": "sha256:d76d55d47f103709d568099e3879e37959afb244eb26d10be8aff5eb2f68d1b3"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-fa693b95b511b6d91d80cca685afceb8e7820daff5cf7b75e24148c1f7a7103e",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Malformed agent updates can terminate the entire update operation",
+      "description": "Agent-produced update nodes and required properties are accessed through null-forgiving operators and strict conversions. A null or non-object element, missing or non-string \u0060threadId\u0060 or \u0060body\u0060, or a thread with malformed \u0060entries\u0060 causes an exception, potentially discarding all otherwise valid updates in the response.",
+      "recommendation": "Validate each update and target thread with non-throwing type checks. Skip invalid records while returning or recording structured diagnostics, and validate status and reply identifiers against the expected schema before mutation.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 35,
+              "column": 9
+            },
+            "end": {
+              "line": 52,
+              "column": 93
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:fa693b95b511b6d91d80cca685afceb8e7820daff5cf7b75e24148c1f7a7103e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 35,
+              "column": 9
+            },
+            "end": {
+              "line": 52,
+              "column": 93
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (response[\u0022threadUpdates\u0022] is not JsonArray updates) return;\n        var byId = threads.OfType\u003CJsonObject\u003E().ToDictionary(thread =\u003E thread[\u0022id\u0022]!.GetValue\u003Cstring\u003E(), StringComparer.Ordinal);\n        foreach (var node in updates)\n        {\n            var update = node!.AsObject();\n            var threadId = update[\u0022threadId\u0022]!.GetValue\u003Cstring\u003E();\n            if (!byId.TryGetValue(threadId, out var thread)) continue;\n            var entries = thread[\u0022entries\u0022]!.AsArray();\n            var entry = new JsonObject\n            {\n                [\u0022id\u0022] = $\u0022entry-{Guid.NewGuid():N}\u0022,\n                [\u0022author\u0022] = new JsonObject { [\u0022kind\u0022] = \u0022agent\u0022, [\u0022agent\u0022] = agent, [\u0022model\u0022] = model },\n                [\u0022createdAt\u0022] = now.UtcDateTime.ToString(\u0022O\u0022),\n                [\u0022body\u0022] = update[\u0022body\u0022]!.GetValue\u003Cstring\u003E().Trim(),\n            };\n            if (update[\u0022replyTo\u0022] is JsonNode replyTo) entry[\u0022replyTo\u0022] = replyTo.DeepClone();\n            entries.Add(entry);\n            if (update[\u0022status\u0022] is JsonValue status) thread[\u0022status\u0022] = status.DeepClone();",
+            "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba",
+            "excerptHash": "sha256:0cce554aeb033fb26ff9e59f39beef67fb7b530e8723f1b37bbabcabf911f52a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-80b5ca53a0f24bcff9c00f254ed19a272ee7fa135d7ffccefb71e0cd762b7941",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Corrupt or partially written metadata is not handled safely",
+      "description": "Reading and parsing the metadata file can throw for invalid JSON, an unexpected root type, I/O races, or access failures. Later merge indexing also assumes every thread has a unique string ID. Consequently, one damaged or partially written metadata file can abort review processing rather than being treated as recoverable state.",
+      "recommendation": "Centralize metadata deserialization and schema validation, catch the specific JSON and I/O failures that can be recovered from, and report a diagnostic or quarantine the invalid file. Build indexes with explicit handling for missing and duplicate IDs instead of \u0060ToDictionary\u0060 assumptions.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 19,
+              "column": 9
+            },
+            "end": {
+              "line": 19,
+              "column": 75
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 61,
+              "column": 9
+            },
+            "end": {
+              "line": 61,
+              "column": 126
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:80b5ca53a0f24bcff9c00f254ed19a272ee7fa135d7ffccefb71e0cd762b7941",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 19,
+              "column": 9
+            },
+            "end": {
+              "line": 19,
+              "column": 75
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var root = JsonNode.Parse(File.ReadAllText(metaPath))?.AsObject();",
+            "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba",
+            "excerptHash": "sha256:070388ba2173a179f163786716ecd6d6fdf280525eb9e7625d6ee80e1889acc7"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-0a4960ffa36937eafafb78808996f4f5785724c8101de2b7f9b2dce868561d24",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "TryRange accepts semantically invalid source ranges",
+      "description": "\u0060TryRange\u0060 verifies only that four integer values can be extracted. It accepts non-positive lines or columns, an end before the start, and other invalid combinations. Downstream code clamps lines and forces the span to at least one line, so corrupt data can be converted into an apparently anchored or healed range instead of being detached.",
+      "recommendation": "Reject ranges unless line and column values are positive and the end position is not before the start position. Keep invalid persisted ranges detached rather than silently clamping them into the document.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 157,
+              "column": 13
+            },
+            "end": {
+              "line": 163,
+              "column": 24
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0a4960ffa36937eafafb78808996f4f5785724c8101de2b7f9b2dce868561d24",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 157,
+              "column": 13
+            },
+            "end": {
+              "line": 163,
+              "column": 24
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var value = node!.AsObject();\n            var start = value[\u0022start\u0022]!.AsObject();\n            var end = value[\u0022end\u0022]!.AsObject();\n            range = new FindingRange(\n                new FindingPosition(start[\u0022line\u0022]!.GetValue\u003Cint\u003E(), start[\u0022column\u0022]!.GetValue\u003Cint\u003E()),\n                new FindingPosition(end[\u0022line\u0022]!.GetValue\u003Cint\u003E(), end[\u0022column\u0022]!.GetValue\u003Cint\u003E()));\n            return true;",
+            "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba",
+            "excerptHash": "sha256:9175cc8a1be3b5720fceb95fd44c63cdd5618939fac44eb56ea722da19364115"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-baa0671966e07e5a6248fd4b55801f913e2e20787cd6d0cd07bfb04e0a0e2a84",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "low",
+      "title": "The write-lock registry grows for the lifetime of the process",
+      "description": "Every distinct full metadata path permanently adds a \u0060SemaphoreSlim\u0060 to the static dictionary. Processes that review many transient repositories or metadata paths accumulate locks that are never removed or disposed.",
+      "recommendation": "Encapsulate lock acquisition in a scoped lease and remove idle entries with reference counting, or use a bounded keyed-lock implementation that safely handles entry lifecycle and disposal.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 11,
+              "column": 5
+            },
+            "end": {
+              "line": 14,
+              "column": 87
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:baa0671966e07e5a6248fd4b55801f913e2e20787cd6d0cd07bfb04e0a0e2a84",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 11,
+              "column": 5
+            },
+            "end": {
+              "line": 14,
+              "column": 87
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static readonly ConcurrentDictionary\u003Cstring, SemaphoreSlim\u003E WriteLocks = new(StringComparer.OrdinalIgnoreCase);\n\n    public static SemaphoreSlim GetWriteLock(string metaPath) =\u003E\n        WriteLocks.GetOrAdd(Path.GetFullPath(metaPath), _ =\u003E new SemaphoreSlim(1, 1));",
+            "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba",
+            "excerptHash": "sha256:80946fb92300b525dc9354c4028d17815a4a94e434422f1c0861cad95d469145"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-a058bfd1d18d4d63be599b91674168babade4352b9a9e5fe75438b08402681e4",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "Healing timestamps bypass the injectable operation time",
+      "description": "Update creation accepts a caller-supplied time, but both healing paths read \u0060DateTime.UtcNow\u0060 directly. This inconsistency makes deterministic tests harder and can give one logical operation timestamps from different clock sources.",
+      "recommendation": "Pass a \u0060DateTimeOffset now\u0060 or an injected \u0060TimeProvider\u0060 through both healing paths and use it consistently for all timestamps.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 13
+            },
+            "end": {
+              "line": 102,
+              "column": 64
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 149,
+              "column": 9
+            },
+            "end": {
+              "line": 149,
+              "column": 60
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a058bfd1d18d4d63be599b91674168babade4352b9a9e5fe75438b08402681e4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewThreadManager.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 13
+            },
+            "end": {
+              "line": 102,
+              "column": 64
+            }
+          },
+          "capturedExcerpt": {
+            "text": "thread[\u0022healedAt\u0022] = DateTime.UtcNow.ToString(\u0022O\u0022);",
+            "contentHash": "sha256:25d8cca25736908939616d75f13aab7302f4cb4919716b058604eaeb8fa80bba",
+            "excerptHash": "sha256:3c168e88d3c7f61f22650080cff9002f1ee93c78ec1a744145f6631f81807e63"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

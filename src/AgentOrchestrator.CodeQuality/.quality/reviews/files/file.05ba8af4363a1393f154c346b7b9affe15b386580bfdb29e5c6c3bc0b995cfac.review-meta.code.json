@@ -1,0 +1,503 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/9053b18ea87c6c0e48b600206cdf40176838ca4545971240f246ea054ad8ab64",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+    "displayName": "Coverage.cs"
+  },
+  "reviewedAt": "2026-09-01T08:43:10.6191738Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-6de3e10a919b408299a0c9c38761510c",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 23044,
+      "outputTokens": 7733,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 6103,
+      "durationMs": 231443
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "da0adb84c5a0403fd07297339716902551597572e7e843785921d35a1d490b13"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+      "selector": "file",
+      "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 66,
+    "band": "D",
+    "rationale": "The implementation supports several coverage formats and has generally clear decomposition, but aggregation can produce incorrect branch coverage, path identity is unreliable, freshness can be overstated, and external conversion can hang indefinitely. Error handling around persisted and malformed data also needs strengthening."
+  },
+  "summary": "The principal correctness risk is that branch observations from overlapping reports are appended rather than merged, producing misleading totals and percentages. Other material issues include indefinite subprocess waits, invalid snapshots escaping deserialization, path-normalization collisions, uncertain commits being labeled current, and malformed XML being misdiagnosed as native coverage.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 64,
+        "band": "D",
+        "rationale": "Branch aggregation, path matching, and freshness classification can all produce materially misleading coverage results."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The parser is sensibly divided by format, but path identity, process execution, validation, and aggregation policies are embedded in static helpers and are difficult to evolve consistently."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The overall flow is readable, but the meanings of current coverage and conversion failures do not match what the implementation can actually establish."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "A conversion process can deadlock or run forever, malformed persisted data can cause later null-reference failures, and malformed XML receives a misleading binary-report error."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "Filesystem, clock, Git, and external converter interactions are hard-coded, while cancellation does not reach parsing or subprocess work. No coverage evidence was available, so test coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-673a478687eb9aab56f970aa4f5fec475f170b386d6e6b0cac091957131d8e59",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Overlapping reports double-count branch points",
+      "description": "All reports share one accumulator, but branch observations are appended without a branch identity or merge rule. If two reports contain the same instrumented branch, it is counted twice; a branch uncovered in one test shard and covered in another becomes 1/2 instead of the correct aggregate 1/1. Line observations avoid this problem by merging hits by line number.",
+      "recommendation": "Represent branches using a stable format-specific identity, such as file plus line, block, and branch ordinal, and merge their covered state with logical OR across reports. If a format cannot provide identity, define and document a conservative deduplication policy rather than blindly appending observations.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 473,
+              "column": 9
+            },
+            "end": {
+              "line": 478,
+              "column": 44
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:673a478687eb9aab56f970aa4f5fec475f170b386d6e6b0cac091957131d8e59",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 473,
+              "column": 9
+            },
+            "end": {
+              "line": 478,
+              "column": 44
+            }
+          },
+          "capturedExcerpt": {
+            "text": "public void Branch(int line, bool covered) =\u003E branches.Add((line, covered));\n        public void Branches(int line, int covered, int total)\n        {\n            for (var index = 0; index \u003C total; index\u002B\u002B) branches.Add((line, index \u003C covered));\n        }\n        public CoverageFile Build() =\u003E new(",
+            "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3",
+            "excerptHash": "sha256:d22c2de409ee96766e23a77bb3c467852e779544d2fba46221aa984be715bb51"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3d2b0b9bcf735413f7da4b3c4b3cdf2b6bc86a914dc4ca19824258d3b1d80442",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "Coverage conversion can wait indefinitely or deadlock",
+      "description": "The converter redirects both output streams, consumes neither, and then calls WaitForExit without a timeout or cancellation. A child that fills either pipe or stops responding can block the scan indefinitely, and the RunAsync cancellation token cannot interrupt it.",
+      "recommendation": "Drain stdout and stderr concurrently, use WaitForExitAsync with the scan cancellation token and a bounded timeout, and terminate the process tree on timeout or cancellation. Propagate the token through parsing and conversion APIs.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 267,
+              "column": 17
+            },
+            "end": {
+              "line": 277,
+              "column": 35
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3d2b0b9bcf735413f7da4b3c4b3cdf2b6bc86a914dc4ca19824258d3b1d80442",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 267,
+              "column": 17
+            },
+            "end": {
+              "line": 277,
+              "column": 35
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    RedirectStandardOutput = true,\n                    RedirectStandardError = true,\n                    UseShellExecute = false,\n                },\n            };\n            foreach (var argument in new[] { \u0022merge\u0022, path, \u0022-f\u0022, \u0022cobertura\u0022, \u0022-o\u0022, output })\n                process.StartInfo.ArgumentList.Add(argument);\n            if (!process.Start()) return null;\n            process.WaitForExit();\n            converted = process.ExitCode == 0 \u0026\u0026 File.Exists(output) \u0026\u0026 new FileInfo(output).Length \u003E 0;\n            return converted ? outp",
+            "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3",
+            "excerptHash": "sha256:3211196cb77988b3592e8ff2e65ac61da4cf21e8fc04d3db9c2f3fa86fd665f9"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-fdbd56debbb7dbc8548120459494742e136134a4b6dc310a3d179c438b230f78",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Deserialized snapshots are accepted without structural validation",
+      "description": "Successful JSON deserialization does not guarantee that required record properties are present or non-null. A syntactically valid file that omits or nulls Files, Reports, or uncovered-line collections is returned and can later fail with NullReferenceException. Unsupported schema versions and invalid coverage counts are also silently accepted.",
+      "recommendation": "Deserialize into a nullable value and validate the schema version, required collections, non-negative counts, covered-versus-total invariants, and required strings before returning it. Treat validation failures consistently as unavailable or return a diagnostic result that distinguishes corruption from absence.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 39,
+              "column": 13
+            },
+            "end": {
+              "line": 39,
+              "column": 102
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:fdbd56debbb7dbc8548120459494742e136134a4b6dc310a3d179c438b230f78",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 39,
+              "column": 13
+            },
+            "end": {
+              "line": 39,
+              "column": 102
+            }
+          },
+          "capturedExcerpt": {
+            "text": "return JsonSerializer.Deserialize\u003CCoverageSnapshot\u003E(File.ReadAllText(path), JsonOptions);",
+            "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3",
+            "excerptHash": "sha256:ca57da9e45d1c464737d6ab8412a9aff9c78e3c927f91d0fad8d35a642bcb6f2"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-101b92e500d7665b5ebb1c079bfc22c130de34ad67986ce1ab9225dbca7f1bc8",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Path normalization can conflate distinct files",
+      "description": "TrimStart(\u0027.\u0027, \u0027/\u0027) removes every leading dot or slash rather than only a leading \u0027./\u0027. Consequently, paths such as .github/workflow.yml and github/workflow.yml normalize to the same value, while parent components are also erased. In addition, Ordinal matching remains case-sensitive on Windows, so differently cased spellings of the same file can fail to match or be accumulated separately.",
+      "recommendation": "Create one canonical repository-path abstraction that normalizes separators, removes only explicit current-directory prefixes, rejects parent traversal, and uses an operating-system-appropriate comparer. Apply it consistently when parsing, accumulating, projecting, and generating evidence.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 93,
+              "column": 15
+            },
+            "end": {
+              "line": 93,
+              "column": 111
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 176,
+              "column": 1
+            },
+            "end": {
+              "line": 176,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:101b92e500d7665b5ebb1c079bfc22c130de34ad67986ce1ab9225dbca7f1bc8",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 93,
+              "column": 15
+            },
+            "end": {
+              "line": 93,
+              "column": 111
+            }
+          },
+          "capturedExcerpt": {
+            "text": "snapshot.Files.Where(item =\u003E StringComparer.Ordinal.Equals(Normalize(item.Path), normalized)).ToA",
+            "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3",
+            "excerptHash": "sha256:aabf2c2e9c41802d25768be71bfd34c34078d7f674521fdf705e2fcfe9ef5681"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-cdc40f5a46c24bf465f0521d69b416b44cbb9b1ac79936512ce44a7c3a87d61d",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Coverage is labeled current when freshness cannot be established",
+      "description": "The state becomes stale only when both commits are present and unequal; every other matched snapshot is labeled current. If Git is unavailable, the snapshot lacks a commit, or the caller cannot determine the current commit, the code asserts current coverage despite having no basis for that conclusion. Evidence uses the same logic and can omit an important uncertainty.",
+      "recommendation": "Use a distinct freshness state such as unknown or unverified whenever either commit is unavailable. Reserve current for two known equal commits, and apply the same classification helper in both ForPath and Evidence.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 101,
+              "column": 21
+            },
+            "end": {
+              "line": 105,
+              "column": 23
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cdc40f5a46c24bf465f0521d69b416b44cbb9b1ac79936512ce44a7c3a87d61d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 101,
+              "column": 21
+            },
+            "end": {
+              "line": 105,
+              "column": 23
+            }
+          },
+          "capturedExcerpt": {
+            "text": "!string.IsNullOrWhiteSpace(snapshot.Commit) \u0026\u0026\n                    !string.IsNullOrWhiteSpace(currentCommit) \u0026\u0026\n                    !StringComparer.Ordinal.Equals(snapshot.Commit, currentCommit)\n            ? \u0022stale\u0022\n            : \u0022current\u0022",
+            "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3",
+            "excerptHash": "sha256:718fbf28a78c0721219f2a94fddf380c594a8f7364c54db9c9907fdc3b1c2798"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f8cf27aaa4735f88b4bdb3632ccca091d1d6a7f92be02bbfb2afb254aac3ed7b",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "medium",
+      "title": "Every XML parse failure is reported as unavailable native coverage conversion",
+      "description": "Any XmlException is interpreted as evidence that the input is a native binary .coverage file. If conversion fails, the resulting exception claims both that the report is native and that dotnet-coverage is unavailable, even when the input is merely malformed or the converter exists but returned an error. This hides the actionable cause and discards converter diagnostics.",
+      "recommendation": "Attempt native conversion only for .coverage inputs or after positively identifying the binary format. Preserve malformed-XML errors for textual reports, and capture the converter exit code and stderr so conversion failures can be reported accurately.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 241,
+              "column": 9
+            },
+            "end": {
+              "line": 247,
+              "column": 14
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f8cf27aaa4735f88b4bdb3632ccca091d1d6a7f92be02bbfb2afb254aac3ed7b",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/Coverage.cs",
+          "range": {
+            "start": {
+              "line": 241,
+              "column": 9
+            },
+            "end": {
+              "line": 247,
+              "column": 14
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    var converted = ConvertNativeCoverage(path);\n            if (converted is null)\n                throw new InvalidDataException(\n                    $\u0022\u0027{path}\u0027 is a native binary .coverage report and dotnet-coverage is not available to convert it without running tests.\u0022,\n                    exception);\n            try\n            {",
+            "contentHash": "sha256:aae6f75e6af57d6abef82842460c9e27ffe8f73cc49962b5e8b45823b74c18d3",
+            "excerptHash": "sha256:d4d35372580b49b5a5fcbdd2445f29b1c7b44e425bebd90ba50e3dab75546e28"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

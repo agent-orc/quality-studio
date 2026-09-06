@@ -1,0 +1,413 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/62e1f785b794a3d2d713ff94136f316d419b9285713b4573ab816127f0ab6e95",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+    "displayName": "GuidelineStore.cs"
+  },
+  "reviewedAt": "2026-09-01T08:58:59.9119506Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-fc623946dda54c2daecde1718f27c108",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18565,
+      "outputTokens": 4207,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 3008,
+      "durationMs": 138947
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "d93da3c4c39f0f76f84a5c18821a4a1f4fc834ca08beebba379583c14b195560"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+      "selector": "file",
+      "contentHash": "sha256:505fe30ef711cd5ab9cd3ab2ed7bf18d2439a3e472ca993df9ae12790562e424"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 70,
+    "band": "C",
+    "rationale": "The implementation is compact and readable, but renaming a guideline can cause later silent data loss. Non-atomic uniqueness checks, catalogue-wide failure on one malformed file, and incomplete boundary validation further reduce robustness. Build analysis reported no findings; test coverage is unknown."
+  },
+  "summary": "The primary defect is that Update changes the stored id without changing the filename, allowing a subsequent Create with the old id to overwrite the renamed guideline. Filesystem concurrency and malformed or null input handling also need improvement.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 62,
+        "band": "D",
+        "rationale": "Renaming leaves the guideline under its former filename, creating an overwrite path that can silently remove the renamed guideline. Concurrent mutations can likewise bypass uniqueness checks."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The code is concise, but identity is represented independently by both front-matter id and filename without consistently maintaining their relationship. Repeated full catalogue scans also complicate mutation logic."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Names, records, validation rules, and serialization flow are generally clear. The undocumented behavior of preserving a filename when an id changes is surprising."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "A single invalid file prevents all catalogue operations, null collection elements produce incidental NullReferenceException failures, and check-then-write races can overwrite data without reporting a conflict."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Pure validation and serialization are straightforward to test, but direct static filesystem access makes failure, concurrency, and atomicity scenarios dependent on integration tests. No coverage evidence was supplied."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-bc05ed82a47bce069f4f192130d9467502f9a85583ea85a21369c8ccea7efff4",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Renaming a guideline leaves it vulnerable to silent overwrite",
+      "description": "Update writes the new id into the existing filename. For example, renaming id \u0060foo\u0060 to \u0060bar\u0060 leaves the definition in \u0060foo.md\u0060. A later Create for \u0060foo\u0060 sees no existing definition with that id and writes \u0060foo.md\u0060 with replacement enabled, silently deleting the renamed \u0060bar\u0060 guideline.",
+      "recommendation": "Keep filenames synchronized with ids when renaming, using a collision-safe move or write-and-delete operation, or reject id changes explicitly. Ensure the operation cannot overwrite an unrelated destination.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 77,
+              "column": 22
+            },
+            "end": {
+              "line": 77,
+              "column": 68
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 109,
+              "column": 9
+            },
+            "end": {
+              "line": 109,
+              "column": 41
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:bc05ed82a47bce069f4f192130d9467502f9a85583ea85a21369c8ccea7efff4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 77,
+              "column": 22
+            },
+            "end": {
+              "line": 77,
+              "column": 68
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Write(repositoryRoot, draft, existing.FileName)",
+            "contentHash": "sha256:505fe30ef711cd5ab9cd3ab2ed7bf18d2439a3e472ca993df9ae12790562e424",
+            "excerptHash": "sha256:d4acf609999a97638eba5adee9cf145f2ce6a6b96c1b1483d62ba4a860e03730"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f8cd7f633e7d532405401f97610582b53bd5954eb08774a2f1767ea84d7d2cac",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Check-then-write mutations can overwrite concurrent changes",
+      "description": "Create checks uniqueness by listing files and later calls a write path that explicitly replaces the destination. Two concurrent creates can both pass the check, after which the last move silently wins. Update has the same check-then-write exposure.",
+      "recommendation": "Make conflict detection part of the filesystem mutation, such as creating or moving without replacement for Create, and serialize mutations per repository or use an appropriate concurrency token for Update.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 64,
+              "column": 9
+            },
+            "end": {
+              "line": 66,
+              "column": 65
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 109,
+              "column": 9
+            },
+            "end": {
+              "line": 109,
+              "column": 41
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f8cd7f633e7d532405401f97610582b53bd5954eb08774a2f1767ea84d7d2cac",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 64,
+              "column": 9
+            },
+            "end": {
+              "line": 66,
+              "column": 65
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (List(repositoryRoot).Any(value =\u003E StringComparer.OrdinalIgnoreCase.Equals(value.Id, draft.Id)))\n            throw new ArgumentException($\u0022A guideline with id \u0027{draft.Id}\u0027 already exists.\u0022);\n        return Write(repositoryRoot, draft, FileName(draft.Id));",
+            "contentHash": "sha256:505fe30ef711cd5ab9cd3ab2ed7bf18d2439a3e472ca993df9ae12790562e424",
+            "excerptHash": "sha256:c6646c79e6fdfd4da0c64d5a639ace4238e100aaf3e0e38bf146e55a6ff50c2a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-1b32f7d2e817789691f10fea57b06b734e736cf19f700004a41ab496efbcbd92",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "One malformed guideline disables every catalogue operation",
+      "description": "Parsing occurs directly inside the deferred enumeration without per-file error handling. If any Markdown file is malformed or unreadable, List fails completely; because Create, Update, and Delete call List, that one file also prevents otherwise unrelated mutations.",
+      "recommendation": "Handle parsing failures per file and return structured diagnostics alongside valid entries, or throw a domain-specific exception that identifies the offending path. Mutation lookup should not require successfully parsing every unrelated file.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 52,
+              "column": 16
+            },
+            "end": {
+              "line": 54,
+              "column": 92
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1b32f7d2e817789691f10fea57b06b734e736cf19f700004a41ab496efbcbd92",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 52,
+              "column": 16
+            },
+            "end": {
+              "line": 54,
+              "column": 92
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Directory.EnumerateFiles(directory, \u0022*.md\u0022, SearchOption.TopDirectoryOnly)\n            .Select(path =\u003E InputResolver.ParseFile(path))\n            .Select(input =\u003E new GuidelineDefinition(input.Id, Path.GetFileName(input.Source",
+            "contentHash": "sha256:505fe30ef711cd5ab9cd3ab2ed7bf18d2439a3e472ca993df9ae12790562e424",
+            "excerptHash": "sha256:df70390a6dc6883caa0aed9f80e09570f2cca938b9c5dadb79a254439ee55658"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-725b44b75a7e3bdee1fa87fdc534a2786c8105517fd2e1a3e4244e6a787757d7",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Null kind or level entries cause incidental null-reference failures",
+      "description": "The public validation boundary invokes ToLowerInvariant on each collection element without checking for null. Runtime callers can still supply null despite nullable annotations, producing NullReferenceException instead of the documented argument-validation behavior.",
+      "recommendation": "Reject null or blank elements explicitly before normalization and include the affected parameter or field in the resulting ArgumentException.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 130,
+              "column": 109
+            },
+            "end": {
+              "line": 130,
+              "column": 132
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 132,
+              "column": 110
+            },
+            "end": {
+              "line": 132,
+              "column": 133
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:725b44b75a7e3bdee1fa87fdc534a2786c8105517fd2e1a3e4244e6a787757d7",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GuidelineStore.cs",
+          "range": {
+            "start": {
+              "line": 130,
+              "column": 109
+            },
+            "end": {
+              "line": 130,
+              "column": 132
+            }
+          },
+          "capturedExcerpt": {
+            "text": "value.ToLowerInvariant()",
+            "contentHash": "sha256:505fe30ef711cd5ab9cd3ab2ed7bf18d2439a3e472ca993df9ae12790562e424",
+            "excerptHash": "sha256:9c6ceb968c12219b2062d3051145926cd018f82daf1b916595cd031b87a8b190"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

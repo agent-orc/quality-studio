@@ -1,0 +1,458 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/f1dda3e8b959929deb3cc1757d6c8068aa797f24b86c72274b9df2d6f7e75d7a",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+    "displayName": "RepositoryHierarchyAdapters.cs"
+  },
+  "reviewedAt": "2026-09-01T09:09:27.0974099Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-1537fa4a923a40d6b9a33c78ddc292d7",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 20855,
+      "outputTokens": 5956,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 4540,
+      "durationMs": 167379
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "f39a3fb93984251c9aafe2e117e867e887a873c785fed82589e1a4f16f6c2205"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+      "selector": "file",
+      "contentHash": "sha256:351a695318d417294a37eac7daca4520b2b231022b0d10e2a6138e6b30274a3c"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 70,
+    "band": "C",
+    "rationale": "The implementation is generally structured and deterministic, and the available .NET analyzer found no build issues. However, repository discovery can produce incomplete or incorrectly scoped Angular hierarchies, the Git subprocess can hang indefinitely, and the fallback ignore implementation differs materially from Git semantics."
+  },
+  "summary": "The adapter design is readable, but several edge cases affect its core hierarchy output. The most important problems are workspace candidates escaping their declaring package directory, global suppression of alternate Angular discovery after finding any angular.json project, and unsafe synchronous handling of the Git subprocess. Test coverage is unknown; the unavailable ESLint result is not relevant evidence for this C# file.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "Workspace discovery can include packages outside the configured workspace, omit independent workspaces, and apply inaccurate fallback ignore and line-count semantics."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The code is decomposed into focused helpers, but custom implementations of Git ignore and workspace glob semantics create substantial maintenance burden and compatibility risk."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Naming and control flow are mostly clear, though comments describing angular.json as authoritative per workspace do not match the global early-return behavior."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 65,
+        "band": "D",
+        "rationale": "The Git subprocess has neither concurrent stderr draining nor a timeout, so repository analysis can block indefinitely."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Static coupling to the filesystem and process launcher makes failure, timeout, ignore-rule, and multi-workspace scenarios difficult to isolate. No coverage evidence was supplied."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-2d428a46cee3596697f686d205258929a1072338ca26fc6880182c99d762f5ff",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Nested workspace configurations can claim packages outside their directory",
+      "description": "RelativeRepositoryPath returns the original repository-relative path when the candidate is not beneath the workspace directory. That returned value is still tested against workspace globs, so broad patterns such as \u0060*\u0060 or \u0060**\u0060 can match an ancestor or sibling package. This creates false Angular project definitions and can suppress the generic adapter.",
+      "recommendation": "Reject candidates that are not descendants of the package.json directory before applying workspace patterns. Prefer a helper that returns failure for out-of-scope paths instead of returning the original path.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 125,
+              "column": 14
+            },
+            "end": {
+              "line": 130,
+              "column": 18
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 455,
+              "column": 1
+            },
+            "end": {
+              "line": 459,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2d428a46cee3596697f686d205258929a1072338ca26fc6880182c99d762f5ff",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 125,
+              "column": 14
+            },
+            "end": {
+              "line": 130,
+              "column": 18
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n                var candidateDirectory = RepositoryDirectory(candidatePackage);\n                var relativeDirectory = RelativeRepositoryPath(workspaceDirectory, candidateDirectory);\n                if (!patterns.Any(pattern =\u003E WorkspacePatternMatches(pattern, relativeDirectory)))\n                {\n                  ",
+            "contentHash": "sha256:351a695318d417294a37eac7daca4520b2b231022b0d10e2a6138e6b30274a3c",
+            "excerptHash": "sha256:e1bc3502262801dd06b1426f30f92c35d62069ba0541bae402b780b22d5882fe"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-9306a1caacfd69f44ae49ed2e4944a1228a91dee24e607b817b32865332df5fa",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "One angular.json suppresses discovery in every other workspace",
+      "description": "As soon as any angular.json yields a project definition, discovery returns globally. In a repository containing an Angular CLI workspace alongside an independent package-workspace or TypeScript project-reference workspace, projects from the latter are never discovered. This conflicts with the comment that angular.json is authoritative for its own workspace.",
+      "recommendation": "Apply precedence per workspace boundary, or collect all discovery forms and remove only definitions shadowed by an angular.json governing the same directory tree.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 101,
+              "column": 1
+            },
+            "end": {
+              "line": 106,
+              "column": 9
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:9306a1caacfd69f44ae49ed2e4944a1228a91dee24e607b817b32865332df5fa",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 101,
+              "column": 1
+            },
+            "end": {
+              "line": 106,
+              "column": 9
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n        // An angular.json is authoritative for its workspace. The two additional discovery\n        // forms cover TypeScript monorepos which deliberately do not use Angular CLI metadata.\n        if (definitions.Count \u003E 0)\n        {\n         ",
+            "contentHash": "sha256:351a695318d417294a37eac7daca4520b2b231022b0d10e2a6138e6b30274a3c",
+            "excerptHash": "sha256:58b31f23136f75870ef1ad97a57f67c5d614aca3267be18b5e04249fdb8c0531"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-923ef1012fe2f71d219869e99793004ad6d16ba4d1c6cb3f3750acd4b26dd95e",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Git enumeration can hang indefinitely",
+      "description": "Both stdout and stderr are redirected, but only stdout is drained before WaitForExit. If Git fills the stderr pipe, it can block while the parent waits for stdout to close. There is also no timeout or cancellation path for a stalled Git process, so Build may never return.",
+      "recommendation": "Drain stdout and stderr concurrently, wait asynchronously with a bounded timeout or cancellation token, terminate the child on timeout, and then use the existing filesystem fallback.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 297,
+              "column": 17
+            },
+            "end": {
+              "line": 311,
+              "column": 35
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:923ef1012fe2f71d219869e99793004ad6d16ba4d1c6cb3f3750acd4b26dd95e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 297,
+              "column": 17
+            },
+            "end": {
+              "line": 311,
+              "column": 35
+            }
+          },
+          "capturedExcerpt": {
+            "text": "WorkingDirectory = root,\n                RedirectStandardOutput = true,\n                RedirectStandardError = true,\n                UseShellExecute = false,\n            },\n        };\n        process.StartInfo.ArgumentList.Add(\u0022ls-files\u0022);\n        process.StartInfo.ArgumentList.Add(\u0022--cached\u0022);\n        process.StartInfo.ArgumentList.Add(\u0022--others\u0022);\n        process.StartInfo.ArgumentList.Add(\u0022--exclude-standard\u0022);\n        process.StartInfo.ArgumentList.Add(\u0022-z\u0022);\n        try\n        {\n            if (!process.Start()) return null;\n            var output = process.St",
+            "contentHash": "sha256:351a695318d417294a37eac7daca4520b2b231022b0d10e2a6138e6b30274a3c",
+            "excerptHash": "sha256:35e0b38dc7e3481e220b1f77872206ce6bc5c911d8b1ce87f2f4980d768587e8"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f9a92a5af22a1a9cecc38508154d6d278ca926e9e47291fcb737797bfa0a437d",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Fallback ignore handling does not preserve Git ignore semantics",
+      "description": "The custom parser trims lines and treats leading \u0060#\u0060 and \u0060!\u0060 unconditionally, so escaped literals and significant spaces are handled incorrectly. Its regex translation also omits supported constructs such as character ranges, and its sequential negation model can re-include a file beneath an excluded parent directory even though Git does not traverse that parent. When Git is unavailable, the hierarchy can therefore include ignored files or exclude tracked source unexpectedly.",
+      "recommendation": "Use a well-tested gitignore implementation. If custom parsing is retained, implement Git\u0027s escaping, whitespace, glob, directory-exclusion, and negation rules and add compatibility tests based on \u0060git check-ignore\u0060.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 389,
+              "column": 14
+            },
+            "end": {
+              "line": 394,
+              "column": 48
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 400,
+              "column": 1
+            },
+            "end": {
+              "line": 439,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f9a92a5af22a1a9cecc38508154d6d278ca926e9e47291fcb737797bfa0a437d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 389,
+              "column": 14
+            },
+            "end": {
+              "line": 394,
+              "column": 48
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n                var line = rawLine.Trim();\n                if (line.Length == 0 || line[0] == \u0027#\u0027) continue;\n                var negated = line[0] == \u0027!\u0027;\n                if (negated) line = line[1..];\n                if (line.Length == 0) continue;",
+            "contentHash": "sha256:351a695318d417294a37eac7daca4520b2b231022b0d10e2a6138e6b30274a3c",
+            "excerptHash": "sha256:ec596ddcf90a91f60a37d7268588d91f65ca8f7027ed134a9fbea00ee860cfd6"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-1cb6e91f39ca66850c560cf836ebc2b30a4fe0f0835d0bd2a1ae21a288134d33",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Line counts are inflated for newline-terminated files",
+      "description": "CountLines initializes the result to one and increments for every LF byte. Consequently, a conventional file containing \u0060text\\n\u0060 is reported as two logical lines, while a CR-only file is always reported as one line. This can systematically distort hierarchy metrics.",
+      "recommendation": "Define the intended line-count convention explicitly and implement it consistently. For logical text lines, avoid adding a trailing empty line after a final terminator and recognize CR, LF, and CRLF without double-counting.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 323,
+              "column": 1
+            },
+            "end": {
+              "line": 338,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1cb6e91f39ca66850c560cf836ebc2b30a4fe0f0835d0bd2a1ae21a288134d33",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyAdapters.cs",
+          "range": {
+            "start": {
+              "line": 323,
+              "column": 1
+            },
+            "end": {
+              "line": 338,
+              "column": 6
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n    private static int CountLines(string path, long length)\n    {\n        if (length == 0) return 0;\n        var lines = 1;\n        using var stream = File.OpenRead(path);\n        var buffer = new byte[16 * 1024];\n        int read;\n        while ((read = stream.Read(buffer)) \u003E 0)\n        {\n            for (var index = 0; index \u003C read; index\u002B\u002B)\n            {\n                if (buffer[index] == (byte)\u0027\\n\u0027) lines\u002B\u002B;\n            }\n        }\n      ",
+            "contentHash": "sha256:351a695318d417294a37eac7daca4520b2b231022b0d10e2a6138e6b30274a3c",
+            "excerptHash": "sha256:22d57eee80bc6ac3305783374b4493a0c09f01841020e62aff25ec1a5ff43da5"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

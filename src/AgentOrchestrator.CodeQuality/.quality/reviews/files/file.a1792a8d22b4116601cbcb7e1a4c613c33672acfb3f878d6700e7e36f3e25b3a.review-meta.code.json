@@ -1,0 +1,374 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/95e9833632352e9ecc2ff0811d3c78eba7b55fe029772fec17f82b0782e88e13",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+    "displayName": "UsageTelemetry.cs"
+  },
+  "reviewedAt": "2026-09-01T09:35:11.3080240Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-149bd38ca69444f98a08752b895e4f74",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18340,
+      "outputTokens": 3643,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 2588,
+      "durationMs": 104100
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "44f57a083ffa1a1ad11f806a1f0ec1daaab1415730a65ad3ce8f220b036bd0d2"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+      "selector": "file",
+      "contentHash": "sha256:8ddfc6ed4bee178ceb4fba492e0bb48076d2b49a9334af2e8de1890a643d69ed"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 74,
+    "band": "C",
+    "rationale": "The implementation is compact and readable, but concurrent access from separate processes can cause append or query failures, and accepted entries are not validated for basic numeric invariants. Silent corruption handling and permanently retained locks further weaken operability and maintainability."
+  },
+  "summary": "The ledger has a clear data model and straightforward aggregation logic. Its main risk is that synchronization is process-local while the ledger is repository-local, making ordinary multi-process use unreliable. Validation and corruption observability also need strengthening.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "Aggregation and schema-version handling are coherent, but cross-process concurrency is unsafe and negative usage values can produce invalid totals."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The code is concise and well factored, although the static keyed-lock collection grows indefinitely and filesystem behavior is tightly coupled to the implementation."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 91,
+        "band": "A",
+        "rationale": "Names, records, control flow, and serialization behavior are generally easy to understand."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "Malformed records are skipped without any diagnostic signal, while expected file-sharing races propagate as I/O failures without retry or coordination."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "Pure aggregation helpers are easy to exercise, but static filesystem access and the hard-coded current time make deterministic isolated tests more cumbersome. Coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-dfc37f888221b81f84577788b5add24244debb9ef3b8c8ada158ea2314983ab4",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Process-local locking does not make repository ledger access safe",
+      "description": "The semaphore coordinates only callers within the current process. Another process appending to the same monthly file can race and receive an IOException because the writer does not share write access. A simultaneous query can also conflict because File.ReadLinesAsync normally opens its reader without sharing writes. Concurrent CLI or agent processes can therefore lose an attempted telemetry append or fail a report query.",
+      "recommendation": "Introduce cross-process coordination, such as an OS-visible lock file or named mutex scoped to the canonical ledger path, and define compatible reader/writer sharing. Add bounded retry handling for transient sharing violations and tests that exercise concurrent readers and writers from separate processes.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 68,
+              "column": 9
+            },
+            "end": {
+              "line": 76,
+              "column": 84
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:dfc37f888221b81f84577788b5add24244debb9ef3b8c8ada158ea2314983ab4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 68,
+              "column": 9
+            },
+            "end": {
+              "line": 76,
+              "column": 84
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var gate = Locks.GetOrAdd(path, _ =\u003E new SemaphoreSlim(1, 1));\n        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);\n        try\n        {\n            Directory.CreateDirectory(Path.GetDirectoryName(path)!);\n            var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(entry, JsonOptions) \u002B \u0022\\n\u0022);\n            await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read,\n                bufferSize: 4096, options: FileOptions.Asynchronous | FileOptions.WriteThrough);\n            await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);",
+            "contentHash": "sha256:8ddfc6ed4bee178ceb4fba492e0bb48076d2b49a9334af2e8de1890a643d69ed",
+            "excerptHash": "sha256:9866db46d1146b05120e844f05de82b361a5d730a1b49fac806c317062ce6953"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-5d6c68f35fd6d9b145025313b19791a55b70ea418d8319ab4a9bc7b38cdf574f",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Schema validation accepts negative token counts and durations",
+      "description": "IsSupported validates required strings and schema relationships but accepts negative token counts and DurationMs values. Such entries are persisted and subsequently subtract from aggregate totals, violating the semantic meaning of usage measurements.",
+      "recommendation": "Reject negative DurationMs and negative non-null token fields before appending. Consider centralizing these invariants in a validated factory or constructor so invalid entries cannot be created accidentally.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 126,
+              "column": 5
+            },
+            "end": {
+              "line": 144,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5d6c68f35fd6d9b145025313b19791a55b70ea418d8319ab4a9bc7b38cdf574f",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 126,
+              "column": 5
+            },
+            "end": {
+              "line": 144,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static bool IsSupported(ReviewUsageEntry entry)\n    {\n        if (string.IsNullOrWhiteSpace(entry.RunId) ||\n            string.IsNullOrWhiteSpace(entry.Model) ||\n            string.IsNullOrWhiteSpace(entry.CliType) ||\n            string.IsNullOrWhiteSpace(entry.Kind) ||\n            string.IsNullOrWhiteSpace(entry.Level) ||\n            string.IsNullOrWhiteSpace(entry.Path) ||\n            entry.Tokens is null)\n            return false;\n\n        return entry.SchemaVersion switch\n        {\n            1 =\u003E entry.ReviewRunId is null,\n            CurrentSchemaVersion =\u003E !string.IsNullOrWhiteSpace(entry.ReviewRunId),\n            _ =\u003E false,\n        };\n    }\n",
+            "contentHash": "sha256:8ddfc6ed4bee178ceb4fba492e0bb48076d2b49a9334af2e8de1890a643d69ed",
+            "excerptHash": "sha256:96ca2f3ed1124f2c914ff50b2fcd3049b0d2a74726afcf2ff7cbaf89d44f9b97"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-0e3e3b96e2fb17e62525e6dde7b2de67ea7fc8d876250e52dfed9d7d8caba6fd",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Corrupt ledger records are silently omitted from reports",
+      "description": "Catching JsonException allows later records to remain readable, but no warning, error count, or diagnostic callback reveals that data was discarded. Reports can consequently undercount usage while appearing complete, making persistent corruption difficult to detect or investigate.",
+      "recommendation": "Continue processing after malformed lines, but expose corruption through logging or report diagnostics containing at least the file and line number. Avoid including sensitive line contents in diagnostics.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 104,
+              "column": 21
+            },
+            "end": {
+              "line": 107,
+              "column": 18
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0e3e3b96e2fb17e62525e6dde7b2de67ea7fc8d876250e52dfed9d7d8caba6fd",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 104,
+              "column": 21
+            },
+            "end": {
+              "line": 107,
+              "column": 18
+            }
+          },
+          "capturedExcerpt": {
+            "text": "catch (JsonException)\n                    {\n                        // A partial/corrupt historical line must not hide the rest of the append-only ledger.\n                  ",
+            "contentHash": "sha256:8ddfc6ed4bee178ceb4fba492e0bb48076d2b49a9334af2e8de1890a643d69ed",
+            "excerptHash": "sha256:51eb39ab03ba5de6fc9eff8c2c6955e667d15c4b411cd17eb2aadd83b81815d0"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3f061e1333c2b3de1ca2f64a69e01c8e6a9bd7f8bc5f1b52b0c7f35494978bc3",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "low",
+      "title": "Per-ledger semaphores are retained for the lifetime of the process",
+      "description": "Every distinct canonical repository/month path creates a SemaphoreSlim that remains in the static dictionary permanently. Long-lived processes operating across many repositories or months accumulate unused synchronization objects without a bound.",
+      "recommendation": "Use a reference-counted keyed-lock abstraction that safely removes idle entries, or scope lock ownership to a shorter-lived ledger service instance. Ensure removal cannot race with queued callers.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 56,
+              "column": 5
+            },
+            "end": {
+              "line": 56,
+              "column": 115
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3f061e1333c2b3de1ca2f64a69e01c8e6a9bd7f8bc5f1b52b0c7f35494978bc3",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs",
+          "range": {
+            "start": {
+              "line": 56,
+              "column": 5
+            },
+            "end": {
+              "line": 56,
+              "column": 115
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static readonly ConcurrentDictionary\u003Cstring, SemaphoreSlim\u003E Locks = new(StringComparer.OrdinalIgnoreCas",
+            "contentHash": "sha256:8ddfc6ed4bee178ceb4fba492e0bb48076d2b49a9334af2e8de1890a643d69ed",
+            "excerptHash": "sha256:55f918935ed9d1f87f3fe72808ef37ab21d0a9508c398ba3ca2215a66b1e73bb"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

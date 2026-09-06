@@ -1,0 +1,458 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/600672e40a54a9e70de2bf517bc148afb824a7dd48103a340852732aeb49b8cd",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+    "displayName": "FindingStateStore.cs"
+  },
+  "reviewedAt": "2026-09-01T08:48:19.9728393Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-a5f9e3b12f144a28bd9f7f1971291a7c",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 19369,
+      "outputTokens": 4434,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 2938,
+      "durationMs": 132210
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "19ba80a0fa4f2c951def8925ba27eb04d8aaec791c5caa26a786f9700c1d6e27"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+      "selector": "file",
+      "contentHash": "sha256:40c80e119f63a3acfa705993a25b8c44a1da1bba42321a76beafb3bd4fdb1997"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 74,
+    "band": "C",
+    "rationale": "The store has a sound overall structure, injected clock, deterministic serialization, and coordinated writes, but several edge cases undermine correctness and resilience: optimistic concurrency can miss updates, merge inputs can create an unreadable document, expiry can advance revisions inconsistently, and lock acquisition can wait indefinitely."
+  },
+  "summary": "The implementation is generally clear and thoughtfully organized, but its persistence boundary needs stronger validation and failure handling. The most consequential risks are an unbounded retry loop around the lock file and timestamp-based conflict detection that is not guaranteed to distinguish successive writes. Test coverage is unknown because no coverage evidence was supplied.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Normal read, merge, update, and expiry flows are coherent, but conflict detection is vulnerable to timestamp collisions, unvalidated merge data can poison the persisted state, and MergeReviewAsync can count one expiry as two revisions."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The implementation is compact and decomposed into focused helpers, although validation is duplicated or absent at different write boundaries and the lock protocol embeds subtle operational behavior in a generic retry loop."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 85,
+        "band": "B",
+        "rationale": "Naming and control flow are generally easy to follow. The intended semantics of Revision, expectedTimestamp, and retryable lock failures are not explicit enough to make their edge-case behavior predictable."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 65,
+        "band": "D",
+        "rationale": "Serialization and schema errors are mostly reported deliberately, but all lock-related IOExceptions are treated as transient and malformed null records escape validation as NullReferenceException rather than the documented JSON failure shape."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Clock injection makes expiry behavior straightforward to test, and the public API supports filesystem integration tests. Static process-wide locks, real filesystem operations, and timestamp-based versioning make isolation and deterministic concurrency testing harder."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1c0f8a95e10692c93c5e91d0b0419da250b327810b315ccc52f874e63050cde1",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Timestamps are not reliable optimistic-concurrency tokens",
+      "description": "SetAsync accepts the update when expectedTimestamp equals the current record timestamp, then assigns Timestamp from the injected clock. Two successive updates can therefore have the same timestamp when the clock has limited resolution or is fixed in tests. A second client holding the original timestamp can then overwrite the first update without receiving FindingStateConflictException.",
+      "recommendation": "Use an explicit monotonically increasing record version or the document revision as the concurrency token. If the API must retain timestamps, do not rely on them alone for compare-and-swap behavior.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 112,
+              "column": 13
+            },
+            "end": {
+              "line": 120,
+              "column": 32
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1c0f8a95e10692c93c5e91d0b0419da250b327810b315ccc52f874e63050cde1",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 112,
+              "column": 13
+            },
+            "end": {
+              "line": 120,
+              "column": 32
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    throw new FindingStateConflictException(fingerprint, existing);\n\n            var updated = existing with\n            {\n                State = state,\n                Author = author.Trim(),\n                Reason = reason.Trim(),\n                Timestamp = now,\n                ExpiresAt = expi",
+            "contentHash": "sha256:40c80e119f63a3acfa705993a25b8c44a1da1bba42321a76beafb3bd4fdb1997",
+            "excerptHash": "sha256:144e05d7eabe2af9e193835b37ea9ada7471c9f80be76f832b9fa2f098b27168"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-1c7fbc8eb321f4d5ec522c02495d2acee1b00345f7a107dc5b2087fa8caa286d",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "MergeReviewAsync can persist data that LoadAsync subsequently rejects",
+      "description": "Unlike SetAsync, MergeReviewAsync does not validate or normalize author, and it does not validate identity fields before NewRecord copies them into the document. A blank author, malformed fingerprint, or blank finding metadata can be saved successfully, after which the next LoadAsync call rejects the store as invalid. Null current or previous collections also fail with incidental NullReferenceException rather than argument validation.",
+      "recommendation": "Validate collection arguments, author length and whitespace, and every FindingIdentityRecord at the start of MergeReviewAsync. Apply the same normalization and invariants used by SetAsync and LoadAsync before modifying or saving the document.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 50,
+              "column": 5
+            },
+            "end": {
+              "line": 61,
+              "column": 1
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 129,
+              "column": 5
+            },
+            "end": {
+              "line": 130,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1c7fbc8eb321f4d5ec522c02495d2acee1b00345f7a107dc5b2087fa8caa286d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 50,
+              "column": 5
+            },
+            "end": {
+              "line": 61,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    IReadOnlyCollection\u003CFindingIdentityRecord\u003E current,\n        IReadOnlyCollection\u003CFindingIdentityRecord\u003E previous,\n        string author,\n        CancellationToken cancellationToken = default) =\u003E\n        await ExecuteLockedAsync(async () =\u003E\n        {\n            var now = clock().ToUniversalTime();\n            var (document, expiredChanged) = ReopenExpired(await LoadAsync(cancellationToken).ConfigureAwait(false), now);\n            var records = document.Findings.ToDictionary(record =\u003E record.Fingerprint, StringComparer.Ordinal);\n            var changed = expiredChanged;\n            var currentFingerprints = current.Select(item =\u003E item.Fingerprint).ToHashSet(StringComparer.Ordinal);\n",
+            "contentHash": "sha256:40c80e119f63a3acfa705993a25b8c44a1da1bba42321a76beafb3bd4fdb1997",
+            "excerptHash": "sha256:adb2f0340fe4dad9f4ef91ef36169a14d8df7e24d889b19040b04a404c9bf03c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-5cc306bb3392812e5079872843d1463671f4c31316a62d36c81b5b363ea49ae5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "MergeReviewAsync advances the revision twice for an expiry-only change",
+      "description": "ReopenExpired returns a document whose revision has already been incremented. MergeReviewAsync then sets changed from expiredChanged and, even when the merge itself changes nothing, constructs another document using document.Revision \u002B 1. Consequently, the same expiry advances the revision once when triggered by ReadAsync but twice when triggered by MergeReviewAsync, making revision semantics dependent on the entry point.",
+      "recommendation": "Have ReopenExpired return changed records without changing the revision, and increment exactly once at the persistence boundary, or track merge changes separately and avoid the second increment when expiry is the only change.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 58,
+              "column": 13
+            },
+            "end": {
+              "line": 60,
+              "column": 41
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 83,
+              "column": 13
+            },
+            "end": {
+              "line": 86,
+              "column": 14
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5cc306bb3392812e5079872843d1463671f4c31316a62d36c81b5b363ea49ae5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 58,
+              "column": 13
+            },
+            "end": {
+              "line": 60,
+              "column": 41
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var records = document.Findings.ToDictionary(record =\u003E record.Fingerprint, StringComparer.Ordinal);\n            var changed = expiredChanged;\n            var currentFingerprints = cur",
+            "contentHash": "sha256:40c80e119f63a3acfa705993a25b8c44a1da1bba42321a76beafb3bd4fdb1997",
+            "excerptHash": "sha256:28e4e2ff195e1298d9d48f61149f1a41c67ded963ed31659fe0095df75a94821"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-28e3fcbfeecb5f362cb9ab7a3d541b0b174b89cd0eb5de4c8f649197c11d8243",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Lock acquisition retries every IOException indefinitely",
+      "description": "The lock loop treats every IOException as evidence that another writer owns the lock. With the default non-cancelable token, a stale lock file or a persistent filesystem error can make every operation wait forever while polling every 25 milliseconds. Some IOExceptions are permanent and should be surfaced rather than hidden as contention.",
+      "recommendation": "Retry only failures positively identified as lock contention, impose a configurable timeout or stale-lock policy, and propagate other IOExceptions with lock-path context. Consider a lock mechanism whose ownership and abandonment behavior can be determined reliably.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 194,
+              "column": 13
+            },
+            "end": {
+              "line": 202,
+              "column": 14
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:28e3fcbfeecb5f362cb9ab7a3d541b0b174b89cd0eb5de4c8f649197c11d8243",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 194,
+              "column": 13
+            },
+            "end": {
+              "line": 202,
+              "column": 14
+            }
+          },
+          "capturedExcerpt": {
+            "text": "{\n                try\n                {\n                    fileLock = new FileStream(lockPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,\n                        1, FileOptions.Asynchronous | FileOptions.DeleteOnClose);\n                }\n                catch (IOException) { await Task.Delay(25, cancellationToken).ConfigureAwait(false); }\n            }\n            aw",
+            "contentHash": "sha256:40c80e119f63a3acfa705993a25b8c44a1da1bba42321a76beafb3bd4fdb1997",
+            "excerptHash": "sha256:27de4ea525ff2faab82abd3655fca20aa278140e72ea083229e9771854729838"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-83736b29a1271e35a391c22fb33d3ef9bc959275acf05e3d597b8b760d1debad",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "A null finding entry bypasses controlled JSON validation",
+      "description": "JSON can contain a null element in the findings array despite the non-nullable C# annotation. The duplicate check dereferences record.Fingerprint before the later validity check, so such input throws NullReferenceException instead of a descriptive JsonException. The later predicate would also dereference the record.",
+      "recommendation": "Reject null collection elements explicitly before grouping or accessing their properties, and report the failure as JsonException with the other document-validation errors.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 140,
+              "column": 13
+            },
+            "end": {
+              "line": 146,
+              "column": 25
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:83736b29a1271e35a391c22fb33d3ef9bc959275acf05e3d597b8b760d1debad",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingStateStore.cs",
+          "range": {
+            "start": {
+              "line": 140,
+              "column": 13
+            },
+            "end": {
+              "line": 146,
+              "column": 25
+            }
+          },
+          "capturedExcerpt": {
+            "text": "throw new JsonException(\u0022Finding state contains duplicate fingerprints.\u0022);\n        if (document.Findings.Any(record =\u003E !IsFingerprint(record.Fingerprint) ||\n            string.IsNullOrWhiteSpace(record.FindingId) || string.IsNullOrWhiteSpace(record.Path) ||\n            string.IsNullOrWhiteSpace(record.RuleId) || string.IsNullOrWhiteSpace(record.Author) ||\n            string.IsNullOrWhiteSpace(record.Reason)))\n            throw new JsonException(\u0022Finding state contains an invalid record.\u0022);\n        return document;",
+            "contentHash": "sha256:40c80e119f63a3acfa705993a25b8c44a1da1bba42321a76beafb3bd4fdb1997",
+            "excerptHash": "sha256:52e572af2e878c28cb0d512d4b8db1d47a133ce763c6af23db0ebd5eccb9a3a1"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

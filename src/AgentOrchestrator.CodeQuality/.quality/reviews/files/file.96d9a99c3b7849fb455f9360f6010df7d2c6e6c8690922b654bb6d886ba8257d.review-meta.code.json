@@ -1,0 +1,374 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/2eea02b899546f7b78423843b3aa9367c52fa5285a14b08cc30b3fb719d05357",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+    "displayName": "AnalyzerSensors.cs"
+  },
+  "reviewedAt": "2026-09-01T08:29:16.3110956Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-c3a5e4275458424eaa91eaf65f4930f4",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 19199,
+      "outputTokens": 4526,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 3431,
+      "durationMs": 147145
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "54c526e96cb32ffb00bb5e01605459e1d74e5188a94650b61975a7f9ed927397"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+      "selector": "file",
+      "contentHash": "sha256:a26b956c6234d8077b41b41289a40e6057531ac35ab341ff3762e1aece354b5d"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 72,
+    "band": "C",
+    "rationale": "The design is generally readable and dependency injection supports testing, but scope handling can silently scan the wrong target, ESLint availability checks the wrong executable, and several expected parsing and filesystem failures escape the structured sensor-result contract."
+  },
+  "summary": "The implementation is clear overall, but it has correctness and resilience gaps around analyzer probing, path-scoped requests, diagnostic parsing, and report persistence. Test coverage is unknown because no coverage data was supplied.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "A missing path in a path-scoped request silently becomes a repository scan, and the ESLint sensor reports availability based only on Node."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The shared SARIF abstraction and compact TypeScript implementation are understandable, though validation and failure translation are distributed unevenly."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 85,
+        "band": "B",
+        "rationale": "Naming and control flow are mostly clear, but the meaning of availability is misleading when the analyzer itself is never probed."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Command-launch failures are translated into structured results, but malformed diagnostics and ordinary report filesystem failures can still abort the scan with exceptions."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The command runner is injectable and parsing is exposed for unit testing, but filesystem and clock dependencies remain direct. Coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-3fdf7da43f28161b2dab998dbd5f8f81678ce8ea7f70951e6e06a51033b0ebb1",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "ESLint availability probe never checks ESLint",
+      "description": "The ESLint sensor configures the shared probe as \u0060node --version\u0060. A system with Node installed but no usable ESLint installation is therefore reported as available, and the returned tool version describes Node rather than the analyzer. This can defer a predictable configuration failure until the scan runs.",
+      "recommendation": "Probe the actual ESLint executable used by the scan, such as a repository-local \u0060npx --no-install eslint --version\u0060, and record the resulting ESLint version. If Node is also relevant, record it as a separate prerequisite version.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 76,
+              "column": 9
+            },
+            "end": {
+              "line": 76,
+              "column": 70
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3fdf7da43f28161b2dab998dbd5f8f81678ce8ea7f70951e6e06a51033b0ebb1",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 76,
+              "column": 9
+            },
+            "end": {
+              "line": 76,
+              "column": 70
+            }
+          },
+          "capturedExcerpt": {
+            "text": "ic EslintAnalyzerSensor(ISensorCommandRunner? commandRunner = ",
+            "contentHash": "sha256:a26b956c6234d8077b41b41289a40e6057531ac35ab341ff3762e1aece354b5d",
+            "excerptHash": "sha256:0862a0138a55a04cc951ec7a69d9abd980e644d134ede97561bb1396fd773a11"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-15bfd70904c59101ad6cb9521fe50a5bc7bf9bb3fba07309f0d2a771e38eb4df",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "A path-scoped request without a path scans the repository root",
+      "description": "When \u0060Scope\u0060 is \u0060Path\u0060 but \u0060request.Path\u0060 is null or whitespace, the target falls back to the repository root. The sensor can consequently return repository-wide findings for a request represented in provenance as a missing path, violating the requested scope and potentially producing misleading evidence.",
+      "recommendation": "Validate the requested scope before deriving the target. Return a failed \u0060SensorScanResult\u0060 when a path-scoped request lacks a non-empty path, and explicitly reject unsupported scope values.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 135,
+              "column": 12
+            },
+            "end": {
+              "line": 137,
+              "column": 23
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:15bfd70904c59101ad6cb9521fe50a5bc7bf9bb3fba07309f0d2a771e38eb4df",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 135,
+              "column": 12
+            },
+            "end": {
+              "line": 137,
+              "column": 23
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n        {\n            target = re",
+            "contentHash": "sha256:a26b956c6234d8077b41b41289a40e6057531ac35ab341ff3762e1aece354b5d",
+            "excerptHash": "sha256:d3d9cda6ae6fa79825fe52495278c591e40bf025f404d07974a64cef221f39c1"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3e9d8736661c379751166651a8bc16bcf49e25f634eed621f79b82e6fe806429",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Malformed diagnostic fields can abort the scan",
+      "description": "Compiler output is converted with \u0060Path.GetFullPath\u0060 and \u0060int.Parse\u0060 without per-diagnostic validation. An invalid path or an oversized line or column number can throw, escaping \u0060RunAsync\u0060 instead of being ignored or returned as a structured analyzer failure.",
+      "recommendation": "Use \u0060int.TryParse\u0060 with explicit bounds, catch path-normalization exceptions per match, and either skip malformed diagnostic lines or return a structured failure containing a bounded output detail.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 201,
+              "column": 13
+            },
+            "end": {
+              "line": 208,
+              "column": 60
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3e9d8736661c379751166651a8bc16bcf49e25f634eed621f79b82e6fe806429",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 201,
+              "column": 13
+            },
+            "end": {
+              "line": 208,
+              "column": 60
+            }
+          },
+          "capturedExcerpt": {
+            "text": "ach (Match match in DiagnosticLine().Matches(output))\n        {\n            var rawPath = match.Groups[\u0022path\u0022].Value;\n            var absolute = Path.GetFullPath(\n                Path.IsPathRooted(rawPath) ? rawPath : Path.Combine(working, rawPath));\n            var path = AnalyzerCommand.IsWithin(root, absolute)\n                ? Path.GetRelativePath(root, absolute).Replace(\u0027\\\\\u0027, \u0027/\u0027)\n                : \u0022external/\u0022 \u002B Path.GetFileName(absolute);",
+            "contentHash": "sha256:a26b956c6234d8077b41b41289a40e6057531ac35ab341ff3762e1aece354b5d",
+            "excerptHash": "sha256:fac5fa1f4bbc1655a084eb69c681563194e10eb5ef96c16a866ff90cf206c759"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-26a971a307182f1060abd553c5bc91b2658aa4d16bdc1ec830f555811bf902d6",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Report persistence failures bypass the sensor result contract",
+      "description": "Directory creation and report writing occur outside the guarded command-execution block. Common failures such as an inaccessible directory, a read-only repository, or another I/O error therefore throw from \u0060RunAsync\u0060 rather than producing an unavailable result. Cancellation should still propagate, but ordinary persistence failures should be translated consistently.",
+      "recommendation": "Wrap report-directory creation and writing in narrowly scoped handling for \u0060IOException\u0060, \u0060UnauthorizedAccessException\u0060, and relevant path exceptions, returning a structured failure while allowing \u0060OperationCanceledException\u0060 to propagate.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 168,
+              "column": 9
+            },
+            "end": {
+              "line": 170,
+              "column": 71
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:26a971a307182f1060abd553c5bc91b2658aa4d16bdc1ec830f555811bf902d6",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerSensors.cs",
+          "range": {
+            "start": {
+              "line": 168,
+              "column": 9
+            },
+            "end": {
+              "line": 170,
+              "column": 71
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    new[] { output.StandardOutput, output.StandardError }\n                .Where(value =\u003E !string.IsNullOrWhiteSpace(value)));\n        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);",
+            "contentHash": "sha256:a26b956c6234d8077b41b41289a40e6057531ac35ab341ff3762e1aece354b5d",
+            "excerptHash": "sha256:751f8ff09ac3a5fe37d467846877dc5de81f4d3622cf0b22647f34811f99414b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

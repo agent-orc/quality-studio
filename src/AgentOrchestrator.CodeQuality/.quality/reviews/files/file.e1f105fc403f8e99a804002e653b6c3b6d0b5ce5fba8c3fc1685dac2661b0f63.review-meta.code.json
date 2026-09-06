@@ -1,0 +1,329 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/41de1b5d7a7fb705baac52af716acc5a784a4dc1cbdb80fd5055ad830132f3d0",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+    "displayName": "HierarchyNode.cs"
+  },
+  "reviewedAt": "2026-09-01T08:59:27.6377831Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-47443d2834d245d9bd72a5e4f86da3fb",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17574,
+      "outputTokens": 1390,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 455,
+      "durationMs": 51673
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "d71dc338650a28078192c966f77acfa1ee4fd419ebea4c92d2f6ec308171ef76"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+      "selector": "file",
+      "contentHash": "sha256:d774f529d2cc672d576e57e525b28d951e211016d388c0e928376b4e9546d153"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 82,
+    "band": "B",
+    "rationale": "The class is concise and generally enforces document ownership and hierarchy constraints, but its collection exposure permits invariant-bypassing mutation, and some constructor and hierarchy validation is incomplete or coupled to enum representation."
+  },
+  "summary": "The implementation is readable and mostly well structured. The principal correctness risk is returning mutable List instances as IReadOnlyList interfaces. Additional weaknesses are reliance on numeric enum adjacency and failure to validate physical metadata documented as file-only and inherently non-negative. Test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Publicly exposed backing lists can be cast and mutated without validation, while undefined enum values and invalid physical metadata can enter the model."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "The small fluent API is easy to follow, but hierarchy behavior is implicitly coupled to the numeric ordering of ReviewLevel."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 90,
+        "band": "A",
+        "rationale": "Names, documentation, and validation messages clearly communicate the intended model and operations."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Null, whitespace, ownership, and duplicate-document errors are handled explicitly, but invalid enum and physical metadata values are not rejected."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "The deterministic, dependency-free API is straightforward to unit test, although mutable collection leakage makes invalid states possible outside the validated methods. Coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-381d84d3a97457aff94d57befbcc29ceae4e24720642bcd9eb465737339efcf0",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Read-only properties expose mutable backing lists",
+      "description": "Children and Exclusions are typed as IReadOnlyList, but their runtime values are the underlying List instances. A caller can cast either value back to List and mutate it directly, bypassing level checks, null checks, and exclusion deduplication. This can place the node in a state that its public mutation methods are intended to prevent.",
+      "recommendation": "Create and retain read-only wrappers, such as children.AsReadOnly() and exclusions.AsReadOnly(), or expose immutable collection snapshots so callers cannot recover the mutable backing lists.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 32,
+              "column": 1
+            },
+            "end": {
+              "line": 32,
+              "column": 1
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 35,
+              "column": 1
+            },
+            "end": {
+              "line": 35,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:381d84d3a97457aff94d57befbcc29ceae4e24720642bcd9eb465737339efcf0",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 32,
+              "column": 1
+            },
+            "end": {
+              "line": 32,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "",
+            "contentHash": "sha256:d774f529d2cc672d576e57e525b28d951e211016d388c0e928376b4e9546d153",
+            "excerptHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-1651b0227adfe48dfddae5e77b30a0c58c7d6788abee2eba6a0cd5e33406d3a5",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "medium",
+      "title": "Hierarchy validation depends on enum numeric ordering",
+      "description": "AddChild defines the hierarchy relationship by casting ReviewLevel values to integers and adding one. Reordering enum members, assigning explicit nonconsecutive values, or passing undefined enum values can silently reject valid relationships or accept meaningless ones. The constructor also does not establish that Level is a defined value.",
+      "recommendation": "Validate ReviewLevel at construction and express permitted parent-child relationships explicitly, for example with a switch over the parent level or a centralized hierarchy transition function.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 49,
+              "column": 9
+            },
+            "end": {
+              "line": 52,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1651b0227adfe48dfddae5e77b30a0c58c7d6788abee2eba6a0cd5e33406d3a5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 49,
+              "column": 9
+            },
+            "end": {
+              "line": 52,
+              "column": 6
+            }
+          },
+          "capturedExcerpt": {
+            "text": "HierarchyAggregation.ForAllKinds(this);\n\n    public HierarchyNode AddChild(HierarchyNode child)\n    {",
+            "contentHash": "sha256:d774f529d2cc672d576e57e525b28d951e211016d388c0e928376b4e9546d153",
+            "excerptHash": "sha256:d7f61e3a9db7a583b0f9aeed7910d3b3a3dc3f5087b0fbc398553b895ec06099"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f0ef490f60e72ea07eede334f831be7447215accb8150586a2419e334fe88813",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Physical metadata invariants are not enforced",
+      "description": "The constructor accepts negative byte sizes and line counts, and it accepts these values for every review level even though the property documentation says physical source information is present only for file nodes. This allows semantically invalid nodes to be created and shifts validation to downstream consumers.",
+      "recommendation": "Reject negative SizeBytes and LineCount values and enforce or clearly relax the file-only constraint. If non-file nodes must sometimes carry these values, update the documentation to describe that behavior.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 5
+            },
+            "end": {
+              "line": 20,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f0ef490f60e72ea07eede334f831be7447215accb8150586a2419e334fe88813",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/HierarchyNode.cs",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 5
+            },
+            "end": {
+              "line": 20,
+              "column": 6
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private readonly Dictionary\u003CReviewKind, AttachedReviewMetaDocument\u003E documents = [];\n    private readonly List\u003CScopeExclusion\u003E exclusions = [];\n\n    public HierarchyNode(string id, string name, ReviewLevel level, string path, long? sizeBytes = null, int? lineCount = null)\n    {\n        ArgumentException.ThrowIfNullOrWhiteSpace(id);\n        ArgumentException.ThrowIfNullOrWhiteSpace(name);\n        ArgumentException.ThrowIfNullOrWhiteSpace(path);\n        Id = id;\n        Name = name;\n        Level = level;\n      ",
+            "contentHash": "sha256:d774f529d2cc672d576e57e525b28d951e211016d388c0e928376b4e9546d153",
+            "excerptHash": "sha256:e9729bd792fe7404ea68e3881678e6f6e00db9f3b850f899e359cef342d1f47b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

@@ -1,0 +1,413 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/b6f0381aa6f1c5772cdc1bd47fcd68e9f3db672ccb9d4327aac375ea0c7f7b53",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+    "displayName": "RepositoryHierarchyBuilder.cs"
+  },
+  "reviewedAt": "2026-09-01T09:11:56.1730710Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-6a654150d78b4f75872f60a4fc5531d7",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18783,
+      "outputTokens": 5494,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 4010,
+      "durationMs": 166271
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "efa273aed55d73cd4c92367b6f14de78ea21bb6a7111f1ea0008613d08757b13"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+      "selector": "file",
+      "contentHash": "sha256:8780c5919dccc19f63335eaad9540efb0423c69c90c491561d301b58aa100734"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 65,
+    "band": "D",
+    "rationale": "The implementation is readable and deterministic, but it does not evaluate actual MSBuild compile items and derives C# structure with lossy regular expressions and incomplete symbol identities. These flaws can materially misrepresent repository hierarchy. File-system and parsing failures also abort the entire operation without partial diagnostics."
+  },
+  "summary": "The builder has a clear high-level flow, stable hashing, deterministic ordering, and useful path-containment checks. Its principal correctness problem is treating every recursively discovered .cs file as part of each project instead of respecting evaluated MSBuild items. Regex-based namespace and function extraction then introduces false positives, omissions, and incorrect namespace attribution, while function deduplication collapses distinct members. Error isolation and filesystem abstractions are limited, reducing resilience and testability. Test coverage is unknown because no coverage evidence was supplied.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "Project membership, namespaces, and function identities can all be materially incorrect for valid .NET repositories, including nested projects, linked or removed Compile items, multiple namespaces, generic methods, overloads, and same-named methods in different types."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 73,
+        "band": "C",
+        "rationale": "The control flow and naming are generally approachable, but hand-maintained parsers for MSBuild and C# syntax duplicate complex platform behavior and will require continual special-case maintenance."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 81,
+        "band": "B",
+        "rationale": "The hierarchy construction and deterministic ordering are easy to follow. However, names such as BuildProject obscure that the node may represent a solution or a synthetic repository-level project, and the limitations of regex-derived symbols are undocumented."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 62,
+        "band": "D",
+        "rationale": "Missing project files are skipped, but malformed solution XML, inaccessible directories, and unreadable source files can terminate the complete build. There is no per-artifact recovery or structured failure result despite the existing exclusion mechanism."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 64,
+        "band": "D",
+        "rationale": "Pure ID generation and deterministic ordering are straightforward to test, but static direct filesystem access and tightly coupled parsing require integration-style filesystem fixtures and make failure-path testing cumbersome. Coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-bc6c1a20a4ebb6a43604193d0dcbc38aff52495297a6d95c428a22342046de76",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Source discovery ignores evaluated MSBuild compile items",
+      "description": "Each module recursively claims every .cs file beneath the project directory. This includes files removed with Compile Remove, files belonging to nested projects, and other non-project sources, while omitting linked Compile items located outside the directory. A parent project can therefore absorb a nested project\u0027s files and report them again under the child module.",
+      "recommendation": "Evaluate each project with MSBuild and build the module from its resolved Compile items. Normalize and confine each resulting path to the repository, apply RepositoryScope to it, and deduplicate evaluated paths. If full evaluation is intentionally unsupported, define and enforce explicit project-boundary rules and surface the limitation.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 86,
+              "column": 26
+            },
+            "end": {
+              "line": 89,
+              "column": 23
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:bc6c1a20a4ebb6a43604193d0dcbc38aff52495297a6d95c428a22342046de76",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 86,
+              "column": 26
+            },
+            "end": {
+              "line": 89,
+              "column": 23
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Directory.EnumerateFiles(projectDirectory, \u0022*.cs\u0022, ConfinedEnumeration)\n            .Order(StringComparer.Ordinal)\n            .Select(path =\u003E (Path: path, Relative: Relative(root, path), Decision: scope.Evaluate(Relative(root, path), path)))\n            .ToArray();",
+            "contentHash": "sha256:8780c5919dccc19f63335eaad9540efb0423c69c90c491561d301b58aa100734",
+            "excerptHash": "sha256:17505ef035427fa3d75adcc0f5fc09162ff6168a78a8d5a8a27339d997210e5f"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b71f4134fa56d90a1017595f8b9b995ac60b0eaf66c3023c2d1cd48b30afdc35",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Regular expressions do not reliably identify C# namespaces and functions",
+      "description": "The namespace expression is not syntax-aware and returns only the first textual match, so namespace-like text in comments or strings can win and files containing multiple namespace declarations are assigned wholly to one namespace. The function expression can likewise match declaration-shaped text in comments while missing valid constructs such as generic methods, explicit-interface implementations, operators, and declarations affected by attributes or formatting. This makes the generated hierarchy dependent on source formatting rather than C# semantics.",
+      "recommendation": "Parse source with Roslyn and traverse the syntax tree or semantic model for namespace and callable-member declarations. Record the containing namespace and type for each symbol, and define explicitly whether constructors, local functions, accessors, and operators belong at the Function level.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 167,
+              "column": 5
+            },
+            "end": {
+              "line": 170,
+              "column": 5
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 203,
+              "column": 5
+            },
+            "end": {
+              "line": 207,
+              "column": 49
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b71f4134fa56d90a1017595f8b9b995ac60b0eaf66c3023c2d1cd48b30afdc35",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 167,
+              "column": 5
+            },
+            "end": {
+              "line": 170,
+              "column": 5
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static string ReadNamespace(string path)\n    {\n        var match = NamespaceRegex().Match(File.ReadAllText(path));\n     ",
+            "contentHash": "sha256:8780c5919dccc19f63335eaad9540efb0423c69c90c491561d301b58aa100734",
+            "excerptHash": "sha256:d02c0d01c7fa31b5783641df42fc2ddcc081de9735a1b79edf33c005ecd11919"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-9b51b382c0be3e33d194ce3fd589b137ef10194a58b513966f3a6812928c0888",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Function identity collapses distinct members with the same name",
+      "description": "The per-file deduplication key consists only of namespace and method name, and the same incomplete value is used in the canonical ID. Overloads and same-named methods declared by different types in one file are consequently represented by a single function node. Changing declaration order can also determine which declaration survives without preserving any signature information.",
+      "recommendation": "Use a canonical symbol identity containing at least the containing type, member kind, method name, generic arity, and parameter types. When semantic resolution is unavailable, include a normalized signature and source span so distinct declarations cannot collapse.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 118,
+              "column": 17
+            },
+            "end": {
+              "line": 131,
+              "column": 41
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:9b51b382c0be3e33d194ce3fd589b137ef10194a58b513966f3a6812928c0888",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 118,
+              "column": 17
+            },
+            "end": {
+              "line": 131,
+              "column": 41
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var symbols = new HashSet\u003Cstring\u003E(StringComparer.Ordinal);\n                foreach (Match match in FunctionRegex().Matches(sourceContent))\n                {\n                    var symbol = $\u0022{group.Key}.{match.Groups[1].Value}\u0022;\n                    if (!symbols.Add(symbol))\n                    {\n                        continue;\n                    }\n\n                    file.AddChild(new HierarchyNode(\n                        Id(ReviewLevel.Function, [file.Id, \u0022csharp-source-key-v1\u0022, symbol]),\n                        match.Groups[1].Value,\n                        ReviewLevel.Function,\n                        relativeSource));",
+            "contentHash": "sha256:8780c5919dccc19f63335eaad9540efb0423c69c90c491561d301b58aa100734",
+            "excerptHash": "sha256:44a77b4ccda49b359629c0520e8275dc501cbb492989808de75707ed7a20a1f4"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-159084f6ca5aed4ab1e8c97d9c2d5948872d61ae077b74fffcc6ca32234b4db2",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "A single unreadable or malformed artifact aborts the whole hierarchy build",
+      "description": "The existence check only handles a project disappearing before processing. Enumeration, solution parsing, namespace reads, and source reads can throw for malformed XML, invalid content paths, permissions, transient deletion, or I/O failures. These exceptions escape the public entry point, discarding otherwise valid hierarchy results from unrelated projects and solutions.",
+      "recommendation": "Define an explicit failure policy. For best-effort hierarchy generation, isolate processing per solution, project, and source file, convert recoverable failures into structured exclusions or diagnostics containing the affected path, and continue. For fatal failures, wrap exceptions with operation and path context while preserving the original exception.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 54,
+              "column": 9
+            },
+            "end": {
+              "line": 71,
+              "column": 54
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 108,
+              "column": 37
+            },
+            "end": {
+              "line": 108,
+              "column": 65
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 143,
+              "column": 20
+            },
+            "end": {
+              "line": 147,
+              "column": 57
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:159084f6ca5aed4ab1e8c97d9c2d5948872d61ae077b74fffcc6ca32234b4db2",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyBuilder.cs",
+          "range": {
+            "start": {
+              "line": 54,
+              "column": 9
+            },
+            "end": {
+              "line": 71,
+              "column": 54
+            }
+          },
+          "capturedExcerpt": {
+            "text": "foreach (var projectFile in projects.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))\n        {\n            if (!File.Exists(projectFile))\n            {\n                continue;\n            }\n\n            var relativeProjectFile = Relative(root, projectFile);\n            var decision = scope.Evaluate(relativeProjectFile, projectFile);\n            if (!decision.Included)\n            {\n                project.AddExclusion(new ScopeExclusion(relativeProjectFile, decision.Reason!));\n                continue;\n            }\n\n            var module = BuildModule(root, scope, project, projectFile);\n            project.AddChild(module);\n            project.AddExclusions(module.Exclusions);",
+            "contentHash": "sha256:8780c5919dccc19f63335eaad9540efb0423c69c90c491561d301b58aa100734",
+            "excerptHash": "sha256:52984c661014462e8e18f72f8168932d2b63b13feb5e6d5340ebd7637f45b42d"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

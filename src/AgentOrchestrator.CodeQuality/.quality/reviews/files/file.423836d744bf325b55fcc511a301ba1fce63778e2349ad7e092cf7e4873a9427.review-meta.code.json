@@ -1,0 +1,503 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/a4c2a79c069c54ae08e7cb8ded05735ba2ef9739d7f26aed4af9286037386979",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+    "displayName": "ChangeSetReviewService.cs"
+  },
+  "reviewedAt": "2026-09-01T08:40:46.6005837Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-37a08e3a983e4f4b983f88339f9444a7",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 23472,
+      "outputTokens": 7000,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 4889,
+      "durationMs": 193673
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "1ab3ecd84a4ffcfd53a3b0389b08a5fa0ff1ac57aca0b75999f1edac821a3323"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+      "selector": "file",
+      "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 71,
+    "band": "C",
+    "rationale": "The service is generally well structured and deterministic, but several edge cases can produce incorrect review documents, including collapsed HTTP boundaries, corrupted dotfile paths, misleading summaries, and an unsafe persistence path. Error handling also obscures some Git failures and inconsistently wraps malformed metadata."
+  },
+  "summary": "The implementation has clear decomposition and sensible immutable result models, but its correctness degrades for common repository constructs such as multiple attribute-routed endpoints and dotfiles. Persistence-path validation and more precise failure classification should be addressed before relying on the generated review artifacts as authoritative evidence.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "Boundary identities can collide, leading-dot paths are altered, and some valid quality deltas produce an empty human-readable summary."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The code is decomposed into focused helpers, but the service combines Git access, parsing, analysis, persistence, formatting, and heuristic source scanning in one large class."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 77,
+        "band": "C",
+        "rationale": "Naming and control flow are mostly clear, although silent fallback behavior and incomplete summary construction make some outputs difficult to interpret accurately."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 62,
+        "band": "D",
+        "rationale": "Broad suppression of Git exceptions can turn operational failures into missing-file evidence, while some malformed metadata escapes the intended contextual exception wrapper."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Most transformation helpers are deterministic, but direct static Git and filesystem calls plus direct use of the system clock make orchestration and failure-path tests more cumbersome. No coverage data was available."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-7fc563007f4b7477017eaab5d15886dadbdee49efdbf4ecddc563249967853f6",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Commit metadata can escape the review output directory",
+      "description": "The persisted filename is constructed directly from MergeCommit or HeadCommit. MergeCommit is not validated by the preceding metadata loads, and a provider-supplied value containing rooted or parent-directory path components can cause GetPath to resolve outside \u0060.quality/changes\u0060. Even benign ref-like identifiers containing separators unexpectedly create nested paths.",
+      "recommendation": "Require a canonical hexadecimal object ID before using it as a filename, or derive a filesystem-safe deterministic name by hashing the identifier. Resolve the resulting path and verify that it remains beneath the intended changes directory.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 122,
+              "column": 5
+            },
+            "end": {
+              "line": 124,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7fc563007f4b7477017eaab5d15886dadbdee49efdbf4ecddc563249967853f6",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 122,
+              "column": 5
+            },
+            "end": {
+              "line": 124,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    Path.Combine(Path.GetFullPath(repositoryRoot), \u0022.quality\u0022, \u0022changes\u0022,\n            (changeSet.MergeCommit ?? changeSet.HeadCommit) \u002B \u0022.json\u0022);\n",
+            "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494",
+            "excerptHash": "sha256:0dde0cdee3b7c8407637bcb229e7b9e7a200306608f7db028c0b3b59761ca401"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-4a2551a899ac7b05964359e080f6f076d617d3e14ef64d1bb6a39fd5a5c689b7",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Multiple attribute-routed endpoints in one file collapse into one boundary",
+      "description": "A parameterless attribute such as \u0060[HttpGet]\u0060 is assigned the common name \u0060(attribute route)\u0060, and the identity contains only the file path, HTTP method, and that name. Consequently, multiple parameterless attributes using the same verb in one file receive identical identities. The final DistinctBy call drops all but one, so new, removed, or changed endpoints can be omitted from the boundary delta.",
+      "recommendation": "Include a stable enclosing controller/action identity or another syntax-derived declaration key in the boundary identity. Do not use the source line alone if identities must survive harmless line movement.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 621,
+              "column": 17
+            },
+            "end": {
+              "line": 625,
+              "column": 66
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 634,
+              "column": 2
+            },
+            "end": {
+              "line": 634,
+              "column": 2
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:4a2551a899ac7b05964359e080f6f076d617d3e14ef64d1bb6a39fd5a5c689b7",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 621,
+              "column": 17
+            },
+            "end": {
+              "line": 625,
+              "column": 66
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var display = $\u0022{method} {name}\u0022;\n                var identity = \u0022boundary:\u0022 \u002B Convert.ToHexStringLower(SHA256.HashData(\n                    Encoding.UTF8.GetBytes($\u0022{canonicalPath}\\0{method}\\0{name}\u0022)));\n                var lineStart = content.LastIndexOf(\u0027\\n\u0027, Math.Max(0, match.Index - 1)) \u002B 1;\n                var lineEnd = content.IndexOf(\u0027\\n\u0027, match.Index);",
+            "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494",
+            "excerptHash": "sha256:eafc313342bc0a18b6f98b785bc5b4c9903b3ce6b9cb24b581e4d71f4e50fd80"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b523edf31d91e4c61a9297d86375f00ebf24418484d99d7b5126ec33dc3f5e24",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Path normalization corrupts leading-dot filenames",
+      "description": "\u0060TrimStart(\u0027.\u0027, \u0027/\u0027)\u0060 removes every leading dot and slash rather than only a conventional \u0060./\u0060 prefix. For example, \u0060.editorconfig\u0060 becomes \u0060editorconfig\u0060. Metadata for dotfiles can therefore fail touched-path matching, and staleness checks can read the wrong path or report the reviewed input as missing.",
+      "recommendation": "Normalize separators and remove only explicitly recognized prefixes such as \u0060./\u0060; preserve leading dots that are part of a repository filename.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 542,
+              "column": 53
+            },
+            "end": {
+              "line": 542,
+              "column": 57
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b523edf31d91e4c61a9297d86375f00ebf24418484d99d7b5126ec33dc3f5e24",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 542,
+              "column": 53
+            },
+            "end": {
+              "line": 542,
+              "column": 57
+            }
+          },
+          "capturedExcerpt": {
+            "text": ") =\u003E",
+            "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494",
+            "excerptHash": "sha256:cfa84eab9d995f09a6231417dc8764247509ef737bfa5fe08553b9dacb5b4531"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-0c49d1ac12e0cb5ac6e2e621dab56388f4a8e16750892f259e9cb2d3078ea69d",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "All Git read failures are treated as missing files",
+      "description": "When allowMissing is true, ReadFileAsync catches every ChangeReviewException from GitPlumbing and returns null. This does not distinguish an absent path from an invalid revision, repository corruption, process failure, or another operational error. Callers can consequently emit false missing/stale evidence or silently omit boundary and economy data.",
+      "recommendation": "Have GitPlumbing expose a typed missing-path result or inspect a structured exit classification, and suppress only the expected object/path-not-found case. Propagate other failures with their context intact.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 533,
+              "column": 9
+            },
+            "end": {
+              "line": 536,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0c49d1ac12e0cb5ac6e2e621dab56388f4a8e16750892f259e9cb2d3078ea69d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 533,
+              "column": 9
+            },
+            "end": {
+              "line": 536,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    return null;\n        }\n    }\n",
+            "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494",
+            "excerptHash": "sha256:5c2d6721a6b1f033a9c9479ed2e7bec75873f812d18c91c7cdf22d7d587c5548"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-2edd6827248097b373c7673bceb4f3341b793c1b5686b442b8ea90c775a8cc07",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Missing grade fields cause an uncontextualized null-reference failure",
+      "description": "The parser verifies that \u0060grade\u0060 is an object but then null-forgives its \u0060score\u0060 and \u0060band\u0060 children. If either field is absent, dereferencing the null node throws NullReferenceException, which is not covered by the contextual parsing catch. This leaks an implementation exception without identifying the metadata path and revision.",
+      "recommendation": "Explicitly validate the required grade fields and their types before constructing MetaSnapshot, then throw ChangeReviewException with the metadata path and revision for every schema violation.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 189,
+              "column": 21
+            },
+            "end": {
+              "line": 196,
+              "column": 10
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2edd6827248097b373c7673bceb4f3341b793c1b5686b442b8ea90c775a8cc07",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 189,
+              "column": 21
+            },
+            "end": {
+              "line": 196,
+              "column": 10
+            }
+          },
+          "capturedExcerpt": {
+            "text": "findings,\n                    inputs));\n            }\n            catch (Exception exception) when (exception is JsonException or InvalidOperationException)\n            {\n                throw new ChangeReviewException($\u0022Cannot parse review metadata \u0027{path}\u0027 at \u0027{revision}\u0027.\u0022, exception);\n            }\n        }",
+            "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494",
+            "excerptHash": "sha256:5d3771a67ee0ee2288aab109acb66a7557b46a83ae3f2549d8c66735b59b00b6"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-11160db02804a1722a64a7b8484d877bc2140fdd2f4c951b2b0f4e8e989e5432",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "medium",
+      "title": "Valid quality changes can produce an empty summary",
+      "description": "BuildSummary adds facts for regressions and resolved findings but omits grade improvements, removed boundaries, and both positive and negative coverage changes. Those conditions can independently set HasQualityDelta and determine the verdict, producing output such as \u0060Improved: .\u0060 or \u0060Regression: .\u0060.",
+      "recommendation": "Add summary facts for every condition used by DetermineVerdict and HasQualityDelta. As a defensive fallback, emit a meaningful generic sentence whenever the fact list remains empty.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 493,
+              "column": 9
+            },
+            "end": {
+              "line": 501,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:11160db02804a1722a64a7b8484d877bc2140fdd2f4c951b2b0f4e8e989e5432",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs",
+          "range": {
+            "start": {
+              "line": 493,
+              "column": 9
+            },
+            "end": {
+              "line": 501,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (lower.Length \u003E 0) facts.Add($\u0022{lower.Length} touched unit grade(s) decreased\u0022);\n        if (delta.Findings.New.Count \u003E 0) facts.Add($\u0022{delta.Findings.New.Count} finding(s) are new\u0022);\n        if (delta.NewlyStale.Count \u003E 0) facts.Add($\u0022{delta.NewlyStale.Count} touched unit(s) became stale\u0022);\n        if (delta.Boundaries.New.Count \u003E 0) facts.Add($\u0022{delta.Boundaries.New.Count} externally reachable boundary/boundaries are new\u0022);\n        if (delta.Boundaries.Changed.Count \u003E 0) facts.Add($\u0022{delta.Boundaries.Changed.Count} externally reachable boundary/boundaries changed\u0022);\n        if (delta.Findings.Resolved.Count \u003E 0) facts.Add($\u0022{delta.Findings.Resolved.Count} finding(s) were resolved\u0022);\n        return $\u0022{verdict}: {string.Join(\u0022; \u0022, facts)}.\u0022;\n    }\n",
+            "contentHash": "sha256:cd662c90c9f11950addd500a807537c50588a152402226610140bbab1a3c3494",
+            "excerptHash": "sha256:6c6725102abea70a366844a5907ac75cc74c2fffdf641eea97e97aebbc8d087a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

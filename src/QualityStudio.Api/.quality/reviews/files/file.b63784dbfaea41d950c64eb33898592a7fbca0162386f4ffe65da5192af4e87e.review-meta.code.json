@@ -1,0 +1,658 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/eaa25906d47751af2c3e9465966f98b4d5d951a32e9cc8fed98f739b92d8c62c",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+    "displayName": "ProjectDashboard.cs"
+  },
+  "reviewedAt": "2026-09-01T08:05:29.3269835Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-e872c3926a70473fb6c0d5e3f9898a10",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 22789,
+      "outputTokens": 8292,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 6307,
+      "durationMs": 233846
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "36dd03b99f5d70df449ee293391dd3f87cba5cf921022d18ecc1eede0353c2bf"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+      "selector": "file",
+      "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 57,
+    "band": "F",
+    "rationale": "The implementation has a clear read-model structure and deterministic ordering, but several reliability defects can return stale data, crash on malformed or concurrently changing repository inputs, or indefinitely block a request. Hotspot churn can also be inaccurate for renamed files, and the architecture prompt does not safely delimit repository-controlled values."
+  },
+  "summary": "The service is generally readable and decomposed into focused calculations, but its cache does not fully represent the method inputs, persisted JSON is trusted without error handling, Git execution can hang, filesystem races are not tolerated, and some report and churn formats are handled incorrectly. Coverage is unknown because no coverage evidence was supplied.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "The cache can return a dashboard for a different hierarchy snapshot, renamed files lose churn attribution, and repository-controlled module names are interpolated directly into review instructions."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "The calculations are sensibly separated and consistently ordered, but the process-wide cache has no eviction and the service combines caching, filesystem traversal, parsing, Git execution, metrics, and prompt construction."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Names and data-flow are mostly clear, and the records make the response model easy to understand. A few implicit policies, particularly cache validity and malformed-report precedence, are not evident from the public contract."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 45,
+        "band": "F",
+        "rationale": "Malformed review payloads, numeric overflow in LCOV reports, filesystem races, and potentially blocked Git subprocesses can escape the intended fallback behavior or prevent a response entirely."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "Most computations are deterministic static methods, but direct dependencies on the clock, filesystem, process execution, and a private cache make failure modes and cache behavior difficult to test without integration fixtures."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-7140275bc2d8703ce9de93b3453348d74568a54f1012e2ca44d3e60d76442128",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Cache key does not identify the hierarchy snapshot",
+      "description": "The result depends on snapshot.Roots, including review documents, states, findings, paths, and line counts, but the cache key contains only the repository root and snapshot.GitState. Two snapshots with the same GitState but different hierarchy or review data therefore share an entry, causing GetMeasured to return a dashboard built from the earlier snapshot.",
+      "recommendation": "Include a stable snapshot revision or content fingerprint covering Roots and review-document state in the key, or move caching behind RepositoryHierarchySnapshot so cache validity follows the snapshot\u0027s actual identity.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 118,
+              "column": 19
+            },
+            "end": {
+              "line": 118,
+              "column": 49
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7140275bc2d8703ce9de93b3453348d74568a54f1012e2ca44d3e60d76442128",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 118,
+              "column": 19
+            },
+            "end": {
+              "line": 118,
+              "column": 49
+            }
+          },
+          "capturedExcerpt": {
+            "text": " Path.GetFullPath(repositoryPat",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:b6304433611327191f589c7b41ecf63bcb3517aa0ddefbdd554c57d24b47dd70"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f03b7c3039deda139381300cc7a21ab2e66dd430a345b97538dfc1ce11c2836f",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "Malformed persisted review JSON aborts dashboard construction",
+      "description": "Review payloads are parsed without catching JsonException. A single truncated or otherwise malformed document can therefore make grade, finding, or hotspot projection fail instead of producing a partial dashboard or marking the affected review invalid.",
+      "recommendation": "Parse review payloads through one defensive helper that catches JsonException, validates the expected shape, and returns an explicit invalid/missing result. Reuse it across grades, findings, and hotspots so the behavior is consistent.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 234,
+              "column": 34
+            },
+            "end": {
+              "line": 234,
+              "column": 56
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 404,
+              "column": 34
+            },
+            "end": {
+              "line": 404,
+              "column": 56
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 533,
+              "column": 26
+            },
+            "end": {
+              "line": 533,
+              "column": 50
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f03b7c3039deda139381300cc7a21ab2e66dd430a345b97538dfc1ce11c2836f",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 234,
+              "column": 34
+            },
+            "end": {
+              "line": 234,
+              "column": 56
+            }
+          },
+          "capturedExcerpt": {
+            "text": "oad is null) continue;",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:fc2d3efab999d67e9c032f8bcd67810abbe20cc6bcd370b6371d881ff4831328"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-6fb27360e1fbc1b6dbeb87db0084c349fd7dc96ca110791732a773db3e413faa",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "Git subprocess can deadlock or run indefinitely",
+      "description": "Standard error is redirected but never consumed, while standard output is read synchronously before an unbounded WaitForExit. A Git process that fills the stderr pipe can block while the parent waits for stdout to close, and an interactive or hung Git invocation has no timeout or cancellation path.",
+      "recommendation": "Drain stdout and stderr concurrently, disable interactive prompting through the process environment, and enforce a bounded timeout or cancellation token. Kill the process tree on timeout and return the existing unavailable fallback.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 579,
+              "column": 13
+            },
+            "end": {
+              "line": 580,
+              "column": 35
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:6fb27360e1fbc1b6dbeb87db0084c349fd7dc96ca110791732a773db3e413faa",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 579,
+              "column": 13
+            },
+            "end": {
+              "line": 580,
+              "column": 35
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (!process.Start()) return null;\n            var output = process.St",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:307b8a7a2e3bd2b0236a13723057c90b463291b013cb7d1c9150156943617775"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-01a942adc10152516a2f2ebac7e79560e0ed8db07293d5e9d59f1c68764f95a6",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Repository-controlled module names are embedded in review instructions",
+      "description": "Source, target, and kind values are interpolated directly into text that is subsequently used as an LLM review context. A crafted project or module name containing newlines or instruction-like text can alter the meaning or structure of that prompt.",
+      "recommendation": "Treat dependency values as untrusted data: reject or escape control characters, serialize the edges in a structured format such as JSON, and explicitly delimit the data from the surrounding instructions.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 150,
+              "column": 17
+            },
+            "end": {
+              "line": 150,
+              "column": 40
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:01a942adc10152516a2f2ebac7e79560e0ed8db07293d5e9d59f1c68764f95a6",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 150,
+              "column": 17
+            },
+            "end": {
+              "line": 150,
+              "column": 40
+            }
+          },
+          "capturedExcerpt": {
+            "text": "ach (var edge in edges)",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:6407f1ccca04af9e29edd4f6c1fc488373189cd2959bb46bc8004d6440d085bc"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-167159e52afc183c0cd3f3137ce71480ead78f3a97b9d53059f86d7b2dc2fe70",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Normal filesystem races can abort the entire dashboard",
+      "description": "Files are enumerated and then inspected later, but FileInfo.Length is accessed outside the IOException handler. A file deleted, replaced, or made inaccessible during projection can throw FileNotFoundException, DirectoryNotFoundException, or UnauthorizedAccessException and fail the complete dashboard instead of omitting that file.",
+      "recommendation": "Wrap metadata and content access for each file in a common exception boundary, handle IOException and UnauthorizedAccessException, and skip or explicitly record files that disappear during the snapshot. Use enumeration options that tolerate inaccessible entries in the non-Git fallback.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 494,
+              "column": 45
+            },
+            "end": {
+              "line": 494,
+              "column": 45
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 510,
+              "column": 10
+            },
+            "end": {
+              "line": 510,
+              "column": 10
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:167159e52afc183c0cd3f3137ce71480ead78f3a97b9d53059f86d7b2dc2fe70",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 494,
+              "column": 45
+            },
+            "end": {
+              "line": 494,
+              "column": 45
+            }
+          },
+          "capturedExcerpt": {
+            "text": "",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-7cc191a372fdeaf0d2856736a18131227379b6aafbf9b789457301323803c7d4",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Overflowing LCOV counters bypass the invalid-report result",
+      "description": "LCOV counters are parsed with int.Parse, which can throw OverflowException for an oversized numeric field. The catch filter handles FormatException but not OverflowException, so such a malformed report crashes dashboard construction despite the method\u0027s stated policy of returning status \u0022invalid\u0022.",
+      "recommendation": "Use invariant int.TryParse with explicit non-negative and overflow validation, preferably accumulating into long before checking response-model bounds, or include OverflowException in the malformed-report handling.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 458,
+              "column": 22
+            },
+            "end": {
+              "line": 459,
+              "column": 126
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 475,
+              "column": 13
+            },
+            "end": {
+              "line": 475,
+              "column": 14
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7cc191a372fdeaf0d2856736a18131227379b6aafbf9b789457301323803c7d4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 458,
+              "column": 22
+            },
+            "end": {
+              "line": 459,
+              "column": 126
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n                        if (line.StartsWith(\u0022LF:\u0022, StringComparison.Ordinal)) total \u002B= int.Parse(line[3..], CultureInfo.Invari",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:41f1ba359bc929c817f7ae45f877cd357db01eb1d59bd72a5c14974b110c723c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3bc7adc2c24edd2f2588e4a2c31dc37b23d790b8631f7ab7c3a6ae67d9e4ba05",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Git rename records do not map to current file paths",
+      "description": "Human-readable git --numstat output represents detected renames using brace or old/new path notation. Treating the last tab-separated field as a literal repository path stores churn under that notation, which does not match the current hierarchy path and consequently understates hotspot risk for renamed files.",
+      "recommendation": "Request NUL-delimited machine-readable numstat output and correctly parse its rename records, attributing churn to the destination path. Alternatively disable rename detection if the resulting add/delete semantics are acceptable.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 430,
+              "column": 10
+            },
+            "end": {
+              "line": 434,
+              "column": 54
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3bc7adc2c24edd2f2588e4a2c31dc37b23d790b8631f7ab7c3a6ae67d9e4ba05",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 430,
+              "column": 10
+            },
+            "end": {
+              "line": 434,
+              "column": 54
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n            var fields = line.TrimEnd(\u0027\\r\u0027).Split(\u0027\\t\u0027);\n            if (fields.Length \u003C 3 || !int.TryParse(fields[0], out var added) ||\n                !int.TryParse(fields[1], out var deleted)) continue;\n            var path = fields[^1].Replace(\u0027\\\\\u0027, \u0027/\u0027);",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:76bf1db9f00bf27f99358e642025beb7b47ea2d0456694272e30345b41e7d788"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-2f6104e79dbcfffa4907e2270a6c82bff75de40827d29cacba1ecbf4c6194b0e",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "medium",
+      "title": "Dashboard cache grows without eviction",
+      "description": "Every distinct repository root and Git state is retained for the lifetime of the service. A long-running instance serving active repositories accumulates complete dashboard graphs for every observed revision, and differently cased Windows paths can create further duplicate entries.",
+      "recommendation": "Use a bounded memory cache with size and expiration policies, remove superseded states per normalized repository identity, or keep only the latest entry for each repository.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 105,
+              "column": 5
+            },
+            "end": {
+              "line": 106,
+              "column": 37
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2f6104e79dbcfffa4907e2270a6c82bff75de40827d29cacba1ecbf4c6194b0e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ProjectDashboard.cs",
+          "range": {
+            "start": {
+              "line": 105,
+              "column": 5
+            },
+            "end": {
+              "line": 106,
+              "column": 37
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private readonly ConcurrentDictionary\u003Cstring, ProjectDashboardResponse\u003E cache =\n        new(StringComparer.Ordinal);",
+            "contentHash": "sha256:7bb82b085be1234c97e9582e552b5bf0e90965fa2f70b6d3b6301b2da8753897",
+            "excerptHash": "sha256:d5fa09a50dc06ffc50b2c486a14dcafd6734e9addf99e93f5efb43ccb1bafb66"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T07:56:01.5546914Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T07:55:43.9459213Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:baa0b8c7c31fbfd23441c5e49f8bea5ed17d30c7-dirty"
+}

@@ -1,0 +1,374 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/8d9490f9f2f5fc6b5c46b228243b450c9522d5a16b65e1467974e8df0fd28638",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/review-panel/review-panel.ts",
+    "displayName": "review-panel.ts"
+  },
+  "reviewedAt": "2026-09-01T10:13:42.1695893Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-b713a4e419324525b5d23659b09f7e74",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 21722,
+      "outputTokens": 4354,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 3239,
+      "durationMs": 91041
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "4948441facab425c1fe9d2c5d0dc6c3ea126a4f8c814fd50639a82366d4ae651"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/review-panel/review-panel.ts",
+      "selector": "file",
+      "contentHash": "sha256:e48d1eb83d66c1f481f3da921b07a462340d69cd43aee17dc6e76516b88cbd7e"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 73,
+    "band": "C",
+    "rationale": "The component is generally readable and uses Angular signals coherently, but several asynchronous workflows can commit stale state, and the scope-rule flow can save inputs different from those the user previewed. Error recovery also has a path that rejects unexpectedly."
+  },
+  "summary": "The main risks are stale scope previews, out-of-order run-detail responses, an undo timer race, and incomplete handling when conflict recovery itself fails. Test coverage is unknown because no coverage data was supplied, and ESLint evidence was unavailable because dependencies were missing.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Scope rules may be saved against an obsolete preview, run-detail requests can overwrite newer selections, and an older undo timer can clear a newer mutation."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Naming and state organization are mostly clear, but request lifecycle logic is repeated without a consistent stale-response or operation-identity strategy."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Methods and signals are descriptively named, and most control flow is easy to follow despite the component\u0027s broad responsibilities."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Most API calls surface errors, but conflict recovery can itself reject without updating the status, and asynchronous races are not represented to the user."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 69,
+        "band": "D",
+        "rationale": "Signal-based state is observable, but timers, global prompt usage, and uncancelled asynchronous operations require awkward timing and global mocking. Actual coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-ac49db748faca15d3e73b6bc30bf3e510d92c36b38c12a392d0ba5955f9f8665",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "A scope rule can differ from the rule that was previewed",
+      "description": "saveScopeRule only checks that some preview exists, then constructs the saved request from the current action, pattern, and reason. Those inputs can change after previewing without invalidating scopePreview, so the user can save a different rule without reviewing its matched paths or satisfying the wider-pattern confirmation associated with it. Concurrent preview requests can similarly leave an older response as the current preview.",
+      "recommendation": "Bind each preview to an immutable snapshot or revision of action, pattern, and reason. Invalidate the preview whenever an input changes, discard responses whose revision is no longer current, and only save the exact snapshot represented by the accepted preview.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 278,
+              "column": 3
+            },
+            "end": {
+              "line": 293,
+              "column": 64
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:ac49db748faca15d3e73b6bc30bf3e510d92c36b38c12a392d0ba5955f9f8665",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 278,
+              "column": 3
+            },
+            "end": {
+              "line": 293,
+              "column": 64
+            }
+          },
+          "capturedExcerpt": {
+            "text": "async saveScopeRule(): Promise\u003Cvoid\u003E {\n    const preview = this.scopePreview();\n    if (!preview) { await this.previewScopeRule(); return; }\n    if (preview.widerPattern \u0026\u0026 !this.scopeExpansionConfirmed()) {\n      this.scopeStatus.set(\u0027Confirm the wider pattern after reviewing every matched path.\u0027);\n      return;\n    }\n    this.scopeStatus.set(\u0027Saving rule\u2026\u0027);\n    try {\n      const request = {\n        action: this.scopeAction(), pattern: this.scopePattern(), reason: this.scopeReason() || null,\n        confirmExpansion: this.scopeExpansionConfirmed(),\n      };\n      const editingIndex = this.editingScopeRuleIndex();\n      if (editingIndex === null) await this.api.addScopeRule(request);\n      else await this.api.updateScopeRule(editingIndex, request)",
+            "contentHash": "sha256:e48d1eb83d66c1f481f3da921b07a462340d69cd43aee17dc6e76516b88cbd7e",
+            "excerptHash": "sha256:1d3d85e959cf8a25a878a701ef615a84bfa46430eada79fdaff990605d429c72"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-c2fabd6cfbf98c810b27e6573cd46522d8740feeca0a18421ebdbfc169c712db",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Older run requests can overwrite the currently selected run",
+      "description": "openRun unconditionally stores report and trend results after awaiting them. If the user opens another run, opens a nonterminal run, or closes the detail view before an earlier request completes, that earlier request can repopulate the state and can also clear the loading flag while a newer request remains active.",
+      "recommendation": "Associate each load with a request token or the selected run ID and verify it before every state update, including loading and error updates. Alternatively, cancel superseded requests through the API layer.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 358,
+              "column": 3
+            },
+            "end": {
+              "line": 379,
+              "column": 3
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c2fabd6cfbf98c810b27e6573cd46522d8740feeca0a18421ebdbfc169c712db",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 358,
+              "column": 3
+            },
+            "end": {
+              "line": 379,
+              "column": 3
+            }
+          },
+          "capturedExcerpt": {
+            "text": "  this.runTrend.set([]);\n    this.runTrendCursor.set(null);\n    this.runDetailError.set(\u0027\u0027);\n    if (![\u0027done\u0027, \u0027failed\u0027, \u0027cancelled\u0027, \u0027capped\u0027].includes(run.state)) return;\n    this.runDetailLoading.set(true);\n    try {\n      const scopeUnitId = this.selectedNode()?.id;\n      const [report, trend] = await Promise.all([\n        this.api.loadRunReport(run.id),\n        scopeUnitId ? this.api.loadRunTrend(run.kind, scopeUnitId, run.level) : Promise.resolve(null),\n      ]);\n      this.runReport.set(report);\n      this.runTrend.set(trend?.points ?? []);\n      this.runTrendCursor.set(trend?.nextCursor ?? null);\n    } catch (error) {\n      this.runDetailError.set(this.api.errorMessage(error));\n    } finally {\n      this.runDetailLoading.set(false);\n    }\n  }\n\n  c",
+            "contentHash": "sha256:e48d1eb83d66c1f481f3da921b07a462340d69cd43aee17dc6e76516b88cbd7e",
+            "excerptHash": "sha256:3a2bd0173c5cef89fd5b771fc7b3f72e7557516817f06f07c00f61de68caccfa"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-cd8b99c5974abe0953bb882566f489dcbd732795030b871c415fb11e9a849ffe",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "An old timeout can clear a newer undo operation",
+      "description": "The timeout identifies its mutation only by fingerprint. If the same finding is mutated again before the first eight-second timeout fires, the old callback sees the same fingerprint and clears the newer LastFindingMutation, shortening or eliminating its undo window.",
+      "recommendation": "Assign every mutation a unique generation or token and have the timeout compare that identity, or retain and cancel the previous timeout before scheduling a new one.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 190,
+              "column": 5
+            },
+            "end": {
+              "line": 192,
+              "column": 13
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cd8b99c5974abe0953bb882566f489dcbd732795030b871c415fb11e9a849ffe",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 190,
+              "column": 5
+            },
+            "end": {
+              "line": 192,
+              "column": 13
+            }
+          },
+          "capturedExcerpt": {
+            "text": "  setTimeout(() =\u003E {\n        if (this.lastMutation()?.fingerprint === finding.fingerprint) this.lastMutation.set(null);\n      }, 8000",
+            "contentHash": "sha256:e48d1eb83d66c1f481f3da921b07a462340d69cd43aee17dc6e76516b88cbd7e",
+            "excerptHash": "sha256:1f8ff93a6ec2b71bf8a3f5e944cca9996512a283126798fc6ca1d7f95fe7a1fb"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-76394e11e6abc86579d584509f69073069db6831c23a1d14a29b0c9facef6b5d",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Failure while recovering from a conflict escapes the method",
+      "description": "The 409 handler awaits loadFile from inside the original catch block without its own error handling. If the reload fails, setFindingState rejects, the status may remain \u0022Saving\u2026\u0022, and the user does not receive the API\u0027s error message.",
+      "recommendation": "Wrap conflict recovery in a nested try/catch or move it into a helper that always produces a final status. Report both that the mutation conflicted and that refreshing the current state failed.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 195,
+              "column": 7
+            },
+            "end": {
+              "line": 200,
+              "column": 112
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:76394e11e6abc86579d584509f69073069db6831c23a1d14a29b0c9facef6b5d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.ts",
+          "range": {
+            "start": {
+              "line": 195,
+              "column": 7
+            },
+            "end": {
+              "line": 200,
+              "column": 112
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if ((error as { status?: number }).status === 409) {\n        await this.api.loadFile(path);\n        const current = this.api.file()?.metaDocuments.find(meta =\u003E meta.kind === this.activeKind())?.findings\n          .find(candidate =\u003E candidate.fingerprint === finding.fingerprint);\n        if (current) this.findingSelect.emit(current);\n        this.stateStatus.set(\u0027This finding changed elsewhere. Current state was reloaded; review it and try agai",
+            "contentHash": "sha256:e48d1eb83d66c1f481f3da921b07a462340d69cd43aee17dc6e76516b88cbd7e",
+            "excerptHash": "sha256:659339896ff32b5c05b67ec6656490006663323660660c730a856383d839544b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

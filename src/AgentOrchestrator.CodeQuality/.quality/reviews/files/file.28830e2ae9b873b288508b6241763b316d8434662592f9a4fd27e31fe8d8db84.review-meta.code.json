@@ -1,0 +1,529 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/d6f5f75c9008e80f5dc14442757e2b54599b7aaded6f7c9a9ae6f0c270311f77",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+    "displayName": "ReviewRunner.cs"
+  },
+  "reviewedAt": "2026-09-01T09:24:06.4135695Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-7f40ef0030884b908efa13651fb9e145",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 23792,
+      "outputTokens": 8356,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 6598,
+      "durationMs": 213058
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "32458bfea23dda3e5e3d1f997b355b387393cead1143a86f504f6f3f9847887a"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+      "selector": "file",
+      "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 61,
+    "band": "D",
+    "rationale": "The runner is generally well structured, but several orchestration defects can misattribute reviewed content, accept stale results, or leave persistent review state inconsistent. Output-path handling and exception preservation also need stronger defenses."
+  },
+  "summary": "The implementation has clear responsibilities and useful dependency injection, and the available dotnet-build evidence reports no findings. However, prompt construction and hashing do not use one immutable subject snapshot, freshness omits multiple prompt-affecting inputs, metadata output paths are not secured against traversal or repository-controlled reparse points, and multi-file persistence is not transactional. Test coverage is unknown, and the unavailable ESLint result is not relevant evidence about this C# file.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 55,
+        "band": "F",
+        "rationale": "Subject-version races and incomplete freshness inputs can cause metadata to certify content or analysis inputs that the agent did not actually review."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "The high-level flow is readable, but scattered static filesystem, Git, state-store, and clock dependencies make lifecycle invariants difficult to express and preserve."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Naming and decomposition are mostly clear, though implicit invariants around snapshots, guideline detection, and persistence ordering are not evident from the APIs."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 58,
+        "band": "F",
+        "rationale": "Failures can leave state partially committed, temporary files behind, or replace the original agent exception with an accounting failure."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "Agent and prompt collaborators are injectable, but filesystem access, global locks, state storage, Git queries, and time remain hard-wired, making race and failure-path testing cumbersome."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-99a957a4eb539042217156ef99650a01465a53ce10e225863301d8140daebfa3",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Prompt content and reviewed hash come from different filesystem snapshots",
+      "description": "PreparePromptAsync reads the subject content and constructs the prompt before PrepareSubjectAsync hashes the files. A file change between those operations means the agent reviews the earlier content while reviewedHash describes the later content. The second hash check cannot detect this if the file remains at the later version. There is another window after the final hash check in which ReadSubjectContentsAsync can read yet another version for finding identity assignment.",
+      "recommendation": "Read every subject into a single immutable byte/content snapshot, derive the prompt, subject hashes, and finding identities from that snapshot, and compare current filesystem hashes with the snapshot immediately before committing metadata.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 99,
+              "column": 9
+            },
+            "end": {
+              "line": 105,
+              "column": 95
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 155,
+              "column": 9
+            },
+            "end": {
+              "line": 161,
+              "column": 128
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:99a957a4eb539042217156ef99650a01465a53ce10e225863301d8140daebfa3",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 99,
+              "column": 9
+            },
+            "end": {
+              "line": 105,
+              "column": 95
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);\n        var (root, relativePath, subjectPaths, files, fileContent, inputs, prompt, unitId, metaPath, threads,\n            sensorEvidence, deterministicEvidence) = prepared;\n        QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,\n            inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);\n        var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);\n        var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Input",
+            "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802",
+            "excerptHash": "sha256:df10b3b6313030ea4709fb90bdd05fa1b9fa4291688145468b923becd30850f5"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-6ee4412bc58ab5db1be71c846f3689cfa8f9b270bf8dcdb367fee74e999a2040",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Freshness ignores prompt-affecting review inputs",
+      "description": "reviewInputsHash includes resolved InputResolver inputs and the template hash, but omits request-supplied global and project guidelines, security sensor evidence, deterministic evidence, coverage evidence, and open-thread context even though those values affect the prompt or resulting metadata. With unchanged source files, a non-forced run can therefore reuse a review produced from materially different instructions or evidence.",
+      "recommendation": "Compute freshness from a canonical manifest containing every semantically relevant prompt and result input, including combined guidelines, sensor configurations and result hashes, deterministic evidence, coverage evidence, and any thread state intended to trigger reconsideration.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 106,
+              "column": 9
+            },
+            "end": {
+              "line": 106,
+              "column": 96
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:6ee4412bc58ab5db1be71c846f3689cfa8f9b270bf8dcdb367fee74e999a2040",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 106,
+              "column": 9
+            },
+            "end": {
+              "line": 106,
+              "column": 96
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Kin",
+            "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802",
+            "excerptHash": "sha256:059ec3a56abbd7e3cb2d734808862175b66ddd49edc58107b694b5cc980b3030"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-c7c4464c1c55dd12a9f5cf0334d20a1511d6770e3ef092f9a76a8959d7142365",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Metadata output paths are not containment- or reparse-point checked",
+      "description": "The metadata path incorporates the unconstrained Kind string and is passed directly to directory creation and an overwrite move. Separators and parent segments in Kind can alter the destination hierarchy. Even with a normal kind, a repository-controlled .quality directory can be a symbolic link or junction because EnsureContained is only applied to input paths. Reviews of an untrusted repository can consequently write or overwrite files outside the repository.",
+      "recommendation": "Restrict Kind to a validated enum or strict allowlist, construct filenames only from safe fixed tokens, and validate the resolved output path and every existing parent against repository containment and reparse points immediately before both temporary-file creation and replacement.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 203,
+              "column": 17
+            },
+            "end": {
+              "line": 203,
+              "column": 67
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 534,
+              "column": 9
+            },
+            "end": {
+              "line": 534,
+              "column": 111
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c7c4464c1c55dd12a9f5cf0334d20a1511d6770e3ef092f9a76a8959d7142365",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 203,
+              "column": 17
+            },
+            "end": {
+              "line": 203,
+              "column": 67
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Directory.CreateDirectory(Path.GetDirectoryName(met",
+            "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802",
+            "excerptHash": "sha256:a390cace651e3846f3ae5372f47df35935b77b0ac373dd015db5a052f99b4f95"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f89ee0f0b89b807c7a8e853738154e00778d6089289963ab5ded1a9d359e27b7",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Finding state is committed before review metadata",
+      "description": "MergeReviewAsync can persist lifecycle-state changes before the metadata temporary file is written and moved into place. Cancellation, serialization, disk, or move failures after the merge leave finding state representing a review that was never committed. Conversely, simply reversing the order would permit metadata without corresponding state, so the two resources require an explicit consistency mechanism.",
+      "recommendation": "Commit metadata and finding-state changes through a transaction-like protocol, such as staging both files followed by coordinated atomic replacements and recovery markers, or redesign the state store so the committed metadata revision is the authoritative unit and incomplete revisions can be detected and repaired.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 178,
+              "column": 17
+            },
+            "end": {
+              "line": 212,
+              "column": 102
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f89ee0f0b89b807c7a8e853738154e00778d6089289963ab5ded1a9d359e27b7",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 178,
+              "column": 17
+            },
+            "end": {
+              "line": 212,
+              "column": 102
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var previousFindings = LoadFindingIdentities(metaPath);\n                var findingStates = await new FindingStateStore(root).MergeReviewAsync(\n                    findingIdentities, previousFindings, _agent.AgentName, cancellationToken).ConfigureAwait(false);\n                threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);\n                ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);\n                ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);\n                var meta = CreateMeta(\n                    response,\n                    relativePath,\n                    request.Kind,\n                    adapter,\n                    unitId,\n                    initialSubject.Inputs,\n                    initialSubject.Members,\n                    initialSubject.Exclusions,\n                    reviewedHash,\n                    agentResult.RunId,\n                    inputs,\n                    request.Level,\n                    request.DisplayName,\n                    usage,\n                    threads,\n                    sensorEvidence,\n                    deterministicEvidence,\n                    ResolveSourceRevision(root));\n                Directory.CreateDirectory(Path.GetDirectoryName(metaPath)!);\n                var temporaryPath = metaPath \u002B \u0022.tmp-\u0022 \u002B Guid.NewGuid().ToString(\u0022N\u0022);\n                var metadataJson = meta.ToJsonString(JsonOptions) \u002B Environment.NewLine;\n                await File.WriteAllTextAsync(\n                    temporaryPath,\n                    metadataJson,\n                    new UTF8Encoding(false),\n                    cancellationToken).ConfigureAwait(false);\n                File.Move(temporaryPath, metaPath, true);\n                observation = CreateObservationSnapshot(root, metaPath, metadataJson, findingStates);",
+            "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802",
+            "excerptHash": "sha256:67302bf668327ca621126018695ffab3d93fb84754faa619b33c132188d332e4"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-32bfb81b8ce8bfdfe27e2b40fbf8de2794affaeae1192afad0de51cf41c383a4",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Usage persistence can replace the original agent exception",
+      "description": "Both agent-exception handlers await RecordUsageAsync before rethrowing. If ledger persistence or the usage callback throws, callers receive that secondary exception instead of the ReviewAgentRunException or ReviewAgentRunCanceledException that explains the failed run. The callback can similarly turn an otherwise successful agent run into a failed review after usage has already been persisted.",
+      "recommendation": "Preserve the original exception and treat accounting or observer failures separately. Log or aggregate persistence failures without losing the agent failure, and isolate the optional callback so observer exceptions cannot alter the review lifecycle unless that behavior is an explicit contract.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 128,
+              "column": 13
+            },
+            "end": {
+              "line": 138,
+              "column": 14
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 375,
+              "column": 9
+            },
+            "end": {
+              "line": 379,
+              "column": 39
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:32bfb81b8ce8bfdfe27e2b40fbf8de2794affaeae1192afad0de51cf41c383a4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 128,
+              "column": 13
+            },
+            "end": {
+              "line": 138,
+              "column": 14
+            }
+          },
+          "capturedExcerpt": {
+            "text": "catch (ReviewAgentRunCanceledException exception)\n            {\n                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,\n                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);\n                throw;\n            }\n            catch (ReviewAgentRunException exception)\n            {\n                await RecordUsageAsync(root, CreateUsage(exception.RunId, exception.Usage, exception.EffectiveModel,\n                    startedAt, request, relativePath), relativePath, request.Kind).ConfigureAwait(false);\n              ",
+            "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802",
+            "excerptHash": "sha256:85a92373bd0305311664c321c8d017b61279e824472311cea22cd7693219ab99"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-0f7d1a8e5ce2d1c4e80b18388a10b6aaa71581a8494884dc8fcd047b745d4144",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "medium",
+      "title": "Architecture-aspect enforcement depends on a fragile substring",
+      "description": "The project-review validation searches only request.ProjectGuidelines for the exact text id \u0022architecture\u0022. It does not inspect resolved project guidelines included by InputResolver, and harmless formatting differences can bypass the check while unrelated prose containing the substring can trigger it. The response contract therefore varies according to an unreliable textual heuristic.",
+      "recommendation": "Represent required aspects as structured configuration produced while resolving guidelines, or enforce the architecture aspect unconditionally for project-level code reviews if it is part of that review schema. Validate against the structured requirement set rather than searching raw text.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 146,
+              "column": 13
+            },
+            "end": {
+              "line": 150,
+              "column": 105
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0f7d1a8e5ce2d1c4e80b18388a10b6aaa71581a8494884dc8fcd047b745d4144",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ReviewRunner.cs",
+          "range": {
+            "start": {
+              "line": 146,
+              "column": 13
+            },
+            "end": {
+              "line": 150,
+              "column": 105
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (request.Level == ReviewLevel.Project \u0026\u0026\n                string.Equals(request.Kind, \u0022code\u0022, StringComparison.Ordinal) \u0026\u0026\n                request.ProjectGuidelines?.Contains(\u0022id \\\u0022architecture\\\u0022\u0022, StringComparison.Ordinal) == true \u0026\u0026\n                !response[\u0022aspects\u0022]!.AsArray().OfType\u003CJsonObject\u003E().Any(aspect =\u003E\n                    string.Equals(aspect[\u0022id\u0022]?.GetValue\u003Cstring\u003E(), \u0022architecture\u0022, StringComparison.Ordi",
+            "contentHash": "sha256:a6abe71a430cd07e987653a9f0feaad32cfc0cafbce7bb116a76ed2532265802",
+            "excerptHash": "sha256:fd78ac674e1957dd3c80f97b837ea3f2ed89d9f6e4d8603aca2be12779e65372"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

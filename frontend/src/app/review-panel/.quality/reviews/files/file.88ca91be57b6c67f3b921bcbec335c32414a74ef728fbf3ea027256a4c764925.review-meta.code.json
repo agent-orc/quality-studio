@@ -1,0 +1,445 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/aab1e5d4274458501a95c1305065a19871e79a04caa749e80ef9e124f477f7c2",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/review-panel/review-panel.html",
+    "displayName": "review-panel.html"
+  },
+  "reviewedAt": "2026-09-01T10:14:57.1584720Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-8ccbcb3646b94c7f8ca1f9bd29ff1ca6",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 23615,
+      "outputTokens": 6540,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 5308,
+      "durationMs": 173855
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "b54458276ea709b2d1eeab1b86cf11ccdbb8f18e23e49c6429150100061d800b"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/review-panel/review-panel.html",
+      "selector": "file",
+      "contentHash": "sha256:28c65aee6c5226cb2caae0068b2e52817443c20ef49db299ca92017cf432a16f"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 78,
+    "band": "C",
+    "rationale": "The template exposes a capable review workflow, but several inconsistent assumptions about optional data and finding identity can cause runtime failures or incorrect UI state. Accessibility and button semantics also need tightening."
+  },
+  "summary": "The overall structure is functional but overly dense. The main risks are dereferencing an apparently optional grade, using inconsistent keys for findings and input traces, implicit submit buttons, and incomplete ARIA tab behavior. Test coverage is unknown because no coverage evidence was supplied, and ESLint evidence was unavailable because dependencies were missing.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 74,
+        "band": "C",
+        "rationale": "Optional-data handling and identifier usage are inconsistent, creating credible runtime and state-collision defects."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "Large single-line structures, repeated identity expressions, and substantial presentation logic make future changes difficult to review safely."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Labels and workflow organization are generally clear, though dense markup and incomplete tab semantics obscure behavior."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error handling",
+      "grade": {
+        "score": 80,
+        "band": "B",
+        "rationale": "Loading and error states are represented for major asynchronous operations, but optional metadata is not handled consistently."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The many inline conditions and repeated computed calls create a broad interaction matrix. Coverage is unknown, and the supplied ESLint analyzer could not run."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-fc2198567b2419ae6a79633160d7173a3b6a7a9cd7c1807ea1aef9a8f49d7597",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Optional grade is dereferenced without a guard",
+      "description": "The header treats \u0060activeMeta().grade\u0060 as optional, but the summary card dereferences \u0060meta.grade.rationale\u0060, \u0060band\u0060, and \u0060score\u0060 whenever metadata exists. If metadata is available before its grade or legitimately lacks a grade, template evaluation will fail instead of rendering the existing fallback.",
+      "recommendation": "Guard the summary card with \u0060@if (meta.grade; as grade)\u0060 and render a defined unavailable state otherwise, or make the data contract require a non-null grade and remove the contradictory optional access.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 123,
+              "column": 134
+            },
+            "end": {
+              "line": 123,
+              "column": 153
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:fc2198567b2419ae6a79633160d7173a3b6a7a9cd7c1807ea1aef9a8f49d7597",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 123,
+              "column": 134
+            },
+            "end": {
+              "line": 123,
+              "column": 153
+            }
+          },
+          "capturedExcerpt": {
+            "text": "meta.grade.rationale",
+            "contentHash": "sha256:28c65aee6c5226cb2caae0068b2e52817443c20ef49db299ca92017cf432a16f",
+            "excerptHash": "sha256:5cd09d1d7d6e2b0fee4417cf79839347a7e8f1a7dc396275398b4791edf90f18"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3a900a374fcca3d6ad7fa02b2389aba37145884d18661714596717b67fba6939",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Task status uses an identity that can be absent or collide",
+      "description": "Finding selection and tracking explicitly fall back from \u0060fingerprint\u0060 to \u0060id\u0060, but task handover state is indexed only by \u0060finding.id\u0060. A fingerprint-only finding produces a shared \u0060kind:undefined\u0060 key, so unrelated findings can display or inherit the same creation status.",
+      "recommendation": "Define one stable finding-key helper, such as \u0060findingKey(finding)\u0060, using the same fingerprint-or-id policy everywhere, and use it for selection, tracking, mutations, and handover status.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 175,
+              "column": 252
+            },
+            "end": {
+              "line": 175,
+              "column": 261
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3a900a374fcca3d6ad7fa02b2389aba37145884d18661714596717b67fba6939",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 175,
+              "column": 252
+            },
+            "end": {
+              "line": 175,
+              "column": 261
+            }
+          },
+          "capturedExcerpt": {
+            "text": "finding.id",
+            "contentHash": "sha256:28c65aee6c5226cb2caae0068b2e52817443c20ef49db299ca92017cf432a16f",
+            "excerptHash": "sha256:c1a88f7d047ce50f1bbc2d9f1fa13734fcb4a0a0a5466c605c7dff4a1ef30d22"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-70fcbe6418729287f57cffc209cc1674efedad4040db025f95b19afe7175bed9",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Input trace lookup discards the input scope",
+      "description": "Inputs are tracked using the composite \u0060scope:id\u0060 identity, indicating that the same ID can occur in multiple scopes, but finding counts are retrieved using only \u0060input.id\u0060. Duplicate IDs across scopes can therefore show the wrong trace count.",
+      "recommendation": "Key \u0060inputTraces\u0060 by the same composite identity used by the loop, or expose a helper that accepts both \u0060scope\u0060 and \u0060id\u0060.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 200,
+              "column": 190
+            },
+            "end": {
+              "line": 200,
+              "column": 216
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:70fcbe6418729287f57cffc209cc1674efedad4040db025f95b19afe7175bed9",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 200,
+              "column": 190
+            },
+            "end": {
+              "line": 200,
+              "column": 216
+            }
+          },
+          "capturedExcerpt": {
+            "text": "inputTraces().get(input.id)",
+            "contentHash": "sha256:28c65aee6c5226cb2caae0068b2e52817443c20ef49db299ca92017cf432a16f",
+            "excerptHash": "sha256:1bfc103e9aafbd12d8296382150a3d433edf04b4551a259ea65676e89e0ba9ab"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-37a8b2ed102485aa5a046919f0736731df03557f31b2f4b7ec7452b83abf8c37",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Action buttons rely on the implicit submit type",
+      "description": "Finding cards and the implementation-task action omit \u0060type=\u0022button\u0022\u0060. If this component is ever rendered beneath a form element, activating either control will also submit that form.",
+      "recommendation": "Add \u0060type=\u0022button\u0022\u0060 to every button that is not intentionally a form submit control, and enforce this with template linting when dependencies are available.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 153,
+              "column": 86
+            },
+            "end": {
+              "line": 153,
+              "column": 92
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 175,
+              "column": 137
+            },
+            "end": {
+              "line": 175,
+              "column": 143
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:37a8b2ed102485aa5a046919f0736731df03557f31b2f4b7ec7452b83abf8c37",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 153,
+              "column": 86
+            },
+            "end": {
+              "line": 153,
+              "column": 92
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\u003Cbutton",
+            "contentHash": "sha256:28c65aee6c5226cb2caae0068b2e52817443c20ef49db299ca92017cf432a16f",
+            "excerptHash": "sha256:596a703135d03aefdc877c8db21f35e8f46d043d078e73e45df3e65b7bffd8f0"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-eaceb986a9eac7f28eef33da873b8af893b24aa3d771db6fadcf2fe40d2312c9",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "low",
+      "title": "Thread filters declare tabs without implementing tab behavior",
+      "description": "The controls use \u0060tablist\u0060 and \u0060tab\u0060 roles but provide no associated \u0060tabpanel\u0060, \u0060aria-controls\u0060, stable tab IDs, roving tabindex, or arrow-key navigation. This exposes an incomplete tabs interaction model to assistive technology.",
+      "recommendation": "Either implement the complete ARIA tabs pattern, including keyboard navigation and an associated tab panel, or remove the tab roles and present the controls as an ordinary labeled button group with pressed-state semantics.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 179,
+              "column": 35
+            },
+            "end": {
+              "line": 179,
+              "column": 48
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:eaceb986a9eac7f28eef33da873b8af893b24aa3d771db6fadcf2fe40d2312c9",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-panel/review-panel.html",
+          "range": {
+            "start": {
+              "line": 179,
+              "column": 35
+            },
+            "end": {
+              "line": 179,
+              "column": 48
+            }
+          },
+          "capturedExcerpt": {
+            "text": "role=\u0022tablist\u0022",
+            "contentHash": "sha256:28c65aee6c5226cb2caae0068b2e52817443c20ef49db299ca92017cf432a16f",
+            "excerptHash": "sha256:a8ee3127aa200569423a2fc9fde0abf95c9f19f0481a950a43f5db5151db73af"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

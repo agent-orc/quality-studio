@@ -1,0 +1,316 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/5d21c3a61720ef8962eecd1ff09a2951183ffd6b25968facaa7331563da645a1",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+    "displayName": "RuleLibrary.cs"
+  },
+  "reviewedAt": "2026-09-01T09:25:49.8568158Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-48a80d414b0f44c7b418e7af50628a03",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18620,
+      "outputTokens": 3309,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 2435,
+      "durationMs": 100097
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "bdc7b6defa9b8f08af2463aa06a1c9426b4273c23447afb952b540c9ca271def"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+      "selector": "file",
+      "contentHash": "sha256:5c4387bcb1842abb0b32d6f504d91c3598d6bf464fd2570177be2d1a8a37d67f"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 83,
+    "band": "B",
+    "rationale": "The resolver is concise and generally correct, with deterministic precedence and useful validation. Its main weaknesses are misleading override provenance and incomplete validation of externally supplied override arrays."
+  },
+  "summary": "The implementation is well structured and readable, but global severity overrides are presented as project overrides, null override elements can escape the intended JsonException contract, and duplicate entries within one override file are silently resolved by order. Build evidence reported no .NET findings; test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Resolution and ordering are coherent, but rendered provenance is incorrect for global severity overrides and duplicate entries have an implicit last-write-wins meaning."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "The records and small helper methods provide a clear structure, although provenance is encoded as presentation text and validation rules are incomplete."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Names and control flow are mostly clear, but the hard-coded phrase \u0027Project override\u0027 contradicts the resolver\u0027s global/project layering model."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 77,
+        "band": "C",
+        "rationale": "Most invalid contracts produce contextual JsonExceptions, but a null array element can instead cause an unhelpful NullReferenceException and duplicate entries are not diagnosed."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Pure rendering and priority helpers are straightforward to exercise, while embedded-resource and direct-filesystem dependencies make resolver isolation less convenient. Coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-5fb8f0fe0eb41f36cdf532ba17d047ba06e8e70b237edbdd82e275dd8392ea9e",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Global severity overrides are labeled as project overrides",
+      "description": "Content() emits the fixed label \u0027Project override\u0027 whenever severity was overridden. For an override loaded from the global inputs directory, this gives the review model false provenance and can make centrally managed policy appear repository-specific.",
+      "recommendation": "Derive the label from the recorded source or add an explicit override-scope value such as \u0027global\u0027 or \u0027project\u0027 to ResolvedRule and render the corresponding wording.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+          "range": {
+            "start": {
+              "line": 116,
+              "column": 57
+            },
+            "end": {
+              "line": 119,
+              "column": 56
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5fb8f0fe0eb41f36cdf532ba17d047ba06e8e70b237edbdd82e275dd8392ea9e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+          "range": {
+            "start": {
+              "line": 116,
+              "column": 57
+            },
+            "end": {
+              "line": 119,
+              "column": 56
+            }
+          },
+          "capturedExcerpt": {
+            "text": "rule.SeverityOverridden\n        ? $\u0022{rule.Rule.Statement} {rule.Rule.Rationale} (Project override: findings for this rule are treated as \u0022 \u002B\n          $\u0022{rule.EffectiveSeverity.ToString().ToLowerInvariant()} severity \u2014 {rule.OverrideReason})\u0022\n        : $\u0022{rule.Rule.Statement} {rule.Rule.Rationale}\u0022",
+            "contentHash": "sha256:5c4387bcb1842abb0b32d6f504d91c3598d6bf464fd2570177be2d1a8a37d67f",
+            "excerptHash": "sha256:01e261388a5b64c8d3165d6b82640df9110132daae26cbd53cb784f97e737b79"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-a871ff5d29d6d31e6e7469bb4b6f82b47b793cf4f086bacf1542ea73529fadac",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Null override entries cause an unintended NullReferenceException",
+      "description": "System.Text.Json can populate a collection with a null element despite its non-nullable generic annotation. Apply dereferences entry immediately, so an overrides array containing null fails with NullReferenceException instead of the source-aware JsonException used for other contract violations.",
+      "recommendation": "Check entry for null before accessing its properties and throw a JsonException that identifies the override file and invalid array entry. Consider applying equivalent defensive validation to catalogue entries.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+          "range": {
+            "start": {
+              "line": 157,
+              "column": 9
+            },
+            "end": {
+              "line": 160,
+              "column": 65
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a871ff5d29d6d31e6e7469bb4b6f82b47b793cf4f086bacf1542ea73529fadac",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+          "range": {
+            "start": {
+              "line": 157,
+              "column": 9
+            },
+            "end": {
+              "line": 160,
+              "column": 65
+            }
+          },
+          "capturedExcerpt": {
+            "text": "{\n            if (string.IsNullOrWhiteSpace(entry.Id) || !knownIds.Contains(entry.Id))\n                throw new JsonException($\u0022Rule override file \u0027{source}\u0027 references unknown rule id \u0027{entry.Id}\u0027.\u0022);\n            if (entry.Enabled is null \u0026\u0026 entry.Severity is null)",
+            "contentHash": "sha256:5c4387bcb1842abb0b32d6f504d91c3598d6bf464fd2570177be2d1a8a37d67f",
+            "excerptHash": "sha256:eabb83c124604050f1626a35625e9369ac8cde0dd7fa5e9485ecfe7d8b54d550"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-7f40fe26b35e970ec644d2d22734ccb38609c21601a78633b506009366fb52a5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Duplicate rule overrides within one file silently overwrite each other",
+      "description": "Assignments to overridesById intentionally implement precedence between global and project files, but they also make repeated IDs inside a single file silently last-write-wins. This can conceal configuration mistakes and makes behavior depend on array ordering.",
+      "recommendation": "Validate that IDs are unique within each RuleOverrideDocument before applying it, while retaining the dictionary replacement behavior between separately layered documents.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+          "range": {
+            "start": {
+              "line": 165,
+              "column": 10
+            },
+            "end": {
+              "line": 165,
+              "column": 10
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7f40fe26b35e970ec644d2d22734ccb38609c21601a78633b506009366fb52a5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RuleLibrary.cs",
+          "range": {
+            "start": {
+              "line": 165,
+              "column": 10
+            },
+            "end": {
+              "line": 165,
+              "column": 10
+            }
+          },
+          "capturedExcerpt": {
+            "text": "",
+            "contentHash": "sha256:5c4387bcb1842abb0b32d6f504d91c3598d6bf464fd2570177be2d1a8a37d67f",
+            "excerptHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

@@ -1,0 +1,316 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/9fa034eae79fd6dddb56fe826d317d64636cdcbf82cabf55b6dfccb9bb80cd2c",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+    "displayName": "AnalyzerEvidence.cs"
+  },
+  "reviewedAt": "2026-09-01T08:26:41.0157894Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-399951fadaeb4ee796fe76ba1658a1c2",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17694,
+      "outputTokens": 2656,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 1709,
+      "durationMs": 94143
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "99eef06900dd00f40a2f5c811f8c3d61f22c4817af7c7ee2fb3679808902a95f"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+      "selector": "file",
+      "contentHash": "sha256:9a0bd6fe91c81cb25d86ab237542b38f57bfaa97165afe9e4f1a01451072bfc2"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 80,
+    "band": "B",
+    "rationale": "The implementation is compact and generally robust, but evidence attribution is insufficiently validated and path matching can silently omit applicable findings. Duplicate sensor configurations are also discarded without detecting conflicts."
+  },
+  "summary": "The collector handles cancellation and sensor failures cleanly and produces consistently ordered results. The main risks are accepting misleading provenance, incomplete path normalization during subject projection, and silently choosing one of multiple configurations for the same sensor.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "Provenance can name a different sensor, and equivalent paths containing dot segments may fail to match."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The code is concise and well separated, but implicit handling of conflicting configurations and weak provenance invariants make future behavior harder to reason about."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Names and control flow are clear, although DistinctBy silently establishes an undocumented first-configuration-wins policy."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 85,
+        "band": "B",
+        "rationale": "Expected cancellation is preserved and execution failures become unavailable results, but malformed or falsely attributed sensor output is not fully rejected."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 80,
+        "band": "B",
+        "rationale": "The stateless projection functions are straightforward to test, but edge cases involving conflicting configurations, provenance mismatches, and equivalent path forms require explicit coverage. Coverage is otherwise unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-b1f6c759748365c73578e47e508e04727fb9af53b300daf73b56b0279d409999",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Returned provenance is not verified against the invoked sensor",
+      "description": "The validation only requires each finding to claim a deterministic source with a nonblank sensor ID. It does not require Finding.Source.SensorId or result.Provenance.SensorId to equal sensor.Id, nor verify that the result provenance is deterministic and internally consistent. A faulty sensor can therefore attribute findings or the entire result to another sensor, after which ordering and prompt projection propagate the misleading identity.",
+      "recommendation": "Validate that result.Provenance.SensorId and every finding Source.SensorId equal sensor.Id using the registry\u0027s intended ID comparison semantics. Also validate any other required provenance invariants before accepting the result, and convert violations into an unavailable result as currently done.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+          "range": {
+            "start": {
+              "line": 48,
+              "column": 13
+            },
+            "end": {
+              "line": 56,
+              "column": 10
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b1f6c759748365c73578e47e508e04727fb9af53b300daf73b56b0279d409999",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+          "range": {
+            "start": {
+              "line": 48,
+              "column": 13
+            },
+            "end": {
+              "line": 56,
+              "column": 10
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (result.Findings.Any(finding =\u003E\n                    finding.Source?.Kind != FindingSourceKind.Deterministic ||\n                    string.IsNullOrWhiteSpace(finding.Source.SensorId)))\n            {\n                throw new InvalidDataException(\n                    $\u0022Deterministic sensor \u0027{sensor.Id}\u0027 returned a finding without deterministic source provenance.\u0022);\n            }\n            return result;\n        }",
+            "contentHash": "sha256:9a0bd6fe91c81cb25d86ab237542b38f57bfaa97165afe9e4f1a01451072bfc2",
+            "excerptHash": "sha256:b69e21fd59ed28e8f472589d9f2c8df706f6edd41804806f125f207418c5258c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-9e74800fdcb410be60398270e776bccfc84d7388cbd3e232e0f7a77ebe4a8b71",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Equivalent repository paths can fail subject matching",
+      "description": "NormalizePath only changes separator characters and removes leading \u0022./\u0022 segments. It does not collapse interior dot segments, repeated separators, or parent segments, so logically equivalent inputs such as \u0022src/./File.cs\u0022 and \u0022src/File.cs\u0022 compare unequal. Applicable analyzer findings can consequently disappear from the projected evidence.",
+      "recommendation": "Canonicalize repository-relative paths consistently before comparison, including redundant separators and dot segments. Reject paths that escape the repository rather than resolving them silently. Keep comparison semantics explicitly aligned with the repository\u0027s cross-platform path policy.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+          "range": {
+            "start": {
+              "line": 107,
+              "column": 5
+            },
+            "end": {
+              "line": 112,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:9e74800fdcb410be60398270e776bccfc84d7388cbd3e232e0f7a77ebe4a8b71",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+          "range": {
+            "start": {
+              "line": 107,
+              "column": 5
+            },
+            "end": {
+              "line": 112,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    var normalized = path.Replace(\u0027\\\\\u0027, \u0027/\u0027);\n        while (normalized.StartsWith(\u0022./\u0022, StringComparison.Ordinal)) normalized = normalized[2..];\n        return normalized;\n    }\n}\n",
+            "contentHash": "sha256:9a0bd6fe91c81cb25d86ab237542b38f57bfaa97165afe9e4f1a01451072bfc2",
+            "excerptHash": "sha256:d6063aba4345957da92e28da7f80ac57618bf0bccfe7d635a4fbd0925c9ee03a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-116054e896f41469031b22e902aecb08ae17de2ae519d7392327e7626203f885",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "low",
+      "title": "Conflicting sensor configurations use an implicit first-wins policy",
+      "description": "DistinctBy silently retains the first configuration for a sensor ID and drops all later entries, even when their Configuration values differ. The effective scan therefore depends on input ordering, and a caller receives no indication that part of its requested configuration was ignored.",
+      "recommendation": "Require sensor IDs to be unique and report conflicting duplicates, or define and document an explicit merge or precedence policy. If identical duplicates are intentionally accepted, verify their configurations are equivalent before deduplicating them.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+          "range": {
+            "start": {
+              "line": 13,
+              "column": 9
+            },
+            "end": {
+              "line": 16,
+              "column": 23
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:116054e896f41469031b22e902aecb08ae17de2ae519d7392327e7626203f885",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/AnalyzerEvidence.cs",
+          "range": {
+            "start": {
+              "line": 13,
+              "column": 9
+            },
+            "end": {
+              "line": 16,
+              "column": 23
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var tasks = configurations\n            .DistinctBy(configuration =\u003E configuration.Id, StringComparer.OrdinalIgnoreCase)\n            .Select(configuration =\u003E CollectOneAsync(repositoryRoot, configuration, cancellationToken))\n            .ToArray();",
+            "contentHash": "sha256:9a0bd6fe91c81cb25d86ab237542b38f57bfaa97165afe9e4f1a01451072bfc2",
+            "excerptHash": "sha256:a4a4d32149c762add3a937059836bc975e259b07acb3444d213691ae79898e63"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

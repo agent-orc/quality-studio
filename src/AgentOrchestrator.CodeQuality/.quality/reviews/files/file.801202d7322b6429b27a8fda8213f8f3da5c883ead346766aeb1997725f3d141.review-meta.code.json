@@ -1,0 +1,329 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/ab3f89ced965b6ddaf5398503b15bd17a0e84054b02e49adab4d9418b5d23f40",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+    "displayName": "ChangeReviewEvidenceContract.cs"
+  },
+  "reviewedAt": "2026-09-01T08:36:27.0186267Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-c328abc532214b8695824fb4f799bf8f",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18638,
+      "outputTokens": 3486,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 2437,
+      "durationMs": 93784
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "19338766920b955ab8994c74b7d85ea0d2b3ca06f27a239de982141f9dbb6d1e"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+      "selector": "file",
+      "contentHash": "sha256:debaa7147d1a0defd1bde93720f95cad22b01149f4acb79bb02b3213ee6f41fa"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 72,
+    "band": "C",
+    "rationale": "The contract is structured clearly and serialization is deterministic, but validation is too shallow for an evidence format containing several duplicated representations. Malformed JSON can also escape validation through null-reference failures and inconsistent exception types."
+  },
+  "summary": "The primary risk is that deserialized evidence may contain mutually contradictory subject, review, agent, and finding data while still passing validation. Input failures are also not consistently reported as JSON contract errors. Build evidence reported no findings; test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Validation checks the schema identity, repository presence, policy-hash syntax, and result commit, but does not establish consistency across most duplicated evidence fields."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The records and helper methods are reasonably organized, although manually constructing and separately validating redundant projections will become increasingly fragile as the contract evolves."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 84,
+        "band": "B",
+        "rationale": "Names, serialization ordering, and construction flow are generally easy to follow. The limited validation does not make the intended invariants of the evidence document sufficiently explicit."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 64,
+        "band": "D",
+        "rationale": "Explicit JSON nulls can produce NullReferenceException, and malformed hashes produce ArgumentException even during deserialization instead of a consistent JsonException."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The optional timestamp and pure serialization helpers support deterministic tests, but invariant logic is incomplete and private, requiring broad malformed-document test coverage. Actual coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-48c8f5fc64225059a1be20a70d987907e3c86401c5dbe3b2dc86eae4e3bfa76b",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Validation permits contradictory evidence projections",
+      "description": "Each entry contains overlapping representations: Subject duplicates repository and change-set commits, AgentEvidence projects Review.Judgement, and Findings projects Review.Delta.Findings. Validation compares only Subject.ResultSha with the review result commit. A document can therefore pass validation while naming a different repository or base/head commits, reporting incompatible agent status or provenance, or presenting finding envelopes that disagree with the embedded review delta. Consumers choosing different projections can reach different conclusions from the same accepted evidence document.",
+      "recommendation": "Define all cross-object invariants and enforce them during validation. At minimum, bind the subject repository and every commit to the document and change set, validate agent evidence against the judgement, and verify finding changes against the delta. Prefer deriving redundant projections after deserialization or validating against a single canonical entry-construction routine to prevent the checks from drifting.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 187,
+              "column": 9
+            },
+            "end": {
+              "line": 194,
+              "column": 115
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:48c8f5fc64225059a1be20a70d987907e3c86401c5dbe3b2dc86eae4e3bfa76b",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 187,
+              "column": 9
+            },
+            "end": {
+              "line": 194,
+              "column": 115
+            }
+          },
+          "capturedExcerpt": {
+            "text": "foreach (var review in document.Reviews)\n        {\n            if (review.Subject is not TaskChangeFindingSubject subject)\n                throw new JsonException(\u0022Portable change-review evidence requires a task-change subject.\u0022);\n            if (!string.Equals(subject.ResultSha,\n                    review.Review.ChangeSet.MergeCommit ?? review.Review.ChangeSet.HeadCommit,\n                    StringComparison.Ordinal))\n                throw new JsonException(\u0022Review subject resultSha does not match the change-review result commit.\u0022)",
+            "contentHash": "sha256:debaa7147d1a0defd1bde93720f95cad22b01149f4acb79bb02b3213ee6f41fa",
+            "excerptHash": "sha256:e382614e002210c401de7adcc30904fba7b1c56705de63e834a5eefd096bc8e9"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-5d609c3e63839f11a84c8dce527edeba7386a17304d4f0fd19370d6233ab25e0",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Explicit null members bypass required-member guarantees and crash validation",
+      "description": "C# non-nullability and required members do not prevent JSON from explicitly supplying null. A null policy, reviews collection, review entry, subject, or embedded review can consequently reach this code and cause NullReferenceException rather than a controlled contract-validation failure.",
+      "recommendation": "Validate every externally deserialized object and collection before dereferencing it, including collection elements and nested review state. Throw JsonException with the relevant property path. Consider separate input DTOs or custom converters if stronger construction-time guarantees are needed.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 186,
+              "column": 9
+            },
+            "end": {
+              "line": 187,
+              "column": 49
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 189,
+              "column": 17
+            },
+            "end": {
+              "line": 192,
+              "column": 95
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5d609c3e63839f11a84c8dce527edeba7386a17304d4f0fd19370d6233ab25e0",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 186,
+              "column": 9
+            },
+            "end": {
+              "line": 187,
+              "column": 49
+            }
+          },
+          "capturedExcerpt": {
+            "text": "ValidateSha256(document.Policy.ContentHash, \u0022policy.contentHash\u0022);\n        foreach (var review in document.Reviews)",
+            "contentHash": "sha256:debaa7147d1a0defd1bde93720f95cad22b01149f4acb79bb02b3213ee6f41fa",
+            "excerptHash": "sha256:7cb11d9c10154b039045e2d2e67b0e80ae08d5afe46882cad82ef7c7a616a87e"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-32b25f5e64214df895f8fd0c80e20cf29e8ae35604cd475f21de7c3e87567d1c",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Malformed serialized hashes surface as ArgumentException",
+      "description": "ValidateSha256 throws ArgumentException for invalid values regardless of call context. Deserialize therefore exposes malformed document content as an API-argument failure, while other invalid document fields produce JsonException. A null hash additionally fails at value.Length with NullReferenceException.",
+      "recommendation": "Make the hash validator null-safe and allow callers to select the appropriate exception type, or translate its failure to JsonException in document validation while retaining ArgumentException for Create arguments. Include the JSON property path in deserialization errors.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 198,
+              "column": 5
+            },
+            "end": {
+              "line": 203,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:32b25f5e64214df895f8fd0c80e20cf29e8ae35604cd475f21de7c3e87567d1c",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/ChangeReviewEvidenceContract.cs",
+          "range": {
+            "start": {
+              "line": 198,
+              "column": 5
+            },
+            "end": {
+              "line": 203,
+              "column": 6
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static void ValidateSha256(string value, string name)\n    {\n        if (value.Length != 71 || !value.StartsWith(\u0022sha256:\u0022, StringComparison.Ordinal) ||\n            !value[7..].All(character =\u003E character is \u003E= \u00270\u0027 and \u003C= \u00279\u0027 or \u003E= \u0027a\u0027 and \u003C= \u0027f\u0027))\n            throw new ArgumentException($\u0022{name} must be a lowercase sha256 value.\u0022, name);\n    }",
+            "contentHash": "sha256:debaa7147d1a0defd1bde93720f95cad22b01149f4acb79bb02b3213ee6f41fa",
+            "excerptHash": "sha256:f633dd6cf15f5a523fba04a9e10c35316b46605a7a22910ac09440cd987f3dc7"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

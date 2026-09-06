@@ -1,0 +1,401 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+    "displayName": "RepositoryRegistry.cs"
+  },
+  "reviewedAt": "2026-09-01T10:25:48.9382009Z",
+  "kind": "security",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-d39cfc8062c14d9ea01a873edf5af8e6",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 21248,
+      "outputTokens": 4689,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 3624,
+      "durationMs": 121020
+    },
+    "sensors": [
+      {
+        "id": "boundaries",
+        "version": "1.0.0",
+        "resultHash": "sha256:d84dec15f60e857014fdc65258dc42f930d69ee7ab5acffa504dee782357e102"
+      },
+      {
+        "id": "coverage",
+        "version": "1.0.0",
+        "resultHash": "sha256:3d99b484c6837107a635e53bf797c3907eaf9c071606fe9d9c89c850cb7d459b"
+      },
+      {
+        "id": "dependencies",
+        "version": "1.0.0",
+        "resultHash": "sha256:e2c69e44bfa7a2e48e43f1027c39eb0b0d3d72aa652e0b8a67bbbbf220665f2c"
+      },
+      {
+        "id": "gitleaks",
+        "version": "8.24.2",
+        "resultHash": "sha256:8afc917d40b5b3d2f0e567bdc4e9fa4830c9058bccf95775fbc04cb900dfdc2a"
+      }
+    ]
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "1182470f90c57b4dc90555b6e9a31a2e9c5ddbcaa142d6e3398759b4e37a6894"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+      "selector": "file",
+      "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "07e70a9058660aa723faabe5c22053f10e039a4bdfc4e03996540c594dfa2dc9"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-security-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:22775bcc1f7ed6c4a5c60920bac1cabea7b96c36eea12917c6c63c45fd530640"
+    }
+  },
+  "grade": {
+    "score": 59,
+    "band": "F",
+    "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: Path confinement and identifier checks are substantial, and the boundary, coverage, secret-scanning, and build evidence reported no findings. However, repository requests can persist unvalidated sensor configuration, including the executable command setting demonstrated in this unit, and path confinement is checked only during registration or startup rather than when access is granted. Unbounded persisted configuration also permits resource exhaustion. Dependency analysis and ESLint analysis were unavailable, so dependency and frontend posture remain unverified; test coverage is unknown."
+  },
+  "summary": "At least one required machine sensor was unavailable; this review is not a clean result. The registry has useful allowlisted-root, reparse-point, repository-kind, sensor-ID, and budget controls, and gitleaks reported no exposed secrets. The principal risk is that sensor IDs are allowlisted while their configuration is copied without a per-sensor schema; the built-in ESLint configuration establishes that this channel can contain a command. Filesystem confinement can also become stale between validation and RepositoryAccess creation. Automated dependency inspection was unavailable because npm could not be launched, ESLint could not run because its module was missing, and no test coverage evidence is available.",
+  "aspects": [
+    {
+      "id": "security",
+      "title": "Security",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Strong initial path and identifier validation is undermined by unrestricted sensor configuration, stale path validation at the point of use, and missing size limits on persisted request data. Secret and automated boundary checks passed, while dependency and ESLint checks were unavailable."
+      }
+    },
+    {
+      "id": "sensor-availability",
+      "title": "Sensor availability",
+      "grade": {
+        "score": 59,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Path confinement and identifier checks are substantial, and the boundary, coverage, secret-scanning, and build evidence reported no findings. However, repository requests can persist unvalidated sensor configuration, including the executable command setting demonstrated in this unit, and path confinement is checked only during registration or startup rather than when access is granted. Unbounded persisted configuration also permits resource exhaustion. Dependency analysis and ESLint analysis were unavailable, so dependency and frontend posture remain unverified; test coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-5bab6bb47cf147d9e7144cc1cfac35917a2cb62206affe13bc636297197ccbc2",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "high",
+      "title": "Repository requests can supply executable sensor commands",
+      "description": "Validation allowlists each sensor ID but copies its entire Configuration dictionary without validating permitted keys or values. This unit demonstrates that \u0060command\u0060 is an executable sensor configuration setting for ESLint. Consequently, a repository-registration request can replace that server-generated command with attacker-controlled text, crossing from configuration data into an execution-bearing channel. Any sensor runner that honors the stored command will execute authority supplied by the request rather than by trusted server configuration.",
+      "recommendation": "Define a strict, typed schema for every sensor and reject unknown keys. Do not accept command lines, executable paths, arguments, report paths, or working directories directly from repository-registration requests; construct them from trusted server-side definitions. If customization is required, allowlist individual safe options and validate paths under the registered repository before execution.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 272,
+              "column": 1
+            },
+            "end": {
+              "line": 280,
+              "column": 15
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 429,
+              "column": 2
+            },
+            "end": {
+              "line": 432,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5bab6bb47cf147d9e7144cc1cfac35917a2cb62206affe13bc636297197ccbc2",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 272,
+              "column": 1
+            },
+            "end": {
+              "line": 280,
+              "column": 15
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n        var sensors = requestedSensors\n            .Select(sensor =\u003E sensor with\n            {\n                Id = sensor.Id.Trim().ToLowerInvariant(),\n                Configuration = sensor.Configuration is null\n                    ? null\n                    : new Dictionary\u003Cstring, string\u003E(sensor.Configuration, StringComparer.Ordinal),\n            })",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:e301babc6e4793fe1035076d410cab14c295fbd37237b70e6f1f1fcfbdd13dbc"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-ae367e86f4fa96b80c62545b949c4147f2881437c5e977e896cea98dd020ca47",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "medium",
+      "title": "Validated repository paths can be replaced before use",
+      "description": "Root paths are checked for allowed-root containment and reparse traversal only when loaded or registered. \u0060Access\u0060 later passes the stored path directly to \u0060RepositoryAccess\u0060 without revalidating it. A filesystem actor able to rename the validated directory or one of its ancestors and replace it with a symbolic link or junction after validation can redirect subsequent access outside the configured roots.",
+      "recommendation": "Revalidate containment and reparse traversal immediately before creating each RepositoryAccess, and ensure RepositoryAccess applies equivalent checks to every resolved target. For stronger protection against rename races, anchor operations to directory handles or otherwise verify the canonical target at the actual filesystem operation rather than relying only on a previously validated path string.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 89,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 84
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 348,
+              "column": 5
+            },
+            "end": {
+              "line": 362,
+              "column": 5
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:ae367e86f4fa96b80c62545b949c4147f2881437c5e977e896cea98dd020ca47",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 89,
+              "column": 5
+            },
+            "end": {
+              "line": 89,
+              "column": 84
+            }
+          },
+          "capturedExcerpt": {
+            "text": "public RepositoryAccess Access(string? id) =\u003E new(Get(id).RootPath, metaIndex);",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:357bb456faef8ccde4336f82af720c4f44698fd68b22ffe450e6dacf7ac036a8"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-9f76f057af984ccbbd9b8b874e59558c6a84248d48d392bdcda4f46a09d93fae",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "medium",
+      "title": "Unbounded registration data can exhaust memory and registry storage",
+      "description": "DisplayName and every sensor configuration key and value are accepted and persisted without length or aggregate-size limits. A caller able to create or update registrations can submit very large strings or dictionaries, forcing allocation during copying and serialization and permanently enlarging the registry read at startup. The sensor count is bounded indirectly, but each sensor\u0027s dictionary is not.",
+      "recommendation": "Apply explicit limits to display-name length, configuration entry count, key length, value length, and the aggregate serialized registration size. Also enforce an appropriately small request-body limit at the API boundary and reject oversized data before copying or persistence.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 221,
+              "column": 9
+            },
+            "end": {
+              "line": 224,
+              "column": 9
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 272,
+              "column": 1
+            },
+            "end": {
+              "line": 280,
+              "column": 15
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:9f76f057af984ccbbd9b8b874e59558c6a84248d48d392bdcda4f46a09d93fae",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 221,
+              "column": 9
+            },
+            "end": {
+              "line": 224,
+              "column": 9
+            }
+          },
+          "capturedExcerpt": {
+            "text": "if (string.IsNullOrWhiteSpace(request.DisplayName))\n        {\n            throw new RepositoryRegistryValidationException(\u0022Display name is required.\u0022);\n        }",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:be024694c303677ebedbcb7cf42f72fad942d2f02ac5b8a6428265c5f166766a"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T10:17:34.4846679Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T10:17:20.1755481Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty",
+  "security": {
+    "verdict": "unavailable",
+    "combinationRule": "security-sensor-agent-v1",
+    "sensors": [
+      {
+        "id": "boundaries",
+        "version": "1.0.0",
+        "resultHash": "sha256:d84dec15f60e857014fdc65258dc42f930d69ee7ab5acffa504dee782357e102",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "boundary-analyzer": "1.0.0"
+        }
+      },
+      {
+        "id": "coverage",
+        "version": "1.0.0",
+        "resultHash": "sha256:3d99b484c6837107a635e53bf797c3907eaf9c071606fe9d9c89c850cb7d459b",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "parser": "1.0.0",
+          "reports": "6"
+        }
+      },
+      {
+        "id": "dependencies",
+        "version": "1.0.0",
+        "resultHash": "sha256:e2c69e44bfa7a2e48e43f1027c39eb0b0d3d72aa652e0b8a67bbbbf220665f2c",
+        "available": false,
+        "unavailableReason": "npm is unavailable: npm could not be launched.",
+        "verdict": "unavailable",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      },
+      {
+        "id": "gitleaks",
+        "version": "8.24.2",
+        "resultHash": "sha256:8afc917d40b5b3d2f0e567bdc4e9fa4830c9058bccf95775fbc04cb900dfdc2a",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "gitleaks": "8.24.2"
+        }
+      }
+    ]
+  }
+}

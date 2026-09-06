@@ -1,0 +1,304 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/2851f3761a56d9405c0f4eb443f0df9661b75bd5661b0beccf40c8ffebf7cd83",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+    "displayName": "ReviewRunStore.cs"
+  },
+  "reviewedAt": "2026-09-01T10:29:04.6739748Z",
+  "kind": "security",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-3887a924e67e4bacb244ec750f88b30e",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 20449,
+      "outputTokens": 3808,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 3106,
+      "durationMs": 91822
+    },
+    "sensors": [
+      {
+        "id": "boundaries",
+        "version": "1.0.0",
+        "resultHash": "sha256:d84dec15f60e857014fdc65258dc42f930d69ee7ab5acffa504dee782357e102"
+      },
+      {
+        "id": "coverage",
+        "version": "1.0.0",
+        "resultHash": "sha256:3d99b484c6837107a635e53bf797c3907eaf9c071606fe9d9c89c850cb7d459b"
+      },
+      {
+        "id": "dependencies",
+        "version": "1.0.0",
+        "resultHash": "sha256:e2c69e44bfa7a2e48e43f1027c39eb0b0d3d72aa652e0b8a67bbbbf220665f2c"
+      },
+      {
+        "id": "gitleaks",
+        "version": "8.24.2",
+        "resultHash": "sha256:8afc917d40b5b3d2f0e567bdc4e9fa4830c9058bccf95775fbc04cb900dfdc2a"
+      }
+    ]
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "405e7ea0049dab40b2a9ebf34983523b3bc3214c8b6a5d105e04a3633448e2c7"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+      "selector": "file",
+      "contentHash": "sha256:a25206e39cfba2dda051bfdca2952cd13e0c3906f4341c278599b254d13b6c20"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "07e70a9058660aa723faabe5c22053f10e039a4bdfc4e03996540c594dfa2dc9"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-security-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:22775bcc1f7ed6c4a5c60920bac1cabea7b96c36eea12917c6c63c45fd530640"
+    }
+  },
+  "grade": {
+    "score": 58,
+    "band": "F",
+    "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. Agent judgement: The store permits repository-controlled symbolic links or junctions to redirect run-state writes outside the repository, creating a potentially exploitable file-integrity boundary violation. Unbounded whole-file deserialization also permits memory-exhaustion denial of service. The boundary, coverage, and secret-scanning sensors passed, and the build analyzer reported no findings; however, dependency analysis was unavailable, ESLint was unavailable, and test coverage remains unknown."
+  },
+  "summary": "At least one required machine sensor was unavailable; this review is not a clean result. Two additional security defects were identified: run directories are not protected against link-based path redirection, and persisted JSON is loaded without size limits. No embedded secrets were detected by the supplied sensor, and the automated boundary sensor reported a pass, but it did not report the filesystem link issue identified here. Dependency risk could not be assessed because the dependency sensor was unavailable.",
+  "aspects": [
+    {
+      "id": "security",
+      "title": "Security",
+      "grade": {
+        "score": 58,
+        "band": "F",
+        "rationale": "A malicious or compromised repository can use filesystem links beneath \u0060.quality/runs\u0060 to redirect state writes outside the intended root. Additionally, unbounded JSON reads expose the service to memory exhaustion. Secret scanning passed, while dependency assessment was unavailable."
+      }
+    },
+    {
+      "id": "sensor-availability",
+      "title": "Sensor availability",
+      "grade": {
+        "score": 58,
+        "band": "F",
+        "rationale": "At least one required machine sensor was unavailable; this review is not a clean result. The store permits repository-controlled symbolic links or junctions to redirect run-state writes outside the repository, creating a potentially exploitable file-integrity boundary violation. Unbounded whole-file deserialization also permits memory-exhaustion denial of service. The boundary, coverage, and secret-scanning sensors passed, and the build analyzer reported no findings; however, dependency analysis was unavailable, ESLint was unavailable, and test coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-3daf50ab8ba93f186d71f094b863a0d203f55fea48e0ff1587437ef42d85e017",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "high",
+      "title": "Repository-controlled links can redirect run-state writes outside the repository",
+      "description": "RunDirectory validates only the textual run ID and then combines it with runsPath. It does not verify that \u0060.quality\u0060, \u0060runs\u0060, or the selected run directory is free of symbolic links, junctions, or other reparse points, nor that the resolved destination remains beneath the repository root. If repository contents are attacker-controlled, a pre-existing link can cause Create, AppendProgress, WriteStatus, WriteResult, or WriteObservation to create or overwrite files outside the repository using the service account\u0027s privileges.",
+      "recommendation": "Prefer storing orchestration state outside repositories that may contain untrusted content. Otherwise, resolve and validate every existing path component, reject symbolic links/junctions/reparse points, verify the final resolved path remains under a trusted canonical root, and use platform-supported no-follow or directory-handle-relative file operations to avoid check-to-use races.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+          "range": {
+            "start": {
+              "line": 324,
+              "column": 5
+            },
+            "end": {
+              "line": 330,
+              "column": 45
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3daf50ab8ba93f186d71f094b863a0d203f55fea48e0ff1587437ef42d85e017",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+          "range": {
+            "start": {
+              "line": 324,
+              "column": 5
+            },
+            "end": {
+              "line": 330,
+              "column": 45
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private string RunDirectory(string runId)\n    {\n        ArgumentException.ThrowIfNullOrWhiteSpace(runId);\n        if (!string.Equals(runId, Path.GetFileName(runId), StringComparison.Ordinal) ||\n            runId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) \u003E= 0)\n            throw new ArgumentException(\u0022A review run id cannot contain path separators.\u0022, nameof(runId));\n        return Path.Combine(runsPath, runId);",
+            "contentHash": "sha256:a25206e39cfba2dda051bfdca2952cd13e0c3906f4341c278599b254d13b6c20",
+            "excerptHash": "sha256:e4049a7f6ee92ca5f2cc032c80daa27ff123861ad4e011f9106268848749ca5c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-6bd99a10af7975240e2d91b6b2f057d0a76bc6dd34b99e76349fe85cbd7715d3",
+      "ruleId": "built-in:security",
+      "aspect": "security",
+      "severity": "medium",
+      "title": "Unbounded persisted JSON can exhaust process memory",
+      "description": "Required run artifacts are read completely into a string and deserialized without enforcing a file-size limit. An attacker able to supply or modify repository contents can place an oversized manifest or status file under \u0060.quality/runs\u0060, causing LoadAll to allocate memory proportional to attacker-controlled input and potentially terminate or severely degrade the API process. The surrounding exception handling does not mitigate memory exhaustion.",
+      "recommendation": "Enforce conservative maximum sizes before reading run artifacts, deserialize from a bounded stream, cap collection and string lengths where practical, and reject oversized files with a controlled load failure.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+          "range": {
+            "start": {
+              "line": 333,
+              "column": 5
+            },
+            "end": {
+              "line": 335,
+              "column": 76
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:6bd99a10af7975240e2d91b6b2f057d0a76bc6dd34b99e76349fe85cbd7715d3",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewRunStore.cs",
+          "range": {
+            "start": {
+              "line": 333,
+              "column": 5
+            },
+            "end": {
+              "line": 335,
+              "column": 76
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static T ReadRequired\u003CT\u003E(string path) where T : class =\u003E\n        JsonSerializer.Deserialize\u003CT\u003E(File.ReadAllText(path), JsonOptions)\n        ?? throw new InvalidDataException($\u0022Review run file is empty: {path}",
+            "contentHash": "sha256:a25206e39cfba2dda051bfdca2952cd13e0c3906f4341c278599b254d13b6c20",
+            "excerptHash": "sha256:a6371ef5153fb1c77139e7a32bedca2586915c76f0895696c0f6aa9996e6a5ab"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T10:17:34.4846679Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T10:17:20.1755481Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty",
+  "security": {
+    "verdict": "unavailable",
+    "combinationRule": "security-sensor-agent-v1",
+    "sensors": [
+      {
+        "id": "boundaries",
+        "version": "1.0.0",
+        "resultHash": "sha256:d84dec15f60e857014fdc65258dc42f930d69ee7ab5acffa504dee782357e102",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "boundary-analyzer": "1.0.0"
+        }
+      },
+      {
+        "id": "coverage",
+        "version": "1.0.0",
+        "resultHash": "sha256:3d99b484c6837107a635e53bf797c3907eaf9c071606fe9d9c89c850cb7d459b",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "parser": "1.0.0",
+          "reports": "6"
+        }
+      },
+      {
+        "id": "dependencies",
+        "version": "1.0.0",
+        "resultHash": "sha256:e2c69e44bfa7a2e48e43f1027c39eb0b0d3d72aa652e0b8a67bbbbf220665f2c",
+        "available": false,
+        "unavailableReason": "npm is unavailable: npm could not be launched.",
+        "verdict": "unavailable",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      },
+      {
+        "id": "gitleaks",
+        "version": "8.24.2",
+        "resultHash": "sha256:8afc917d40b5b3d2f0e567bdc4e9fa4830c9058bccf95775fbc04cb900dfdc2a",
+        "available": true,
+        "unavailableReason": null,
+        "verdict": "pass",
+        "toolVersions": {
+          "gitleaks": "8.24.2"
+        }
+      }
+    ]
+  }
+}

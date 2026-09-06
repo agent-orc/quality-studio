@@ -1,0 +1,452 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/9b984bea83dbe8518387fcc1252a278cdab352654b348ff0c63e62a6a856a155",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+    "displayName": "RepositoryRegistry.cs"
+  },
+  "reviewedAt": "2026-09-01T08:10:15.2793567Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-152bdebd8c3044429912461d6d3b30ce",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 20620,
+      "outputTokens": 5081,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 3771,
+      "durationMs": 147884
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "1182470f90c57b4dc90555b6e9a31a2e9c5ddbcaa142d6e3398759b4e37a6894"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+      "selector": "file",
+      "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 73,
+    "band": "C",
+    "rationale": "The registry has clear domain modeling and path-confinement checks, but concurrent access, failed-persistence behavior, and incomplete validation of stored configuration can violate its core invariants."
+  },
+  "summary": "The main risks are unsynchronized reads of a mutable List, in-memory changes that survive failed persistence, and startup paths that bypass the comprehensive request validation. Filesystem work embedded in construction also makes failure handling and isolated testing harder.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 67,
+        "band": "D",
+        "rationale": "Concurrent reads can race with List mutations, and failed writes leave the process serving state that was never committed."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The implementation is organized, but validation and persistence responsibilities are split across inconsistent code paths."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "Names, records, and control flow are generally clear, with validation messages that explain most rejected input."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "Persistence failures are propagated without restoring state, while some malformed persisted data escapes as incidental exceptions."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "Hard-coded filesystem and serialization operations, including constructor-time writes, require integration-style setup for most tests and make failure injection difficult."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-ce34cc65b153372b3862f00b05a5e7058c460d31ef9292639f49b1633b3d5d1d",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Reads race with mutations of the repository list",
+      "description": "The semaphore protects writers only. List and Get enumerate the mutable List while CreateAsync, UpdateAsync, and ArchiveAsync can modify it concurrently. RepositoryRegistry is likely shared between requests, so readers can observe inconsistent state or receive InvalidOperationException while the list is being changed.",
+      "recommendation": "Publish an immutable snapshot after every successful update, or protect both reads and writes with an appropriate synchronization mechanism. Prefer replacing the complete snapshot atomically instead of mutating a shared List in place.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 74,
+              "column": 5
+            },
+            "end": {
+              "line": 78,
+              "column": 19
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 80,
+              "column": 5
+            },
+            "end": {
+              "line": 87,
+              "column": 6
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 13
+            },
+            "end": {
+              "line": 103,
+              "column": 49
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:ce34cc65b153372b3862f00b05a5e7058c460d31ef9292639f49b1633b3d5d1d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 74,
+              "column": 5
+            },
+            "end": {
+              "line": 78,
+              "column": 19
+            }
+          },
+          "capturedExcerpt": {
+            "text": "public IReadOnlyList\u003CRepositoryRegistration\u003E List(bool includeArchived = false) =\u003E entries\n        .Where(entry =\u003E includeArchived || !entry.Archived)\n        .OrderBy(entry =\u003E entry.Id == DefaultRepositoryId ? 0 : 1)\n        .ThenBy(entry =\u003E entry.DisplayName, StringComparer.OrdinalIgnoreCase)\n        .ToArray();",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:0d238954609e74321b2c93862798c4329463a08976f786d21f836c0b611cf214"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-2a61d9d69a36c4438e2457c2601c45e7fdfe7bf27b74f301978c1fd756bff075",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "Failed persistence leaves uncommitted state active in memory",
+      "description": "Each operation mutates entries before awaiting PersistAsync. If serialization, writing, cancellation, or the final move fails, the caller receives an error but the mutation remains visible in memory. A failed create can consequently block retries as a duplicate, and updates or archives can take effect until the process restarts even though they were never committed.",
+      "recommendation": "Build a candidate snapshot, persist that snapshot first, and publish it to entries only after persistence succeeds. Alternatively, restore the previous snapshot in a catch block, although immutable snapshot replacement is simpler and safer.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 13
+            },
+            "end": {
+              "line": 103,
+              "column": 49
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 130,
+              "column": 13
+            },
+            "end": {
+              "line": 131,
+              "column": 49
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 163,
+              "column": 13
+            },
+            "end": {
+              "line": 165,
+              "column": 49
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2a61d9d69a36c4438e2457c2601c45e7fdfe7bf27b74f301978c1fd756bff075",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 102,
+              "column": 13
+            },
+            "end": {
+              "line": 103,
+              "column": 49
+            }
+          },
+          "capturedExcerpt": {
+            "text": "entries.Add(entry);\n            await PersistAsync(cancellationToken)",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:4217d6ac6d32684362aa222d9aa3ca9fa9fd0795ea5b425dfce2cb546f767c7d"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-c3eaed0fabd8dfc9905b3601f8326f5eb2a40d3fd6a4f1ade49a6d687f3f2b51",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Seeded and persisted registrations bypass normal validation",
+      "description": "Request validation enforces IDs, Git repository presence, budgets, review kinds, sensors, and mutually exclusive caps, but startup validation checks only directory availability and confinement. Legacy values and hand-edited or older JSON can therefore introduce registrations that normal API requests cannot create, including duplicate IDs, invalid caps, unsupported kinds, or malformed sensor selections. Duplicate persisted sensor IDs can also fail earlier in ToDictionary with an uncontextualized ArgumentException.",
+      "recommendation": "Define one invariant-validation routine for RepositoryRegistration and apply it to API-created, seeded, migrated, and deserialized entries. Validate collection-wide ID uniqueness as well, and wrap malformed registry data in the contextual registry-read exception.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 184,
+              "column": 21
+            },
+            "end": {
+              "line": 189,
+              "column": 36
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 201,
+              "column": 9
+            },
+            "end": {
+              "line": 210,
+              "column": 49
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 330,
+              "column": 5
+            },
+            "end": {
+              "line": 342,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c3eaed0fabd8dfc9905b3601f8326f5eb2a40d3fd6a4f1ade49a6d687f3f2b51",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 184,
+              "column": 21
+            },
+            "end": {
+              "line": 189,
+              "column": 36
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var migrated = loaded.Select(entry =\u003E entry with\n                    {\n                        Sensors = MergeSupportedSensors(entry.Sensors, entry.RootPath),\n                    }).ToList();\n                    foreach (var entry in migrated) ValidatePersistedEntry(entry);\n                    return migrated;",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:24382588f1fdfb0c45500fc7554eece15b32d22536de8b368167234801c2e67e"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-7bd63ff3f1a5d8ecaf7c8605b70cf2105104ac22ccbe43e46b06b9f8044943db",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "Construction performs extensive concrete filesystem I/O",
+      "description": "Creating the registry resolves and probes directories, checks reparse traversal, reads or seeds the registry, creates directories, and may write a file. These constructor side effects make unit tests depend on a carefully constructed real filesystem and make read, write, and move failures difficult to inject deterministically.",
+      "recommendation": "Inject a registry persistence or filesystem abstraction and move loading/seeding into an explicit initialization operation or factory. This allows focused tests for validation, migration, atomic persistence, and failure recovery without relying on platform-specific filesystem behavior.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 50,
+              "column": 5
+            },
+            "end": {
+              "line": 69,
+              "column": 32
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7bd63ff3f1a5d8ecaf7c8605b70cf2105104ac22ccbe43e46b06b9f8044943db",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/RepositoryRegistry.cs",
+          "range": {
+            "start": {
+              "line": 50,
+              "column": 5
+            },
+            "end": {
+              "line": 69,
+              "column": 32
+            }
+          },
+          "capturedExcerpt": {
+            "text": "public RepositoryRegistry(IHostEnvironment environment, IOptions\u003CRepositoryOptions\u003E options,\n        SensorRegistry sensors, ILogger\u003CRepositoryRegistry\u003E logger, ReviewMetaIndex metaIndex)\n    {\n        contentRoot = environment.ContentRootPath;\n        legacyOptions = options.Value;\n        supportedSensors = sensors.List().Select(sensor =\u003E sensor.Id).ToArray();\n        this.logger = logger;\n        this.metaIndex = metaIndex;\n        if (legacyOptions.AllowedRoots.Length == 0)\n            throw new InvalidOperationException(\u0022QualityStudio:AllowedRoots must contain at least one directory.\u0022);\n        allowedRoots = legacyOptions.AllowedRoots.Select(path =\u003E ResolvePath(path, contentRoot))\n            .Distinct(PathComparer).ToArray();\n        foreach (var allowedRoot in allowedRoots)\n        {\n            if (!Directory.Exists(allowedRoot))\n                throw new InvalidOperationException(\u0022A configured repository allowed root does not exist.\u0022);\n            PathConfinement.RejectReparseTraversal(allowedRoot, allowedRoot);\n        }\n        registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace(\u0027/\u0027, Path.DirectorySeparatorChar));\n        entries = LoadOrSeed();",
+            "contentHash": "sha256:b9867cf34976be380707fc1b454a6e9208e3ada7ff74e3f9abdf1cc07d37429d",
+            "excerptHash": "sha256:19ca47a012de49f25d15134af87f56a36e1a57fc212cc06656a2080b04d358ab"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T07:56:01.5546914Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T07:55:43.9459213Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:baa0b8c7c31fbfd23441c5e49f8bea5ed17d30c7-dirty"
+}

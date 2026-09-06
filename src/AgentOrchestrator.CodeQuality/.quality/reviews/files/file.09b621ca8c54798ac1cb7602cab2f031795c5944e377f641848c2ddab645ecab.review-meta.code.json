@@ -1,0 +1,658 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/6c6212968c3423dba7a664d103b59f9609d47dfd22a0a64d67df5668cc67e26b",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+    "displayName": "RepositoryHierarchyCache.cs"
+  },
+  "reviewedAt": "2026-09-01T09:12:27.2261567Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-a68287d17df94d9a9728e4e0b286d211",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18634,
+      "outputTokens": 6099,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 4069,
+      "durationMs": 177286
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "f087f41a26f72016b2f2cdf622ec80272b2961e0d06fd319aa2b889f5709aa2d"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+      "selector": "file",
+      "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 69,
+    "band": "D",
+    "rationale": "The implementation is readable and has a sensible per-repository synchronization model, but cache identity omits an input that directly affects the generated snapshot. Additional weaknesses in fallback invalidation, path comparison, process handling, and mutability can produce stale results or hangs in realistic environments."
+  },
+  "summary": "The most important defect is that snapshots created with one InputResolver can be returned to callers using another resolver because resolver behavior is absent from the cache key. The Git-backed state calculation is generally thoughtful, and the supplied .NET analyzer reports no build findings, but the filesystem fallback can miss changes, Git execution can hang, and the public snapshot is not demonstrably immutable. Test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 65,
+        "band": "D",
+        "rationale": "Cache results can be reused across different InputResolver configurations, fallback invalidation can miss content changes, and case-insensitive slot keys are incorrect on case-sensitive filesystems."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The code is compact and decomposed into focused helpers, but slots have no eviction policy and platform/process/filesystem concerns are embedded directly in the cache."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 83,
+        "band": "B",
+        "rationale": "Control flow and measurement boundaries are easy to follow. However, the claimed immutability is not enforced, and the GitState value also incorporates global-input state, making its name somewhat misleading."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "Git failures degrade to a fallback, but redirected stderr is never consumed, there is no timeout, and recursive fallback enumeration does not safely handle reparse points or transient filesystem failures."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "The injectable InputResolver is useful, but Git processes, filesystem access, hashing, and timing are hard-wired static dependencies, forcing tests to use real repositories and filesystem state. Coverage is unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-a7b61a8c45046eed0ae559880cdccbb27cf7d8f71262f03d91b184c2e95d02b5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "InputResolver behavior is absent from the cache identity",
+      "description": "ReviewMetaDiscovery receives inputResolver and can therefore produce a different hierarchy for different resolver instances or configurations. The cache state includes only Git state, the global-input directory contents, and the character budget. Once a snapshot is cached, a later call using a different resolver\u2014or no resolver\u2014can receive the earlier snapshot without discovery running again.",
+      "recommendation": "Make resolver-dependent state an explicit part of the cache key, such as a stable resolver configuration/version token. If a resolver cannot provide stable identity, bypass this cache for custom resolvers or scope each cache instance to one immutable resolver configuration.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 44,
+              "column": 9
+            },
+            "end": {
+              "line": 45,
+              "column": 87
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 68,
+              "column": 13
+            },
+            "end": {
+              "line": 69,
+              "column": 90
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a7b61a8c45046eed0ae559880cdccbb27cf7d8f71262f03d91b184c2e95d02b5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 44,
+              "column": 9
+            },
+            "end": {
+              "line": 45,
+              "column": 87
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var state = ComputeGitState(root) \u002B \u0022\\0\u0022 \u002B\n                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacte",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:e3171fd9a5589bcbb0dff7865f40c4080ced27ef22d0c7d72ecb7c20ef25a313"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-a2e49622c402ffcef8e5009e397216a2a920c236e66f132eba5b95a357c0ca05",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "The cached snapshot is only superficially immutable",
+      "description": "IReadOnlyList prevents mutation through that interface but does not make the underlying collection or its HierarchyNode elements immutable. The builder\u0027s hierarchy is stored and returned directly, so a caller that obtains mutable nodes or casts the underlying collection can alter the shared snapshot observed by later callers.",
+      "recommendation": "Freeze or deeply copy the hierarchy before caching it. Prefer immutable node types and an ImmutableArray\u003CHierarchyNode\u003E, or expose a detached read-only representation that contains no mutable collections or node state.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 38
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 72,
+              "column": 13
+            },
+            "end": {
+              "line": 72,
+              "column": 95
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a2e49622c402ffcef8e5009e397216a2a920c236e66f132eba5b95a357c0ca05",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 9,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 38
+            }
+          },
+          "capturedExcerpt": {
+            "text": "IReadOnlyList\u003CHierarchyNode\u003E Roots",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:f6811c473a9b7aa1bb39218a488ef14891dbcd6c9473516d709953803ca7c94b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-63f687809486ef99f5d618652ae72768a68b4774ba128f7b0810dba254b19686",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Filesystem fallback can miss content changes",
+      "description": "When Git status is unavailable, file state is represented only by relative path, length, and LastWriteTimeUtc. Replacing content while preserving its length and timestamp leaves the state hash unchanged, so content-dependent discovery can return a stale cached snapshot.",
+      "recommendation": "Hash file contents in the fallback, as is already done for changed Git paths and global input files. If performance requires metadata shortcuts, document the weaker guarantee and use a validated content cache rather than treating metadata as definitive identity.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 169,
+              "column": 13
+            },
+            "end": {
+              "line": 172,
+              "column": 115
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:63f687809486ef99f5d618652ae72768a68b4774ba128f7b0810dba254b19686",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 169,
+              "column": 13
+            },
+            "end": {
+              "line": 172,
+              "column": 115
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Append(hash, Path.GetRelativePath(root, path).Replace(\u0027\\\\\u0027, \u0027/\u0027));\n            var info = new FileInfo(path);\n            Append(hash, info.Length.ToString(System.Globalization.CultureInfo.InvariantCulture));\n            Append(hash, info.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:3d5a4938e46d8db740c23ec3bc25ca950a17397960215d6eb7c83f8ea3a78905"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-c997261f629e91fd12011c1ec44f2e3dfa31e42d6206ccc22c59b22ac851e4e8",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Git execution can deadlock or wait indefinitely",
+      "description": "Standard error is redirected but never read. If Git writes enough diagnostic output to fill that pipe, Git blocks while the parent waits for standard output to close, causing ReadToEnd to wait forever. There is also no timeout or cancellation mechanism for a stalled Git process.",
+      "recommendation": "Drain standard output and standard error concurrently, impose a configurable timeout or accept a CancellationToken, and terminate the process tree on timeout. Preserve bounded stderr diagnostics so fallback causes can be observed or tested.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 184,
+              "column": 17
+            },
+            "end": {
+              "line": 195,
+              "column": 71
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c997261f629e91fd12011c1ec44f2e3dfa31e42d6206ccc22c59b22ac851e4e8",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 184,
+              "column": 17
+            },
+            "end": {
+              "line": 195,
+              "column": 71
+            }
+          },
+          "capturedExcerpt": {
+            "text": "RedirectStandardOutput = true,\n                RedirectStandardError = true,\n                UseShellExecute = false,\n            },\n        };\n        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);\n        try\n        {\n            if (!process.Start()) return null;\n            var output = process.StandardOutput.ReadToEnd();\n            process.WaitForExit();\n            return process.ExitCode == 0 ? output.TrimEnd(\u0027\\r\u0027, \u0027\\n\u0027) :",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:2f557733feabdfdaa8f867e4c350d0df7a37178a2b4e058d8f68c1c3e139ff51"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-abc162e3f82eb261c1067584b9a1edc309a7968ff8c018e72055de65a58117ae",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Repository slot comparison is wrong on case-sensitive filesystems",
+      "description": "OrdinalIgnoreCase merges repository paths that differ only by case even on Linux and other case-sensitive filesystems. Such repositories share one slot; if their computed states match, one repository can receive the snapshot built for the other, and otherwise they continually evict each other\u0027s cached snapshot.",
+      "recommendation": "Use path comparison appropriate to the current platform, such as OrdinalIgnoreCase on Windows and Ordinal on case-sensitive platforms, after applying consistent path normalization.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 25,
+              "column": 74
+            },
+            "end": {
+              "line": 25,
+              "column": 105
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:abc162e3f82eb261c1067584b9a1edc309a7968ff8c018e72055de65a58117ae",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 25,
+              "column": 74
+            },
+            "end": {
+              "line": 25,
+              "column": 105
+            }
+          },
+          "capturedExcerpt": {
+            "text": "StringComparer.OrdinalIgnoreCase",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:ad9b3f1a8109adb0f8b3c9d1c69444bad69d535b6b8f88180f518a1030a0e2b6"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-182b649ccd2d6e23f7053a6f96f1f4b168a71dc87916d9735ffbd3a61b5ee2e6",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Fallback traversal does not exclude reparse-point directories",
+      "description": "Directory.EnumerateFiles with AllDirectories may traverse directory symlinks or junctions before the subsequent file filter runs. This can scan outside the repository, encounter cycles or inaccessible trees, and throw during cache-state computation. The filter also excludes only an exactly cased \u0027.git\u0027 path segment.",
+      "recommendation": "Implement explicit directory traversal that skips reparse-point directories and Git metadata before descending. Use platform-appropriate name comparison and define how transient UnauthorizedAccessException and IOException failures should be surfaced or represented in state.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 165,
+              "column": 9
+            },
+            "end": {
+              "line": 167,
+              "column": 47
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:182b649ccd2d6e23f7053a6f96f1f4b168a71dc87916d9735ffbd3a61b5ee2e6",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 165,
+              "column": 9
+            },
+            "end": {
+              "line": 167,
+              "column": 47
+            }
+          },
+          "capturedExcerpt": {
+            "text": "foreach (var path in Directory.EnumerateFiles(root, \u0022*\u0022, SearchOption.AllDirectories)\n                     .Where(path =\u003E !path.Split(Path.DirectorySeparatorChar).Any(part =\u003E part == \u0022.git\u0022))\n                     .Order(StringComparer.Ordi",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:c0115da63b7e90272d70dd8e2c4c4e439e1515f0696134c435d451ac06796d0e"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-f6d49d183cbeb2110f584c45c48ef9b071ed15798e67d648f36f41f87868a120",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "low",
+      "title": "Repository cache slots are never reclaimed",
+      "description": "Every distinct normalized repository path creates a CacheSlot that remains in the ConcurrentDictionary for the lifetime of the cache. A long-running service that examines many temporary or user-selected repositories will retain their keys, gates, and latest hierarchy snapshots indefinitely.",
+      "recommendation": "Add bounded eviction or expiration, provide an explicit invalidation/removal API, or scope RepositoryHierarchyCache to a known bounded repository set.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 25,
+              "column": 5
+            },
+            "end": {
+              "line": 25,
+              "column": 107
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 47,
+              "column": 20
+            },
+            "end": {
+              "line": 47,
+              "column": 63
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f6d49d183cbeb2110f584c45c48ef9b071ed15798e67d648f36f41f87868a120",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 25,
+              "column": 5
+            },
+            "end": {
+              "line": 25,
+              "column": 107
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private readonly ConcurrentDictionary\u003Cstring, CacheSlot\u003E slots = new(StringComparer.OrdinalIgnoreCase);",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:2106b6fe1b0ef4ff9dbe21c2fa640f0b63b9547a680fcc7b2e2fb65655de1996"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-a35b1f95f663dc2eaf1e51a375988615f67d91245a2acf521bae6be16095118d",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "External dependencies are hard-wired into cache logic",
+      "description": "Git process creation, filesystem enumeration, file reads, and stopwatch timing are invoked directly through static APIs. Deterministic tests for Git failures, hangs, filesystem races, and measurement values therefore require real processes and filesystem manipulation.",
+      "recommendation": "Extract narrow abstractions for repository state calculation and timing, or inject a state-provider delegate and clock. Keep production implementations backed by Git and the filesystem while allowing deterministic fault and concurrency tests.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 84,
+              "column": 5
+            },
+            "end": {
+              "line": 88,
+              "column": 94
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 177,
+              "column": 5
+            },
+            "end": {
+              "line": 201,
+              "column": 5
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:a35b1f95f663dc2eaf1e51a375988615f67d91245a2acf521bae6be16095118d",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs",
+          "range": {
+            "start": {
+              "line": 84,
+              "column": 5
+            },
+            "end": {
+              "line": 88,
+              "column": 94
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static string ComputeGitState(string root)\n    {\n        var head = RunGit(root, \u0022rev-parse\u0022, \u0022--verify\u0022, \u0022HEAD\u0022) ?? \u0022unborn\u0022;\n        var index = RunGit(root, \u0022ls-files\u0022, \u0022--stage\u0022, \u0022-z\u0022) ?? \u0022no-index\u0022;\n        var status = RunGit(root, \u0022status\u0022, \u0022--porcelain=v1\u0022, \u0022-z\u0022, \u0022--untracked-files=all\u0022);",
+            "contentHash": "sha256:570a3fce6f1b150815f465dc6270a82e21f0ee50e5a1da555c22b74f2672ea18",
+            "excerptHash": "sha256:57a9d3612df12a89272963ca88ab0b1aebcf0f8a62fef978008646ff4101441c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

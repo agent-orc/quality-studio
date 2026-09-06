@@ -1,0 +1,141 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/62474755604a56cccd528fadebe08b04193e9470b6a320cb4f9cd3641b97e9a8",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+    "displayName": "ReviewLevel.cs"
+  },
+  "reviewedAt": "2026-09-01T09:15:15.3698380Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-4bd1ae0e177748bfb3db42a9ac617080",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 17026,
+      "outputTokens": 437,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 94,
+      "durationMs": 22366
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "f75b6d070f1ebf26e8c32e650960da9858ef0ae83e88d44b9b9d7ef5192b2de3"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/ReviewLevel.cs",
+      "selector": "file",
+      "contentHash": "sha256:dcecb285fa48f542a2aecddb7707829e5df6f599dd11326518a3db8b12b875a4"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 98,
+    "band": "A",
+    "rationale": "The enum is correct, concise, well documented, and appropriately scoped. No actionable defects are evident in the supplied file."
+  },
+  "summary": "No issues found. The enum clearly represents the intended review hierarchy, uses conventional C# naming, and requires no local error handling. Test coverage is unknown and was not treated as absent; the available .NET build evidence reports no findings, while the unavailable ESLint check is irrelevant to this C# file.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "The declaration is valid C# and its members consistently represent the documented review levels."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "The small, cohesive enum is easy to extend, and XML documentation explains both the type and every member."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 99,
+        "band": "A",
+        "rationale": "Names, ordering, formatting, and documentation communicate the enum\u0027s purpose without unnecessary complexity."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 98,
+        "band": "A",
+        "rationale": "This passive enum contains no operations or failure paths requiring local error handling."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 96,
+        "band": "A",
+        "rationale": "The enum is deterministic and straightforward for consumers to exercise. Coverage is unknown, and no unsupported coverage conclusion was inferred."
+      }
+    }
+  ],
+  "findings": [],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

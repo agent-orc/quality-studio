@@ -1,0 +1,574 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/9e3386b5724c0b4fd5891bda24bb66d2edc7de03a9e188032823ec7b90ba7ffa",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+    "displayName": "GitleaksBinaryResolver.cs"
+  },
+  "reviewedAt": "2026-09-01T08:55:12.1529637Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-4f354675c6ec4de9a49ab6165218f970",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 19266,
+      "outputTokens": 5656,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 4023,
+      "durationMs": 193968
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "bc5f973ae692c6c500f70f8721ee7ef62b6bd93143d10b63b753c3d48a6926ec"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+      "selector": "file",
+      "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 72,
+    "band": "C",
+    "rationale": "The resolver has a sensible overall flow and validates downloaded archives, but cancellation handling, installation atomicity, post-install validation, and checksum trust weaken correctness and reliability. Subprocess handling and hard-coded environment dependencies also reduce robustness and testability."
+  },
+  "summary": "The implementation is readable and supports the principal platforms and architectures cleanly. The most important improvements are to preserve cancellation, install through an atomic staging path with concurrency control, verify the installed executable before returning it, and bind the release to a checksum stored independently of the downloaded asset. No coverage data was available, so test coverage was treated as unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Normal discovery and provisioning should work, but concurrent resolutions can interfere and a newly installed binary is returned without execution verification."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "The methods are reasonably cohesive, but implicit HttpClient ownership and duplicated platform-dependent behavior create lifecycle and evolution concerns."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "Naming and control flow are generally clear, although silent exception suppression obscures why candidate binaries were rejected."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error handling",
+      "grade": {
+        "score": 64,
+        "band": "D",
+        "rationale": "Cancellation is converted into an ordinary version mismatch, process I/O can deadlock, and installation is not protected from partial or competing writes."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "HTTP and the cache path are injectable, but process execution, operating-system detection, environment access, and filesystem operations are hard-coded."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-c3b5689035e07173732307796207e15231a9703be3484d3b5f9398ee34566505",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Version probing suppresses cancellation",
+      "description": "The unfiltered catch converts OperationCanceledException from process output reads or WaitForExitAsync into false. ResolveAsync can consequently continue checking candidates or begin provisioning after the caller has cancelled, while explicit-path resolution reports a misleading version mismatch.",
+      "recommendation": "Catch only expected launch or version-check failures, and explicitly rethrow OperationCanceledException when the supplied token is cancelled.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 75,
+              "column": 9
+            },
+            "end": {
+              "line": 78,
+              "column": 9
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:c3b5689035e07173732307796207e15231a9703be3484d3b5f9398ee34566505",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 75,
+              "column": 9
+            },
+            "end": {
+              "line": 78,
+              "column": 9
+            }
+          },
+          "capturedExcerpt": {
+            "text": "catch\n        {\n            return false;\n        }",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:2679fdba6c89fcbb303f187d2dad78adac6ea7188c95e2a00734fe00e9eb99e7"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b49a9573f536be71bccc4904f2f0dd039c38aa14e60d33af7f06885218c4eaaf",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Concurrent resolutions write the shared installation non-atomically",
+      "description": "After the cache check, every caller may provision directly to the same destination. Competing File.Copy or tar extraction operations can fail, observe partial state, or overwrite one another; a failed extraction can also leave the cache directory partially populated.",
+      "recommendation": "Serialize installation per destination and extract into a unique staging directory. After validation, atomically move or replace the completed executable in the cache.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 46,
+              "column": 9
+            },
+            "end": {
+              "line": 47,
+              "column": 89
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 269,
+              "column": 17
+            },
+            "end": {
+              "line": 272,
+              "column": 57
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 290,
+              "column": 17
+            },
+            "end": {
+              "line": 295,
+              "column": 61
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b49a9573f536be71bccc4904f2f0dd039c38aa14e60d33af7f06885218c4eaaf",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 46,
+              "column": 9
+            },
+            "end": {
+              "line": 47,
+              "column": 89
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Directory.CreateDirectory(Path.GetDirectoryName(cached)!);\n        await DownloadPinnedBinaryAsync(cached, cancellationToken).ConfigureAwait(false);",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:5db654b016a00c760706005ed76d1964b53c5d7d0313a7c080a30f8bf0bc2c55"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-027ca84c8237a4c3b46ce4822ca5a46b3827dc70426b7ffc7637ff58acd59c86",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Downloaded executable is returned without validating that it runs",
+      "description": "Existing and explicit binaries must report the pinned version, but the freshly extracted binary is returned immediately. Extraction permission problems, an unexpected archive layout, or a bad selected file therefore produce a successful resolution whose returned path is unusable.",
+      "recommendation": "Run VerifyBinaryAsync on the staged executable before publishing it and again use the verified path as the return value. Preserve cancellation when verification is interrupted.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 47,
+              "column": 9
+            },
+            "end": {
+              "line": 48,
+              "column": 22
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:027ca84c8237a4c3b46ce4822ca5a46b3827dc70426b7ffc7637ff58acd59c86",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 47,
+              "column": 9
+            },
+            "end": {
+              "line": 48,
+              "column": 22
+            }
+          },
+          "capturedExcerpt": {
+            "text": "await DownloadPinnedBinaryAsync(cached, cancellationToken).ConfigureAwait(false);\n        return cached;",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:cf699f358e454ac6c47f47e8057efb81e0a264b03121d6daafdf8216c938cc04"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-1d2b3f0c317af249ad411292ae7b002f5384c712c3560815e6ce223a6c1c69d5",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Checksum is fetched from the same mutable release as the archive",
+      "description": "The version is constant, but its expected digest is downloaded at runtime from the same release origin as the archive. If release assets are replaced or the release account is compromised, an altered archive and matching altered checksum pass validation, so the checksum does not provide an immutable pin.",
+      "recommendation": "Store the expected SHA-256 digest for each supported asset in trusted source or another independently controlled manifest. If runtime manifest download is required, authenticate it with a pinned signing key before trusting its values.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 122,
+              "column": 9
+            },
+            "end": {
+              "line": 124,
+              "column": 67
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:1d2b3f0c317af249ad411292ae7b002f5384c712c3560815e6ce223a6c1c69d5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 122,
+              "column": 9
+            },
+            "end": {
+              "line": 124,
+              "column": 67
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var checksums = await DownloadTextAsync($\u0022{_downloadRoot}/{PinnedVersionAssetChecksumsName()}\u0022, cancellationToken)\n            .ConfigureAwait(false);\n        var expectedDigest = ParseChecksum(checksums, archiveName);",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:722c8be079c0732664dd0ddbf91e24232469e0cd8e8e3f8a060b0e1f9f05b8f1"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-53299c2ef00783f70345f1c056f389f4b86e43f477847056904e0f5bc4668810",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "low",
+      "title": "Sequential reads of redirected process streams can deadlock",
+      "description": "Standard output is drained completely before standard error. A process that fills its stderr pipe while stdout remains open can block, leaving the parent waiting indefinitely for stdout completion. The current version command is normally small, but the process wrapper is not robust to abnormal or substituted executables.",
+      "recommendation": "Drain stdout and stderr concurrently, then await process completion, for example by starting both ReadToEndAsync operations before awaiting either one.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 107,
+              "column": 9
+            },
+            "end": {
+              "line": 109,
+              "column": 81
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:53299c2ef00783f70345f1c056f389f4b86e43f477847056904e0f5bc4668810",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 107,
+              "column": 9
+            },
+            "end": {
+              "line": 109,
+              "column": 81
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var output = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);\n        var error = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);\n        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:dfd5a9ad662a0585936bb3f7a4652b5b61d6a4c8c867d32924ab1c16aef11edc"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-97bb89575c1324472a6582036db08d0c8dff5f842247827f59dc9f58d15731e5",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "low",
+      "title": "Internally created HttpClient has no defined lifetime",
+      "description": "The constructor creates an HttpClient when none is supplied, but the resolver does not implement disposal and does not distinguish owned from injected clients. Repeated short-lived resolver instances can therefore retain network resources longer than intended.",
+      "recommendation": "Prefer requiring an injected long-lived HttpClient or IHttpClientFactory. Alternatively, track ownership and implement the appropriate disposal pattern without disposing caller-owned clients.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 18,
+              "column": 5
+            },
+            "end": {
+              "line": 22,
+              "column": 86
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:97bb89575c1324472a6582036db08d0c8dff5f842247827f59dc9f58d15731e5",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 18,
+              "column": 5
+            },
+            "end": {
+              "line": 22,
+              "column": 86
+            }
+          },
+          "capturedExcerpt": {
+            "text": "public GitleaksBinaryResolver(HttpClient? httpClient = null, string? cacheDirectory = null)\n    {\n        _httpClient = httpClient ?? new HttpClient();\n        _cacheDirectory = cacheDirectory ?? GetDefaultCacheDirectory();\n        _downloadRoot = $\u0022https://github.com/gitleaks/gitleaks/releases/download/v{Pin",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:7ff6b448c3977a49d2172d5094649da6e61053df5d9a5d840085eccbb402889c"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-ccb676d0204bb4a4da5d89b628a67efeb4e5cdac1dac5a07066d6cb4e0fa2086",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "Process and host-environment dependencies cannot be isolated in tests",
+      "description": "Version checks instantiate Process directly, while discovery and archive selection rely on static OS, architecture, environment, and filesystem APIs. Tests must create real executables and mutate host state, making cancellation, launch failures, platform selection, and PATH behavior difficult to exercise deterministically.",
+      "recommendation": "Introduce narrow abstractions for process execution and host/platform information, and optionally filesystem access. Keep production adapters small while unit-testing resolver decisions with deterministic fakes.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 81,
+              "column": 5
+            },
+            "end": {
+              "line": 93,
+              "column": 55
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:ccb676d0204bb4a4da5d89b628a67efeb4e5cdac1dac5a07066d6cb4e0fa2086",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs",
+          "range": {
+            "start": {
+              "line": 81,
+              "column": 5
+            },
+            "end": {
+              "line": 93,
+              "column": 55
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private async Task\u003Cstring\u003E RunVersionAsync(string executable, CancellationToken cancellationToken)\n    {\n        using var process = new Process\n        {\n            StartInfo = new ProcessStartInfo(executable)\n            {\n                RedirectStandardOutput = true,\n                RedirectStandardError = true,\n                UseShellExecute = false,\n                CreateNoWindow = true,\n            },\n        };\n        process.StartInfo.ArgumentList.Add(\u0022version\u0022);",
+            "contentHash": "sha256:ff029c2da098d7f5de97b9ab27dbf02ae3c0164c1ed955a7fb6c6cc46bd49949",
+            "excerptHash": "sha256:67166924bac7f0ebd60339a43d5691b8f047918fff8b38acad72a8a9c41d7e59"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

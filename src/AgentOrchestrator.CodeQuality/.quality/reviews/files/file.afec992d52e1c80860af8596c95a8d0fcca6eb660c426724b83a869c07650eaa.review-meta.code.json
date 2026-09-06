@@ -1,0 +1,445 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/01323bd9248cf842dca46c459eb59d93efc84c38e74d852d34c41c4b9414a343",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+    "displayName": "InputResolver.cs"
+  },
+  "reviewedAt": "2026-09-01T09:02:03.3748937Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-5658cd271b434092a5bcc26313476c28",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18933,
+      "outputTokens": 5579,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 4168,
+      "durationMs": 178127
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "8f4d4f66f988c83e494849d5fe7840422b79d9bf2af39a91987e5e1bd3011fe4"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+      "selector": "file",
+      "contentHash": "sha256:34318a46b3033826d65aa07a2d5c224065cc0fc4f5bb660b3d30b10b030cdbe7"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 76,
+    "band": "C",
+    "rationale": "The resolver is compact and deterministic in several important respects, but priority allocation can produce incorrect effective inputs, review-kind validation accepts invalid enum values, duplicate identifiers are not controlled, and the claimed YAML frontmatter support is only a fragile subset."
+  },
+  "summary": "The implementation has a clear data model, deterministic per-directory ordering, explicit budget accounting, path-confinement checks, and useful omission metadata. Its main correctness risk is that global and project inputs are budgeted as separate groups rather than by their combined priority. Validation and parsing also admit ambiguous or misleading configurations. Test coverage is unknown.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 70,
+        "band": "C",
+        "rationale": "Combined input ordering can violate declared priorities, numeric or composite enum strings can pass validation, and UTF-16 slicing can split a surrogate pair."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The implementation is reasonably concise, but the custom frontmatter parser and lack of identifier uniqueness enforcement create implicit configuration semantics that will be difficult to evolve safely."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Names and data flow are generally clear, although describing the accepted metadata syntax as YAML obscures the parser\u0027s substantial limitations."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Basic argument and input-format failures are reported explicitly, but ambiguous duplicate metadata and identifiers are silently accepted rather than diagnosed."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 80,
+        "band": "B",
+        "rationale": "Pure applicability and parsing behavior is straightforward to exercise through ParseFile, while resolution and traversal cases require filesystem-backed tests. No coverage evidence was supplied."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-19ca2af0d733ed501a641e1b27dc79c57be13133817e6074c0d302a60ad1b656",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Budget allocation does not honor priority across global and project inputs",
+      "description": "ReadDirectory sorts each scope independently, but Resolve concatenates all remaining global inputs before all project inputs. Consequently, a low-priority global input can consume the budget and truncate or entirely exclude a higher-priority project input. This makes Priority misleading and can omit the most important effective guidance.",
+      "recommendation": "After applying project overrides, sort the combined effective sequence by descending Priority with deterministic Id and Source tie-breakers before allocating the budget. If global-first behavior is intentional, represent scope precedence explicitly and document that Priority applies only within a scope.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 74,
+              "column": 9
+            },
+            "end": {
+              "line": 84,
+              "column": 104
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:19ca2af0d733ed501a641e1b27dc79c57be13133817e6074c0d302a60ad1b656",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 74,
+              "column": 9
+            },
+            "end": {
+              "line": 84,
+              "column": 104
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var global = ReadDirectory(globalInputsDirectory, \u0022global\u0022, normalizedKind, normalizedLevel,\n            globalInputsDirectory);\n        var projectRoot = Path.GetFullPath(repositoryRoot);\n        var projectDirectory = Path.Combine(projectRoot, \u0022.quality\u0022, \u0022inputs\u0022);\n        var project = ReadDirectory(projectDirectory, \u0022project\u0022, normalizedKind, normalizedLevel, projectRoot);\n        var projectIds = project.Select(input =\u003E input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);\n        var omissions = global\n            .Where(input =\u003E projectIds.Contains(input.Id))\n            .Select(input =\u003E new InputOmission(input.Id, input.Source, \u0022overridden-by-project\u0022, 0))\n            .ToList();\n        var effective = global.Where(input =\u003E !projectIds.Contains(input.Id)).Concat(project).ToArray();",
+            "contentHash": "sha256:34318a46b3033826d65aa07a2d5c224065cc0fc4f5bb660b3d30b10b030cdbe7",
+            "excerptHash": "sha256:cf5cc6dc66d9b2d8556c5ee125a461feeeea222bf5ba5c555738136c3705b1ce"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-4adcf7dd242226300a93d993fee61381b38f00819685e885b765db503381b1ef",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Review-kind validation accepts undefined numeric and composite enum values",
+      "description": "Enum.TryParse can succeed for numeric strings and comma-separated combinations even when the resulting value is not a declared ReviewKind member. Such input passes validation and is normalized to the original string, usually causing all kind-specific inputs to be filtered out instead of producing the advertised unsupported-kind error.",
+      "recommendation": "Capture the parsed value, require Enum.IsDefined, and normalize from the validated enum value rather than from the caller-provided string. Alternatively, validate against the exact supported textual names with an ordinal-ignore-case comparison.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 69,
+              "column": 14
+            },
+            "end": {
+              "line": 69,
+              "column": 57
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:4adcf7dd242226300a93d993fee61381b38f00819685e885b765db503381b1ef",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 69,
+              "column": 14
+            },
+            "end": {
+              "line": 69,
+              "column": 57
+            }
+          },
+          "capturedExcerpt": {
+            "text": "Enum.TryParse\u003CReviewKind\u003E(kind, true, out _)",
+            "contentHash": "sha256:34318a46b3033826d65aa07a2d5c224065cc0fc4f5bb660b3d30b10b030cdbe7",
+            "excerptHash": "sha256:68521a100777068ddc8937eb1ca6ad2323a9692f2dedefabb1a55f00dfa97b8b"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-5ec4a50c25cdf7f228bcf9f9badd8472b5b3eca269bfedc7cfec9aade2ddca1e",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Duplicate effective input identifiers are silently retained",
+      "description": "projectIds is used only to suppress matching global inputs; it does not ensure uniqueness among project inputs or among non-overridden global inputs. Multiple files with the same case-insensitive Id can therefore be included, producing duplicate guideline headings and ambiguous override and hash semantics.",
+      "recommendation": "Validate identifiers for case-insensitive uniqueness within each scope, or within the final effective set, and throw an InputFormatException that identifies all conflicting source files. If multiple files per identifier are supported, model and document their merge order explicitly.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 79,
+              "column": 9
+            },
+            "end": {
+              "line": 84,
+              "column": 104
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5ec4a50c25cdf7f228bcf9f9badd8472b5b3eca269bfedc7cfec9aade2ddca1e",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 79,
+              "column": 9
+            },
+            "end": {
+              "line": 84,
+              "column": 104
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var projectIds = project.Select(input =\u003E input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);\n        var omissions = global\n            .Where(input =\u003E projectIds.Contains(input.Id))\n            .Select(input =\u003E new InputOmission(input.Id, input.Source, \u0022overridden-by-project\u0022, 0))\n            .ToList();\n        var effective = global.Where(input =\u003E !projectIds.Contains(input.Id)).Concat(project).ToArray();",
+            "contentHash": "sha256:34318a46b3033826d65aa07a2d5c224065cc0fc4f5bb660b3d30b10b030cdbe7",
+            "excerptHash": "sha256:60d4d85cfdf2e957ac6125564f3f19eacbccf3e72c76cb4beb93508501e6c098"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b4faed09d3c4f3d79c6e9038ea4f657d4a7d476f6c6c25735980f25fce66a2d8",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "medium",
+      "title": "The frontmatter parser does not implement the YAML syntax it claims to accept",
+      "description": "Frontmatter is parsed by splitting each non-empty line at the first colon and storing the raw scalar text. Valid YAML constructs such as block sequences, comments, escaped or quoted scalar identifiers, and multiline values are rejected or interpreted incorrectly; duplicate keys are silently overwritten. For example, a quoted id retains its quote characters and may fail to override the corresponding unquoted id.",
+      "recommendation": "Use a maintained YAML parser with a small strongly typed schema, reject unknown or duplicate fields where appropriate, and validate applicability values. If the intentionally supported format is not YAML, rename and document it as a restricted key-value syntax and reject unsupported constructs with precise errors.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 151,
+              "column": 9
+            },
+            "end": {
+              "line": 157,
+              "column": 9
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 174,
+              "column": 5
+            },
+            "end": {
+              "line": 179,
+              "column": 5
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b4faed09d3c4f3d79c6e9038ea4f657d4a7d476f6c6c25735980f25fce66a2d8",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 151,
+              "column": 9
+            },
+            "end": {
+              "line": 157,
+              "column": 9
+            }
+          },
+          "capturedExcerpt": {
+            "text": "var fields = new Dictionary\u003Cstring, string\u003E(StringComparer.OrdinalIgnoreCase);\n        foreach (var line in text[4..end].Split(\u0027\\n\u0027, StringSplitOptions.RemoveEmptyEntries))\n        {\n            var separator = line.IndexOf(\u0027:\u0027);\n            if (separator \u003C= 0) throw new InputFormatException($\u0022Input \u0027{path}\u0027 has invalid frontmatter line \u0027{line}\u0027.\u0022);\n            fields[line[..separator].Trim()] = line[(separator \u002B 1)..].Trim();\n        }",
+            "contentHash": "sha256:34318a46b3033826d65aa07a2d5c224065cc0fc4f5bb660b3d30b10b030cdbe7",
+            "excerptHash": "sha256:86c9ce85f5e838c27afff3bac01c3a7bd73ffda35378900d3a3fb9f2df6b6450"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-49ef2bf9e1fbc05c17d95b0b69c5c5c777220eb10d7f2044f00a60cfc7a27cee",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "low",
+      "title": "Budget truncation can split a Unicode surrogate pair",
+      "description": "The budget and slice operate on UTF-16 code units. If the boundary falls between the two code units of a supplementary Unicode character, IncludedContent ends with an unpaired surrogate. Subsequent UTF-8 conversion or prompt serialization may replace or reject the malformed character, so included-character accounting and effective hashing no longer reflect intact source text.",
+      "recommendation": "Move the truncation boundary backward when it would split a surrogate pair, or define and implement the budget in Unicode scalar values. Add boundary tests using supplementary characters immediately around the budget limit.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 90,
+              "column": 9
+            },
+            "end": {
+              "line": 91,
+              "column": 41
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:49ef2bf9e1fbc05c17d95b0b69c5c5c777220eb10d7f2044f00a60cfc7a27cee",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/InputResolver.cs",
+          "range": {
+            "start": {
+              "line": 90,
+              "column": 9
+            },
+            "end": {
+              "line": 91,
+              "column": 41
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    var take = Math.Min(remaining, input.Content.Length);\n            var text = input.Content[..ta",
+            "contentHash": "sha256:34318a46b3033826d65aa07a2d5c224065cc0fc4f5bb660b3d30b10b030cdbe7",
+            "excerptHash": "sha256:0248453f0ef0a3e99a408ff9b26be4488ae56e7588c41b5102d80df84eae9a80"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

@@ -1,0 +1,510 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/789c84668907f0d85c5d08e2d23e73b09fa7fdd709c0a354e8b33aad1377e941",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/QualityStudio.Api/ReviewJobs.cs",
+    "displayName": "ReviewJobs.cs"
+  },
+  "reviewedAt": "2026-09-01T08:14:45.4292025Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-2b11c607137a4423a6f0e88d5ac0c614",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 27169,
+      "outputTokens": 9385,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 7094,
+      "durationMs": 289006
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "340f95a6dd3d8c106d8dde1689300a70036f16b653c871be4e2aae8c66439d18"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/QualityStudio.Api/ReviewJobs.cs",
+      "selector": "file",
+      "contentHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 70,
+    "band": "C",
+    "rationale": "The service has a thoughtful durable-state model and useful executor abstraction, but concurrency races can fault the background worker or defeat pause semantics. Cap updates, unbounded resource retention, and hard-coded infrastructure also reduce reliability and testability."
+  },
+  "summary": "The principal risks are races between queue dispatch, cancellation, pause, and resume. A cancellation can make Start throw outside the worker\u0027s exception boundary, while concurrent Pause and Resume can dispose a cancellation source immediately before it is cancelled. Paused runs also ignore replacement caps. Run admission and retained history are unbounded, and several directly constructed/static dependencies make deterministic unit testing difficult. Test coverage is unknown because no coverage evidence was supplied.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 66,
+        "band": "D",
+        "rationale": "The state machine generally preserves durable progress, but queue-dispatch and cancellation-source races can break processing, and cap changes are not consistently applied when resuming."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 73,
+        "band": "C",
+        "rationale": "Responsibilities ranging from admission and estimation through scheduling, persistence, reporting, and state transitions are concentrated in one large service, with no bounded retention policy for in-memory runs."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "Names and state transitions are mostly readable, but ResumeReviewRequest suggests that caps can be changed for any resumable run while the implementation only applies them to capped runs."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 64,
+        "band": "D",
+        "rationale": "Execution errors are usually persisted and logged, but Start occurs outside the protected block and cancellation-source lifetime races can surface ObjectDisposedException from request handlers."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 68,
+        "band": "D",
+        "rationale": "The executor factory provides a useful seam, but estimation, ledger access, storage, evidence collection, pricing, and time are still constructed or accessed directly, making state-machine and failure-path tests unnecessarily integration-heavy."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-d1552e907906457f431543b97f0da6fd867d754fa78d710ccbb69bedf083ea92",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "high",
+      "title": "A cancellation race can permanently fault the queue worker",
+      "description": "ExecuteAsync checks that an item is queued and then calls RunAsync without reserving that state atomically. Cancel or Pause can change the state after the check but before item.Start(). Start then throws InvalidOperationException. Because Start is executed before RunAsync\u0027s try block, the exception escapes ExecuteAsync and faults the BackgroundService; depending on host policy, subsequent reviews will stop processing or the host may terminate.",
+      "recommendation": "Move Start into the protected execution block and make dequeue-to-running an atomic, non-throwing transition such as TryStart. Treat a failed transition as a skipped stale queue entry so concurrent control requests cannot terminate the worker.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 392,
+              "column": 14
+            },
+            "end": {
+              "line": 393,
+              "column": 54
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 448,
+              "column": 9
+            },
+            "end": {
+              "line": 448,
+              "column": 40
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:d1552e907906457f431543b97f0da6fd867d754fa78d710ccbb69bedf083ea92",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 392,
+              "column": 14
+            },
+            "end": {
+              "line": 393,
+              "column": 54
+            }
+          },
+          "capturedExcerpt": {
+            "text": "\n                if (item.State != \u0022queued\u0022) continue;",
+            "contentHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f",
+            "excerptHash": "sha256:d252e2a6f7b89f965ddd903ec59568d79a69585bf3af21a3ca0fcd92be4a3a92"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-3f48c7ebb3fa3c66f2f6a426204a71311d194c43baf3a866f49c4377833880c9",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Concurrent Pause and Resume can dispose the token source before Pause cancels it",
+      "description": "Pause captures attemptCancellation under the lock but invokes Cancel after releasing the lock. Resume can acquire the lock in between, dispose that same source, and replace it. Pause then calls Cancel on the disposed source, producing ObjectDisposedException and potentially leaving the active attempt uncancelled even though its state was changed to paused or queued.",
+      "recommendation": "Do not dispose a cancellation source while another operation may still use it. Cancel the captured source before exposing the paused state for resume, or introduce an attempt object with explicit ownership whose source is disposed only after EndAttempt confirms that the attempt has finished.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 973,
+              "column": 13
+            },
+            "end": {
+              "line": 975,
+              "column": 14
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 999,
+              "column": 17
+            },
+            "end": {
+              "line": 999,
+              "column": 18
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3f48c7ebb3fa3c66f2f6a426204a71311d194c43baf3a866f49c4377833880c9",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 973,
+              "column": 13
+            },
+            "end": {
+              "line": 975,
+              "column": 14
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    PersistStatus();\n                cancellation = attemptCancellation;\n            }",
+            "contentHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f",
+            "excerptHash": "sha256:ace41354f8ba06178332ef7479526c0313a56d527dbf3b65b1b2325cd607dd68"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-9e4bc34021d460f8b4d22363fa7e4920f07d3664d56572789a7c8300c99e80b4",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Replacement caps are silently ignored when resuming a paused run",
+      "description": "Resume accepts newTokenCap and newCostCap for both paused and capped states, but validation and assignment occur only inside the state == \u0022capped\u0022 branch. A client resuming a paused run with a replacement cap receives a successful response while the old cap remains in effect.",
+      "recommendation": "Either apply and validate supplied caps for paused runs as well, or reject cap fields for paused runs and reflect that restriction in the request/API contract. Share cap validation with ResolveCap to avoid divergent rules.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 984,
+              "column": 17
+            },
+            "end": {
+              "line": 998,
+              "column": 17
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:9e4bc34021d460f8b4d22363fa7e4920f07d3664d56572789a7c8300c99e80b4",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 984,
+              "column": 17
+            },
+            "end": {
+              "line": 998,
+              "column": 17
+            }
+          },
+          "capturedExcerpt": {
+            "text": "    throw new ArgumentException($\u0022Review \u0027{Id}\u0027 is not paused or capped.\u0022);\n                if (state == \u0022capped\u0022)\n                {\n                    if (newTokenCap.HasValue \u0026\u0026 newCostCap.HasValue)\n                        throw new ArgumentException(\u0022Choose either a token cap or a cost cap, not both.\u0022);\n                    if (!newTokenCap.HasValue \u0026\u0026 !newCostCap.HasValue)\n                        throw new ArgumentException(\u0022Resuming a capped review requires a higher token or cost cap.\u0022);\n                    if (newTokenCap is \u003C= 0 or \u003E 1_000_000_000 || newCostCap is \u003C= 0 or \u003E 1_000_000)\n                        throw new ArgumentException(\u0022The replacement cap is outside the supported range.\u0022);\n                    tokenCap = newTokenCap;\n                    costCap = newCostCap;\n                    if (CapReached()) throw new ArgumentException(\u0022The replacement cap must be higher than the run\u0027s current spend.\u0022);\n                    foreach (var file in progress.Values.Where(file =\u003E file.State == \u0022skipped\u0022)) RequeueFileCore(file);\n                    if (aggregateState == \u0022skipped\u0022) aggregateState = \u0022queued\u0022;\n                 ",
+            "contentHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f",
+            "excerptHash": "sha256:c71b6ba69e52f40545f7beafc465c56f3b70546b9196c6d03ab477e079899234"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-247889b4c7b14e5434994a05a6496a44f2a8b519cac1985ed2c263d5eefe8958",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "medium",
+      "title": "Queued and retained run counts are unbounded",
+      "description": "The work channel is unbounded, and every newly created or recovered run\u2014including terminal runs\u2014is retained indefinitely in the runs dictionary. RecentRunLimit only limits the result returned by List; it does not evict entries. Sustained submissions and long-lived repositories can therefore grow queue and process memory without limit, while the unbounded channel provides no admission backpressure.",
+      "recommendation": "Use a bounded channel with an explicit overload response, and evict terminal runs from the in-memory dictionary according to a documented retention policy. Historical Get/List operations can fall back to the durable store when an entry is no longer resident.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 124,
+              "column": 5
+            },
+            "end": {
+              "line": 126,
+              "column": 84
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 348,
+              "column": 1
+            },
+            "end": {
+              "line": 350,
+              "column": 106
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:247889b4c7b14e5434994a05a6496a44f2a8b519cac1985ed2c263d5eefe8958",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 124,
+              "column": 5
+            },
+            "end": {
+              "line": 126,
+              "column": 84
+            }
+          },
+          "capturedExcerpt": {
+            "text": "private static readonly HashSet\u003Cstring\u003E Kinds = [\u0022code\u0022, \u0022security\u0022, \u0022performance\u0022];\n    private readonly Channel\u003CReviewWorkItem\u003E queue = Channel.CreateUnbounded\u003CReviewWorkItem\u003E(\n        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });",
+            "contentHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f",
+            "excerptHash": "sha256:babaeb6f4a76b41a0ca65c1408e7d2522876a7448d3efbdd34125e7ada6b5e89"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-5e20f245a33d30aaa5810c83d8c3997c4b0bd4a48b92bc142a166b1d62a016f1",
+      "ruleId": "built-in:code",
+      "aspect": "testability",
+      "severity": "low",
+      "title": "Core orchestration paths bypass injectable dependencies",
+      "description": "The service directly creates ReviewRunStore, ReviewRunner, and DeterministicEvidenceCollector and calls the static UsageLedger and default price catalog. Tests of estimates, recovery, evidence failures, pricing, persistence failures, and time-sensitive state transitions therefore require real infrastructure or difficult global setup despite the existing executor abstraction.",
+      "recommendation": "Introduce focused abstractions for run storage, prompt estimation and usage history, evidence collection, pricing, and time. Inject them into ReviewJobService so state-machine tests can deterministically simulate persistence failures, cancellation timing, and pricing outcomes.",
+      "locations": [
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 205,
+              "column": 9
+            },
+            "end": {
+              "line": 205,
+              "column": 71
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 264,
+              "column": 6
+            },
+            "end": {
+              "line": 264,
+              "column": 6
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 279,
+              "column": 1
+            },
+            "end": {
+              "line": 280,
+              "column": 76
+            }
+          }
+        },
+        {
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 455,
+              "column": 10
+            },
+            "end": {
+              "line": 463,
+              "column": 34
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:5e20f245a33d30aaa5810c83d8c3997c4b0bd4a48b92bc142a166b1d62a016f1",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/QualityStudio.Api/ReviewJobs.cs",
+          "range": {
+            "start": {
+              "line": 205,
+              "column": 9
+            },
+            "end": {
+              "line": 205,
+              "column": 71
+            }
+          },
+          "capturedExcerpt": {
+            "text": "     !string.Equals(selection.ThinkingLevel, recommendation.Rec",
+            "contentHash": "sha256:fde841704abae0ec920bdc9931078bc8a7f4a8936a08915f2a3f5d3515e1952f",
+            "excerptHash": "sha256:6372fb65b731a20da3fc34dc36dedb2815d8d3ce08c3d68cf1681fb4d4089fdf"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T07:56:01.5546914Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T07:55:43.9459213Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:baa0b8c7c31fbfd23441c5e49f8bea5ed17d30c7-dirty"
+}

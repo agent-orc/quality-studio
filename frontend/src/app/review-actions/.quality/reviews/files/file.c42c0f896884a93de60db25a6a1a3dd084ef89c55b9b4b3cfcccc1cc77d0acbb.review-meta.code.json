@@ -1,0 +1,387 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/angular/file/1ee42051565c999ff0965ed79f25b99c970a1eaf813cdbe7249581a0d5d79d11",
+    "adapter": "angular",
+    "level": "file",
+    "path": "frontend/src/app/review-actions/review-actions.html",
+    "displayName": "review-actions.html"
+  },
+  "reviewedAt": "2026-09-01T10:10:31.2502602Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-c24041f1d30d48c6ab4f54c7db34e467",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 19337,
+      "outputTokens": 4644,
+      "cachedInputTokens": 11008,
+      "reasoningOutputTokens": 3472,
+      "durationMs": 103851
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "28671d1a63190ad4433cb398d81a9837a2081021b1eab697894e54be026037ed"
+  },
+  "subjectInputs": [
+    {
+      "path": "frontend/src/app/review-actions/review-actions.html",
+      "selector": "file",
+      "contentHash": "sha256:caa2f1ecf34dad8f02f6ef108746e06405fe4c688d68afea52d03eab59d57cfd"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 80,
+    "band": "B",
+    "rationale": "The template is generally coherent and uses Angular control flow, semantic labels, and explicit button types well. Its main weaknesses are incomplete invalid-cap gating, run-control actions with no component-level pending/error path, repeated template computations, and one misleading accessible label. Test coverage is unknown, and ESLint evidence was unavailable."
+  },
+  "summary": "The review UI is broadly correct and understandable, but invalid cap values can still reach the preflight action, run-control operations lack visible pending/error handling, repeated runFiles calls add unnecessary change-detection work, and the model-picker toggle has an inaccurate accessible name while open.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 82,
+        "band": "B",
+        "rationale": "The primary flows appear internally consistent, but the start button is not gated by the token-cap error or the cost input\u0027s native validity."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Dense single-line markup and repeated runFiles evaluations make the template harder to modify and reason about, while direct service calls couple it to the API implementation."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 86,
+        "band": "B",
+        "rationale": "Visible labels and summaries are mostly clear, although the model-picker toggle continues to announce an opening action when it will close the picker."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 72,
+        "band": "C",
+        "rationale": "Validation feedback is not connected to action availability, and run-control buttons expose no pending, failure, or retry state in this template."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 78,
+        "band": "C",
+        "rationale": "Direct API invocations and repeated method calls increase mocking and state-transition complexity. No coverage evidence was supplied, so coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-47ef61b79d0ddda9596d2c64b2e653e75c26f93c9873032592a450cc3595bab0",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Invalid cap values do not disable the preflight action",
+      "description": "The token-cap field exposes tokenCapError and the cost field declares a minimum, but the start button\u0027s disabled condition checks neither. Because prepare() is invoked by a standalone button rather than form submission, native number-input constraint validation will not prevent the click. The UI can therefore invoke preflight while displaying an invalid token cap or while the cost control is invalid, unless validation is redundantly enforced outside this template.",
+      "recommendation": "Expose a unified cap-valid signal and include it in the start button\u0027s disabled condition. Give the cost field explicit validation feedback and aria-invalid handling comparable to the token field, while retaining server-side validation as the final safeguard.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 62,
+              "column": 7
+            },
+            "end": {
+              "line": 66,
+              "column": 187
+            }
+          }
+        },
+        {
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 69,
+              "column": 38
+            },
+            "end": {
+              "line": 69,
+              "column": 38
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:47ef61b79d0ddda9596d2c64b2e653e75c26f93c9873032592a450cc3595bab0",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 62,
+              "column": 7
+            },
+            "end": {
+              "line": 66,
+              "column": 187
+            }
+          },
+          "capturedExcerpt": {
+            "text": "ption value=\u0022repository\u0022\u003Erepo cap\u003C/option\u003E\u003Coption value=\u0022tokens\u0022\u003Etokens\u003C/option\u003E\u003Coption value=\u0022cost\u0022\u003Ecost\u003C/option\u003E\n  \u003C/select\u003E\n  @if (capKind() === \u0027tokens\u0027) {\n    \u003Cspan class=\u0022cap-field\u0022\u003E\n      \u003Cinput class=\u0022cap-value\u0022 aria-label=\u0022Review token cap\u0022 type=\u0022text\u0022 inputmode=\u0022decimal\u0022 autocomplete=\u0022off\u0022 placeholder=\u0022100k\u0022 [ngModel]=\u0022tokenCapText()\u0022 (ngModelChange)=\u0022setTokenCapV",
+            "contentHash": "sha256:caa2f1ecf34dad8f02f6ef108746e06405fe4c688d68afea52d03eab59d57cfd",
+            "excerptHash": "sha256:694c7ac33a2f6ebbadeaf86ad20ae7661cd7b333cde8b7775c70eab6daf12170"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-e862259f917c8298f8c1671ea901f3cb3edbb635072cf3ca62ccae6f2981e437",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Run-control actions have no local pending or failure state",
+      "description": "Pause, cancel, and resume call the API directly from the template. The controls remain enabled while an operation is outstanding, allowing duplicate requests, and this component has no evident place to surface a rejection or restore a consistent state. The direct dependency also makes interaction tests more tightly coupled to the API service.",
+      "recommendation": "Route each action through a component handler that tracks the pending action, disables conflicting controls, catches and exposes failures, and delegates to the API service. Add an accessible status or alert for failures.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 6,
+              "column": 37
+            },
+            "end": {
+              "line": 6,
+              "column": 565
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e862259f917c8298f8c1671ea901f3cb3edbb635072cf3ca62ccae6f2981e437",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 6,
+              "column": 37
+            },
+            "end": {
+              "line": 6,
+              "column": 565
+            }
+          },
+          "capturedExcerpt": {
+            "text": "@if (run.state === \u0027queued\u0027 || run.state === \u0027running\u0027) { \u003Cbutton type=\u0022button\u0022 (click)=\u0022api.pauseReview(run.id)\u0022\u003EPause\u003C/button\u003E\u003Cbutton type=\u0022button\u0022 (click)=\u0022api.cancelReview(run.id)\u0022\u003ECancel\u003C/button\u003E } @else if (run.state === \u0027paused\u0027) { \u003Cbutton type=\u0022button\u0022 (click)=\u0022api.resumeReview(run.id)\u0022\u003EResume\u003C/button\u003E\u003Cbutton type=\u0022button\u0022 (click)=\u0022api.cancelReview(run.id)\u0022\u003ECancel\u003C/button\u003E } @else if (run.state === \u0027capped\u0027) { \u003Cbutton type=\u0022button\u0022 (click)=\u0022resumeCapped(run)\u0022\u003ERaise cap and resume\u003C/button\u003E } @else { \u003Cbutton type=\u0022but",
+            "contentHash": "sha256:caa2f1ecf34dad8f02f6ef108746e06405fe4c688d68afea52d03eab59d57cfd",
+            "excerptHash": "sha256:8f34a38b3f7e41e99f673a248346873a1b55ffe9f3f9ef5319bbfe9a821db228"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-76748e6c5e994fb6cf9aabab1d21822d70e256a70302a8e2fe0427226d06d660",
+      "ruleId": "built-in:code",
+      "aspect": "clarity",
+      "severity": "low",
+      "title": "Model-picker toggle always announces an opening action",
+      "description": "The toggle\u0027s click behavior closes the picker when it is open, but its accessible name remains \u201COpen model picker.\u201D Screen-reader users therefore receive an inaccurate description of the action in the expanded state.",
+      "recommendation": "Bind the label to the picker state, for example \u201CClose model picker\u201D when expanded and \u201COpen model picker\u201D when collapsed.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 31,
+              "column": 45
+            },
+            "end": {
+              "line": 31,
+              "column": 45
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:76748e6c5e994fb6cf9aabab1d21822d70e256a70302a8e2fe0427226d06d660",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 31,
+              "column": 45
+            },
+            "end": {
+              "line": 31,
+              "column": 45
+            }
+          },
+          "capturedExcerpt": {
+            "text": "",
+            "contentHash": "sha256:caa2f1ecf34dad8f02f6ef108746e06405fe4c688d68afea52d03eab59d57cfd",
+            "excerptHash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-8381b59315772bf46e5b7dacdac375f47e4ee22286500d04570d5a4a64dac1c9",
+      "ruleId": "built-in:code",
+      "aspect": "maintainability",
+      "severity": "low",
+      "title": "Each run-file category is recomputed repeatedly during rendering",
+      "description": "Each category calls runFiles once for the condition, again for the summary count, and again for iteration. Angular may reevaluate all of these expressions during change detection, multiplying filtering or allocation work and allowing inconsistent results if the method is not pure and stable.",
+      "recommendation": "Compute the categorized file collections once in component state or a computed signal, then bind the cached collection to the condition, count, and loop. This also gives tests a single transformation to exercise.",
+      "locations": [
+        {
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 7,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 276
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:8381b59315772bf46e5b7dacdac375f47e4ee22286500d04570d5a4a64dac1c9",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "frontend/src/app/review-actions/review-actions.html",
+          "range": {
+            "start": {
+              "line": 7,
+              "column": 5
+            },
+            "end": {
+              "line": 9,
+              "column": 276
+            }
+          },
+          "capturedExcerpt": {
+            "text": "@if (runFiles(run, [\u0027done\u0027]).length) { \u003Cdetails\u003E\u003Csummary\u003E{{ runFiles(run, [\u0027done\u0027]).length }} completed units\u003C/summary\u003E@for (file of runFiles(run, [\u0027done\u0027]); track file.path) { \u003Cspan\u003E{{ file.path }}\u003C/span\u003E }\u003C/details\u003E }\n    @if (runFiles(run, [\u0027failed\u0027]).length) { \u003Cdetails\u003E\u003Csummary\u003E{{ runFiles(run, [\u0027failed\u0027]).length }} failed units\u003C/summary\u003E@for (file of runFiles(run, [\u0027failed\u0027]); track file.path) { \u003Cspan\u003E{{ file.path }} \u00B7 {{ file.error }}\u003C/span\u003E }\u003C/details\u003E }\n    @if (runFiles(run, [\u0027skipped\u0027, \u0027skipped-fresh\u0027]).length) { \u003Cdetails\u003E\u003Csummary\u003E{{ runFiles(run, [\u0027skipped\u0027, \u0027skipped-fresh\u0027]).length }} skipped units\u003C/summary\u003E@for (file of runFiles(run, [\u0027skipped\u0027, \u0027skipped-fresh\u0027]); track file.path) { \u003Cspan\u003E{{ file.path }} \u00B7 {{ file.state",
+            "contentHash": "sha256:caa2f1ecf34dad8f02f6ef108746e06405fe4c688d68afea52d03eab59d57cfd",
+            "excerptHash": "sha256:5c05e72d39c2510ffab6845ec15760e32877e5960f7d82c25d6f720840173324"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:43:00.3435778Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T09:42:19.8354074Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}

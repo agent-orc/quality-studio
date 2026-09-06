@@ -1,0 +1,400 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/review-meta.v3.schema.json",
+  "schemaVersion": 3,
+  "unit": {
+    "id": "qs-v1/dotnet/file/9eb456d6b7261d406732cd2296e4336fa482973e008c66c7ee27ef685d4841a1",
+    "adapter": "dotnet",
+    "level": "file",
+    "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+    "displayName": "FindingIdentity.cs"
+  },
+  "reviewedAt": "2026-09-01T08:46:02.4744535Z",
+  "kind": "code",
+  "reviewer": {
+    "agent": "codex",
+    "model": "runner-default",
+    "runId": "quality-97f38a4c627744909b39200775ca148d",
+    "usage": {
+      "cliType": "codex",
+      "inputTokens": 18757,
+      "outputTokens": 3492,
+      "cachedInputTokens": 13056,
+      "reasoningOutputTokens": 2242,
+      "durationMs": 111161
+    }
+  },
+  "reviewedHash": {
+    "algorithm": "sha256",
+    "canonicalization": "quality-studio-subject-manifest-v1",
+    "value": "79965d08a615471fa773f3f092b9eec5251db691cf5f106e120ca3a7d85b81f1"
+  },
+  "subjectInputs": [
+    {
+      "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+      "selector": "file",
+      "contentHash": "sha256:48af0966d5cd12c9f06e05368196ab926eca76889de1f34e061be793316752a6"
+    }
+  ],
+  "reviewInputs": {
+    "effectiveHash": {
+      "algorithm": "sha256",
+      "canonicalization": "quality-studio-review-inputs-v1",
+      "value": "e3d9dee80f19ddb78cc51c0461efa2e9626ea6b8397f83b7a50ea7097afd0e4b"
+    },
+    "complete": true,
+    "standards": [],
+    "omitted": [],
+    "prompt": {
+      "id": "file-code-review",
+      "version": "1.0.0",
+      "contentHash": "sha256:c6e258f294c58a7239a365ced94e6e192ba9e791e321264a0fce7034ac8ebb8e"
+    }
+  },
+  "grade": {
+    "score": 66,
+    "band": "D",
+    "rationale": "The implementation has a clear deterministic identity scheme, but several behaviors undermine its stated trust boundary: unresolved locations remain persisted, invalid ranges are converted into apparently observed evidence, malformed agent JSON can abort processing through unchecked node access, and Windows absolute paths pass the repository-relative validation."
+  },
+  "summary": "Deterministic hashing and line-ending normalization are straightforward, but validation and evidence handling need stronger guarantees before persisted identities and anchors can be considered trustworthy. Test coverage is unknown because no coverage data was supplied; the successful dotnet-build analyzer reported no findings.",
+  "aspects": [
+    {
+      "id": "correctness",
+      "title": "Correctness",
+      "grade": {
+        "score": 62,
+        "band": "D",
+        "rationale": "Invalid locations can survive assignment, arbitrary ranges can be rewritten into valid-looking source spans, and Windows absolute paths are accepted as repository-relative."
+      }
+    },
+    {
+      "id": "maintainability",
+      "title": "Maintainability",
+      "grade": {
+        "score": 76,
+        "band": "C",
+        "rationale": "The code is compact and decomposed into focused helpers, but implicit schema assumptions and in-place mutation make its invariants difficult to maintain safely."
+      }
+    },
+    {
+      "id": "clarity",
+      "title": "Clarity",
+      "grade": {
+        "score": 81,
+        "band": "B",
+        "rationale": "Names and comments generally communicate intent well, although some documented behavior\u2014such as invalidating a location\u2014does not match the implementation."
+      }
+    },
+    {
+      "id": "error-handling",
+      "title": "Error Handling",
+      "grade": {
+        "score": 54,
+        "band": "F",
+        "rationale": "Null-forgiving operators and unchecked JSON conversions allow malformed untrusted responses to produce incidental runtime exceptions instead of controlled validation outcomes."
+      }
+    },
+    {
+      "id": "testability",
+      "title": "Testability",
+      "grade": {
+        "score": 73,
+        "band": "C",
+        "rationale": "The hashing and normalization helpers are deterministic and readily testable, but Assign mutates a loosely typed JSON graph in place. Coverage remains unknown."
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-833d54a316b0c09b19f298080251ebe82c74d367249e5b154f8dfd56613b6e06",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Locations outside the reviewed subjects remain in persisted findings",
+      "description": "When a location does not match normalizedSubjects, the loop skips processing it but never removes it from the finding\u0027s locations array. If another location resolves, the finding is retained together with the skipped, unvalidated location. This contradicts the comment that the location is invalidated and allows unnormalized paths or unverified ranges to remain in the completed review document.",
+      "recommendation": "Build a new locations array containing only successfully resolved and validated locations, or explicitly remove each rejected location before persisting the finding. Use that validated collection when choosing the primary location.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 41,
+              "column": 17
+            },
+            "end": {
+              "line": 46,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:833d54a316b0c09b19f298080251ebe82c74d367249e5b154f8dfd56613b6e06",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 41,
+              "column": 17
+            },
+            "end": {
+              "line": 46,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "{\n                    // A location outside the reviewed subject (agents cite project files or\n                    // neighbors) invalidates this location, not the whole review document.\n                    continue;\n                }\n",
+            "contentHash": "sha256:48af0966d5cd12c9f06e05368196ab926eca76889de1f34e061be793316752a6",
+            "excerptHash": "sha256:228ab45cca466a25bf6a74fcff459a8cb888fde0c433ef7023dd89137f50afd1"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-392be4e0bbf3bd5d2a72239ee555c48ed2e492f4bd014481c2e435a4e6cd22e6",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "high",
+      "title": "Invalid ranges are transformed into trusted observed evidence",
+      "description": "ExtractSnippet clamps every supplied coordinate into the file and even replaces a reversed same-line range with the entire line. Thus a wildly incorrect agent location can be silently moved to unrelated source text. AttachRunnerCapturedEvidence then labels that generated span as observed, giving fabricated location precision the same status as an originally valid range.",
+      "recommendation": "Validate ranges before extraction and reject locations whose coordinates are out of bounds or reversed. If limited tolerance is required, retain the original coordinates, record that a correction occurred, and do not classify the resulting source span as observed without an independent match.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 162,
+              "column": 9
+            },
+            "end": {
+              "line": 175,
+              "column": 1
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 120,
+              "column": 9
+            },
+            "end": {
+              "line": 126,
+              "column": 12
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:392be4e0bbf3bd5d2a72239ee555c48ed2e492f4bd014481c2e435a4e6cd22e6",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 162,
+              "column": 9
+            },
+            "end": {
+              "line": 175,
+              "column": 1
+            }
+          },
+          "capturedExcerpt": {
+            "text": "// with the captured excerpt.\n        var startLine = Math.Clamp(start[\u0022line\u0022]!.GetValue\u003Cint\u003E(), 1, lines.Length);\n        var endLine = Math.Clamp(end[\u0022line\u0022]!.GetValue\u003Cint\u003E(), startLine, lines.Length);\n        var startColumn = Math.Clamp(start[\u0022column\u0022]!.GetValue\u003Cint\u003E(), 1, lines[startLine - 1].Length \u002B 1);\n        var endColumn = Math.Clamp(end[\u0022column\u0022]!.GetValue\u003Cint\u003E(), 1, lines[endLine - 1].Length \u002B 1);\n        if (startLine == endLine \u0026\u0026 endColumn \u003C startColumn)\n        {\n            (startColumn, endColumn) = (1, lines[startLine - 1].Length \u002B 1);\n        }\n        start[\u0022line\u0022] = startLine;\n        start[\u0022column\u0022] = startColumn;\n        end[\u0022line\u0022] = endLine;\n        end[\u0022column\u0022] = endColumn;\n",
+            "contentHash": "sha256:48af0966d5cd12c9f06e05368196ab926eca76889de1f34e061be793316752a6",
+            "excerptHash": "sha256:7363495f31260684ef47287f414272de931de2ffdf265f1bced49180a5c66857"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-7087ab63277f40a023c9257284c6d5c422a8320db08c9eaced3eafe7b6d7c495",
+      "ruleId": "built-in:code",
+      "aspect": "error-handling",
+      "severity": "medium",
+      "title": "Malformed finding JSON causes uncontrolled runtime exceptions",
+      "description": "The public entry point treats agent-produced JSON as structurally valid through null-forgiving operators and calls such as AsArray, AsObject, and GetValue. Missing nodes, incorrect node types, or invalid scalar values therefore throw NullReferenceException or JSON conversion exceptions and can abort processing of the entire response, despite the surrounding design attempting to preserve usable findings.",
+      "recommendation": "Validate the findings collection, each finding, every location, and all range coordinates with TryGetPropertyValue and explicit node/type checks. Either reject malformed input with a contextual ReviewResponseException or discard only the malformed finding according to a documented policy.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 29,
+              "column": 9
+            },
+            "end": {
+              "line": 32,
+              "column": 40
+            }
+          }
+        },
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 154,
+              "column": 6
+            },
+            "end": {
+              "line": 165,
+              "column": 104
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7087ab63277f40a023c9257284c6d5c422a8320db08c9eaced3eafe7b6d7c495",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 29,
+              "column": 9
+            },
+            "end": {
+              "line": 32,
+              "column": 40
+            }
+          },
+          "capturedExcerpt": {
+            "text": "{\n            var ruleId = finding[\u0022ruleId\u0022]!.GetValue\u003Cstring\u003E().Trim();\n            var locations = finding[\u0022locations\u0022]!.AsArray().OfType\u003CJsonObject\u003E().ToArray();\n            string? primaryPath = null;",
+            "contentHash": "sha256:48af0966d5cd12c9f06e05368196ab926eca76889de1f34e061be793316752a6",
+            "excerptHash": "sha256:93821baa33d58aa525ae1297b589e515c21f4b262ad8283ae105fc7c9780e888"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    },
+    {
+      "id": "finding-b3cae8348cf52163e2f9e139b7bac4a6402bb5ac875d52cd15de2e1407731156",
+      "ruleId": "built-in:code",
+      "aspect": "correctness",
+      "severity": "medium",
+      "title": "Windows drive-qualified paths bypass repository-relative validation",
+      "description": "NormalizePath rejects leading slashes and \u0027..\u0027 segments but accepts drive-qualified paths such as C:/Projects/repository/file.cs. Such a path is absolute on Windows and violates the method\u0027s repository-relative invariant. If subjectContents contains a similarly formed key, it can also participate in identity and evidence generation.",
+      "recommendation": "Reject rooted and drive-qualified paths using a platform-independent repository-path check, including drive-letter prefixes and UNC forms. Also reject empty paths and consider canonicalizing redundant \u0027.\u0027 and empty segments before comparison and hashing.",
+      "locations": [
+        {
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 196,
+              "column": 9
+            },
+            "end": {
+              "line": 197,
+              "column": 6
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:b3cae8348cf52163e2f9e139b7bac4a6402bb5ac875d52cd15de2e1407731156",
+      "anchors": [
+        {
+          "id": "primary",
+          "role": "primary",
+          "path": "src/AgentOrchestrator.CodeQuality/FindingIdentity.cs",
+          "range": {
+            "start": {
+              "line": 196,
+              "column": 9
+            },
+            "end": {
+              "line": 197,
+              "column": 6
+            }
+          },
+          "capturedExcerpt": {
+            "text": "return path;\n    }",
+            "contentHash": "sha256:48af0966d5cd12c9f06e05368196ab926eca76889de1f34e061be793316752a6",
+            "excerptHash": "sha256:2fdc4fd84a7101c8562f9c777fa80ea44028f0e70bd3057908d48b72fd28055d"
+          }
+        }
+      ],
+      "evidenceItems": [
+        {
+          "id": "ev-source",
+          "class": "sourceSpan",
+          "status": "observed",
+          "anchorId": "primary"
+        }
+      ],
+      "reproduction": {
+        "status": "unknown"
+      }
+    }
+  ],
+  "threads": [],
+  "deterministicEvidence": [
+    {
+      "available": true,
+      "unavailableReason": null,
+      "findings": [],
+      "provenance": {
+        "sensorId": "dotnet-build",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:24:53.7754144Z",
+        "toolVersions": {
+          "dotnet": "10.0.301"
+        }
+      }
+    },
+    {
+      "available": false,
+      "unavailableReason": "node exited with code 1 without producing SARIF report \u0027.quality/preflight/eslint.sarif\u0027. node:internal/modules/cjs/loader:1520\r\n  throw err;\r\n  ^\r\n\r\nError: Cannot find module \u0027C:\\Projects\\quality-studio\\frontend\\node_modules\\eslint\\bin\\eslint.js\u0027\r\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\r\n    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\r\n    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\r\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)\r\n    at Module._load (node:internal/modules/cjs/loader:1294:5)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47 {\r\n  code: \u0027MODULE_NOT_FOUND\u0027,\r\n  requireStack: []\r\n}\r\n\r\nNode.js v24.18.0",
+      "findings": [],
+      "provenance": {
+        "sensorId": "eslint",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-01T08:22:49.7400547Z",
+        "toolVersions": {
+          "sarif": "2.1.0"
+        }
+      }
+    }
+  ],
+  "sourceRevision": "git:38ea01131bec1415df6b0737ec32f786be741fb9-dirty"
+}
