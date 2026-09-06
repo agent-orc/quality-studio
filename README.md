@@ -33,9 +33,10 @@ Project → Module → Namespace → File → Function
 
 A file review, a module review, and a project review are *different statements*.
 Sweeps run over a whole project per **review kind**: `code`, `security`, and
-`performance` (security is designed as a detachable module — it can grow into its
-own thing). Architecture is a project/module code-review aspect in v1, not a
-fourth kind.
+`performance`. Security is a review workflow of its own inside the same package
+and assembly — separate prompts, sensors, runs, grades, and UI state — not a
+separate package or repository. Architecture is a project/module code-review
+aspect in v1, not a fourth kind.
 
 ### 2. Review metadata lives next to the code (the heart)
 

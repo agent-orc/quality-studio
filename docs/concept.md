@@ -15,8 +15,10 @@ review at another level.
 
 - The v1 built-in review kinds are `code`, `security`, and `performance`.
   Architecture can be an aspect of a project/module `code` review; adding it as
-  a fourth kind would require a later schema version. Security remains
-  detachable because it has separate files, prompts, runs, grades, and UI state.
+  a fourth kind would require a later schema version. Security is its own review
+  workflow inside the same package and assembly: separate files, prompts,
+  sensors, runs, grades, and UI state. Extracting it into a separate package or
+  repository is neither planned nor required.
 - There is one review-meta document per `(unit, kind)`. Reviewing performance
   never refreshes code or security metadata.
 - Source subjects are normalized text and hashed with SHA-256. Aggregate hashes
