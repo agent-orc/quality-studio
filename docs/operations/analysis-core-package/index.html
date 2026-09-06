@@ -57,7 +57,7 @@
   </header>
 
   <section class="decision">
-    <strong>Delivered decision.</strong> Package the existing analysis library as <code>QualityStudio.Analysis.Core</code>, expose a narrow in-process runner, and prove it through <code>quality-cli</code>. Keep the code in this repository for now. Extraction is a separate operator decision.
+    <strong>Delivered decision.</strong> Pack the existing analysis library, <code>AgentOrchestrator.CodeQuality</code>, as a NuGet package under its own established name, expose a narrow in-process runner, and prove it through <code>quality-cli</code>. Keep the code in this repository for now. Extraction is a separate operator decision.
   </section>
 
   <h2>1. Current-state inventory</h2>
@@ -65,9 +65,8 @@
     <thead><tr><th>Component</th><th>Current responsibility</th><th>Dependencies and finding</th></tr></thead>
     <tbody>
       <tr><td><code>QualityStudio.Api</code></td><td>ASP.NET host, repository registry and confinement, review jobs, persistence, HTTP contracts, UI-facing projections, and Agent Studio handover/import.</td><td>References the analysis project. This is the only web SDK project. The Agent Studio HTTP transport now lives here.</td></tr>
-      <tr><td><code>AgentOrchestrator.CodeQuality</code></td><td>Finding/review contracts, sensors, reviewers, hierarchy, staleness, reports, prompts, catalogues, and analysis utilities.</td><td>Referenced by both CLIs and the API. It has no ASP.NET dependency and is now packed as <code>QualityStudio.Analysis.Core</code>.</td></tr>
-      <tr><td><code>quality-cli</code></td><td>The richer asynchronous CLI: reviews, security, boundaries, flows, reports, diffs, and staleness.</td><td>References the core project. Its new <code>quality analyze</code> command is the first real consumer of the stable facade.</td></tr>
-      <tr><td><code>quality</code></td><td>An older, smaller tool-packable command surface for hierarchy, diff, and security operations.</td><td>Also references the core directly. Consolidation with <code>quality-cli</code> is useful later but is not required for this slice.</td></tr>
+      <tr><td><code>AgentOrchestrator.CodeQuality</code></td><td>Finding/review contracts, sensors, reviewers, hierarchy, staleness, reports, prompts, catalogues, and analysis utilities.</td><td>Referenced by the CLI and the API. It has no ASP.NET dependency and is now packable as a NuGet package (<code>dotnet pack</code>, id <code>AgentOrchestrator.CodeQuality</code>).</td></tr>
+      <tr><td><code>quality-cli</code></td><td>The command-line surface: reviews, security, boundaries, flows, reports, diffs, staleness, and analysis.</td><td>References the core project. Its <code>quality analyze</code> command is the first real consumer of the stable facade. The older, separate <code>quality</code> command surface was consolidated into this project by unrelated work after this dossier's first slice, so only one CLI remains.</td></tr>
       <tr><td><code>frontend</code></td><td>The Angular UI studio.</td><td>Consumes API contracts. It neither owns nor gates analysis execution and was unchanged.</td></tr>
     </tbody>
   </table>
@@ -78,8 +77,8 @@
   <h2>2. Target split</h2>
   <div class="flow" aria-label="Target dependency flow">
     <div>Quality Studio UI<br><small>presentation</small></div><div class="arrow">→</div><div>QualityStudio.Api<br><small>HTTP, auth, storage, jobs</small></div>
-    <div>Agent Studio AGT-2655<br><small>server-side pipeline step</small></div><div class="arrow">→</div><div>QualityStudio.Analysis.Core<br><small>named analyses and findings</small></div>
-    <div>quality-cli / CI<br><small>standalone consumers</small></div><div class="arrow">→</div><div>QualityStudio.Analysis.Core<br><small>same programmatic contract</small></div>
+    <div>Agent Studio AGT-2655<br><small>server-side pipeline step</small></div><div class="arrow">→</div><div>AgentOrchestrator.CodeQuality<br><small>named analyses and findings</small></div>
+    <div>quality-cli / CI<br><small>standalone consumers</small></div><div class="arrow">→</div><div>AgentOrchestrator.CodeQuality<br><small>same programmatic contract</small></div>
     <div class="wide">QS-90 rule library → versioned content/configuration consumed by the core; no dependency on API routes, UI state, or a rule-library web service</div>
   </div>
   <p>The dependency direction is one way: hosts depend on the core. The core accepts a repository path, named analysis definitions, per-analysis configuration, cancellation, and an opt-in metadata persistence flag. It returns execution provenance and <code>QualityFindingEnvelope</code> values. It does not register repositories, authenticate requests, start a server, commit Git state, or project findings for the UI.</p>
@@ -116,16 +115,32 @@
 
   <h2>5. First-slice receipt</h2>
   <ul>
-    <li><span class="status">Implemented:</span> package id <code>QualityStudio.Analysis.Core</code> version <code>0.1.0</code>, .NET 10 assembly, NuGet metadata, license/repository metadata inherited centrally, and an English package README.</li>
+    <li><span class="status">Implemented:</span> package id <code>AgentOrchestrator.CodeQuality</code> version <code>0.1.0</code>, .NET 10 assembly, NuGet metadata, license/repository metadata inherited centrally, and an English package README.</li>
     <li><span class="status">Implemented:</span> <code>QualityAnalysisRunner</code> validates named analyses, executes them sequentially with cancellation, preserves availability/provenance, and returns QS finding envelopes.</li>
     <li><span class="status">Implemented:</span> <code>quality-cli</code> is a real in-process caller through <code>quality analyze</code>.</li>
     <li><span class="status">Implemented:</span> Agent Studio HTTP transport moved from the core into <code>QualityStudio.Api</code>; API routes and frontend behavior remain unchanged.</li>
-    <li><span class="pending">Deferred:</span> API-wide migration to the facade, CLI consolidation, QS-90 schema binding, package feed publication, AGT-2655 production integration, and repository extraction.</li>
+    <li><span class="pending">Deferred:</span> API-wide migration to the facade, QS-90 schema binding, package feed publication, AGT-2655 production integration, and repository extraction.</li>
   </ul>
+  <p class="note">CLI consolidation is no longer on this deferred list: the older, separate <code>quality</code> command surface was removed by unrelated later work, leaving <code>quality-cli</code> as the single CLI. This was observed, not delivered, by QS-91.</p>
 
   <h2>6. Verification and baseline note</h2>
   <p>The .NET core suite passed 154 tests with one explicitly opt-in live test skipped. All API tests passed when the 51 functional tests and the machine-bound timing test were run in their intended partitions. A combined run exposed the existing wall-clock sensitivity (156–223 ms against a 150 ms budget), while the timing test passed in one second when isolated. The CLI ran the repository boundary analysis in process and returned 16 findings. The NuGet package was generated and its README, metadata, dependency, and .NET 10 DLL were inspected. The unchanged frontend produced a successful production build with its existing budget and CommonJS warnings. Exact receipts and the package are stored in the task's collected results directory.</p>
   <p class="note">The requested <code>origin/develop</code> branch does not exist on the remote. The remote advertises <code>origin/main</code> as HEAD. QS-91 fetched that branch and confirmed the work was based on its exact commit before replaying the recovered slice. No conflict existed to resolve, and no substitute <code>develop</code> ref was fabricated.</p>
+  <p class="note">Re-checked 6 September 2026: <code>origin/develop</code> still does not exist; the working branch remains exactly at <code>origin/main</code> (no divergence either direction), so there is again no rebase conflict to resolve. The core test suite (362 passed, 1 opt-in skip), the isolated dashboard timing test, the <code>quality-cli analyze</code> proof consumer, and <code>dotnet pack</code> were all re-run and behave as this dossier describes. This pass corrected a naming defect found in this document: the package id, assembly name, and namespace were always <code>AgentOrchestrator.CodeQuality</code> — this dossier previously and incorrectly called it <code>QualityStudio.Analysis.Core</code> in several places. The code, its README, and CI were already consistent; only this document was wrong, and it is now corrected throughout.</p>
+<!-- agent-studio:implementation-section:start -->
+<section id="implementation" data-document-section="implementation">
+  <h2>Implementation</h2>
+  <p>Delivery slices append their current implementation status here.</p>
+  <ol class="implementation-log">
+<!-- agent-studio:implementation-log:start -->
+    <li data-implementation-entry="" data-task-key="QS-91" data-delivered-at="2026-09-06" data-slice="Dossier accuracy pass and re-verification">
+      <strong>QS-91 &middot; Dossier accuracy pass and re-verification</strong>
+      <span>Delivered: confirmed the previously shipped in-process analysis core slice (package <code>AgentOrchestrator.CodeQuality</code>, <code>QualityAnalysisRunner</code>, the <code>quality-cli analyze</code> consumer, and the Agent Studio HTTP client living in <code>QualityStudio.Api</code>) is intact on <code>main</code> with no pending <code>origin/develop</code> rebase (branch absent, no divergence). Corrected this dossier's package-name mismatch (it said <code>QualityStudio.Analysis.Core</code>; the shipped package, README, and CI have always used <code>AgentOrchestrator.CodeQuality</code>) and its stale mention of a separate <code>quality</code> CLI, now consolidated into <code>quality-cli</code>. Re-ran the core test suite (362 passed, 1 opt-in skip), the isolated dashboard timing test, the <code>quality-cli analyze</code> proof consumer, and <code>dotnet pack</code>; all green.</span>
+    </li>
+<!-- agent-studio:implementation-log:end -->
+  </ol>
+</section>
+<!-- agent-studio:implementation-section:end -->
 </main>
 </body>
 </html>
