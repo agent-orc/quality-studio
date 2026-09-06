@@ -1,0 +1,23 @@
+{
+  "documentation": "Line-coverage floor enforced by .github/scripts/validate_coverage.py in build.yml. Coverage may rise freely; it may fall only within tolerancePercentagePoints. Raise a value when coverage has genuinely improved: run the suite with --collect:\"XPlat Code Coverage\" (or npm run test:coverage for the frontend), then `python3 .github/scripts/validate_coverage.py --format <cobertura|lcov> --report <glob> --baseline tests/coverage-baseline.json --baseline-key <project> --update-baseline` and commit the change with the work that earned it. Lowering a value needs a reason in the commit message.",
+  "measuredOn": "2026-09-07, Windows, .NET 10.0.301 / Node 22",
+  "tolerancePercentagePoints": 2.0,
+  "toleranceRationale": "The recorded values were measured on Windows while the gate runs on Linux, and platform-specific branches move the number by a point or two. Tighten this once a few Linux runs have shown the real spread.",
+  "projects": {
+    "AgentOrchestrator.CodeQuality.Tests": {
+      "linePercent": 77.56,
+      "coveredLines": 16997,
+      "totalLines": 21915
+    },
+    "QualityStudio.Api.Tests": {
+      "linePercent": 40.38,
+      "coveredLines": 10476,
+      "totalLines": 25944
+    },
+    "frontend": {
+      "linePercent": 60.82,
+      "coveredLines": 812,
+      "totalLines": 1335
+    }
+  }
+}
