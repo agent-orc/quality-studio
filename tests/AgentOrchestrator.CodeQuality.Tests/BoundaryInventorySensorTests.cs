@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Json.Schema;
@@ -204,12 +205,141 @@ public sealed class BoundaryInventorySensorTests
 
         using var generated = JsonDocument.Parse(JsonSerializer.Serialize(inventory,
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-        var schema = JsonSchema.FromText(await File.ReadAllTextAsync(
-            Path.Combine(root, "schemas", "boundary-inventory.v1.schema.json"),
-            TestContext.Current.CancellationToken));
+        var schema = SchemaCatalogue.Get("boundary-inventory.v1.schema.json");
         var validation = schema.Evaluate(generated.RootElement,
             new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(validation.IsValid, validation.ToString());
+    }
+
+    [Fact]
+    public async Task Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking()
+    {
+        // QS-95: a class with many stacked bracket attributes above a method - the common
+        // xUnit [Theory]/[InlineData(...)] shape found in real test suites - made
+        // ControllerRegex's (?:\s*[...]\s*)+ group backtrack exponentially, hanging the whole
+        // scan on a single small, ordinary file. Eight stacked attributes alone reproduced a
+        // hang beyond ten seconds before the fix; this uses 40 and must resolve in
+        // milliseconds.
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-redos-").FullName;
+        try
+        {
+            var attributes = string.Join('\n', Enumerable.Range(0, 40)
+                .Select(index => $"    [InlineData(SomeEnum.Value{index}, false, true, Other.Thing{index})]"));
+            var content = """
+                namespace AgentStudio.Tests;
+
+                public sealed class StackedAttributeTests
+                {
+                    [Theory]
+                __ATTRIBUTES__
+                    public void WorkerOutcomeMatrix_DecidesAcceptedLane(int value) { }
+                }
+                """.Replace("__ATTRIBUTES__", attributes, StringComparison.Ordinal);
+            await File.WriteAllTextAsync(Path.Combine(root, "StackedAttributeTests.cs"), content,
+                TestContext.Current.CancellationToken);
+
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.True(stopwatch.ElapsedMilliseconds < 5_000,
+                $"Boundary scan took {stopwatch.ElapsedMilliseconds} ms; a regression to catastrophic " +
+                "regex backtracking would make this run for minutes, not milliseconds.");
+            Assert.True(inventory.Complete);
+            Assert.Empty(inventory.Omissions);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
+    {
+        // QS-95: HostReachability and KnownConsumers used to redo work proportional to the
+        // whole repository for every single HTTP route match (a full re-scan of every source
+        // file, and a fresh line split plus regex compile for every route/file/line
+        // combination), so cost grew with routes * files instead of with repository size. This
+        // fixture has enough routes and client-side consumers that a reintroduced O(routes *
+        // files) cost would turn a sub-second scan into tens of seconds.
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-scale-").FullName;
+        try
+        {
+            const int fileCount = 200;
+            for (var index = 0; index < fileCount; index++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(root, $"Endpoint{index}.cs"), $"""
+                    var app = WebApplication.Create();
+                    app.MapGet("/api/items/{index}/detail", () => Results.Ok());
+                    app.MapPost("/api/items/{index}/update", (Widget request) => Results.Ok());
+                    """, TestContext.Current.CancellationToken);
+                await File.WriteAllTextAsync(Path.Combine(root, $"consumer{index}.ts"), $$"""
+                    export async function load{{index}}() {
+                      await fetch(`/api/items/{{index}}/detail`);
+                      return axios.post(`/api/items/{{index}}/update`, {});
+                    }
+                    """, TestContext.Current.CancellationToken);
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            stopwatch.Stop();
+
+            Assert.Equal(fileCount * 2, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.True(inventory.Complete, string.Join(", ", inventory.Omissions.Select(omission => omission.Path)));
+            Assert.True(stopwatch.ElapsedMilliseconds < 15_000,
+                $"Boundary scan of {fileCount * 2} routes across {fileCount * 2} files took " +
+                $"{stopwatch.ElapsedMilliseconds} ms; expected roughly linear scaling with repository size.");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Exhausted_time_budget_produces_an_honest_partial_result()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-budget-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "First.cs"), """
+                var app = WebApplication.Create();
+                app.MapGet("/first", () => Results.Ok());
+                app.Run();
+                """, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, "Second.cs"), """
+                var app2 = WebApplication.Create();
+                app2.MapGet("/second", () => Results.Ok());
+                app2.Run();
+                """, TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false, Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.TimeBudgetConfigurationKey] = "0",
+                }),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(inventory.Complete);
+            Assert.NotEmpty(inventory.Omissions);
+            Assert.All(inventory.Omissions, omission => Assert.Equal("time-budget-exceeded", omission.Reason));
+            Assert.Contains(inventory.Findings, finding => finding.RuleId == "boundary/scan-incomplete");
+
+            using var generated = JsonDocument.Parse(JsonSerializer.Serialize(inventory,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            var schema = SchemaCatalogue.Get("boundary-inventory.v1.schema.json");
+            var validation = schema.Evaluate(generated.RootElement,
+                new EvaluationOptions { OutputFormat = OutputFormat.List });
+            Assert.True(validation.IsValid, validation.ToString());
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed record Widget(string Name);

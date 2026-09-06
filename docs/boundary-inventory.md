@@ -50,3 +50,20 @@ stages consume the same deterministic evidence.
 The inventory intentionally contains no generation timestamp. Re-running it
 against unchanged source produces identical content, while adding, changing, or
 removing a boundary creates a normal repository diff.
+
+## Bounded scans and partial results
+
+The scan holds a wall-clock budget (30 seconds by default, overridable per
+request via the `boundaries.timeBudgetMs` sensor configuration key) and a
+per-regex-match timeout as defense in depth against a single pathological
+file. A scan that exhausts either bound stops analyzing further files rather
+than hanging; it never blocks the review pipeline indefinitely.
+
+When that happens the inventory's top-level `complete` field is `false` and
+`omissions` lists every file that was skipped, each with a `reason` of
+`time-budget-exceeded` or `regex-match-timeout`. Entries and findings already
+derived from other files are unaffected and are not re-labeled as unknown; the
+inventory only ever asserts incompleteness about the files it did not reach. A
+`boundary/scan-incomplete` finding (severity medium) is emitted alongside the
+mechanical findings so an incomplete scan is visible wherever findings are
+consumed, not only to a caller that inspects `complete` directly.
