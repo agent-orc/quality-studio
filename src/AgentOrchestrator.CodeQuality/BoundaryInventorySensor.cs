@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -12,7 +14,16 @@ public sealed record BoundaryInventory(
     string Sensor,
     string SensorVersion,
     IReadOnlyList<BoundaryEntry> Entries,
-    IReadOnlyList<ReviewFinding> Findings);
+    IReadOnlyList<ReviewFinding> Findings,
+    bool Complete,
+    IReadOnlyList<BoundaryOmission> Omissions);
+
+/// <summary>
+/// A source file the scan could not fully analyze within its time budget. The inventory
+/// still reports every fact it derived before the omission; it never claims completeness
+/// it did not earn.
+/// </summary>
+public sealed record BoundaryOmission(string Path, string Reason);
 
 public sealed record BoundaryEntry(
     string Id,
@@ -51,6 +62,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 {
     public const string SensorVersion = "1.0.0";
     public const string InventoryRelativePath = ".quality/boundaries/inventory.json";
+
+    /// <summary>
+    /// Configuration key (via <see cref="SensorScanRequest.Configuration"/>) overriding the
+    /// default wall-clock budget for a full scan. See <see cref="ResolveTimeBudget"/>.
+    /// </summary>
+    public const string TimeBudgetConfigurationKey = "boundaries.timeBudgetMs";
+
+    private static readonly TimeSpan DefaultTimeBudget = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Backstop for a single regex match against one file's content. The known
+    /// catastrophic-backtracking patterns are fixed at the source; this timeout is defense
+    /// in depth against an unforeseen one, not a substitute for that fix.
+    /// </summary>
+    private const int RegexTimeoutMilliseconds = 2000;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -102,7 +128,8 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
         var target = ResolveTarget(root, request);
         var sources = await ReadSourcesAsync(root, target, cancellationToken).ConfigureAwait(false);
-        var context = new AnalysisContext(root, sources);
+        var budget = new AnalysisBudget(ResolveTimeBudget(request.Configuration));
+        var context = new AnalysisContext(root, sources, budget, HostReachability(sources));
         var entries = new List<BoundaryEntry>();
         AnalyzeAspNet(context, entries);
         AnalyzeJavaScript(context, entries);
@@ -119,13 +146,20 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             .ThenBy(entry => entry.Location.Line)
             .ToArray();
         var findings = MechanicalChecks(ordered);
+        var omissions = budget.Omissions;
+        if (omissions.Count > 0)
+        {
+            findings = [.. findings, IncompleteScanFinding(omissions)];
+        }
         var inventory = new BoundaryInventory(
             "https://agent-orchestrator.dev/quality/schemas/boundary-inventory.v1.schema.json",
             1,
             Id,
             Version,
             ordered,
-            findings);
+            findings,
+            omissions.Count == 0,
+            omissions);
 
         if (request.PersistMetadata && request.Scope == SensorScope.Repository)
         {
@@ -211,6 +245,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         foreach (var file in context.Sources.Where(source => source.Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
         {
+            if (context.Budget.ShouldSkip(file.Path)) continue;
+            try
+            {
+                AnalyzeAspNetFile(context, file, entries);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                context.Budget.RecordOmission(file.Path, "regex-match-timeout");
+            }
+        }
+    }
+
+    private static void AnalyzeAspNetFile(AnalysisContext context, SourceFile file, ICollection<BoundaryEntry> entries)
+    {
+        {
             var groups = GroupPrefixes(file);
             foreach (Match match in AspNetMapRegex().Matches(file.Content))
             {
@@ -234,7 +283,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     (file.Content.Contains("Authenticate(context)", StringComparison.Ordinal) ||
                      file.Content.Contains("UseAuthentication()", StringComparison.Ordinal));
                 var authenticated = explicitlyAuthorized || middlewareAuthenticated;
-                var reachability = HostReachability(context);
+                var reachability = context.HostFact;
                 if (authenticated)
                 {
                     reachability = new BoundaryFact("authenticated",
@@ -390,7 +439,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                     $"{verb} {route}",
                     kind == "sse" ? "sse" : "http",
                     new BoundarySourceLocation(file.Path, line),
-                    authorized ? new BoundaryFact("authenticated", [derivation]) : HostReachability(context),
+                    authorized ? new BoundaryFact("authenticated", [derivation]) : context.HostFact,
                     new BoundaryFact(authorized ? "required" : allowsAnonymous ? "none" : "unknown", [derivation]),
                     new BoundaryFact(authorized ? "required" : allowsAnonymous ? "none" : "unknown", [derivation]),
                     ParseDotNetInputs("(" + action.Groups["parameters"].Value + ")", route),
@@ -553,6 +602,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         foreach (var file in context.Sources.Where(IsJavaScript))
         {
+            if (context.Budget.ShouldSkip(file.Path)) continue;
+            try
+            {
+                AnalyzeJavaScriptFile(context, file, entries);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                context.Budget.RecordOmission(file.Path, "regex-match-timeout");
+            }
+        }
+    }
+
+    private static void AnalyzeJavaScriptFile(AnalysisContext context, SourceFile file, ICollection<BoundaryEntry> entries)
+    {
+        {
             foreach (Match match in NodeRouteRegex().Matches(file.Content))
             {
                 var receiver = match.Groups["receiver"].Value;
@@ -664,6 +728,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         foreach (var file in context.Sources)
         {
+            if (context.Budget.ShouldSkip(file.Path)) continue;
+            try
+            {
+                AnalyzeBrowserEmbeddingFile(context, file, entries);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                context.Budget.RecordOmission(file.Path, "regex-match-timeout");
+            }
+        }
+    }
+
+    private static void AnalyzeBrowserEmbeddingFile(AnalysisContext context, SourceFile file, ICollection<BoundaryEntry> entries)
+    {
+        {
             foreach (Match match in IframeRegex().Matches(file.Content))
             {
                 var line = Line(file.Content, match.Index);
@@ -728,6 +807,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     private static void AnalyzeHostBindings(AnalysisContext context, ICollection<BoundaryEntry> entries)
     {
         foreach (var file in context.Sources)
+        {
+            if (context.Budget.ShouldSkip(file.Path)) continue;
+            try
+            {
+                AnalyzeHostBindingsFile(context, file, entries);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                context.Budget.RecordOmission(file.Path, "regex-match-timeout");
+            }
+        }
+    }
+
+    private static void AnalyzeHostBindingsFile(AnalysisContext context, SourceFile file, ICollection<BoundaryEntry> entries)
+    {
         {
             foreach (Match match in UrlBindingRegex().Matches(file.Content))
             {
@@ -824,6 +918,24 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         foreach (var file in context.Sources)
         {
+            if (context.Budget.ShouldSkip(file.Path)) continue;
+            try
+            {
+                AnalyzeProcessFileAndOutboundBoundariesFile(context, file, entries);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                context.Budget.RecordOmission(file.Path, "regex-match-timeout");
+            }
+        }
+    }
+
+    private static void AnalyzeProcessFileAndOutboundBoundariesFile(
+        AnalysisContext context,
+        SourceFile file,
+        ICollection<BoundaryEntry> entries)
+    {
+        {
             foreach (Match match in ProcessRegex().Matches(file.Content))
             {
                 var line = Line(file.Content, match.Index);
@@ -900,6 +1012,21 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     private static void AnalyzeErrorPolicies(AnalysisContext context, ICollection<BoundaryEntry> entries)
     {
         foreach (var file in context.Sources)
+        {
+            if (context.Budget.ShouldSkip(file.Path)) continue;
+            try
+            {
+                AnalyzeErrorPoliciesFile(context, file, entries);
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                context.Budget.RecordOmission(file.Path, "regex-match-timeout");
+            }
+        }
+    }
+
+    private static void AnalyzeErrorPoliciesFile(AnalysisContext context, SourceFile file, ICollection<BoundaryEntry> entries)
+    {
         {
             foreach (Match match in ExceptionDetailRegex().Matches(file.Content))
             {
@@ -1001,6 +1128,42 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             .ToArray();
     }
 
+    private static TimeSpan ResolveTimeBudget(IReadOnlyDictionary<string, string>? configuration)
+    {
+        var configured = configuration?.GetValueOrDefault(TimeBudgetConfigurationKey);
+        if (!string.IsNullOrWhiteSpace(configured) &&
+            int.TryParse(configured, NumberStyles.Integer, CultureInfo.InvariantCulture, out var milliseconds) &&
+            milliseconds >= 0)
+        {
+            return TimeSpan.FromMilliseconds(milliseconds);
+        }
+        return DefaultTimeBudget;
+    }
+
+    private static ReviewFinding IncompleteScanFinding(IReadOnlyList<BoundaryOmission> omissions)
+    {
+        var byReason = omissions
+            .GroupBy(omission => omission.Reason, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => $"{group.Count()} file(s) omitted: {group.Key}");
+        var fingerprint = Hash($"boundaries\0boundary/scan-incomplete\0{string.Join('\0', omissions.Select(omission => omission.Path))}");
+        var location = new FindingLocation(omissions[0].Path,
+            new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 1)));
+        return new ReviewFinding(
+            $"boundary-{fingerprint[7..19]}",
+            "boundaries",
+            FindingSeverity.Medium,
+            "Boundary scan stopped before covering the repository",
+            $"The boundary inventory is incomplete: {string.Join("; ", byReason)}. " +
+            "Entries and findings derived from the files that were analyzed are unaffected, " +
+            "but boundaries in the omitted files are not represented.",
+            $"Re-run with a larger {TimeBudgetConfigurationKey}, or scope a follow-up scan to the omitted paths.",
+            [location],
+            fingerprint,
+            "boundary/scan-incomplete",
+            JsonSerializer.Serialize(omissions, JsonOptions));
+    }
+
     private static ReviewFinding Finding(
         BoundaryEntry entry,
         string ruleId,
@@ -1068,9 +1231,9 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             [],
             evidence);
 
-    private static BoundaryFact HostReachability(AnalysisContext context)
+    private static BoundaryFact HostReachability(IReadOnlyList<SourceFile> sources)
     {
-        var listeners = context.Sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
+        var listeners = sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
             .Where(match => IsHostBinding(file.Content, match.Index))
             .Select(match => match.Groups["url"].Value)).ToArray();
         if (listeners.Length == 0)
@@ -1092,39 +1255,42 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
     {
         var literalPrefix = route.Split('{')[0].TrimEnd('/');
         if (literalPrefix.Length < 2) return [];
+        // Compiled once per route/method pair, not once per (file, line): the candidate and
+        // method patterns depend only on these two arguments, so building them here instead of
+        // inside the per-line loop turns an O(routes * files * lines) regex-compile cost into
+        // O(routes).
+        var candidateRegexes = ClientRouteMentionRegexes(route);
+        var methodRegex = new Regex($@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(RegexTimeoutMilliseconds));
         var result = new List<BoundarySourceLocation>();
         foreach (var file in context.Sources.Where(IsJavaScript))
         {
             foreach (var (line, text) in file.Lines())
             {
-                if (ClientRouteMention(text, route) &&
-                    Regex.IsMatch(text,
-                        $@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                if (candidateRegexes.Any(candidate => candidate.IsMatch(text)) && methodRegex.IsMatch(text))
                     result.Add(new BoundarySourceLocation(file.Path, line));
             }
         }
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
 
-    private static bool ClientRouteMention(string text, string route)
+    private static IReadOnlyList<Regex> ClientRouteMentionRegexes(string route)
     {
         var candidates = new List<string> { route };
         if (route.StartsWith("/api/", StringComparison.Ordinal)) candidates.Add(route[4..]);
         var repositoryPrefix = Regex.Match(route, @"^/api/repos/\{[^}]+\}(?<tail>/.*)$",
             RegexOptions.CultureInvariant);
         if (repositoryPrefix.Success) candidates.Add(repositoryPrefix.Groups["tail"].Value);
-        foreach (var candidate in candidates.Distinct(StringComparer.Ordinal))
+        return candidates.Distinct(StringComparer.Ordinal).Select(candidate =>
         {
             var pattern = Regex.Replace(
                 Regex.Escape(candidate),
                 @"\\\{[^}]+\\\}",
                 @"(?:\$\{[^}]+\}|[^/`'""?]+)",
                 RegexOptions.CultureInvariant);
-            if (Regex.IsMatch(text, pattern + @"(?=$|[?`'""),}\]])", RegexOptions.CultureInvariant))
-                return true;
-        }
-        return false;
+            return new Regex(pattern + @"(?=$|[?`'""),}\]])", RegexOptions.CultureInvariant,
+                TimeSpan.FromMilliseconds(RegexTimeoutMilliseconds));
+        }).ToArray();
     }
 
     private static IReadOnlyList<BoundarySourceLocation> ProcessConsumers(AnalysisContext context, SourceFile processFile)
@@ -1297,83 +1463,118 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     private sealed record SourceFile(string Path, string Content)
     {
+        private string[]? _lines;
+
+        /// <summary>Splits on first use; repeated calls for the same file (once per candidate
+        /// route) reuse the array instead of re-splitting the whole file every time.</summary>
         public IEnumerable<(int Line, string Text)> Lines()
         {
-            var lines = Content.Split('\n');
+            var lines = _lines ??= Content.Split('\n');
             for (var index = 0; index < lines.Length; index++) yield return (index + 1, lines[index]);
         }
     }
 
-    private sealed record AnalysisContext(string Root, IReadOnlyList<SourceFile> Sources);
+    private sealed record AnalysisContext(
+        string Root,
+        IReadOnlyList<SourceFile> Sources,
+        AnalysisBudget Budget,
+        BoundaryFact HostFact);
+
+    /// <summary>
+    /// Bounds a scan to a wall-clock budget so one pathological or unexpectedly large file
+    /// degrades to a documented omission instead of hanging the whole inventory. Every
+    /// analyzer phase shares one instance and checks it before each file.
+    /// </summary>
+    private sealed class AnalysisBudget(TimeSpan limit)
+    {
+        private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
+        private readonly HashSet<string> _recordedPaths = new(StringComparer.Ordinal);
+        private readonly List<BoundaryOmission> _omissions = [];
+
+        public IReadOnlyList<BoundaryOmission> Omissions =>
+            _omissions.OrderBy(omission => omission.Path, StringComparer.Ordinal).ToArray();
+
+        public bool ShouldSkip(string path)
+        {
+            if (_stopwatch.Elapsed < limit) return false;
+            RecordOmission(path, "time-budget-exceeded");
+            return true;
+        }
+
+        public void RecordOmission(string path, string reason)
+        {
+            if (_recordedPaths.Add(path)) _omissions.Add(new BoundaryOmission(path, reason));
+        }
+    }
 
     private sealed record RouteGroup(string Prefix, bool Authorized);
 
-    [GeneratedRegex(@"\b(?<receiver>[A-Za-z_][A-Za-z0-9_]*)\.Map(?<method>Get|Post|Put|Delete|Patch|Options|Head|Methods|Fallback|)\s*\(\s*""(?<route>[^""]+)""", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(?<receiver>[A-Za-z_][A-Za-z0-9_]*)\.Map(?<method>Get|Post|Put|Delete|Patch|Options|Head|Methods|Fallback|)\s*\(\s*""(?<route>[^""]+)""", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex AspNetMapRegex();
 
-    [GeneratedRegex(@"\bvar\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\.MapGroup\s*\(\s*""(?<prefix>[^""]*)""\s*\)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\bvar\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\.MapGroup\s*\(\s*""(?<prefix>[^""]*)""\s*\)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex MapGroupRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>\s*(?:\[[^\]]+\]\s*)+)(?:(?:public|internal|sealed|abstract|partial)\s+)*class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*Controller)\b", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ControllerRegex();
 
-    [GeneratedRegex(@"\bRoute\s*\(\s*""(?<route>[^""]*)""", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\bRoute\s*\(\s*""(?<route>[^""]*)""", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ControllerRouteRegex();
 
-    [GeneratedRegex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*\s*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\](?:\s*\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<attributes>\s*(?:\[[^\]]+\]\s*)*\[Http(?<verb>Get|Post|Put|Delete|Patch)(?:\s*\(\s*""(?<route>[^""]*)""\s*\))?\]\s*(?:\[[^\]]+\]\s*)*)\s*(?:public|internal|protected)\s+(?:async\s+)?(?<return>[A-Za-z_][A-Za-z0-9_<>,.?\[\]\s]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\((?<parameters>[^)]*)\)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ControllerActionRegex();
 
-    [GeneratedRegex(@"\b(?<operation>UseStaticFiles|MapFallbackToFile|MapHealthChecks|MapHub|UseWebSockets)\s*(?:<[^>]+>)?\s*\(\s*(?<argument>""[^""]*"")?", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(?<operation>UseStaticFiles|MapFallbackToFile|MapHealthChecks|MapHub|UseWebSockets)\s*(?:<[^>]+>)?\s*\(\s*(?<argument>""[^""]*"")?", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex SpecialAspNetRegex();
 
-    [GeneratedRegex(@"AddHostedService(?:<(?<service>[^>]+)>|\s*\(\s*[^=]+=>\s*[^.]+\.GetRequiredService<(?<service>[^>]+)>)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"AddHostedService(?:<(?<service>[^>]+)>|\s*\(\s*[^=]+=>\s*[^.]+\.GetRequiredService<(?<service>[^>]+)>)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex HostedServiceRegex();
 
-    [GeneratedRegex(@"\{(?<name>[A-Za-z_][A-Za-z0-9_]*)(?:\?|\:[^}]*)?\}", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\{(?<name>[A-Za-z_][A-Za-z0-9_]*)(?:\?|\:[^}]*)?\}", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex RouteParameterRegex();
 
-    [GeneratedRegex(@"RequireRateLimiting\s*\(\s*""(?<policy>[^""]+)""", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"RequireRateLimiting\s*\(\s*""(?<policy>[^""]+)""", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex RequireRateRegex();
 
-    [GeneratedRegex(@"\b(?<receiver>[A-Za-z_$][A-Za-z0-9_$]*)\.(?<method>get|post|put|delete|patch|all)\s*\(\s*['""`](?<route>/[^'""`]*)['""`]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(?<receiver>[A-Za-z_$][A-Za-z0-9_$]*)\.(?<method>get|post|put|delete|patch|all)\s*\(\s*['""`](?<route>/[^'""`]*)['""`]", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex NodeRouteRegex();
 
-    [GeneratedRegex(@"(?:(?<receive>window\.addEventListener\s*\(\s*['""]message['""]|window\.onmessage\s*=)|postMessage\s*\([^\n]*,\s*['""](?<target>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:(?<receive>window\.addEventListener\s*\(\s*['""]message['""]|window\.onmessage\s*=)|postMessage\s*\([^\n]*,\s*['""](?<target>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex BrowserMessageRegex();
 
-    [GeneratedRegex(@"\b(?<operation>(?:cron\.)?schedule|(?:fs\.)?watch|chokidar\.watch|\.consume|\.on\s*\(\s*['""]message['""])\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(?<operation>(?:cron\.)?schedule|(?:fs\.)?watch|chokidar\.watch|\.consume|\.on\s*\(\s*['""]message['""])\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex JavaScriptTriggerRegex();
 
-    [GeneratedRegex(@"(?<operation>express\.static|\.on\s*\(\s*['""]connection['""]|new\s+(?:WebSocket\.)?Server)\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<operation>express\.static|\.on\s*\(\s*['""]connection['""]|new\s+(?:WebSocket\.)?Server)\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex JavaScriptNetworkSurfaceRegex();
 
-    [GeneratedRegex(@"<iframe\b[^>]*\bsrc\s*=\s*['""](?<target>[^'""]+)['""][^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"<iframe\b[^>]*\bsrc\s*=\s*['""](?<target>[^'""]+)['""][^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex IframeRegex();
 
-    [GeneratedRegex(@"(?:frame-ancestors|X-Frame-Options)\s*(?:[=:]\s*|['""]\s*,\s*['""])(?<value>[^;,'""\r\n}]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:frame-ancestors|X-Frame-Options)\s*(?:[=:]\s*|['""]\s*,\s*['""])(?<value>[^;,'""\r\n}]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex FramePolicyRegex();
 
-    [GeneratedRegex(@"(?<url>https?://(?:127\.0\.0\.1|localhost|\[::1\]|0\.0\.0\.0|\+|[A-Za-z_$][A-Za-z0-9_.$-]*)(?::(?:\d+|\$\{[^}]+\}))?)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<url>https?://(?:127\.0\.0\.1|localhost|\[::1\]|0\.0\.0\.0|\+|[A-Za-z_$][A-Za-z0-9_.$-]*)(?::(?:\d+|\$\{[^}]+\}))?)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex UrlBindingRegex();
 
-    [GeneratedRegex(@"\.listen\s*\(\s*(?<port>[^,\)\n]+)(?:,\s*['""](?<host>[^'""]+)['""])?", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\.listen\s*\(\s*(?<port>[^,\)\n]+)(?:,\s*['""](?<host>[^'""]+)['""])?", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ListenRegex();
 
-    [GeneratedRegex(@"(?:AllowAnyOrigin\s*\(\)|WithOrigins\s*\((?<value>[^)]*)\)|[""']AllowedOrigins[""']\s*:\s*\[(?<value>[^\]]*)\]|\borigin\s*:\s*['""](?<value>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:AllowAnyOrigin\s*\(\)|WithOrigins\s*\((?<value>[^)]*)\)|[""']AllowedOrigins[""']\s*:\s*\[(?<value>[^\]]*)\]|\borigin\s*:\s*['""](?<value>[^'""]+)['""])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex CorsRegex();
 
-    [GeneratedRegex(@"(?:new\s+ProcessStartInfo\s*\(\s*|Process\.Start\s*\(\s*|(?:spawn|exec|execFile)\s*\(\s*)(?<executable>[^,\)\n]+)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:new\s+ProcessStartInfo\s*\(\s*|Process\.Start\s*\(\s*|(?:spawn|exec|execFile)\s*\(\s*)(?<executable>[^,\)\n]+)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ProcessRegex();
 
-    [GeneratedRegex(@"\.ArgumentList\.Add\s*\(\s*(?<argument>[^\)\n]+)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\.ArgumentList\.Add\s*\(\s*(?<argument>[^\)\n]+)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ProcessArgumentRegex();
 
-    [GeneratedRegex(@"(?:\b(?:httpClient|_httpClient)\.(?:GetAsync|PostAsync|SendAsync|PutAsync|DeleteAsync)\s*\(\s*|\bfetch\s*\(\s*|\baxios\.(?:get|post|put|delete|patch)\s*\(\s*)(?<target>[^,\)\n]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:\b(?:httpClient|_httpClient)\.(?:GetAsync|PostAsync|SendAsync|PutAsync|DeleteAsync)\s*\(\s*|\bfetch\s*\(\s*|\baxios\.(?:get|post|put|delete|patch)\s*\(\s*)(?<target>[^,\)\n]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex OutboundRegex();
 
-    [GeneratedRegex(@"\bnew\s+FileSystemWatcher\s*\(|\b(?:fs\.)?watch\s*\(|\bchokidar\.watch\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\bnew\s+FileSystemWatcher\s*\(|\b(?:fs\.)?watch\s*\(|\bchokidar\.watch\s*\(", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex FileWatcherRegex();
 
-    [GeneratedRegex(@"(?:Results\.Problem|Problem\s*\(|res\.(?:send|json|status))[\s\S]{0,500}?(?:exception|error|err)\s*(?:\?*\.)\s*(?:Message|StackTrace|stack|message)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?:Results\.Problem|Problem\s*\(|res\.(?:send|json|status))[\s\S]{0,500}?(?:exception|error|err)\s*(?:\?*\.)\s*(?:Message|StackTrace|stack|message)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ExceptionDetailRegex();
 }
