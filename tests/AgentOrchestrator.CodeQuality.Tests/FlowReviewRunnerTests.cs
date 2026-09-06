@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -273,6 +274,6 @@ public sealed class FlowReviewRunnerTests
             return new FixtureRepository(root);
         }
 
-        public void Dispose() => Directory.Delete(Root, recursive: true);
+        public void Dispose() => TemporaryDirectory.Delete(Root);
     }
 }

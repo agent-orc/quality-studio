@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using AgentOrchestrator.CodeQuality;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -394,7 +395,7 @@ public sealed class ChangeSetReviewTests
 
         public void Dispose()
         {
-            TestDirectory.Delete(Root);
+            TemporaryDirectory.Delete(Root);
         }
     }
 
@@ -428,6 +429,6 @@ public sealed class ChangeSetReviewTests
 
         public string Path { get; }
 
-        public void Dispose() => TestDirectory.Delete(Path);
+        public void Dispose() => TemporaryDirectory.Delete(Path);
     }
 }

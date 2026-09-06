@@ -1,3 +1,5 @@
+using QualityStudio.Testing;
+
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class DotNetBuildSensorTests
@@ -57,7 +59,7 @@ public sealed class DotNetBuildSensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -83,7 +85,7 @@ public sealed class DotNetBuildSensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 

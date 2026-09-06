@@ -13,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace QualityStudio.Api.Tests;
 
@@ -826,13 +827,7 @@ public sealed class ReviewRunStoreTests
 
         public void Dispose()
         {
-            try
-            {
-                Directory.Delete(Path.GetDirectoryName(RepositoryRoot)!, recursive: true);
-            }
-            catch (IOException)
-            {
-            }
+            TemporaryDirectory.Delete(Path.GetDirectoryName(RepositoryRoot)!);
         }
     }
 

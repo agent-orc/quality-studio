@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Json.Schema;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -79,7 +80,7 @@ public sealed class BoundaryInventorySensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -118,7 +119,7 @@ public sealed class BoundaryInventorySensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -168,7 +169,7 @@ public sealed class BoundaryInventorySensorTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 

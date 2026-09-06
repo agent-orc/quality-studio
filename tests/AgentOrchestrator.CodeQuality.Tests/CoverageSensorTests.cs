@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using AgentOrchestrator.CodeQuality;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -115,7 +116,7 @@ public sealed class CoverageSensorTests
 
         public string Root { get; }
         public string Report(string name) => Path.Combine(Root, name);
-        public void Dispose() => TestDirectory.Delete(Root);
+        public void Dispose() => TemporaryDirectory.Delete(Root);
     }
 
     private sealed class GitChurnFixture : IDisposable
@@ -169,6 +170,6 @@ public sealed class CoverageSensorTests
             Assert.Equal(0, process.ExitCode);
         }
 
-        public void Dispose() => TestDirectory.Delete(Root);
+        public void Dispose() => TemporaryDirectory.Delete(Root);
     }
 }

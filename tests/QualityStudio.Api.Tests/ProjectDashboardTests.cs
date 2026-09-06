@@ -1,5 +1,6 @@
 using AgentOrchestrator.CodeQuality;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace QualityStudio.Api.Tests;
 
@@ -47,7 +48,7 @@ public sealed class ProjectDashboardTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -83,7 +84,7 @@ public sealed class ProjectDashboardTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -110,7 +111,7 @@ public sealed class ProjectDashboardTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -210,7 +211,7 @@ public sealed class StalenessEvaluatorTests
         {
             try
             {
-                Directory.Delete(Root, true);
+                TemporaryDirectory.Delete(Root);
             }
             catch (IOException)
             {

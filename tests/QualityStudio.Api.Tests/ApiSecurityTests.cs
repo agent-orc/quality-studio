@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace QualityStudio.Api.Tests;
 
@@ -277,8 +278,7 @@ public sealed class ApiSecurityTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         if (application is not null) await application.DisposeAsync();
-        try { Directory.Delete(testRoot, true); }
-        catch (IOException) { }
+        TemporaryDirectory.Delete(testRoot);
     }
 
     private HttpClient CreateClient(string? clientId = null, string? token = null, bool includeClientId = true) =>

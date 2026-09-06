@@ -10,6 +10,7 @@ using AgentOrchestrator.CodeQuality;
 using CodingAgentRunner.Quota;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace QualityStudio.Api.Tests;
 
@@ -305,7 +306,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }
         finally
         {
-            Directory.Delete(secondRoot, true);
+            TemporaryDirectory.Delete(secondRoot);
         }
     }
 
@@ -843,7 +844,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }
         finally
         {
-            Directory.Delete(secondRoot, true);
+            TemporaryDirectory.Delete(secondRoot);
         }
     }
 
@@ -870,7 +871,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         }
         finally
         {
-            Directory.Delete(invalidRoot, true);
+            TemporaryDirectory.Delete(invalidRoot);
         }
     }
 
@@ -899,14 +900,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             await application.DisposeAsync();
         }
 
-        try
-        {
-            Directory.Delete(repositoryRoot, true);
-            Directory.Delete(hostRoot, true);
-        }
-        catch (IOException)
-        {
-        }
+        TemporaryDirectory.Delete(repositoryRoot);
+        TemporaryDirectory.Delete(hostRoot);
     }
 
     private async Task RunGitAsync(params string[] arguments)

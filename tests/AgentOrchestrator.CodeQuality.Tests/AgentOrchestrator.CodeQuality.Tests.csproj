@@ -30,4 +30,7 @@
       <_Parameter2>$(QualityStudioRepositoryRoot)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../TemporaryDirectory.cs" Link="TemporaryDirectory.cs" />
+  </ItemGroup>
 </Project>

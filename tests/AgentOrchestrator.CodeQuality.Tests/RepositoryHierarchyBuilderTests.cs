@@ -1,5 +1,6 @@
 using AgentOrchestrator.CodeQuality;
 using System.Diagnostics;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -121,7 +122,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
         Assert.StartsWith("qs-v1/angular/project/", workspaceProject.Id, StringComparison.Ordinal);
         Assert.Contains(Flatten([workspaceProject]), node => node.Path == "packages/web/src/main.ts");
 
-        Directory.Delete(root, recursive: true);
+        TemporaryDirectory.Delete(root);
         Directory.CreateDirectory(Path.Combine(root, "apps", "portal", "src"));
         File.WriteAllText(Path.Combine(root, "tsconfig.json"), "{\"references\":[{\"path\":\"./apps/portal\"}]}");
         File.WriteAllText(Path.Combine(root, "apps", "portal", "tsconfig.json"), "{\"include\":[\"src/**/*.ts\"]}");
@@ -321,7 +322,7 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     {
         if (Directory.Exists(root))
         {
-            Directory.Delete(root, recursive: true);
+            TemporaryDirectory.Delete(root);
         }
 
         GC.SuppressFinalize(this);

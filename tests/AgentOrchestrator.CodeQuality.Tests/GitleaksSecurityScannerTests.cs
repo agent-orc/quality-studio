@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -639,7 +640,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         {
             if (Directory.Exists(path))
             {
-                Directory.Delete(path, true);
+                TemporaryDirectory.Delete(path);
             }
         }
         catch

@@ -16,4 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/QualityStudio.Api/QualityStudio.Api.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../TemporaryDirectory.cs" Link="TemporaryDirectory.cs" />
+  </ItemGroup>
 </Project>

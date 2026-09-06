@@ -1,3 +1,5 @@
+using QualityStudio.Testing;
+
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 public sealed class QualityRunReportRetentionTests
@@ -23,7 +25,7 @@ public sealed class QualityRunReportRetentionTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -52,7 +54,7 @@ public sealed class QualityRunReportRetentionTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -75,7 +77,7 @@ public sealed class QualityRunReportRetentionTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -100,7 +102,7 @@ public sealed class QualityRunReportRetentionTests
         }
         finally
         {
-            TestDirectory.Delete(root);
+            TemporaryDirectory.Delete(root);
         }
     }
 

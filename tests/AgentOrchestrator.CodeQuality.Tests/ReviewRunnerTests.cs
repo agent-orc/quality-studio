@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using Xunit;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -309,7 +310,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -653,7 +654,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -697,7 +698,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -778,7 +779,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -947,7 +948,7 @@ public sealed class ReviewRunnerTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 

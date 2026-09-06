@@ -1,5 +1,6 @@
 using Json.Schema;
 using System.Text.Json;
+using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
@@ -38,7 +39,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -79,8 +80,8 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
-            Directory.Delete(global, true);
+            TemporaryDirectory.Delete(root);
+            TemporaryDirectory.Delete(global);
         }
     }
 
@@ -143,7 +144,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -193,7 +194,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -231,7 +232,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -280,7 +281,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -318,7 +319,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
@@ -357,7 +358,7 @@ public sealed class AttackCoverageTests
         }
         finally
         {
-            Directory.Delete(root, true);
+            TemporaryDirectory.Delete(root);
         }
     }
 
