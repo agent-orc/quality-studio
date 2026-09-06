@@ -119,10 +119,12 @@ public static partial class AggregateSubjectDigest
         IReadOnlyList<MemberSource> members,
         IReadOnlyDictionary<string, ReviewMetaDocument> reviews)
     {
+        // A file can be aliased under several derived units. The table names the first owner in
+        // the same order the structure section prints, and the structure section shows the rest.
         var owners = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var group in request.Groups.Where(group => group.Level != ReviewLevel.File))
+        foreach (var group in OrderedGroups(request))
         {
-            foreach (var member in group.Members) owners[member] = group.Path;
+            foreach (var member in group.Members) owners.TryAdd(member, group.Path);
         }
 
         builder.AppendLine();
@@ -182,9 +184,7 @@ public static partial class AggregateSubjectDigest
         builder.AppendLine();
         builder.AppendLine("## Derived structure");
         builder.AppendLine();
-        foreach (var group in request.Groups
-                     .OrderBy(group => group.Level)
-                     .ThenBy(group => group.Path, StringComparer.Ordinal))
+        foreach (var group in OrderedGroups(request))
         {
             builder.Append("- ").Append(group.Level.ToString().ToLowerInvariant()).Append(' ').Append(group.Name)
                 .Append(" (").Append(group.Path).Append(") - ")
@@ -448,6 +448,12 @@ public static partial class AggregateSubjectDigest
 
     private static string SingleLine(string value) =>
         value.Replace('\r', ' ').Replace('\n', ' ').Replace('|', '/');
+
+    private static IEnumerable<ReviewSubjectGroup> OrderedGroups(AggregateDigestRequest request) =>
+        request.Groups
+            .Where(group => group.Level != ReviewLevel.File)
+            .OrderBy(group => group.Level)
+            .ThenBy(group => group.Path, StringComparer.Ordinal);
 
     private static string Number(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
