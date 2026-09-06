@@ -10,11 +10,36 @@ identifiers to two places:
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
-contracts in `schemas/usage-ledger.v1.schema.json` and
-`schemas/usage-ledger.v2.schema.json`. In both versions, `runId` is the ID returned
-by the CLI for one operation. Version 2 adds `reviewRunId`, the durable sweep/job
-ID shared by all file and aggregate operations in the review. Existing v1 lines
-remain valid and are never migrated or rewritten.
+contracts in `schemas/usage-ledger.v1.schema.json`,
+`schemas/usage-ledger.v2.schema.json`, and `schemas/usage-ledger.v3.schema.json`.
+In every version, `runId` is the ID returned by the CLI for one operation.
+Version 2 adds `reviewRunId`, the durable sweep/job ID shared by all file and
+aggregate operations in the review. Version 3 (written since 2026-09-06) adds
+`modelSource` and makes `reviewRunId` optional for standalone CLI reviews.
+Existing v1 and v2 lines remain valid and are never migrated or rewritten.
+
+## Model attribution
+
+The CLIs report the model they were asked to run, not a model they chose
+themselves. A run that named no model therefore used to be recorded as the
+literal `runner-default`, which no price catalog can resolve. Since version 3 a
+review without an explicit model runs the synchronized routing policy's route
+for its CLI, and that model id is passed to the CLI explicitly, so `model` is a
+real id in the sidecar (`reviewer.model`, `reviewer.requestedModel`), in the run
+manifest, in the run response, and in the ledger. `modelSource` says how the
+model was chosen:
+
+- `explicit` — the caller named the model.
+- `policy-default` — no model was named; Quality Studio resolved the routing
+  policy's route for the CLI (Codex: the recommendation; Claude: the policy's
+  provider fallback for the recommended route, or the strongest fallback-eligible
+  Claude model when the policy withholds every fallback from that route).
+- `runner-default` — no model was named and the policy routes nothing for the
+  CLI (Gemini, Antigravity, custom adapters); the CLI's own default served the
+  run and `model` stays the literal `runner-default`.
+
+Ledger lines written before this version keep `runner-default` where the model
+was never named; they are historical evidence and are not rewritten.
 
 `GET /api/usage?since=&kind=` (and its repository-scoped equivalent) reads the
 ledger and returns totals, model/kind/day/review-run aggregates, and at most 50

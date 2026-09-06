@@ -51,9 +51,18 @@ A compatible unknown id remains accepted (`gpt-*` for Codex, `claude-*` for Clau
 next catalog sync. Such an id has no asserted capability or price. Known non-routable
 models are never reclassified as custom ids.
 
-The first picker choice is always Runner default. Choosing it sends no model or thinking
-override, preserving prior behavior. A selected thinking level is validated against the
-model policy and passed to CodingAgentRunner's first-class `ThinkingLevel` request field.
+The first picker choice is always the policy default. Choosing it sends no model or
+thinking override; the API then resolves the routing policy's route for the CLI
+(`ReviewModelCatalog.ResolveDefault`) and passes that model and thinking level to the
+CLI explicitly, so the run manifest, the run response, the sidecar, and the usage ledger
+name the model that actually served the run, tagged `modelSource: policy-default`. For
+Codex this is the recommendation itself; for Claude it is the policy's provider fallback
+for the recommended route, or the strongest fallback-eligible Claude model when the policy
+withholds every fallback from that route (the recommendation still names the floor it
+does not reach). A CLI without policy rows keeps the runner default and is tagged
+`modelSource: runner-default`. The below-floor confirmation applies to explicit routes
+only. A selected thinking level is validated against the model policy and passed to
+CodingAgentRunner's first-class `ThinkingLevel` request field.
 
 ## Correctness-floor ladder
 
