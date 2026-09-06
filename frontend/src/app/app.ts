@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { ApiAccess } from './api-access';
+import { AgentStudioImport } from './agent-studio-import/agent-studio-import';
 import { ApiAccessDialog } from './api-access-dialog/api-access-dialog';
 import { ConfirmDialog } from './dialog/confirm-dialog';
+import { GuidelineDialog } from './guideline-dialog/guideline-dialog';
+import { GuidelineForm } from './guideline-dialog/guideline-form';
 import { AttackCoverage } from './attack-coverage/attack-coverage';
 import { Editor } from './editor/editor';
 import { Explorer } from './explorer/explorer';
@@ -43,7 +45,6 @@ interface ShellPosition {
   fingerprint: string | null;
   locationIndex: number;
 }
-interface GuidelineForm { id: string; enabled: boolean; priority: number; kinds: string; levels: string; content: string; }
 interface PendingConfirmation {
   eyebrow: string;
   heading: string;
@@ -55,7 +56,7 @@ interface PendingConfirmation {
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog, ConfirmDialog],
+  imports: [Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog, ConfirmDialog, GuidelineDialog, AgentStudioImport],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -71,7 +72,8 @@ interface PendingConfirmation {
 export class App implements OnDestroy {
   readonly api = inject(QualityApi);
   readonly access = inject(ApiAccess);
-  readonly explorer = viewChild(Explorer);
+  // Queried by template reference, not by type, so the Explorer stays a deferred chunk.
+  readonly explorer = viewChild<Explorer>('explorerPane');
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
   readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (localStorage.getItem('qs-theme') as 'dark' | 'light') || 'dark');
@@ -394,9 +396,6 @@ export class App implements OnDestroy {
     catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
     finally { this.guidelineDryRunning.set(false); }
   }
-
-  guidelineTrace(id: string) { return this.api.guidelineTraces().find(trace => trace.guidelineId === id); }
-  guidelineInstalled(id: string): boolean { return this.api.guidelines().some(guideline => guideline.id === id); }
 
   openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
 

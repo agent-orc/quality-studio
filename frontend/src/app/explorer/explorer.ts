@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { QualityApi } from '../quality-api';
 import { ReviewKind, TreeNode } from '../contracts';
 import { FlatNode, ancestorIds, flattenTree } from '../tree-utils';
@@ -11,7 +10,7 @@ const SEARCH_DEBOUNCE_MS = 150;
 
 @Component({
   selector: 'qs-explorer',
-  imports: [FormsModule],
+  imports: [],
   templateUrl: './explorer.html',
   styleUrl: './explorer.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

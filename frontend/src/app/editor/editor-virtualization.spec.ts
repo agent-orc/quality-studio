@@ -27,14 +27,15 @@ function thread(line: number): ReviewThread {
 describe('Editor virtualization', () => {
   let fixture: ComponentFixture<Editor>;
   let component: Editor;
-  const file = signal<FileDocument>({
+  const initialFile: FileDocument = {
     path: 'src/A.cs',
     content: Array.from({ length: LINE_COUNT }, (_, index) => `line ${index + 1}`).join('\n'),
     metaDocuments: [meta()],
     sizeBytes: 48_000,
     lineEnding: 'lf',
     encoding: 'utf-8',
-  });
+  };
+  const file = signal<FileDocument>(initialFile);
   const api = {
     file,
     fileError: signal<FileError | null>(null),
@@ -47,6 +48,8 @@ describe('Editor virtualization', () => {
   const node = { id: 'a', name: 'A.cs', path: 'src/A.cs', level: 'file', kinds: { code: { direct: 'fresh' } }, children: [] };
 
   beforeEach(async () => {
+    // Each test starts from the same document: the suite runs in random order.
+    file.set(initialFile);
     await TestBed.configureTestingModule({
       imports: [Editor],
       providers: [
