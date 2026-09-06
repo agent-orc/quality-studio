@@ -898,6 +898,45 @@ and the body. No line/span offset or compiler pretty-printer output participates
 Function `symbolId` stores the Roslyn documentation ID, or
 `csharp-local-key-v1:<64 lowercase hex>` for a local function.
 
+### Implementation status of the derivation contract (2026-09-06)
+
+The derivation contract above is unchanged and remains the target. This section
+records what the implementation derives today, so a reader can tell a contract
+statement from a shipped guarantee. `docs/hierarchy-derivation.md` holds the
+per-adapter detail, including every MSBuild rule that is and is not honoured.
+
+- **In force.** Unit ID envelopes and identity tuples for Project, Module,
+  Namespace, and File in all three adapters; repository scope precedence and
+  surfaced exclusion reasons; Angular Namespace as a repository directory; the
+  Generic path adapter's synthetic project and root module.
+- **Derived from parsed structure, not from text patterns.** .NET solution
+  membership (`.slnx` as XML, `.sln` by splitting quoted project fields), .NET
+  module membership (default compile glob plus the project body's `Compile`
+  `Include`/`Remove` elements under MSBuild glob semantics, with the nearest
+  project ancestor owning a nested source), and C# namespaces and function
+  members (Roslyn C# parser).
+- **Syntax, not semantics.** C# derivation uses `CSharpSyntaxTree.ParseText`
+  only: no `MSBuildWorkspace`, no `Compilation`, no semantic model. Derivation is
+  therefore deterministic, offline, and independent of SDK or restore state, and
+  in exchange nothing that requires binding is available.
+- **Function identity is an approximation.** The contract requires the Roslyn
+  documentation-comment ID under the literal `roslyn-doc-id-v1`. Today the
+  identity tuple is `(File ID, "csharp-syntax-doc-id-v1", documentation ID)`,
+  where the identifier has documentation-ID shape but keeps the type text written
+  in the source, because no semantic model resolves `using` aliases or imported
+  names. The literal is deliberately distinct so a stored ID never claims more
+  than it is. Local functions have no units yet, so `csharp-local-key-v1` is not
+  issued. No function sidecar exists, so this identity may still move to the
+  contract literal once a semantic sensor lands.
+- **Not yet derived.** Angular Module boundaries beyond the project root module
+  (`@NgModule`, `loadChildren`, `loadComponent`) and the Angular Function level;
+  both need the TypeScript compiler, which is not available in-process from .NET.
+  These levels are reported as empty rather than approximated.
+- **Known deviation.** A .NET Namespace `unit.path` is currently a synthetic
+  `<project>/.namespaces/<name>` path rather than the owning `.csproj` path the
+  contract specifies. The identity tuple is unaffected.
+
+
 ## Staleness contract
 
 Staleness is a computed view of an immutable review statement. Scanning or
