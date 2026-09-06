@@ -126,6 +126,64 @@ public sealed class FindingLifecycleTests
     }
 
     [Fact]
+    public async Task Merge_WithoutAChange_LeavesTheStateFileUntouched()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-state-rewrite-");
+        var now = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero);
+        var store = new FindingStateStore(root.FullName, () => now);
+        var finding = Identity('d');
+        try
+        {
+            await store.MergeReviewAsync([finding], [], "agent", TestContext.Current.CancellationToken);
+            var written = await File.ReadAllTextAsync(store.StatePath, TestContext.Current.CancellationToken);
+            var writtenAt = File.GetLastWriteTimeUtc(store.StatePath);
+
+            for (var repeat = 0; repeat < 3; repeat++)
+            {
+                await store.MergeReviewAsync([finding], [finding], "agent", TestContext.Current.CancellationToken);
+                await store.ReadAsync(TestContext.Current.CancellationToken);
+            }
+
+            Assert.Equal(written, await File.ReadAllTextAsync(store.StatePath, TestContext.Current.CancellationToken));
+            Assert.Equal(writtenAt, File.GetLastWriteTimeUtc(store.StatePath));
+            Assert.Equal(1, JsonNode.Parse(written)!["revision"]!.GetValue<int>());
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task A_state_file_replaced_by_another_writer_is_read_again()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-state-external-");
+        var now = new DateTimeOffset(2026, 7, 22, 9, 0, 0, TimeSpan.Zero);
+        var store = new FindingStateStore(root.FullName, () => now);
+        var finding = Identity('e');
+        try
+        {
+            await store.MergeReviewAsync([finding], [], "agent", TestContext.Current.CancellationToken);
+            var document = JsonNode.Parse(
+                await File.ReadAllTextAsync(store.StatePath, TestContext.Current.CancellationToken))!.AsObject();
+            document["revision"] = 9;
+            document["findings"]![0]!["state"] = "waived";
+            document["findings"]![0]!["author"] = "Another process";
+            document["findings"]![0]!["reason"] = "Written outside this store.";
+            await File.WriteAllTextAsync(store.StatePath, document.ToJsonString(), TestContext.Current.CancellationToken);
+
+            var states = await store.ReadAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal(FindingState.Waived, states[finding.Fingerprint].State);
+            Assert.Equal("Another process", states[finding.Fingerprint].Author);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
     public void Projection_LeavesExcludedFindingsVisibleButRemovesThemFromGrade()
     {
         var finding = Identity('c');
