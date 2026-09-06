@@ -383,9 +383,13 @@ public static class QualityCli
             {
                 globalInputsDirectory = args[++index];
             }
-            else if (args[index] == "--input-budget" && index + 1 < args.Length &&
-                     int.TryParse(args[++index], out var parsedBudget))
+            else if (args[index] == "--input-budget" && index + 1 < args.Length)
             {
+                // Advance only after the value parsed; a failed parse must report the option, not
+                // fall through with the index already moved onto the bad value.
+                if (!int.TryParse(args[index + 1], out var parsedBudget))
+                    throw new ArgumentException($"Missing or invalid value for {args[index]}.");
+                index++;
                 budgetCharacters = parsedBudget;
             }
             else if (args[index] == "--explain-inputs")
@@ -542,7 +546,8 @@ public static class QualityCli
                     runId = args[++index];
                     break;
                 case "--fail-under" when index + 1 < args.Length &&
-                                         int.TryParse(args[++index], out var threshold):
+                                         int.TryParse(args[index + 1], out var threshold):
+                    index++;
                     failUnder = threshold;
                     break;
                 case "--fail-on" when index + 1 < args.Length:
