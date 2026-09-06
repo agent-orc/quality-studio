@@ -43,7 +43,7 @@ public class GuidelineImpactAnalyzer
     public GuidelineImpactAnalyzer(IReviewAgent? agent = null, InputResolver? resolver = null,
         ReviewPromptBuilder? promptBuilder = null, ReviewResponseParser? parser = null)
     {
-        this.agent = agent ?? new CodingAgentReviewAgent();
+        this.agent = agent ?? CodingAgentReviewAgent.CreateDefault();
         this.resolver = resolver ?? new InputResolver();
         this.promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         this.parser = parser ?? new ReviewResponseParser();

@@ -15,6 +15,9 @@ public interface IReviewAgent
 
     string? ThinkingLevel => null;
 
+    /// <summary>One of the <see cref="ReviewModelSource"/> values; null when the agent does not know.</summary>
+    string? ModelSource => null;
+
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
@@ -48,14 +51,34 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
 
     public CodingAgentReviewAgent(string cliType = "codex", string? model = null, string? thinkingLevel = null,
         CliOptions? options = null,
-        Action<string, CliRunEvent>? eventObserver = null)
+        Action<string, CliRunEvent>? eventObserver = null,
+        string? modelSource = null)
     {
         _cliType = cliType;
         _thinkingLevel = thinkingLevel;
         Model = model;
+        ModelSource = modelSource ?? (string.IsNullOrWhiteSpace(model)
+            ? ReviewModelSource.RunnerDefault
+            : ReviewModelSource.Explicit);
         _runner = new CliRunner(options ?? new CliOptions());
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
+    }
+
+    /// <summary>
+    /// Builds the agent used when a caller supplies none. The model comes from the synchronized
+    /// routing policy's route for a single-file review of <paramref name="kind"/>, so sidecars and
+    /// the usage ledger name a real model instead of "runner-default". A CLI the policy does not
+    /// route keeps the CLI's own default and is recorded as such.
+    /// </summary>
+    public static CodingAgentReviewAgent CreateDefault(string cliType = "codex", string kind = "code")
+    {
+        var catalog = ReviewModelCatalog.Default;
+        var route = catalog.ResolveDefault(cliType, catalog.Recommend(kind, ReviewLevel.File, 1));
+        return route is null
+            ? new CodingAgentReviewAgent(cliType, modelSource: ReviewModelSource.RunnerDefault)
+            : new CodingAgentReviewAgent(cliType, route.Model, route.ThinkingLevel,
+                modelSource: ReviewModelSource.PolicyDefault);
     }
 
     public string AgentName => _cliType;
@@ -63,6 +86,8 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
     public string? Model { get; }
 
     public string? ThinkingLevel => _thinkingLevel;
+
+    public string? ModelSource { get; }
 
     public async Task<ReviewAgentResult> RunAsync(
         string prompt,

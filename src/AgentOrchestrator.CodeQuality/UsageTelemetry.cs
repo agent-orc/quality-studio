@@ -30,7 +30,8 @@ public sealed record ReviewUsageEntry(
     string Level,
     string Path,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ReviewRunId = null,
-    int SchemaVersion = 1);
+    int SchemaVersion = 1,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ModelSource = null);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
     long CachedInputTokens, long ReasoningOutputTokens, long DurationMs);
@@ -52,7 +53,7 @@ public sealed record UsageReport(
 /// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -137,7 +138,10 @@ public static class UsageLedger
         return entry.SchemaVersion switch
         {
             1 => entry.ReviewRunId is null,
-            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ReviewRunId),
+            2 => !string.IsNullOrWhiteSpace(entry.ReviewRunId),
+            // v3 attributes every operation to a model source; the sweep id is optional because
+            // standalone CLI reviews have none.
+            CurrentSchemaVersion => !string.IsNullOrWhiteSpace(entry.ModelSource),
             _ => false,
         };
     }

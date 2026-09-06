@@ -35,7 +35,8 @@ public sealed record ReviewPreflightResponse(
     long? TokenCap,
     decimal? CostCap,
     ReviewModelRecommendation Recommendation,
-    bool OverrideBelowFloor);
+    bool OverrideBelowFloor,
+    string? ModelSource = null);
 
 public sealed record ReviewEstimateDeviation(
     decimal InputTokensPercent,
@@ -76,7 +77,8 @@ public sealed record ReviewRunResponse(
     string? StopReason,
     ReviewEstimateDeviation? Deviation,
     ReviewModelRecommendation? Recommendation,
-    bool RouteOverride);
+    bool RouteOverride,
+    string? ModelSource = null);
 
 public interface IReviewExecutor
 {
@@ -161,13 +163,14 @@ public sealed class ReviewJobService : BackgroundService
         var plan = PreparePlan(repositoryId, request);
         var (registration, access, node, files) = plan;
         var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
-        var cliType = selection.CliType;
-        var model = selection.Model;
         var recommendation = modelCatalog.Recommend(request.Kind, node.Level, files.Length);
         var belowFloor = modelCatalog.IsBelowCorrectnessFloor(selection, recommendation);
         if (belowFloor && !request.ConfirmBelowFloor)
             throw new ArgumentException(
                 $"The explicit route is below the {recommendation.CorrectnessFloor} correctness floor. Confirm the below-floor override before starting.");
+        var (route, modelSource) = ResolveRoute(selection, recommendation);
+        var cliType = route.CliType;
+        var model = route.Model;
         var (tokenCap, costCap) = ResolveCap(registration, request.TokenCap, request.CostCap);
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
@@ -198,11 +201,12 @@ public sealed class ReviewJobService : BackgroundService
             tokenCap,
             costCap,
             request.Force,
-            selection.ThinkingLevel,
+            route.ThinkingLevel,
             recommendation,
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
-             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)));
+             !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
+            modelSource);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -224,17 +228,33 @@ public sealed class ReviewJobService : BackgroundService
     {
         var plan = PreparePlan(repositoryId, request);
         var selection = modelCatalog.Resolve(request.CliType, request.Model, request.ThinkingLevel);
-        var cliType = selection.CliType;
-        var model = selection.Model;
         var recommendation = modelCatalog.Recommend(request.Kind, plan.Node.Level, plan.Files.Length);
         var belowFloor = modelCatalog.IsBelowCorrectnessFloor(selection, recommendation);
+        var (route, modelSource) = ResolveRoute(selection, recommendation);
+        var cliType = route.CliType;
+        var model = route.Model;
         var (tokenCap, costCap) = ResolveCap(plan.Registration, request.TokenCap, request.CostCap);
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
         return new ReviewPreflightResponse(plan.Registration.Id, plan.Node.Path,
-            plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, selection.ThinkingLevel,
-            cliType, estimate, tokenCap, costCap, recommendation, belowFloor);
+            plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, route.ThinkingLevel,
+            cliType, estimate, tokenCap, costCap, recommendation, belowFloor, modelSource);
+    }
+
+    /// <summary>
+    /// An explicit route runs as named. Without one, the policy default for the CLI runs and is
+    /// passed to the CLI explicitly, so the run, its sidecars, and its ledger entries name a real
+    /// model; a CLI the policy does not route keeps the runner default and says so.
+    /// </summary>
+    private (ReviewModelSelection Route, string ModelSource) ResolveRoute(
+        ReviewModelSelection selection, ReviewModelRecommendation recommendation)
+    {
+        if (selection.Model is not null) return (selection, ReviewModelSource.Explicit);
+        var route = modelCatalog.ResolveDefault(selection.CliType, recommendation);
+        return route is null
+            ? (selection, ReviewModelSource.RunnerDefault)
+            : (route, ReviewModelSource.PolicyDefault);
     }
 
     private PreparedPlan PreparePlan(string repositoryId, StartReviewRequest request)
@@ -587,6 +607,7 @@ public sealed class ReviewJobService : BackgroundService
                 : item.Files.Select(file => new ReviewSubjectFile(file.Id, file.Path)).ToArray(),
             AggregateControls: item.AggregateControls,
             AggregateExclusions: item.AggregateExclusions,
+            ModelSource: item.ModelSource,
             ReviewRunId: item.Id,
             Sensors: item.Kind == "security"
                 ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
@@ -719,6 +740,7 @@ public sealed class ReviewJobService : BackgroundService
         public IReadOnlyList<ScopeExclusion>? AggregateExclusions => manifest.AggregateExclusions;
         public string Kind => manifest.Kind;
         public string? Model => manifest.Model;
+        public string? ModelSource => manifest.ModelSource;
         public string? ThinkingLevel => manifest.ThinkingLevel;
         public string CliType => manifest.CliType;
         public bool Force => manifest.Force;
@@ -1046,7 +1068,8 @@ public sealed class ReviewJobService : BackgroundService
                     CreatedAt, StartedAt, FinishedAt, files, errors.ToArray(), usageOperations, usage,
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
                     files.Count(file => file.State is "skipped" or "skipped-fresh"),
-                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride);
+                    aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride,
+                    manifest.ModelSource);
             }
         }
 

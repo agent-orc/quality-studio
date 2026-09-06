@@ -24,7 +24,8 @@ public sealed record ReviewRequest(
     string? ReviewRunId = null,
     IReadOnlyList<ReviewSensorConfiguration>? Sensors = null,
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
-    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null);
+    IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
+    string? ModelSource = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -75,7 +76,7 @@ public sealed class ReviewRunner
         SensorRegistry? sensorRegistry = null,
         StalenessEvaluator? stalenessEvaluator = null)
     {
-        _agent = agent ?? new CodingAgentReviewAgent();
+        _agent = agent ?? CodingAgentReviewAgent.CreateDefault();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
         _inputResolver = inputResolver ?? new InputResolver();
@@ -362,11 +363,20 @@ public sealed class ReviewRunner
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath) =>
-        new(runId, startedAt,
-            string.IsNullOrWhiteSpace(effectiveModel) ? (string.IsNullOrWhiteSpace(_agent.Model) ? "runner-default" : _agent.Model) : effectiveModel,
-            _agent.AgentName, tokens, request.Kind, request.Level.ToString().ToLowerInvariant(), relativePath,
-            request.ReviewRunId, request.ReviewRunId is null ? 1 : UsageLedger.CurrentSchemaVersion);
+        DateTimeOffset startedAt, ReviewRequest request, string relativePath)
+    {
+        var model = !string.IsNullOrWhiteSpace(effectiveModel) ? effectiveModel
+            : !string.IsNullOrWhiteSpace(_agent.Model) ? _agent.Model
+            : ReviewModelSource.RunnerDefault;
+        // The CLI reports the model it was asked to run, so a known model keeps the source the
+        // caller recorded; only a run nobody named a model for is attributed to the runner default.
+        var modelSource = string.Equals(model, ReviewModelSource.RunnerDefault, StringComparison.Ordinal)
+            ? ReviewModelSource.RunnerDefault
+            : request.ModelSource ?? _agent.ModelSource ?? ReviewModelSource.Explicit;
+        return new ReviewUsageEntry(runId, startedAt, model, _agent.AgentName, tokens, request.Kind,
+            request.Level.ToString().ToLowerInvariant(), relativePath, request.ReviewRunId,
+            UsageLedger.CurrentSchemaVersion, modelSource);
+    }
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)
     {

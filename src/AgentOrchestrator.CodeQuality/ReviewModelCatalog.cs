@@ -31,6 +31,29 @@ public sealed record ReviewModelCatalogSnapshot(
 /// <summary>A normalized review route ready to persist and pass to CodingAgentRunner.</summary>
 public sealed record ReviewModelSelection(string CliType, string? Model, string? ThinkingLevel, bool Catalogued);
 
+/// <summary>
+/// How a run's model was chosen. Persisted with the run manifest, the run response, and every
+/// usage-ledger entry so cost and quality evidence can always be attributed to a real model id.
+/// </summary>
+public static class ReviewModelSource
+{
+    /// <summary>The caller named the model.</summary>
+    public const string Explicit = "explicit";
+
+    /// <summary>
+    /// The caller named no model; Quality Studio resolved the synchronized routing policy's route
+    /// for the CLI and passed that model to the CLI explicitly.
+    /// </summary>
+    public const string PolicyDefault = "policy-default";
+
+    /// <summary>
+    /// The caller named no model and the policy routes nothing for the CLI, so the CLI's own
+    /// configured default served the run. Quality Studio does not know that model and records the
+    /// literal "runner-default" instead of guessing.
+    /// </summary>
+    public const string RunnerDefault = "runner-default";
+}
+
 /// <summary>A server-owned route recommendation derived from the synchronized routing policy.</summary>
 public sealed record ReviewModelRecommendation(
     string PolicyVersion,
@@ -81,10 +104,12 @@ public sealed class ReviewModelCatalog
     private readonly Dictionary<string, int> thinkingRanks;
     private readonly Dictionary<string, int> coreRouteRanks;
     private readonly IReadOnlyList<QualifyingRoute> qualifyingRoutes;
+    private readonly IReadOnlyDictionary<string, (string Model, string ThinkingLevel)> coreRoutes;
+    private readonly IReadOnlyList<ProviderFallback> providerFallbacks;
 
     public ReviewModelCatalog()
     {
-        (Snapshot, thinkingRanks, coreRouteRanks, qualifyingRoutes) = Load();
+        (Snapshot, thinkingRanks, coreRouteRanks, qualifyingRoutes, coreRoutes, providerFallbacks) = Load();
         modelsByKey = new Dictionary<string, ReviewModelOption>(StringComparer.OrdinalIgnoreCase);
         foreach (var model in Snapshot.Models)
         {
@@ -95,6 +120,14 @@ public sealed class ReviewModelCatalog
 
     /// <summary>A (model, minimum thinking level) pair the policy qualifies at a core-task route rank.</summary>
     private sealed record QualifyingRoute(string ModelId, int MinimumThinkingRank, int Rank);
+
+    /// <summary>An equivalent-provider fallback the policy declares for specific core-task routes.</summary>
+    private sealed record ProviderFallback(
+        string Id,
+        string ModelId,
+        string ThinkingLevel,
+        IReadOnlyList<string> ForRouteIds,
+        IReadOnlyList<string> NotForRouteIds);
 
     public static ReviewModelCatalog Default { get; } = new();
 
@@ -144,6 +177,56 @@ public sealed class ReviewModelCatalog
             : catalogued.SupportedThinkingLevels.First(level =>
                 string.Equals(level, requestedThinking, StringComparison.OrdinalIgnoreCase));
         return new ReviewModelSelection(cli, catalogued.ModelId, canonicalThinking, true);
+    }
+
+    /// <summary>
+    /// Resolves the route a run uses when the caller named no model, so the run, its sidecars, and
+    /// its ledger entries carry a real model id. Codex runs the policy recommendation. Claude runs
+    /// the policy's provider fallback for the recommended route; when the policy withholds every
+    /// fallback from that route (a security floor, for example) it runs the strongest
+    /// fallback-eligible claude model and the recommendation still names the floor that model does
+    /// not reach. A CLI the policy does not route returns null: the CLI's own default serves the run
+    /// and callers record <see cref="ReviewModelSource.RunnerDefault"/> instead of a guess.
+    /// </summary>
+    public ReviewModelSelection? ResolveDefault(string? cliType, ReviewModelRecommendation recommendation)
+    {
+        ArgumentNullException.ThrowIfNull(recommendation);
+        var cli = NormalizeCli(cliType);
+        if (cli == "codex")
+        {
+            var recommended = Find(recommendation.RecommendedModel);
+            return recommended is { AvailableForNewRuns: true, CliType: "codex" }
+                ? new ReviewModelSelection(cli, recommended.ModelId, recommendation.RecommendedThinkingLevel, true)
+                : null;
+        }
+
+        var routeId = coreRoutes.FirstOrDefault(route =>
+            string.Equals(route.Value.Model, recommendation.RecommendedModel, StringComparison.Ordinal) &&
+            string.Equals(route.Value.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)).Key;
+        var eligible = providerFallbacks
+            .Select(fallback => (Fallback: fallback, Option: Find(fallback.ModelId)))
+            .Where(candidate => candidate.Option is { AvailableForNewRuns: true } && candidate.Option.CliType == cli)
+            .ToArray();
+        var forRoute = routeId is null
+            ? default
+            : eligible.FirstOrDefault(candidate =>
+                candidate.Fallback.ForRouteIds.Contains(routeId, StringComparer.Ordinal) &&
+                !candidate.Fallback.NotForRouteIds.Contains(routeId, StringComparer.Ordinal));
+        var chosen = forRoute.Option is not null
+            ? forRoute
+            : eligible
+                .OrderByDescending(candidate => candidate.Fallback.ForRouteIds
+                    .Select(id => coreRouteRanks.GetValueOrDefault(id, -1))
+                    .DefaultIfEmpty(-1)
+                    .Max())
+                .ThenBy(candidate => candidate.Option!.ModelId, StringComparer.Ordinal)
+                .FirstOrDefault();
+        if (chosen.Option is null) return null;
+
+        var thinking = chosen.Option.SupportedThinkingLevels.FirstOrDefault(level =>
+                           string.Equals(level, chosen.Fallback.ThinkingLevel, StringComparison.OrdinalIgnoreCase))
+                       ?? chosen.Option.SupportedThinkingLevels[chosen.Option.SupportedThinkingLevels.Count - 1];
+        return new ReviewModelSelection(cli, chosen.Option.ModelId, thinking, true);
     }
 
     /// <summary>
@@ -225,7 +308,9 @@ public sealed class ReviewModelCatalog
     private static (ReviewModelCatalogSnapshot Snapshot,
         Dictionary<string, int> ThinkingRanks,
         Dictionary<string, int> CoreRouteRanks,
-        IReadOnlyList<QualifyingRoute> QualifyingRoutes) Load()
+        IReadOnlyList<QualifyingRoute> QualifyingRoutes,
+        IReadOnlyDictionary<string, (string Model, string ThinkingLevel)> CoreRoutes,
+        IReadOnlyList<ProviderFallback> ProviderFallbacks) Load()
     {
         using var routing = JsonDocument.Parse(OpenResource(RoutingResource));
         using var prices = JsonDocument.Parse(OpenResource(PricesResource));
@@ -265,7 +350,7 @@ public sealed class ReviewModelCatalog
         var thinkingRanks = thinkingLevels
             .Select((level, rank) => (level, rank))
             .ToDictionary(item => item.level, item => item.rank, StringComparer.OrdinalIgnoreCase);
-        var (coreRouteRanks, qualifyingRoutes) = LoadFloorLadder(
+        var (coreRouteRanks, qualifyingRoutes, coreRoutes, providerFallbacks) = LoadFloorLadder(
             routingRoot, thinkingRanks, models.Select(model => model.ModelId).ToHashSet(StringComparer.Ordinal));
 
         return (new ReviewModelCatalogSnapshot(
@@ -278,7 +363,9 @@ public sealed class ReviewModelCatalog
                 models),
             thinkingRanks,
             coreRouteRanks,
-            qualifyingRoutes);
+            qualifyingRoutes,
+            coreRoutes,
+            providerFallbacks);
     }
 
     /// <summary>
@@ -289,11 +376,16 @@ public sealed class ReviewModelCatalog
     /// reach a floor the policy withheld from it. Bounded-pipeline routes are not a core-task
     /// ladder and are skipped entirely.
     /// </summary>
-    private static (Dictionary<string, int> CoreRouteRanks, IReadOnlyList<QualifyingRoute> QualifyingRoutes)
+    private static (Dictionary<string, int> CoreRouteRanks,
+        IReadOnlyList<QualifyingRoute> QualifyingRoutes,
+        IReadOnlyDictionary<string, (string Model, string ThinkingLevel)> CoreRoutes,
+        IReadOnlyList<ProviderFallback> ProviderFallbacks)
         LoadFloorLadder(JsonElement routingRoot, Dictionary<string, int> thinkingRanks, HashSet<string> knownModelIds)
     {
         var coreRouteRanks = new Dictionary<string, int>(StringComparer.Ordinal);
+        var coreRoutes = new Dictionary<string, (string Model, string ThinkingLevel)>(StringComparer.Ordinal);
         var qualifying = new List<QualifyingRoute>();
+        var providerFallbacks = new List<ProviderFallback>();
 
         foreach (var route in routingRoot.GetProperty("routes").EnumerateArray())
         {
@@ -302,10 +394,10 @@ public sealed class ReviewModelCatalog
             var rank = route.GetProperty("rank").GetInt32();
             if (!coreRouteRanks.TryAdd(id, rank))
                 throw new InvalidOperationException($"Routing policy declares core-task route '{id}' more than once.");
-            qualifying.Add(new QualifyingRoute(
-                RouteModelId(knownModelIds, route, id),
-                ThinkingRank(thinkingRanks, route.GetProperty("thinkingLevel").GetString()!),
-                rank));
+            var modelId = RouteModelId(knownModelIds, route, id);
+            var thinkingLevel = route.GetProperty("thinkingLevel").GetString()!;
+            coreRoutes[id] = (modelId, thinkingLevel);
+            qualifying.Add(new QualifyingRoute(modelId, ThinkingRank(thinkingRanks, thinkingLevel), rank));
         }
 
         foreach (var id in RecommendableRoutes)
@@ -323,19 +415,24 @@ public sealed class ReviewModelCatalog
                 var excluded = fallback.TryGetProperty("notForRouteIds", out var notFor)
                     ? Strings(notFor).ToHashSet(StringComparer.Ordinal)
                     : [];
-                var rank = Strings(fallback.GetProperty("forRouteIds"))
+                var forRouteIds = Strings(fallback.GetProperty("forRouteIds"));
+                var fallbackModelId = RouteModelId(knownModelIds, fallback, id);
+                var fallbackThinking = fallback.GetProperty("thinkingLevel").GetString()!;
+                providerFallbacks.Add(new ProviderFallback(
+                    id, fallbackModelId, fallbackThinking, forRouteIds, excluded.ToArray()));
+                var rank = forRouteIds
                     .Where(routeId => !excluded.Contains(routeId))
                     .Select(routeId => (int?)coreRouteRanks.GetValueOrDefault(routeId, -1))
                     .Max();
                 if (rank is null or < 0) continue;
                 qualifying.Add(new QualifyingRoute(
-                    RouteModelId(knownModelIds, fallback, id),
-                    ThinkingRank(thinkingRanks, fallback.GetProperty("thinkingLevel").GetString()!),
+                    fallbackModelId,
+                    ThinkingRank(thinkingRanks, fallbackThinking),
                     rank.Value));
             }
         }
 
-        return (coreRouteRanks, qualifying);
+        return (coreRouteRanks, qualifying, coreRoutes, providerFallbacks);
     }
 
     /// <summary>

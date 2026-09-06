@@ -27,7 +27,7 @@ public sealed class FlowReviewRunner
         ModelPriceCatalog? prices = null,
         Func<DateTimeOffset>? clock = null)
     {
-        this.agent = agent ?? new CodingAgentReviewAgent();
+        this.agent = agent ?? CodingAgentReviewAgent.CreateDefault(kind: "security");
         responseParser = new FlowReviewResponseParser();
         this.prices = prices ?? ModelPriceCatalog.Default;
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);

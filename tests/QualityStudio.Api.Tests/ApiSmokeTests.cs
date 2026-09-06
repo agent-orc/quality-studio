@@ -128,6 +128,47 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         Assert.Contains("unsupported", detail, StringComparison.Ordinal);
     }
 
+    // One file of code review scores into the terra-medium band; claude takes the policy's
+    // provider fallback declared for that route.
+    [Theory]
+    [InlineData("codex", "gpt-5.6-terra", "medium")]
+    [InlineData("claude", "claude-sonnet-5", "high")]
+    public async Task Review_preflight_without_a_model_resolves_the_policy_default_and_says_so(
+        string cliType, string expectedModel, string? expectedThinkingLevel)
+    {
+        using var client = application!.CreateClient();
+        using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "code", cliType,
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
+        var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(expectedModel, preflight.GetProperty("model").GetString());
+        if (expectedThinkingLevel is not null)
+            Assert.Equal(expectedThinkingLevel, preflight.GetProperty("thinkingLevel").GetString());
+        else
+            Assert.False(string.IsNullOrWhiteSpace(preflight.GetProperty("thinkingLevel").GetString()));
+        Assert.Equal("policy-default", preflight.GetProperty("modelSource").GetString());
+        // A default route is never an override and never asks for a below-floor confirmation.
+        Assert.False(preflight.GetProperty("overrideBelowFloor").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Review_preflight_with_an_explicit_model_is_recorded_as_explicit()
+    {
+        using var client = application!.CreateClient();
+        using var estimate = await client.PostAsJsonAsync("/api/review/estimate", new
+        {
+            path = "Sample.cs", kind = "code", cliType = "codex", model = "gpt-5.6-sol", thinkingLevel = "medium",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
+        var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("gpt-5.6-sol", preflight.GetProperty("model").GetString());
+        Assert.Equal("explicit", preflight.GetProperty("modelSource").GetString());
+    }
+
     [Fact]
     public async Task Review_preflight_recommends_policy_route_and_start_requires_below_floor_confirmation()
     {

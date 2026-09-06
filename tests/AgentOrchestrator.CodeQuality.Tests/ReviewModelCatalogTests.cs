@@ -175,4 +175,60 @@ public sealed class ReviewModelCatalogTests
         // An unknown but well-formed CLI stays usable: it is the forward-compatibility path.
         Assert.Equal("test-agent", catalog.Resolve("test-agent", "gpt-5.6-sol", "medium").CliType);
     }
+
+    [Fact]
+    public void Default_route_for_codex_is_the_policy_recommendation()
+    {
+        var recommendation = catalog.Recommend("code", ReviewLevel.File, 1);
+        var route = catalog.ResolveDefault("codex", recommendation);
+
+        Assert.NotNull(route);
+        Assert.Equal("codex", route.CliType);
+        Assert.Equal(recommendation.RecommendedModel, route.Model);
+        Assert.Equal(recommendation.RecommendedThinkingLevel, route.ThinkingLevel);
+        Assert.True(route.Catalogued);
+    }
+
+    [Fact]
+    public void Default_route_for_claude_is_the_provider_fallback_declared_for_the_recommended_route()
+    {
+        // Ten files of code review score into the terra-medium band, which the policy backs with
+        // its claude-sonnet-5/high fallback.
+        var recommendation = catalog.Recommend("code", ReviewLevel.File, 10);
+        Assert.Equal("gpt-5.6-terra", recommendation.RecommendedModel);
+
+        var route = catalog.ResolveDefault("claude-code", recommendation);
+
+        Assert.NotNull(route);
+        Assert.Equal("claude", route.CliType);
+        Assert.Equal("claude-sonnet-5", route.Model);
+        Assert.Equal("high", route.ThinkingLevel);
+        Assert.True(route.Catalogued);
+    }
+
+    [Fact]
+    public void Default_route_for_claude_still_names_a_model_when_the_policy_withholds_every_fallback()
+    {
+        // Security reviews sit on the sol-xhigh floor, from which the policy excludes its claude
+        // fallback. The run still needs a real model id, and the recommendation keeps naming the
+        // floor the chosen model does not reach.
+        var recommendation = catalog.Recommend("security", ReviewLevel.File, 1);
+        Assert.Equal("sol-xhigh", recommendation.CorrectnessFloor);
+
+        var route = catalog.ResolveDefault("claude", recommendation);
+
+        Assert.NotNull(route);
+        Assert.Equal("claude-sonnet-5", route.Model);
+        Assert.NotNull(route.ThinkingLevel);
+        Assert.True(catalog.IsBelowCorrectnessFloor(route, recommendation));
+    }
+
+    [Theory]
+    [InlineData("gemini")]
+    [InlineData("antigravity")]
+    [InlineData("test-agent")]
+    public void Default_route_is_absent_for_a_cli_the_policy_does_not_route(string cliType)
+    {
+        Assert.Null(catalog.ResolveDefault(cliType, catalog.Recommend("code", ReviewLevel.File, 1)));
+    }
 }

@@ -22,7 +22,7 @@ public static class ChangeDiffCommand
             }
 
             IChangeDeltaReviewer? reviewer = options.Agent
-                ? new AgentChangeDeltaReviewer(new CodingAgentReviewAgent(options.CliType))
+                ? new AgentChangeDeltaReviewer(CodingAgentReviewAgent.CreateDefault(options.CliType))
                 : null;
             var query = new ChangeSetQuery(
                 options.Path,
