@@ -324,13 +324,20 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
         started.EnsureSuccessStatusCode();
         var runId = (await started.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken))
             .GetProperty("id").GetString()!;
+        // A hang guard, not a budget: the queue has to dequeue the run before the executor
+        // is entered, and that can take a while on a loaded host.
         await fixture.Executor.Entered.Task.WaitAsync(
-            TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            TimeSpan.FromSeconds(60), TestContext.Current.CancellationToken);
 
         using var paused = await client.PostAsJsonAsync(
             $"/api/review/runs/{runId}/pause", new { }, TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, paused.StatusCode);
+        if (paused.StatusCode != HttpStatusCode.OK)
+        {
+            Assert.Fail($"The pause was rejected with {paused.StatusCode}: " +
+                await paused.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        }
+
         var pausedRun = await paused.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("paused", pausedRun.GetProperty("state").GetString());
         Assert.Equal("paused", await WaitForOneOfAsync(

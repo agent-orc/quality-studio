@@ -69,4 +69,38 @@ public sealed class AtomicFileTests
             TemporaryDirectory.Delete(root);
         }
     }
+
+    [Fact]
+    public async Task Write_waits_out_a_handle_that_briefly_blocks_the_replace()
+    {
+        // On Windows a scanner or the search indexer opens a freshly written file for a
+        // moment and the replace is refused while that handle lives. The condition clears in
+        // milliseconds, so a correct write must not fail because of what else runs on the host.
+        var root = Directory.CreateTempSubdirectory("quality-atomic-file-").FullName;
+        try
+        {
+            var path = Path.Combine(root, "document.json");
+            await AtomicFile.WriteAllTextAsync(path, "first", TestContext.Current.CancellationToken);
+
+            var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var released = Task.Run(async () =>
+            {
+                // FileShare.Read denies deletion, which is what a replace of this file needs.
+                using var blocker = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                opened.SetResult();
+                await Task.Delay(150, TestContext.Current.CancellationToken);
+            }, TestContext.Current.CancellationToken);
+            await opened.Task;
+
+            await AtomicFile.WriteAllTextAsync(path, "second", TestContext.Current.CancellationToken);
+            await released;
+
+            Assert.Equal("second", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+            Assert.Single(Directory.GetFiles(root));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
 }

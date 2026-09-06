@@ -30,7 +30,7 @@ public static class AtomicFile
                 stream.Flush(flushToDisk: true);
             }
 
-            File.Move(temporary, destination, overwrite: true);
+            await ReplaceAsync(temporary, destination, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -53,11 +53,62 @@ public static class AtomicFile
                 stream.Flush(flushToDisk: true);
             }
 
-            File.Move(temporary, destination, overwrite: true);
+            Replace(temporary, destination);
         }
         finally
         {
             Discard(temporary);
+        }
+    }
+
+    // Replacing a file the operating system is still busy with fails on Windows with a
+    // sharing violation or an access denial even when nothing in this process holds it:
+    // a scanner or the search indexer opens a freshly written file for a moment, and
+    // MoveFileEx refuses while that handle lives. The condition clears in milliseconds, so
+    // a correct write must not fail because of what else runs on the host. Rewriting the
+    // same file in a burst - a registry under concurrent registrations, a sidecar during a
+    // review sweep - is exactly when it shows up.
+    private const int ReplaceAttempts = 8;
+    private static readonly TimeSpan FirstReplaceBackoff = TimeSpan.FromMilliseconds(10);
+
+    private static void Replace(string temporary, string destination)
+    {
+        var backoff = FirstReplaceBackoff;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporary, destination, overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (
+                attempt < ReplaceAttempts && exception is IOException or UnauthorizedAccessException &&
+                !Directory.Exists(destination))
+            {
+                Thread.Sleep(backoff);
+                backoff += backoff;
+            }
+        }
+    }
+
+    private static async Task ReplaceAsync(
+        string temporary, string destination, CancellationToken cancellationToken)
+    {
+        var backoff = FirstReplaceBackoff;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporary, destination, overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (
+                attempt < ReplaceAttempts && exception is IOException or UnauthorizedAccessException &&
+                !Directory.Exists(destination))
+            {
+                await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+                backoff += backoff;
+            }
         }
     }
 

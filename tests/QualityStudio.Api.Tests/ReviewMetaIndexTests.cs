@@ -60,33 +60,11 @@ public sealed class ReviewMetaIndexTests
         var payload = File.ReadAllText(path);
         for (var revision = 0; revision < 8; revision++)
         {
-            var temporary = path + ".tmp-" + revision;
-            File.WriteAllText(temporary, payload);
-            ReplaceAtomically(temporary, path);
+            // The product's own write path, so this also covers indexing a sidecar while it
+            // is being replaced.
+            AtomicFile.WriteAllText(path, payload);
 
             Assert.Equal(path, index.Find(fixture.Path, "Sample.cs", "code"));
-        }
-    }
-
-    /// <summary>
-    /// File.Move(overwrite: true) is what the product uses, but on Windows a virus scanner can
-    /// hold a moment's handle on a freshly written file and make the replace fail. That is host
-    /// noise, not the behaviour under test, so retry briefly before giving up.
-    /// </summary>
-    private static void ReplaceAtomically(string temporary, string destination)
-    {
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                File.Move(temporary, destination, overwrite: true);
-                return;
-            }
-            catch (Exception exception) when (
-                attempt < 20 && exception is IOException or UnauthorizedAccessException)
-            {
-                Thread.Sleep(25);
-            }
         }
     }
 
