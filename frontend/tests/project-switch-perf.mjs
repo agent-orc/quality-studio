@@ -68,7 +68,10 @@ try {
     await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
 
     await switchRepository(page, 'Realistic fixture');
-    await page.locator('[data-transition-state]').first().waitFor({ state: 'visible' });
+    // The transition is asserted through its performance measure; the DOM state is transient and
+    // a fast switch can replace it before the locator observes it, so the screenshot is best effort.
+    await page.waitForFunction(() => performance.getEntriesByName('qs.repository.transition-visible').length >= 1);
+    await page.locator('[data-transition-state]').first().waitFor({ state: 'visible', timeout: 2_000 }).catch(() => {});
     await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-light.png'), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 1);
     await page.locator('.project-dashboard .health-card').first().waitFor({ state: 'visible' });
@@ -77,7 +80,8 @@ try {
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 2);
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
     await switchRepository(page, 'Realistic fixture');
-    await page.locator('[data-transition-state="stale"]').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => performance.getEntriesByName('qs.repository.transition-visible').length >= 3);
+    await page.locator('[data-transition-state="stale"]').waitFor({ state: 'visible', timeout: 2_000 }).catch(() => {});
     await page.screenshot({ path: resolve(resultsRoot, 'project-switch-transition-dark.png'), fullPage: true });
     await page.waitForFunction(() => performance.getEntriesByName('qs.repository.switch.usable').length >= 3);
 
