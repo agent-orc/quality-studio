@@ -129,6 +129,26 @@ the API and the built browser together, runs as a non-root user and ships git an
 binary. [`docs/deployment.md`](docs/deployment.md) has the run command, the environment variables, and
 how Agent Studio gets a token.
 
+## Where results are kept
+
+The studio analyses a checkout; it does not file its results in one. Findings, grades, ledgers, run
+reports and review sidecars are written to a per-project **data root** outside the analysed working
+copy — `%LOCALAPPDATA%\QualityStudio\projects\<project-key>\` by default, `QualityStudio:DataRoot`
+or `QUALITY_STUDIO_DATA_ROOT` to place it elsewhere. Nothing the studio generates is versioned;
+`.quality` in a checkout holds only author-owned inputs (`scope.json`, `inputs/`, `rules/`,
+`security/`, `attacks/catalogue.json`), and a report meant to be shared is exported deliberately with
+`quality report --output`.
+
+A checkout written by an earlier version is migrated once:
+
+```shell
+dotnet run --project src/quality-cli -- migrate-data . --dry-run
+dotnet run --project src/quality-cli -- migrate-data .
+```
+
+See [`docs/data-root.md`](docs/data-root.md) for the contract, the identity rule, what stays in the
+checkout and why, and the one commit that makes an already-committed tree clean again.
+
 ## Status
 
 - [x] Repository founded, concept anchored (this README)
@@ -163,8 +183,8 @@ and caller-influenced outbound surfaces and run the standard mechanical checks:
 dotnet run --project src/quality-cli -- boundaries scan .
 ```
 
-The stable result is written to `.quality/boundaries/inventory.json`, so boundary
-changes appear in normal source-control diffs. See
+The stable result is written to `boundaries/inventory.json` in the project's data
+root. See
 [`docs/boundary-inventory.md`](docs/boundary-inventory.md) for the contract and
 derivation rules.
 
@@ -178,7 +198,7 @@ dotnet run --project src/quality-cli -- diff . --base <base> --head <head> --fai
 dotnet run --project src/quality-cli -- diff . --last 20
 ```
 
-Change truth is committed under `.quality/changes/`. See
+Change truth is written under `changes/` in the project's data root. See
 [`docs/change-reviews.md`](docs/change-reviews.md) for provider semantics,
 deterministic delta fields, agent aspects, economy measurements, and gate exit
 codes.
@@ -220,7 +240,7 @@ trace per rule.
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run
-identity both with the review truth and in a repository-local append-only ledger.
+identity both with the review truth and in a project-local append-only ledger.
 The API exposes repository usage aggregates and provider quota availability. See
 [`docs/usage-telemetry.md`](docs/usage-telemetry.md) for the versioned storage
 contracts, endpoint semantics, quota source of truth, and unavailable behavior.
@@ -240,8 +260,8 @@ dotnet run --project src/quality-cli -- report . --format sarif --output quality
 dotnet run --project src/quality-cli -- report . --run <run-id> --format html --output quality-run.html
 ```
 
-Run-scoped exports render the exact terminal snapshot captured under
-`.quality/reports/runs/`; they do not re-read mutable review sidecars. CI gates
+Run-scoped exports render the exact terminal snapshot captured under `reports/runs/`
+in the project's data root; they do not re-read mutable review sidecars. CI gates
 use `--fail-under <score>` and `--fail-on <severity>`. See
 [`docs/quality-reports.md`](docs/quality-reports.md) for report semantics,
 endpoint formats, and documented exit codes.

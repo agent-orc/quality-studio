@@ -65,9 +65,9 @@ back to "no authentication" would publish an unauthenticated registrar API on `0
 
 | Path | What lives there |
 | --- | --- |
-| `/repositories` | The working copies under review. Read-write: reviews write `.quality` outputs next to the code, and the registry may only point inside `QualityStudio__AllowedRoots`. |
+| `/repositories` | The working copies under review. The studio reads them and writes nothing back; the registry may only point inside `QualityStudio__AllowedRoots`. |
 | `/app/.quality-studio` | The server-owned repository registry (`repositories.json`). Mount it, or every container replacement forgets which repositories were registered. |
-| `/data` | Reserved for the relocated `.quality` outputs of QS-102. Harmless until that card lands; mounting it now means the data survives the upgrade. |
+| `/data` | Everything runs generate, one folder per analysed project: findings, grades, run reports, token ledgers, review sidecars, run journals. Mount it, or a container replacement loses every review the host has paid for. See [`data-root.md`](data-root.md). |
 
 ### Behind a reverse proxy
 
@@ -84,6 +84,8 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:8080` (image) | Listen addresses. In Local mode these must be loopback. |
+| `QualityStudio__DataRoot` | per-user app data (`/data` in the image) | Where runs file what they generate, one folder per project. Never inside a reviewed working copy. |
+| `QUALITY_STUDIO_DATA_ROOT` | — | The same override, and the one that wins. The `quality` CLI reads both, so a container that sets only `QualityStudio__DataRoot` still has the CLI and the host agree on where a project's data lives. |
 | `QualityStudio__Security__Mode` | `Local` | `Local` (every request is a registrar) or `Hosted` (bearer token required). |
 | `QualityStudio__Security__AllowNonLoopbackLocalMode` | `false` | Deliberately publish an unauthenticated Local-mode host beyond loopback. |
 | `QualityStudio__Security__RequireHttps` | `true` | Refuse plain-HTTP `/api` requests and send HSTS. Hosted mode only. |

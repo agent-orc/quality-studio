@@ -24,7 +24,7 @@ public sealed class GuidelineImpactAnalyzerTests
             Assert.True(result.Changed);
             Assert.Equal(1, result.AddedCount);
             Assert.Equal("fixture-rule", Assert.Single(Assert.Single(result.Files).Added).RuleId);
-            Assert.False(File.Exists(Path.Combine(root, ".quality", "reviews")));
+            Assert.Empty(ReviewMetaPath.Enumerate(root));
         }
         finally
         {

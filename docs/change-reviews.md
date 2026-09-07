@@ -2,8 +2,9 @@
 
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration
-transition changed in that standing evidence. It is repository-owned at
-`.quality/changes/<merge-commit>.json` and never replaces a unit sidecar or an
+transition changed in that standing evidence. It is project-owned at
+`changes/<merge-commit>.json` below the project's data root, outside the reviewed
+checkout ([`data-root.md`](data-root.md)), and never replaces a unit sidecar or an
 Agent Studio task review.
 
 ## Subject and provider contract
@@ -27,8 +28,8 @@ repositories that mix merge commits with squash or fast-forward integration.
 
 Before any agent is called, the service computes:
 
-- before/after grades for touched reviewed units, directly from committed
-  review sidecars;
+- before/after grades for touched reviewed units, directly from the review
+  sidecars each of the two commits carries;
 - new, resolved, and persisting findings by stable fingerprint (with `id` only
   as a legacy fallback);
 - units newly made stale, including the changed or missing reviewed input;
@@ -37,6 +38,12 @@ Before any agent is called, the service computes:
   `unavailable` value until coverage ingestion exists;
 - added/deleted lines, path operations, touched-file count, and repository
   blast radius.
+
+The first three read sidecars out of the Git trees of the two commits, so they
+see only sidecars that were committed there. Sidecars are now generated into the
+project's data root instead of the checkout, so a transition after that move
+carries no sidecar evidence on either side; boundaries, coverage, and churn are
+computed from source and diff and are unaffected.
 
 Pure `R100` moves translate old paths to new paths while comparing evidence.
 They produce the explicit statement “No quality delta: the change set only
@@ -105,10 +112,11 @@ that judgement was not requested; it is never represented as a pass. If
 policy. If `--repository` is omitted, the Git worktree directory name is used,
 so orchestrated callers should pass their stable registry identity.
 
-`--no-write` suppresses `.quality/changes/` persistence. The explicitly named
-portable output file is still written atomically, and the command never stages
-or modifies repository content. Write the output outside the worktree when a
-completely clean `git status` is required.
+`--no-write` suppresses `changes/` persistence in the data root. The explicitly
+named portable output file is still written atomically, and the command never
+stages or modifies repository content. That output file is the only thing the
+command can put inside the worktree, so write it elsewhere when a completely
+clean `git status` is required.
 
 | Exit | Meaning |
 |---:|---|
@@ -129,7 +137,7 @@ same reviewable files. It also records file and diff-line counts. Small files
 can have more diff framing than source text, so savings are honestly clamped at
 zero rather than presented as negative efficiency.
 
-The committed 20-transition sample under `.quality/changes/` measured 922,304
+The 20-transition sample measured for this repository recorded 922,304
 diff characters against 3,351,261 full-sweep characters: 72.48% less evidence
 in aggregate. Seventeen of twenty transitions saved work, and median per-change
 savings were 67.89%.

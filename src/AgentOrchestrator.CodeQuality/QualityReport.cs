@@ -246,25 +246,41 @@ public sealed class QualityReportBuilder
             // A sidecar the contract rejects contributes no grade and no finding. The reader has
             // reported it, and the staleness scan counts the affected subjects as invalid.
             if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) continue;
+            if (!SubjectExists(root, sidecar.Document.Unit)) continue;
             var projected = FindingStateProjection.Apply(JsonNode.Parse(sidecar.Json)!.AsObject(), states);
             if (ParseObservation(projected, repositoryId) is { } observation) result.Add(observation);
         }
         return result;
     }
 
-    private static IEnumerable<string> EnumerateSidecars(string root)
+    /// <summary>
+    /// Whether the reviewed subject is present in the checkout as it currently stands.
+    /// <para>
+    /// Sidecars used to be committed, so checking out a branch changed which of them existed and the
+    /// report was branch-scoped for free. The data root is shared across every branch of one working
+    /// copy, so without this a branch that deleted a file would still be graded on it - and deleting
+    /// a badly-reviewed file could never improve the score. A non-file level names a directory or
+    /// the project itself, which exists as long as the checkout does.
+    /// </para>
+    /// </summary>
+    private static bool SubjectExists(string root, ReviewUnit unit)
     {
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            AttributesToSkip = FileAttributes.ReparsePoint,
-        };
-        return Directory.EnumerateFiles(root, "*.json", options)
-            .Where(path => IsSidecar(Path.GetRelativePath(root, path).Replace('\\', '/')))
-            .OrderBy(path => path, StringComparer.Ordinal);
+        if (unit.Level != ReviewLevel.File) return true;
+        var relative = unit.Path.Replace('\\', '/').TrimStart('/');
+        return relative.Length > 0 &&
+               File.Exists(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
     }
 
-    private static bool IsSidecar(string path) =>
+    private static IEnumerable<string> EnumerateSidecars(string root) =>
+        ReviewMetaPath.Enumerate(root).OrderBy(path => path, StringComparer.Ordinal);
+
+    /// <summary>
+    /// Recognises a sidecar by the path it had while sidecars were committed into the checkout.
+    /// The trend series is reconstructed from Git history, so it can only ever see the layout the
+    /// history was written in; it stops gaining points at the commit that migrated the sidecars out
+    /// of the tree. Live grades come from <see cref="EnumerateSidecars"/> and are unaffected.
+    /// </summary>
+    private static bool IsCommittedSidecar(string path) =>
         (path.StartsWith(".quality/reviews/", StringComparison.Ordinal) ||
          path.Contains("/.quality/reviews/", StringComparison.Ordinal)) &&
         path.Contains(".review-meta.", StringComparison.Ordinal) &&
@@ -416,7 +432,7 @@ public sealed class QualityReportBuilder
             .ConfigureAwait(false);
         var commits = log.Split('\x1e', StringSplitOptions.RemoveEmptyEntries)
             .Select(record => record.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            .Where(lines => lines.Length > 1 && lines.Skip(1).Any(IsSidecar))
+            .Where(lines => lines.Length > 1 && lines.Skip(1).Any(IsCommittedSidecar))
             .Select(lines => lines[0].Trim().Split('\t', 2))
             .Where(parts => parts.Length == 2 && DateTimeOffset.TryParse(parts[1], CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind, out _))
@@ -430,7 +446,7 @@ public sealed class QualityReportBuilder
         {
             var tree = await RunGitAsync(root, ["ls-tree", "-r", "--name-only", commit.Hash],
                 cancellationToken, allowEmpty: true).ConfigureAwait(false);
-            var sidecars = tree.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(IsSidecar).ToArray();
+            var sidecars = tree.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(IsCommittedSidecar).ToArray();
             var scores = enabledKinds.ToDictionary(kind => kind, _ => new List<int>(), StringComparer.Ordinal);
             foreach (var path in sidecars)
             {

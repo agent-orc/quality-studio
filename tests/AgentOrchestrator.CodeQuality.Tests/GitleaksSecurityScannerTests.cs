@@ -90,7 +90,7 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             Assert.Contains(result.Findings, finding => finding.Accepted && finding.RuleId == "accepted-placeholder");
             Assert.All(result.Findings, finding => Assert.Null(finding.Evidence));
 
-            var sidecars = Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories).ToArray();
+            var sidecars = ReviewMetaPath.Enumerate(root, "security").ToArray();
             Assert.Equal(4, sidecars.Length);
             Assert.Contains(sidecars, path => path.Contains($"{Path.DirectorySeparatorChar}src{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
             foreach (var path in sidecars)

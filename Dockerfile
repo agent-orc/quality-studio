@@ -72,6 +72,7 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     QualityStudio__Security__RequireHttps=false \
     QualityStudio__RepositoryRoot=/repositories \
     QualityStudio__AllowedRoots__0=/repositories \
+    QualityStudio__DataRoot=/data \
     QualityStudio__AllowedOrigins__0=http://localhost:8080
 
 EXPOSE 8080

@@ -62,7 +62,7 @@ public sealed record UsageReport(
     string? CostCurrency = null,
     int UnpricedRuns = 0);
 
-/// <summary>Append-only, repository-local token ledger independent of review metadata rewrites.</summary>
+/// <summary>Append-only, project-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger
 {
     public const int CurrentSchemaVersion = 3;
@@ -70,7 +70,11 @@ public static class UsageLedger
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public static string GetLedgerPath(string repositoryRoot, DateTimeOffset timestamp) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage", timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
+        Path.Combine(GetLedgerDirectory(repositoryRoot), timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
+
+    /// <summary>The folder holding every monthly ledger of one project.</summary>
+    public static string GetLedgerDirectory(string repositoryRoot) =>
+        QualityDataRoot.Combine(repositoryRoot, "usage");
 
     public static async Task AppendAsync(string repositoryRoot, ReviewUsageEntry entry, CancellationToken cancellationToken = default)
     {
@@ -98,7 +102,7 @@ public static class UsageLedger
         string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default)
     {
         var entries = new List<ReviewUsageEntry>();
-        var directory = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage");
+        var directory = GetLedgerDirectory(repositoryRoot);
         if (Directory.Exists(directory))
         {
             foreach (var path in Directory.EnumerateFiles(directory, "????-??.jsonl", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))

@@ -343,7 +343,7 @@ public class GitleaksSecurityScanner : IReviewSensor
 
         if (request.Mode == SecurityScanMode.Repository)
         {
-            foreach (var metaPath in Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories))
+            foreach (var metaPath in ReviewMetaPath.Enumerate(root, "security"))
             {
                 if (!ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)) continue;
                 if (sidecar.Document.Reviewer.Agent != "gitleaks") continue;

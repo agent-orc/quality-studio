@@ -31,9 +31,10 @@ Coverage counts a source file once when it has any review, regardless of kind.
 Staleness counts file-kind pairs, which makes missing review coverage visible
 instead of treating absence as a passing grade.
 
-Finding state comes from `.quality/findings/state.json`. Open and accepted
-findings remain active and affect `--fail-on`; waived, false-positive, and
-resolved findings do not fail that gate. All states remain represented in JSON
+Finding state comes from `findings/state.json` in the project's data root
+([`data-root.md`](data-root.md)). Open and accepted findings remain active and
+affect `--fail-on`; waived, false-positive, and resolved findings do not fail
+that gate. All states remain represented in JSON
 counts. A lifecycle record whose observation is no longer in a current sidecar
 is reported with `unknown` severity rather than inventing one. SARIF omits
 resolved observations and represents waived and false-positive results with
@@ -74,10 +75,10 @@ active finding exists at that severity or higher.
 ## Run-scoped reports
 
 Every terminal UI review run writes a strict canonical document to
-`.quality/reports/runs/<runId>.json`. The snapshot contains its immutable subject
-manifest, routing provenance, usage and cap outcome, one explicit outcome per
-planned unit, the exact sidecar bytes captured by the run, finding lifecycle
-state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
+`reports/runs/<runId>.json` in the data root. The snapshot contains its
+immutable subject manifest, routing provenance, usage and cap outcome, one
+explicit outcome per planned unit, the exact sidecar bytes captured by the run,
+finding lifecycle state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
 `capped` runs are all reportable. Incomplete outcomes are visibly marked
 `partial` and do not invent an aggregate score or baseline state.
 
@@ -129,6 +130,12 @@ sidecars, reconstructs the complete sidecar set at each such commit, and emits a
 aggregate-score point only when the per-kind curve changes. Commit IDs and author
 timestamps identify every point. No report database or new history file is
 written.
+
+It can therefore only see the layout that history was written in. Sidecars are no
+longer committed to the analysed checkout ([`data-root.md`](data-root.md)), so
+this curve keeps every point up to the commit that moved them out and gains none
+after it. Live grades and the run trend above are read from the data root and are
+unaffected.
 
 The committed sample generated for this repository is
 [`results/quality-report.sample.md`](../results/quality-report.sample.md).

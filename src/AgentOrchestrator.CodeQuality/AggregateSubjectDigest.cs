@@ -238,8 +238,7 @@ public static partial class AggregateSubjectDigest
         AggregateDigestRequest request,
         IReadOnlyList<MemberSource> members)
     {
-        var path = Path.Combine(request.RepositoryRoot,
-            BoundaryInventorySensor.InventoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = BoundaryInventorySensor.InventoryPathFor(request.RepositoryRoot);
         var builder = new StringBuilder();
         builder.AppendLine();
         builder.AppendLine("## Derived boundary inventory");
@@ -411,30 +410,25 @@ public static partial class AggregateSubjectDigest
     {
         var members = memberPaths.ToHashSet(StringComparer.Ordinal);
         var result = new Dictionary<string, ReviewMetaDocument>(StringComparer.Ordinal);
-        var directories = members
-            .Select(path => Path.GetDirectoryName(Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar))))
-            .OfType<string>()
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        foreach (var directory in directories)
+        // The members are known, so each sidecar is addressed directly through the one convention
+        // that owns the layout instead of by scanning a lane and discarding what does not belong.
+        foreach (var member in members)
         {
-            var lane = Path.Combine(directory, ".quality", "reviews", "files");
-            if (!Directory.Exists(lane)) continue;
-            foreach (var sidecar in Directory.EnumerateFiles(lane, "*.review-meta." + kind + ".json"))
+            var sidecar = ReviewMetaPath.ForFile(root, member, kind);
+            if (!File.Exists(sidecar)) continue;
+            ReviewMetaDocument document;
+            try
             {
-                ReviewMetaDocument document;
-                try
-                {
-                    document = ReviewMetaJson.Deserialize(File.ReadAllText(sidecar));
-                }
-                catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
-                {
-                    continue;
-                }
+                document = ReviewMetaJson.Deserialize(File.ReadAllText(sidecar));
+            }
+            catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
 
-                if (document.Unit.Level == ReviewLevel.File && members.Contains(document.Unit.Path))
-                {
-                    result[document.Unit.Path] = document;
-                }
+            if (document.Unit.Level == ReviewLevel.File && members.Contains(document.Unit.Path))
+            {
+                result[document.Unit.Path] = document;
             }
         }
 
