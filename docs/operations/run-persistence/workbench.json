@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "id": "run-persistence",
   "title": "Quality Studio run persistence",
-  "summary": "Decision-ready storage design for durable Quality Studio review runs. The recommendation keeps the tested, Git-ignored .quality/runs recovery journal and adds a tracked folder-per-run archive under .quality/run-history. It preserves run plans, immutable stopped attempts, operation results, finding observations, typed verdicts and timestamps; extends the existing token ledger with operation IDs; defines deterministic history and two-run diff APIs; and supplies five implementation slices with acceptance criteria and a non-fabricating migration path. Build state 2026-09-06: the tracked .quality/run-history archive was never built; the unused ReviewRunArchive class was deleted and the dossier records that RP-1 to RP-5 remain unimplemented. Journal retention and non-resurrecting recovery shipped in its place.",
+  "summary": "Decision-ready storage design for durable Quality Studio review runs. The recommendation keeps the tested, Git-ignored .quality/runs recovery journal and adds a tracked folder-per-run archive under .quality/run-history. It preserves run plans, immutable stopped attempts, operation results, finding observations, typed verdicts and timestamps; extends the existing token ledger with operation IDs; defines deterministic history and two-run diff APIs; and supplies five implementation slices with acceptance criteria and a non-fabricating migration path. Build state 2026-09-06: the tracked .quality/run-history archive was never built; the unused ReviewRunArchive class was deleted and the dossier records that RP-1 to RP-5 remain unimplemented. Journal retention and non-resurrecting recovery shipped in its place. Implementation state 2026-09-07 (QS-85): the card's goal is met by other means and RP-1 to RP-5 stay unimplemented. Durable records survive restart via the .quality/runs journal and RecoverRuns, findings and token ledger are Git-tracked under .quality/reports/runs and .quality/usage, and the run history list, trend and two-run compare ship in frontend/src/app/run-history. A complete QS-85 implementation of RP-1 to RP-5 was rebased onto main, found to duplicate all of that, and was not integrated; it is preserved on backup/QS-85-salvage-2d240de. What the archive would still add - immutable per-attempt records, ledger-joinable operation rows, and history outliving the 50-run retention floor - is now a fresh product decision rather than a merge.",
   "entrypoint": "index.html",
   "status": "decided",
   "phase": "decision-ready",
-  "updatedAt": "2026-09-06T00:00:00Z",
+  "updatedAt": "2026-09-07T00:00:00Z",
   "sourceTaskKeys": [
     "QS-62"
   ],
@@ -48,7 +48,32 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-71"
+    "QS-71",
+    "QS-85"
   ],
-  "editedBy": "Operator, recorded by AGT-2621"
+  "implementationState": {
+    "verifiedAt": "2026-09-07T00:00:00Z",
+    "verifiedByTask": "QS-85",
+    "integrationBase": "origin/main@2b0aca45fc07db74576813e1fbb22bb9cba082b6",
+    "slices": {
+      "RP-1": "unimplemented",
+      "RP-2": "unimplemented",
+      "RP-3": "unimplemented",
+      "RP-4": "unimplemented",
+      "RP-5": "unimplemented"
+    },
+    "outcome": "superseded",
+    "reason": "The QS-85 branch implemented RP-1 to RP-5 against a base that predates the run-history UI, run compare, journal retention and the frontend service split now on main. Rebasing it onto main would have added a second tracked run archive, a second history component and a second comparison engine, and would have reversed main's recorded deletion of ReviewRunArchive.",
+    "goalCoverageOnMain": {
+      "durableRunRecordsSurviveRestart": ".quality/runs journal plus ReviewJobs.RecoverRuns; test Non_terminal_run_resumes_after_restart_without_repeating_done_files",
+      "findingsGitTracked": ".quality/reports/runs/<runId>.json, 15 canonical reports committed",
+      "tokenLedgerGitTracked": ".quality/usage/YYYY-MM.jsonl, append-only, schema v3, union merge driver",
+      "runHistoryListInUi": "frontend/src/app/run-history, mounted from review-panel.html",
+      "twoRunCompare": "GET /api/review/runs/compare over QualityRunComparer"
+    },
+    "carriedForward": "Only the ReviewRunStore run-id guard, which was the one part of the QS-85 diff that duplicated nothing on main. It now rejects both platforms' separators and the '.' and '..' tokens, covered by ReviewRunStorePathSafetyTests. Defence-in-depth only: LoadAll already refuses a journal whose manifest disagrees with its directory, so no caller reaches an unsafe id today.",
+    "preservedBranch": "backup/QS-85-salvage-2d240de",
+    "openQuestion": "Whether the tracked archive is still wanted now that retention bounds terminal history to the newest 50 runs. Reopening it is an operator decision, so the 2026-08-11 approval above is left recorded as-is rather than reinterpreted."
+  },
+  "editedBy": "QS-85 rebase and supersession assessment"
 }

@@ -170,6 +170,37 @@
   history older than it is gone rather than silently resurrected.</p>
 </div>
 
+<div class="box" id="implementation-state">
+  <h4>Implementation state, 7 September 2026 (QS-85): the goal is met by other means, the archive is not</h4>
+  <p>QS-85 carried a complete implementation of RP-1 to RP-5 — a 712-line
+  <code>ReviewRunArchiveStore</code>, <code>ReviewRunHistory</code>, <code>ReviewRunDiff</code>, six
+  <code>/api/review/history</code> routes and a <code>review-history</code> Angular component. Rebasing it
+  onto current <code>main</code> showed that the capability it was written for had meanwhile shipped
+  along a different path, so the branch was <b>not</b> integrated. The card's goal — durable run records,
+  findings and token ledger surviving restart, in a file-first Git-friendly format, with a run history
+  list in the UI — is met today by:</p>
+  <table>
+    <thead><tr><th>Goal</th><th>What provides it on <code>main</code></th></tr></thead>
+    <tbody>
+      <tr><td>Durable run records surviving restart</td><td><code>.quality/runs/</code> journal plus <code>RecoverRuns()</code>; proven by <code>Non_terminal_run_resumes_after_restart_without_repeating_done_files</code>.</td></tr>
+      <tr><td>Findings per run, Git-tracked</td><td><code>.quality/reports/runs/&lt;runId&gt;.json</code> — 15 canonical reports are committed; <code>QualityRunObservation.Findings</code> carries the findings.</td></tr>
+      <tr><td>Token ledger, Git-tracked</td><td><code>.quality/usage/YYYY-MM.jsonl</code>, append-only with a union merge driver, schema v3.</td></tr>
+      <tr><td>Run history list in the UI</td><td><code>frontend/src/app/run-history/</code>, mounted from the review panel, with trend, two-run compare, pins and retention.</td></tr>
+      <tr><td>Two-run comparison</td><td><code>GET /api/review/runs/compare</code> over <code>QualityRunComparer</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>Integrating QS-85 on top of this would have produced two tracked on-disk archives of the same runs,
+  two history components, and two comparison engines, and would have reversed the deletion recorded
+  above. It would also have changed <code>ReviewJobService.List</code> so archived runs can displace live
+  ones from the run list. The branch is preserved at
+  <code>backup/QS-85-salvage-2d240de</code> rather than merged.</p>
+  <p><b>What the archive would still add, and what is therefore still open:</b> immutable per-attempt
+  records, per-operation rows joinable to the ledger, and history that outlives the 50-run retention
+  floor. Those are real gaps, but they are now a fresh product decision rather than a merge: retention
+  was chosen deliberately after this dossier was written. RP-1 to RP-5 stay unimplemented and
+  unapproved-in-code until that decision is revisited.</p>
+</div>
+
 <ul class="toc">
   <li><a href="#decision">Decision and boundary</a></li>
   <li><a href="#evidence">Repository evidence</a></li>
@@ -407,6 +438,11 @@
 <p>Review sidecar Git history and the 20 existing change-review records stay valid. They may be linked to a run when identifiers prove the relationship, but they are not mass-converted into fictional run records.</p>
 
 <h2 id="slices"><span class="no">09</span>Implementation slices to approve as-is</h2>
+
+<p class="dim">All five slices are <b>unimplemented</b> as of 7 September 2026. They were built once on the
+QS-85 branch and not integrated, because the capability had shipped along a different path in the
+meantime — see <a href="#implementation-state">implementation state</a>. The table below is the design
+record, not a description of the code.</p>
 
 <table>
   <thead><tr><th>Slice</th><th>Scope</th><th>Acceptance</th></tr></thead>
