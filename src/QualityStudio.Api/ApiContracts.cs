@@ -36,7 +36,8 @@ public sealed record TreeNodeResponse(
         HierarchyNode node,
         IReadOnlyDictionary<string, FindingStateRecord> states,
         CoverageSnapshot? coverage = null,
-        string? currentCommit = null)
+        string? currentCommit = null,
+        IReadOnlyDictionary<string, FindingSuppressionRule>? suppressions = null)
     {
         var reviewSummary = DirectReviewSummary.FromTree(node, states);
         var descendantFiles = Flatten(node).Where(candidate => candidate.Level == ReviewLevel.File)
@@ -48,7 +49,7 @@ public sealed record TreeNodeResponse(
             node.Path,
             node.AggregatedStates.ToDictionary(
                 pair => pair.Key.ToString().ToLowerInvariant(),
-                pair => KindStateResponse.From(node, pair.Value, states),
+                pair => KindStateResponse.From(node, pair.Value, states, suppressions),
                 StringComparer.Ordinal),
             reviewSummary.FindingsCount,
             reviewSummary.Counts,
@@ -145,7 +146,8 @@ public sealed record KindStateResponse(
     public static KindStateResponse From(
         HierarchyNode node,
         KindAggregation aggregation,
-        IReadOnlyDictionary<string, FindingStateRecord> states)
+        IReadOnlyDictionary<string, FindingStateRecord> states,
+        IReadOnlyDictionary<string, FindingSuppressionRule>? suppressions = null)
     {
         int? score = null;
         string? band = null;
@@ -156,7 +158,9 @@ public sealed record KindStateResponse(
             if (document.Payload is not null)
             {
                 var metadata = JsonNode.Parse(document.Payload)!.AsObject();
-                var projected = FindingStateProjection.Apply(metadata, states);
+                // The ignore list must reach the grade here too, or the hierarchy badge and the
+                // review panel would report different effective grades for the same file.
+                var projected = FindingStateProjection.Apply(metadata, states, suppressions);
                 if (projected["grade"] is JsonObject grade)
                 {
                     score = grade["score"]?.GetValue<int>();
@@ -323,6 +327,15 @@ public sealed record FindingStateMutationRequest(
     string Reason,
     DateTimeOffset? ExpiresAt,
     DateTimeOffset? ExpectedTimestamp);
+
+public sealed record FindingSuppressionMutationRequest(
+    string Path,
+    string Kind,
+    string Fingerprint,
+    string Author,
+    string Reason,
+    DateTimeOffset? ExpiresAt,
+    long? ExpectedRevision);
 
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(
