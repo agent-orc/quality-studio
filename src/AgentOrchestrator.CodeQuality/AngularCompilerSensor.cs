@@ -20,6 +20,7 @@ public sealed partial class AngularCompilerSensor : IDeterministicEvidenceSensor
     private const string CompilerManifestPath =
         "frontend/node_modules/@angular/compiler-cli/package.json";
     private const int MaximumReasonLength = 1000;
+    private const int MaximumCompilerOutputCharacters = 1_000_000;
     private readonly ISensorCommandRunner runner;
     private readonly string? probeRepositoryRoot;
 
@@ -27,7 +28,8 @@ public sealed partial class AngularCompilerSensor : IDeterministicEvidenceSensor
         ISensorCommandRunner? commandRunner = null,
         string? probeRepositoryRoot = null)
     {
-        runner = commandRunner ?? new BoundedProcessSensorCommandRunner();
+        runner = commandRunner
+            ?? new ProcessSensorCommandRunner(maximumOutputCharacters: MaximumCompilerOutputCharacters);
         this.probeRepositoryRoot = probeRepositoryRoot;
     }
 
@@ -300,62 +302,4 @@ public sealed partial class AngularCompilerSensor : IDeterministicEvidenceSensor
 
     [GeneratedRegex(@"~+", RegexOptions.CultureInvariant)]
     private static partial Regex Marker();
-}
-
-internal sealed class BoundedProcessSensorCommandRunner : ISensorCommandRunner
-{
-    private const int MaximumOutputCharacters = 1_000_000;
-
-    public async Task<SensorCommandResult> RunAsync(
-        string executable,
-        IReadOnlyList<string> arguments,
-        string workingDirectory,
-        CancellationToken cancellationToken = default)
-    {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo(executable)
-            {
-                WorkingDirectory = workingDirectory,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        try
-        {
-            if (!process.Start())
-                throw new SecurityScannerUnavailableException($"{executable} did not start.");
-        }
-        catch (Win32Exception exception)
-        {
-            throw new SecurityScannerUnavailableException(
-                $"{executable} could not be launched.", exception);
-        }
-
-        var standardOutput = ReadBoundedAsync(process.StandardOutput, cancellationToken);
-        var standardError = ReadBoundedAsync(process.StandardError, cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        return new SensorCommandResult(
-            process.ExitCode,
-            await standardOutput.ConfigureAwait(false),
-            await standardError.ConfigureAwait(false));
-    }
-
-    private static async Task<string> ReadBoundedAsync(
-        StreamReader reader,
-        CancellationToken cancellationToken)
-    {
-        var result = new StringBuilder(Math.Min(MaximumOutputCharacters, 4096));
-        var buffer = new char[4096];
-        int read;
-        while ((read = await reader.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-        {
-            var remaining = MaximumOutputCharacters - result.Length;
-            if (remaining > 0) result.Append(buffer, 0, Math.Min(remaining, read));
-        }
-        return result.ToString();
-    }
 }
