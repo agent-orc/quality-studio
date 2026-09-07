@@ -72,12 +72,15 @@ was usable in 111.7 ms and a warm one in 12.9 ms, the last selected repository
 was restored from `localStorage` across a reload, and stopping the API raised an
 explicit "API unavailable" notice whose Retry recovered the session.
 
-The editor surface is now a deferred standard component chunk. On the QS-82
-branch as first measured on 2026-08-24 that moved the production initial bundle
-from 478.30 kB to 438.02 kB (40.28 kB / 8.42%). Those absolute figures predate
-the separate initial-bundle work that landed on main afterwards, so the current
-number is the one recorded under the bundle budget below; the editor chunk
-deferral is additive to it and the 480 kB error ceiling is unchanged.
+The editor surface is now a deferred standard component chunk. As first measured
+on 2026-08-24 that moved the production initial bundle from 478.30 kB to
+438.02 kB (40.28 kB / 8.42%). Those absolute figures predate the separate
+initial-bundle work that landed on main afterwards, so both arms were measured
+again on 2026-09-07 after rebasing onto main: `ng build` reports 334.86 kB raw /
+92.49 kB transfer on main and 305.97 kB raw / 86.04 kB transfer with the editor
+deferred — 28.89 kB (8.63%) off the raw initial bundle and 6.45 kB (6.97%) off
+the transfer size, with the editor now a 35.12 kB lazy chunk. The 480 kB error
+ceiling is unchanged.
 
 ## Repeat the automated measurement
 
@@ -104,5 +107,5 @@ The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-cont
 - Finding ranges are indexed once per loaded review/aspect; only markers belonging to the visible 80-line window enter the DOM.
 - Aspect switching selects an already-loaded `metaDocuments` entry and does not fetch file content again.
 - The first-content path displays plain escaped text. Supported files up to 200 KB are tokenized only after that paint in a cancellable single-concurrency worker and delivered in 200-line chunks; whole-file main-thread highlighting is prohibited.
-- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 12/16 KB per component stylesheet. The initial bundle is 334.57 kB raw / 92.39 kB transfer.
-- Everything that is not part of opening a repository is a deferred chunk and is not paid on the first-content path: the review panel and its run history, the review launcher, the project dashboard, the attack matrix, the container overview, the repository, guideline, import, usage, and API-access dialogs, the syntax tokenizer, and the offline preview fixtures. The explorer is deferred on immediate, so its chunk is fetched at bootstrap instead of parsed before the first paint.
+- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 12/16 KB per component stylesheet. The initial bundle is 305.97 kB raw / 86.04 kB transfer.
+- Everything that is not part of opening a repository is a deferred chunk and is not paid on the first-content path: the review panel and its run history, the review launcher, the project dashboard, the attack matrix, the container overview, the repository, guideline, import, usage, and API-access dialogs, the editor, the syntax tokenizer, and the offline preview fixtures. The explorer is deferred on immediate, so its chunk is fetched at bootstrap instead of parsed before the first paint.
