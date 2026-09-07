@@ -8,6 +8,26 @@ public sealed class RepositoryOptions
 
     public string RepositoryRoot { get; set; } = ".";
 
+    /// <summary>
+    /// Where this host keeps everything its runs generate, one folder per analysed project. A
+    /// relative path resolves against the content root. Unset means the per-user default that
+    /// <see cref="QualityDataRoot"/> documents, which is what a local install wants; a container
+    /// points it at a mounted volume so the data outlives the container.
+    /// </summary>
+    public string? DataRoot { get; set; }
+
+    /// <summary>
+    /// The configured data root as an absolute path, or null for the default. Read straight from
+    /// configuration rather than from the bound options: the stores resolve paths while the host is
+    /// still being built, before <c>IOptions</c> can be asked.
+    /// </summary>
+    public static string? ResolveDataRoot(string? configured, string contentRootPath) =>
+        string.IsNullOrWhiteSpace(configured)
+            ? null
+            : Path.GetFullPath(Path.IsPathRooted(configured)
+                ? configured
+                : Path.Combine(contentRootPath, configured));
+
     public string[] AllowedOrigins { get; set; } = ["http://localhost:4200"];
 
     public string[] AllowedRoots { get; set; } = [];

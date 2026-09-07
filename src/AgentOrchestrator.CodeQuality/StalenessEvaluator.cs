@@ -75,8 +75,10 @@ public sealed class StalenessEvaluator
         var count = 0;
         try
         {
-            var repositoryFiles = EnumerateGitFilesAsync(root, cancellationToken);
-            var index = await LoadMetadataAsync(repositoryFiles, root, options.ReviewKind, cancellationToken)
+            // Off the caller's thread: a scan is served on a request thread, and the lane walk plus
+            // a parse per sidecar is the one blocking stretch in an otherwise streaming enumeration.
+            var index = await Task.Run(
+                () => LoadMetadata(root, options.ReviewKind, cancellationToken), cancellationToken)
                 .ConfigureAwait(false);
 
             await foreach (var relativePath in EnumerateGitFilesAsync(root, cancellationToken))
@@ -94,7 +96,7 @@ public sealed class StalenessEvaluator
                     var conventional = ReviewMetaPath.ForFile(root, relativePath, options.ReviewKind);
                     yield return index.Unreadable.Contains(conventional)
                         ? new FileStaleness(relativePath, StalenessState.Invalid, options.ReviewKind,
-                            NormalizeRelativePath(Path.GetRelativePath(root, conventional)))
+                            ReviewMetaPath.Describe(root, conventional))
                         : new FileStaleness(relativePath, StalenessState.Missing, options.ReviewKind);
                     continue;
                 }
@@ -150,8 +152,16 @@ public sealed class StalenessEvaluator
             : StalenessState.PolicyDrift;
     }
 
-    private static async Task<MetadataIndex> LoadMetadataAsync(
-        IAsyncEnumerable<string> repositoryFiles,
+    /// <summary>
+    /// Indexes the project's sidecars from its data root. They used to be found by filtering the
+    /// tracked files of the checkout, which stopped finding anything once sidecars left it.
+    /// <para>
+    /// Synchronous, and named so. Reading the sidecar lane is a directory walk and a parse per
+    /// file with nothing to await; wrapping that in a task the caller awaits would only claim a
+    /// yield that never happens. The one caller offloads it.
+    /// </para>
+    /// </summary>
+    private static MetadataIndex LoadMetadata(
         string root,
         string reviewKind,
         CancellationToken cancellationToken)
@@ -159,14 +169,10 @@ public sealed class StalenessEvaluator
         var result = new Dictionary<string, ReviewMetadata>(StringComparer.Ordinal);
         var unreadable = new HashSet<string>(
             OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        await foreach (var relativePath in repositoryFiles.WithCancellation(cancellationToken))
+        foreach (var absolutePath in ReviewMetaPath.Enumerate(root, reviewKind))
         {
-            if (!IsMetaPath(relativePath))
-            {
-                continue;
-            }
-
-            var absolutePath = ResolveWithinRoot(root, relativePath);
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = ReviewMetaPath.Describe(root, absolutePath);
             if (!ReviewMetaReader.TryLoad(absolutePath, out var sidecar, out var error))
             {
                 // A scan records the sidecars it cannot trust instead of failing whole; the
@@ -296,15 +302,10 @@ public sealed class StalenessEvaluator
         return absolutePath;
     }
 
+    // Any sidecar left in the checkout by a pre-data-root run sits below a `.quality` segment, so
+    // the folder check covers it and no separate sidecar predicate is needed here.
     private static bool IsInfrastructurePath(string path) =>
-        path.Split('/').Any(segment => segment is ".quality" or ".git" or "bin" or "obj") ||
-        IsMetaPath(path);
-
-    private static bool IsMetaPath(string path) =>
-        (path.StartsWith(".quality/reviews/", StringComparison.Ordinal) ||
-         path.Contains("/.quality/reviews/", StringComparison.Ordinal)) &&
-        path.Contains(".review-meta.", StringComparison.Ordinal) &&
-        path.EndsWith(".json", StringComparison.Ordinal);
+        path.Split('/').Any(segment => segment is ".quality" or ".git" or "bin" or "obj");
 
     private static string NormalizeRelativePath(string path) => path.Replace('\\', '/').TrimStart('/');
 

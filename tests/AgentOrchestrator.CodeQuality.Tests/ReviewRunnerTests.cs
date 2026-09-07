@@ -350,9 +350,10 @@ public sealed class ReviewRunnerTests
             Assert.Equal("file", json.GetProperty("unit").GetProperty("level").GetString());
             Assert.Equal("src/Small.cs", json.GetProperty("unit").GetProperty("path").GetString());
             Assert.Equal(result.ReviewedHash, json.GetProperty("reviewedHash").GetProperty("value").GetString());
-            Assert.StartsWith(Path.Combine(root, "src", ".quality", "reviews", "files"), result.MetaPath, StringComparison.Ordinal);
+            Assert.Equal(ReviewMetaPath.ForFile(root, "src/Small.cs", "code"), result.MetaPath);
             Assert.NotNull(result.Observation);
-            Assert.StartsWith("src/.quality/reviews/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
+            // A report names a sidecar by its place below the lane, not by a path into the checkout.
+            Assert.StartsWith("reviews/src/files/file.", result.Observation.SidecarPath, StringComparison.Ordinal);
             Assert.EndsWith(".review-meta.code.json", result.Observation.SidecarPath, StringComparison.Ordinal);
             Assert.DoesNotContain(root, result.Observation.ReviewMetaJson, StringComparison.Ordinal);
             Assert.Equal("sha256:" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
@@ -585,7 +586,7 @@ public sealed class ReviewRunnerTests
             Assert.Matches("^sha256:[a-f0-9]{64}$", sensorReference.GetProperty("resultHash").GetString());
             Assert.Contains("\"id\": \"gitleaks\"", agent.Prompt, StringComparison.Ordinal);
             Assert.Contains("machine-produced sensor evidence", agent.Prompt, StringComparison.OrdinalIgnoreCase);
-            Assert.Single(Directory.EnumerateFiles(root, "*.review-meta.security.json", SearchOption.AllDirectories));
+            Assert.Single(ReviewMetaPath.Enumerate(root, "security"));
         });
     }
 
@@ -936,7 +937,7 @@ public sealed class ReviewRunnerTests
                 new ReviewRequest("src/Small.cs", RepositoryRoot: root), TestContext.Current.CancellationToken));
 
             Assert.Contains("changed", exception.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Empty(Directory.EnumerateFiles(Path.Combine(root, "src"), "*.json", SearchOption.AllDirectories));
+            Assert.Empty(ReviewMetaPath.Enumerate(root));
         });
     }
 

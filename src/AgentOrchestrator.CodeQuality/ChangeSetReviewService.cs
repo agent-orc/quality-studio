@@ -118,7 +118,7 @@ public sealed class ChangeSetReviewService
         JsonSerializer.Serialize(document, JsonOptions) + "\n";
 
     public static string GetPath(string repositoryRoot, ChangeSet changeSet) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "changes",
+        QualityDataRoot.Combine(repositoryRoot, "changes",
             (changeSet.MergeCommit ?? changeSet.HeadCommit) + ".json");
 
     private static async Task SaveAsync(
@@ -127,6 +127,17 @@ public sealed class ChangeSetReviewService
         CancellationToken cancellationToken) =>
         await AtomicFile.WriteAllTextAsync(path, Serialize(document), cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// The sidecars committed at one revision, read out of its Git tree.
+    /// <para>
+    /// A grade delta is a statement about two points in history, so it can only be read from
+    /// history - which means it can only see the layout that history was written in. Sidecars are
+    /// no longer committed, so a range whose endpoints are both after the migration finds none and
+    /// the change review reports no agent-grade movement. Everything the review derives from the
+    /// diff itself - touched units, boundary and coverage facts, evidence economy - is unaffected,
+    /// and a range spanning older commits still reads their sidecars. See docs/data-root.md.
+    /// </para>
+    /// </summary>
     private static async Task<IReadOnlyList<MetaSnapshot>> LoadMetadataAsync(
         string root,
         string revision,

@@ -6,7 +6,8 @@ identifiers to two places:
 
 - the review-meta `reviewer.usage` block, alongside `reviewer.model` and
   `reviewer.runId`; and
-- the repository append-only ledger at `.quality/usage/YYYY-MM.jsonl`.
+- the project's append-only ledger at `usage/YYYY-MM.jsonl` below its data root,
+  outside the reviewed checkout ([`data-root.md`](data-root.md)).
 
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
@@ -76,16 +77,23 @@ The Usage button in the top bar opens the repository history view. It shows
 input-plus-output token spend, model and daily aggregates, and keyboard-accessible
 recent-entry details containing both run identifiers.
 
-## Git history policy
+## Ledger durability
 
-`.quality/usage/YYYY-MM.jsonl` is committed repository history. The files are
+`usage/YYYY-MM.jsonl` is the spend history of one analysed project. The files are
 monthly and append-only; do not compact, reorder, rewrite, or discard prior
-lines. `.gitignore` explicitly keeps these files committable and `.gitattributes`
-uses Git's union merge driver so independent appends are retained during merges.
-The application intentionally does not invoke Git: the active monthly file is
-staged and committed through the repository's normal development workflow.
+lines.
 
-This policy begins with the ledger data available in each repository. Missing
+The ledger used to be committed repository history, kept mergeable with Git's
+union merge driver and staged through the repository's normal development
+workflow. It is not any more. A file that grows on every review kept the analysed
+checkout permanently dirty, and that is what stopped the studio from being run
+against its own repository; a reproducible record of what a run spent is not
+history the reviewed repository owes anyone. The ledger is generated data like
+every other run artefact, so it is only as durable as the data root that holds
+it — back that up when the recorded spend matters, because nothing else preserves
+it.
+
+This policy begins with the ledger data available for each project. Missing
 historical entries are not fabricated retroactively.
 
 ## Quota ownership

@@ -40,11 +40,15 @@ hash. Consequently, changing one entry marks only cells for that attack stale.
 
 ## Ledger and provenance
 
-Judgements append as JSON Lines to:
+Judgements append as JSON Lines below the project's data root, outside the
+analysed checkout ([`data-root.md`](data-root.md)):
 
 ```text
-.quality/attacks/coverage-ledger.jsonl
+attacks/coverage-ledger.jsonl
 ```
+
+The catalogue and the ledger share a folder name but not a home: the catalogue is
+authored and stays in the repository, the ledger is generated and does not.
 
 The ledger is never rewritten by a re-check. Each observation records:
 

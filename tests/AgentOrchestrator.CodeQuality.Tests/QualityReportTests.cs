@@ -123,9 +123,16 @@ public sealed class QualityReportTests
             ["report", fixture.Root, "--fail-under", "101"]));
     }
 
+    /// <summary>
+    /// A checkout whose live sidecar is where the studio writes one today - under the project's
+    /// data root - and which also carries a committed copy at the pre-data-root in-tree path.
+    /// The trend series is rebuilt from Git history and can only see the layout the history was
+    /// written in, so the committed copy is what gives a generation a score.
+    /// </summary>
     private sealed class ReportRepositoryFixture : IDisposable
     {
         private readonly string sidecarPath;
+        private readonly string committedSidecarPath;
         private readonly string contentHash;
         private readonly string reviewedHash;
         private int score;
@@ -133,6 +140,7 @@ public sealed class QualityReportTests
         private ReportRepositoryFixture(
             string root,
             string sidecarPath,
+            string committedSidecarPath,
             string contentHash,
             string reviewedHash,
             string fingerprint,
@@ -140,6 +148,7 @@ public sealed class QualityReportTests
         {
             Root = root;
             this.sidecarPath = sidecarPath;
+            this.committedSidecarPath = committedSidecarPath;
             this.contentHash = contentHash;
             this.reviewedHash = reviewedHash;
             Fingerprint = fingerprint;
@@ -160,7 +169,6 @@ public sealed class QualityReportTests
         {
             var root = Directory.CreateTempSubdirectory("quality-report-fixture-").FullName;
             Directory.CreateDirectory(Path.Combine(root, "src"));
-            Directory.CreateDirectory(Path.Combine(root, ".quality", "reviews", "files"));
             await File.WriteAllTextAsync(Path.Combine(root, "src", "App.cs"),
                 "namespace Fixture; public sealed class App { }\n", TestContext.Current.CancellationToken);
             await RunGitAsync(root, "init", "--quiet");
@@ -174,6 +182,7 @@ public sealed class QualityReportTests
             var fingerprint = "sha256:" + new string('b', 64);
             var fixture = new ReportRepositoryFixture(
                 root,
+                ReviewMetaPath.ForFile(root, "src/App.cs", "code"),
                 Path.Combine(root, ".quality", "reviews", "files", "app.review-meta.code.json"),
                 contentHash,
                 reviewedHash,
@@ -239,7 +248,7 @@ public sealed class QualityReportTests
         private async Task WriteSidecarAsync()
         {
             const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-            await ReviewMetaFixture.WriteAsync(sidecarPath, ReviewMetaFixture.Document(
+            var document = ReviewMetaFixture.Document(
                 unitId,
                 "src/App.cs",
                 reviewedHash,
@@ -249,8 +258,11 @@ public sealed class QualityReportTests
                 effectiveHash: ReviewMetaFixture.EffectiveHash(Root),
                 findings: [ReviewMetaFixture.Finding(
                     Fingerprint,
-                    range: new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 10)))]),
-                TestContext.Current.CancellationToken);
+                    range: new FindingRange(new FindingPosition(1, 1), new FindingPosition(1, 10)))]);
+            await ReviewMetaFixture.WriteAsync(
+                sidecarPath, document, TestContext.Current.CancellationToken);
+            await ReviewMetaFixture.WriteAsync(
+                committedSidecarPath, document, TestContext.Current.CancellationToken);
         }
 
         private static async Task RunGitAsync(string root, params string[] arguments)

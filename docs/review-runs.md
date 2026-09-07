@@ -4,13 +4,13 @@ Quality Studio starts Runner reviews through the API host. The browser never lau
 
 ## Preflight estimate
 
-Before confirmation the browser calls `POST /api/review/estimate` (or the repository-scoped equivalent) with the selected CLI, model, kind, path, and cap. The response is computed from the exact file and aggregate prompts that `ReviewRunner` will send. Rendered prompt characters are converted to input tokens at four characters per token. The output/input ratio comes from matching operations in `.quality/usage/`, falling back to 20% when there is no history. The response identifies its history sample count and method, so a fallback is never presented as measured precision.
+Before confirmation the browser calls `POST /api/review/estimate` (or the repository-scoped equivalent) with the selected CLI, model, kind, path, and cap. The response is computed from the exact file and aggregate prompts that `ReviewRunner` will send. Rendered prompt characters are converted to input tokens at four characters per token. The output/input ratio comes from matching operations in the project's token ledger under `usage/` in its data root ([`data-root.md`](data-root.md)), falling back to 20% when there is no history. The response identifies its history sample count and method, so a fallback is never presented as measured precision.
 
 Cost is computed by `CodingAgentRunner.Pricing.ModelPriceCatalog.Default` for the selected model. An unknown or currently unpriced model returns an explicit price status and no cost. A cost cap is rejected in that case; a token cap remains available.
 
 Every completed run compares its preflight estimate with usage actually recorded by that sweep. `deviation.inputTokensPercent`, `deviation.outputTokensPercent`, and, when priced, `deviation.costPercent` are signed percentages (positive means actual was higher), and the run row displays them. This is the acceptance comparison against the recorded sweep, not a precision claim: CLI-added system context, provider tokenization, cache behavior, and response length are not knowable from prompt characters. Capped or failed partial runs do not publish a misleading full-sweep deviation.
 
-The server-side acceptance test exercises a two-file plus aggregate sweep through the HTTP API, records each operation in `.quality/usage/`, deliberately crosses a token cap, verifies the reviewed/skipped report, raises the cap, and verifies that the completed run reports a non-zero estimate deviation. The assertion intentionally checks deviation rather than equality.
+The server-side acceptance test exercises a two-file plus aggregate sweep through the HTTP API, records each operation in `usage/`, deliberately crosses a token cap, verifies the reviewed/skipped report, raises the cap, and verifies that the completed run reports a non-zero estimate deviation. The assertion intentionally checks deviation rather than equality.
 
 ## Freshness, caps, and execution
 
@@ -66,7 +66,7 @@ receives a digest built by `AggregateSubjectDigest` within a character budget of
 - the findings already recorded for the members, each with the fingerprint an
   aggregate finding can cite;
 - for a security pass, the derived boundary inventory from
-  `.quality/boundaries/inventory.json`, scoped to the members at module level and
+  `boundaries/inventory.json` in the data root, scoped to the members at module level and
   whole at project level, or an explicit statement that none has been scanned;
 - real source under the remaining budget, at least a quarter of it. Each member
   is allocated a share proportional to its size with a floor, so a monolith
@@ -95,7 +95,7 @@ property, and none is needed.
 
 ## Durable state
 
-Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
+Run orchestration is durable under `runs/<runId>/` in the project's data root:
 
 - `manifest.json` is the immutable enqueue-time plan. It records the selected node and level, kind, model, CLI type, force flag, preflight estimate, initial cap, aggregate controls, and every target file with its subject hash.
 - `progress.jsonl` is an append-only file-transition log. Each flushed line records the run and file path, state, timestamps, and any error. Recovery ignores an incomplete line left by a crash and continues from the other records.
@@ -109,10 +109,10 @@ Run orchestration is durable under `<repository>/.quality/runs/<runId>/`:
   transition is appended, allowing recovery to publish the same captured evidence.
 
 At every terminal transition the API projects these immutable inputs into
-`.quality/reports/runs/<runId>.json`. This canonical, strict-schema snapshot is
-repository-owned durable history. A capped run publishes revision 1; resuming and
-finishing that run publishes a higher revision without repeating already completed
-operations. Renderers, API downloads, CLI gates, and run trends all consume this
+`reports/runs/<runId>.json`, again in the data root. This canonical,
+strict-schema snapshot is the durable history of that execution. A capped run
+publishes revision 1; resuming and finishing that run publishes a higher revision
+without repeating already completed operations. Renderers, API downloads, CLI gates, and run trends all consume this
 snapshot rather than mutable current sidecars. See
 [`quality-reports.md`](quality-reports.md) for formats and trend semantics.
 
@@ -125,6 +125,11 @@ At startup the API scans the registered repositories for durable runs. `queued` 
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
-`.quality/runs/` is ignored by Git because it is disposable orchestration working
-data. Review sidecars remain the committed current-state truth, while canonical
-run reports preserve the historical truth of each terminal execution.
+None of this is in the reviewed checkout and none of it is versioned: run
+journals are disposable orchestration working data, and even the canonical
+reports are reproducible output of a run rather than repository history — keeping
+them in the tree is what made the studio's own checkout permanently dirty. Review
+sidecars remain the current-state truth and canonical run reports the historical
+truth of each terminal execution, both in the project's data root
+([`data-root.md`](data-root.md)). A report meant to be shared is exported
+deliberately with `quality report --output`.

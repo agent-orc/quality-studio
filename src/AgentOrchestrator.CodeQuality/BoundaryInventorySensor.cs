@@ -50,7 +50,13 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 public sealed partial class BoundaryInventorySensor : IReviewSensor
 {
     public const string SensorVersion = "1.0.0";
-    public const string InventoryRelativePath = ".quality/boundaries/inventory.json";
+
+    /// <summary>The inventory, relative to the project's data root.</summary>
+    public const string InventoryRelativePath = "boundaries/inventory.json";
+
+    /// <summary>Where this project's derived boundary inventory is read from and written to.</summary>
+    public static string InventoryPathFor(string repositoryRoot) =>
+        QualityDataRoot.Combine(repositoryRoot, InventoryRelativePath.Split('/'));
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -1158,7 +1164,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         BoundaryInventory inventory,
         CancellationToken cancellationToken)
     {
-        var path = Path.Combine(root, InventoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = InventoryPathFor(root);
         await AtomicFile.WriteAllTextAsync(
             path,
             JsonSerializer.Serialize(inventory, JsonOptions) + Environment.NewLine,

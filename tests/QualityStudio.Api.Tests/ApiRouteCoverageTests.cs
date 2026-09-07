@@ -178,7 +178,8 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
         Assert.Equal(1, json.GetProperty("addedCount").GetInt32());
         Assert.Equal("impact-draft", Assert.Single(Assert.Single(json.GetProperty("files").EnumerateArray())
             .GetProperty("added").EnumerateArray()).GetProperty("ruleId").GetString());
-        Assert.False(Directory.Exists(Path.Combine(fixture.RepositoryRoot, ".quality", "reviews", "impact")));
+        Assert.False(Directory.Exists(
+            QualityDataRoot.Combine(fixture.RepositoryRoot, ReviewMetaPath.LaneRoot, "impact")));
     }
 
     [Fact]
@@ -528,8 +529,8 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             var name = Path.GetFileNameWithoutExtension(relativePath);
             await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, relativePath),
                 $"namespace Sample; public static class {name} {{ public static string Hello() => \"marker\"; }}");
-            var directory = Path.Combine(RepositoryRoot, ".quality", "reviews", "files");
-            Directory.CreateDirectory(directory);
+            var sidecarPath = ReviewMetaPath.ForFile(RepositoryRoot, relativePath, "code");
+            Directory.CreateDirectory(Path.GetDirectoryName(sidecarPath)!);
             var grade = new ReviewGrade(80, GradeBand.B, "Fixture grade.");
             var metadata = new ReviewMetaDocument
             {
@@ -550,9 +551,7 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
                 Aspects = [new ReviewAspect("correctness", "Correctness", grade)],
                 Findings = [],
             };
-            await File.WriteAllTextAsync(
-                Path.Combine(directory, $"{name.ToLowerInvariant()}.review-meta.code.json"),
-                ReviewMetaJson.Serialize(metadata));
+            await File.WriteAllTextAsync(sidecarPath, ReviewMetaJson.Serialize(metadata));
         }
 
         private async Task RunGitAsync(params string[] arguments)

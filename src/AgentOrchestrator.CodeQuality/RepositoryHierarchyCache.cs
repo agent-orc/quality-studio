@@ -142,7 +142,7 @@ public sealed class RepositoryHierarchyCache
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, head);
         Append(hash, index);
-        var entries = ParseStatusPaths(status).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+        var entries = GitStatusPaths.Parse(status).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
         foreach (var relativePath in entries)
         {
             Append(hash, relativePath);
@@ -193,20 +193,6 @@ public sealed class RepositoryHierarchyCache
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
-    private static IEnumerable<string> ParseStatusPaths(string status)
-    {
-        var records = status.Split('\0', StringSplitOptions.RemoveEmptyEntries);
-        for (var index = 0; index < records.Length; index++)
-        {
-            var record = records[index];
-            if (record.Length < 4) continue;
-            yield return record[3..].Replace('\\', '/');
-            if (record[0] is 'R' or 'C' || record[1] is 'R' or 'C')
-            {
-                if (++index < records.Length) yield return records[index].Replace('\\', '/');
-            }
-        }
-    }
 
     private static string? RunGit(string root, params string[] arguments)
     {

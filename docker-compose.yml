@@ -31,13 +31,17 @@ services:
       # Repository roots the registry may point at. Everything reviewable must live below one of them.
       QualityStudio__RepositoryRoot: /repositories
       QualityStudio__AllowedRoots__0: /repositories
+
+      # Where runs file what they generate. Outside every reviewed working copy, so a review never
+      # dirties the tree it measures; see docs/data-root.md.
+      QualityStudio__DataRoot: /data
     volumes:
-      # The reviewed working copies. Read-write: reviews write .quality outputs next to the code.
+      # The reviewed working copies. The studio only reads them; it writes to /data.
       - ./repositories:/repositories
       # Server-owned repository registry, so registrations survive a container replacement.
       - quality-studio-registry:/app/.quality-studio
-      # Reserved for the relocated .quality outputs of QS-102. Harmless until that card lands; keep
-      # the mount so the data survives the upgrade.
+      # Findings, grades, ledgers and run journals, one folder per analysed project. A container has
+      # no per-user data directory worth keeping, so the default is overridden onto this volume.
       - quality-studio-data:/data
     restart: unless-stopped
 

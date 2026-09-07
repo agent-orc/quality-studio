@@ -51,6 +51,11 @@ public static class QualityCli
             return await ChangeDiffCommand.RunAsync(args[1..], Console.Out, Console.Error);
         }
 
+        if (string.Equals(args[0], "migrate-data", StringComparison.Ordinal))
+        {
+            return RunMigrateData(args[1..]);
+        }
+
         if (!string.Equals(args[0], "scan", StringComparison.Ordinal))
         {
             Console.Error.WriteLine($"Unknown command: {args[0]}");
@@ -211,7 +216,9 @@ public static class QualityCli
                 Sensors: options.Kind == "security"
                     ? [new ReviewSensorConfiguration("gitleaks"), new ReviewSensorConfiguration("dependencies")]
                     : null));
-            Console.WriteLine($"quality review: wrote {Path.GetRelativePath(Directory.GetCurrentDirectory(), result.MetaPath)} | {stopwatch.ElapsedMilliseconds} ms");
+            // Absolute, not relative to the working directory: the sidecar lives in the project's
+            // data root, which from inside a checkout is only reachable as a run of `..` segments.
+            Console.WriteLine($"quality review: wrote {result.MetaPath} | {stopwatch.ElapsedMilliseconds} ms");
             return 0;
         }
         catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or InputFormatException or ReviewResponseException or ReviewRunException)
@@ -298,7 +305,7 @@ public static class QualityCli
             var stopwatch = Stopwatch.StartNew();
             var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryPathFor(path)} | {stopwatch.ElapsedMilliseconds} ms");
             foreach (var finding in inventory.Findings)
             {
                 Console.WriteLine(
@@ -309,6 +316,84 @@ public static class QualityCli
         catch (Exception exception) when (exception is ArgumentException or DirectoryNotFoundException or IOException)
         {
             Console.Error.WriteLine($"quality boundaries scan failed: {exception.Message}");
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// Moves the artefacts a pre-data-root studio wrote into a checkout out to that project's data
+    /// root. Deliberately a command an operator runs, not something a host does on startup: it
+    /// deletes files from a working tree that may still track them, and the operator owns the
+    /// commit that records the deletion.
+    /// </summary>
+    private static int RunMigrateData(string[] args)
+    {
+        // Help wins wherever it appears, so `migrate-data . --help` explains itself instead of
+        // migrating and then being told the flag was unexpected.
+        if (args.Any(argument => argument is "-h" or "--help"))
+        {
+            PrintMigrateDataUsage();
+            return 0;
+        }
+
+        // This is the one command that deletes files from a working tree, so a flag it does not
+        // understand is refused rather than ignored: a mistyped --dryrun must not run the real move.
+        var unknown = args
+            .Where(argument => argument.StartsWith("-", StringComparison.Ordinal))
+            .Where(argument => argument is not "--dry-run")
+            .ToArray();
+        if (unknown.Length > 0)
+        {
+            Console.Error.WriteLine($"Unexpected argument: {unknown[0]}");
+            PrintMigrateDataUsage();
+            return 2;
+        }
+
+        var dryRun = args.Contains("--dry-run", StringComparer.Ordinal);
+        var paths = args.Where(argument => !argument.StartsWith("-", StringComparison.Ordinal)).ToArray();
+        if (paths.Length > 1)
+        {
+            Console.Error.WriteLine("quality migrate-data accepts one optional repository path.");
+            PrintMigrateDataUsage();
+            return 2;
+        }
+
+        try
+        {
+            var report = QualityDataMigration.Run(paths.Length == 1 ? paths[0] : ".", dryRun);
+            Console.WriteLine($"data root: {report.DataRoot}");
+            foreach (var artefact in report.Artefacts)
+            {
+                var outcome = artefact.Outcome switch
+                {
+                    MigrationOutcome.Moved => $"{(dryRun ? "would move" : "moved")} {artefact.Files} file(s)",
+                    MigrationOutcome.AlreadyPresent => "left in place: the data root already has it",
+                    _ => "nothing in the checkout",
+                };
+                Console.WriteLine($"  {artefact.RelativePath,-12} {outcome}");
+            }
+
+            Console.WriteLine(dryRun
+                ? $"quality migrate-data --dry-run: {report.MovedFiles} file(s) would move"
+                : $"quality migrate-data: {report.MovedFiles} file(s) moved");
+            if (report.RemainingInTree.Count > 0)
+            {
+                Console.WriteLine(
+                    $"still in the checkout: {string.Join(", ", report.RemainingInTree)}");
+            }
+            else if (!dryRun && report.MovedAnything)
+            {
+                Console.WriteLine(
+                    "The checkout carries no generated studio data any more. Commit the deletion once " +
+                    "so the working tree is clean for integration.");
+            }
+
+            return 0;
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or DirectoryNotFoundException or IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"quality migrate-data failed: {exception.Message}");
             return 2;
         }
     }
@@ -569,7 +654,12 @@ public static class QualityCli
     }
 
     private static void PrintUsage() => Console.WriteLine(
-        "Usage:\n  quality analyze [path] [--analysis <name>]...\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <aggregate-score>] [--fail-on <severity>]");
+        "Usage:\n  quality analyze [path] [--analysis <name>]...\n  quality scan [path] [--kind code] [--include <glob>]...\n  quality review <file> [--kind code|security|performance] [--global-inputs <directory>] [--input-budget <characters>] [--explain-inputs]\n  quality diff [path] (--base <commit> [--head <commit>] | --last <N> [--branch <ref>]) [--fail-on-regression] [--no-write] [--format json --output <file>]\n  quality security scan [path] [--mode repo|range|staged] [--range <git-range>] [--config <path>] [--baseline <path>]\n  quality boundaries scan [path]\n  quality flow review <request.json>\n  quality report [path] [--run <id>] [--format markdown|html|json|sarif] [--output <file>] [--fail-under <aggregate-score>] [--fail-on <severity>]\n  quality migrate-data [path] [--dry-run]");
+
+    private static void PrintMigrateDataUsage() => Console.WriteLine(
+        "Usage:\n  quality migrate-data [path] [--dry-run]\n\n" +
+        "Moves generated .quality data out of the checkout into the project's data root.\n" +
+        "Author-owned inputs (scope.json, inputs/, rules/, security/, attacks/catalogue.json) stay.");
 
     private static void PrintAnalysisUsage() => Console.WriteLine(
         "Usage:\n  quality analyze [path] [--analysis boundaries|coverage|dependencies|eslint|gitleaks|roslyn|sarif|tsc]...");

@@ -8,8 +8,6 @@ src/QualityStudio.Api/.quality-studio/
 
 # Orchestrator jobs live in the task-server workspace, never in the product repo (operator decision 2026-07-11)
 .orchestrator/
-.quality/runs/
-/.quality/preflight/
 bin/
 obj/
 .vs/
@@ -18,12 +16,29 @@ TestResults/
 # orchestrator task-pipeline artifacts stay out of the repo
 /.orchestrator/
 
-# Review usage and canonical run reports are durable repository history. Monthly
-# ledgers and .quality/reports/runs/*.json are intentionally committed; only the
-# resumable orchestration state under .quality/runs is ignored.
-!/.quality/
-!/.quality/usage/
-!/.quality/usage/*.jsonl
+# Nothing Quality Studio generates is versioned any more. Ledgers, run reports and
+# review sidecars used to be committed here; they made this checkout - which is also
+# the integration checkout of the QS project - permanently dirty, and Agent Studio
+# refuses to fast-forward a dirty tree. Generated data now lives in the per-project
+# data root outside the checkout; see docs/data-root.md for the contract and for how
+# to export an artefact deliberately when one is meant to be shared.
+#
+# Everything below .quality is ignored and the author-owned inputs are then named back
+# in. A directory has to be re-included before the files in it can be: Git does not
+# descend into an excluded directory, so each input needs both its folder and its
+# contents. A nested <folder>/.quality only ever held generated sidecars, so it is
+# ignored whole.
+/.quality/**
+!/.quality/scope.json
+!/.quality/inputs/
+!/.quality/inputs/**
+!/.quality/rules/
+!/.quality/rules/**
+!/.quality/security/
+!/.quality/security/**
+!/.quality/attacks/
+!/.quality/attacks/catalogue.json
+*/**/.quality/
 /.dev-stack.log
 
 # Python bytecode from the CI scripts

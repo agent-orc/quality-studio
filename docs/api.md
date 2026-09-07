@@ -6,6 +6,9 @@ Review token persistence, usage response semantics, and quota ownership are
 documented in [usage-telemetry.md](usage-telemetry.md).
 Attack catalogue, ledger, provenance, and matrix semantics are documented in
 [attack-coverage.md](attack-coverage.md).
+Where the host files what a run generates — sidecars, ledgers, findings state and
+run reports, none of it inside the analysed checkout — is documented in
+[data-root.md](data-root.md).
 
 Quality scorecards, Git-backed trends, registry comparison, and export formats
 are documented in [quality-reports.md](quality-reports.md). Use
@@ -224,7 +227,7 @@ curl "http://127.0.0.1:5127/api/security/attack-coverage?path=src/QualityStudio.
 curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path=src/QualityStudio.Api" \
   -H "Content-Type: application/json" \
   -d '{"assessmentId":"assessment-42","boundaryId":"...","attackId":"OWASP-API7-SSRF","verdict":"pass","reasoning":"The target is selected from a fixed allowlist.","evidence":[{"kind":"code","reference":"src/Api.cs#symbol:Fetch","summary":"Allowlist checked immediately before the HTTP call."}],"deterministicSensorInput":[],"source":"agent","reviewer":{"agent":"security-reviewer","model":"routed-model","thinkingLevel":"routed-level"},"tokenCost":{"inputTokens":1200,"outputTokens":180,"cachedInputTokens":0,"reasoningOutputTokens":80},"commit":"...","commitRange":"base..head"}'
-# 201 and appends .quality/attacks/coverage-ledger.jsonl
+# 201 and appends attacks/coverage-ledger.jsonl in the project's data root
 
 curl "http://127.0.0.1:5127/api/sensors"
 # 200 {"sensors":[{"id":"dependencies","version":"1.0.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
@@ -234,7 +237,7 @@ curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
 
 curl -X POST "http://127.0.0.1:5127/api/sensors/boundaries/scan"
 # 200 {"available":true,"findings":[...],"provenance":{"sensorId":"boundaries",...}}
-# also writes <repository>/.quality/boundaries/inventory.json
+# also writes boundaries/inventory.json in the project's data root
 
 curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}

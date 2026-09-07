@@ -10,7 +10,8 @@ public sealed record QualityRunReportPinDocument(int SchemaVersion, IReadOnlyLis
 /// </summary>
 public sealed class QualityRunReportPinStore
 {
-    public const string RelativePath = ".quality/reports/pins.json";
+    /// <summary>The pin file, relative to the project's data root.</summary>
+    public const string RelativePath = "reports/pins.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string path;
     private readonly object gate = new();
@@ -18,7 +19,7 @@ public sealed class QualityRunReportPinStore
     public QualityRunReportPinStore(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        path = Path.Combine(Path.GetFullPath(repositoryRoot), RelativePath.Replace('/', Path.DirectorySeparatorChar));
+        path = QualityDataRoot.Combine(repositoryRoot, RelativePath.Split('/'));
     }
 
     public IReadOnlySet<string> Load()

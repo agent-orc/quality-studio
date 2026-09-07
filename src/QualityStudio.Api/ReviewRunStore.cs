@@ -115,10 +115,11 @@ public sealed record StoredReviewObservation(string OperationId, ReviewObservati
 /// <summary>How many run journals retention removed, and how many remain.</summary>
 public sealed record ReviewRunPruneResult(int Removed, int Remaining);
 
-/// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
+/// <summary>Persists the orchestration state for review sweeps of one project.</summary>
 public sealed class ReviewRunStore
 {
-    public const string RelativeRunsPath = ".quality/runs";
+    /// <summary>The run journals, relative to the project's data root.</summary>
+    public const string RelativeRunsPath = "runs";
     private static readonly UTF8Encoding Utf8 = new(false);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private static readonly JsonSerializerOptions LineJsonOptions = new(JsonSerializerDefaults.Web);
@@ -127,7 +128,7 @@ public sealed class ReviewRunStore
     public ReviewRunStore(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        runsPath = Path.Combine(Path.GetFullPath(repositoryRoot), RelativeRunsPath.Replace('/', Path.DirectorySeparatorChar));
+        runsPath = QualityDataRoot.Combine(repositoryRoot, RelativeRunsPath);
     }
 
     public string RunsPath => runsPath;

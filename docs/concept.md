@@ -1288,7 +1288,7 @@ it does not invent a second mutation path.
         "currentContentHash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       }
     ],
-    "metaPath": "src/Orders/Services/.quality/reviews/files/file.787c31f88bf0d42fe6e85aba59a1db122e157d7cd3bb5968a741701df8a3ba50.review-meta.performance.json",
+    "metaPath": "reviews/src/Orders/Services/files/file.787c31f88bf0d42fe6e85aba59a1db122e157d7cd3bb5968a741701df8a3ba50.review-meta.performance.json",
     "schemaVersion": 1,
     "reviewedAt": "2026-07-11T15:04:18.023Z",
     "kind": "performance",
@@ -1556,13 +1556,18 @@ enforce all of the following:
 SHA-256 hex digest of the UTF-8 bytes of `unit.id`. Full hashes avoid escaping,
 case, and collision rules in cross-platform filenames.
 
-| Level | Anchor and filename |
+Every sidecar lives below `reviews/` in the project's data root, outside the
+analysed checkout ([`data-root.md`](data-root.md)). The anchor below is the
+directory the sidecar's subject sits in, mirrored below that lane; the project
+anchor is the repository root and therefore mirrors nothing.
+
+| Level | Anchor and filename below `<data-root>/reviews/` |
 | --- | --- |
-| Project | `<project-root>/.quality/reviews/project.<unit-key>.review-meta.<kind>.json` |
-| Module | `<module-root>/.quality/reviews/module.<unit-key>.review-meta.<kind>.json` |
-| Namespace | `<namespace-anchor>/.quality/reviews/namespaces/namespace.<unit-key>.review-meta.<kind>.json` |
-| File | `<source-directory>/.quality/reviews/files/file.<unit-key>.review-meta.<kind>.json` |
-| Function | `<source-directory>/.quality/reviews/functions/function.<unit-key>.review-meta.<kind>.json` |
+| Project | `project.<unit-key>.review-meta.<kind>.json` |
+| Module | `<module-root>/module.<unit-key>.review-meta.<kind>.json` |
+| Namespace | `<namespace-anchor>/namespaces/namespace.<unit-key>.review-meta.<kind>.json` |
+| File | `<source-directory>/files/file.<unit-key>.review-meta.<kind>.json` |
+| Function | `<source-directory>/function.<unit-key>.review-meta.<kind>.json` |
 
 A loader derives this exact path from the validated body. The filename level
 prefix MUST equal `unit.level`, `<unit-key>` MUST equal SHA-256 of `unit.id`, the
@@ -1571,15 +1576,18 @@ derived anchor. A second file for the same `(unit.id, kind)` or a valid document
 at the wrong path is `invalid`; discovery never chooses a filesystem-order winner.
 
 File IDs include their compiler/module context, so the unit key prevents a linked
-.NET file compiled by two modules from colliding with itself. The `.quality`
-directory is a child of the source's feature folder and therefore remains beside
-the code rather than in a central service database. Review discovery MUST exclude
-`*.review-meta.*.json`, `.quality/`, `bin/`, `obj/`, Angular output directories,
-and adapter-identified generated files from source inputs.
+.NET file compiled by two modules from colliding with itself. A sidecar used to
+be written into a `.quality` folder inside the source's feature folder; it now
+files under one `reviews/` lane that mirrors that same folder, which keeps it
+attributable to the code without opening it and keeps the reviewed checkout free
+of generated data. Review discovery MUST exclude `*.review-meta.*.json`,
+`.quality/`, `bin/`, `obj/`, Angular output directories, and
+adapter-identified generated files from source inputs.
 
-Renames derive a new unit ID and filename. Git may carry the old artifact through
-the rename, but it remains orphaned until rewritten with the new identity; tools
-MUST NOT guess identity from similar content. The namespace filename is anchored
+Renames derive a new unit ID and filename. The sidecar written under the old
+identity stays where it was and remains orphaned until the subject is reviewed
+again under the new one; tools MUST NOT guess identity from similar content.
+The namespace filename is anchored
 in the logical feature directory for Angular and at the owning module for .NET,
 where one semantic namespace can span several folders. Project and module files
 are the requested aggregate files; namespace uses the same aggregate contract.
@@ -1587,8 +1595,8 @@ are the requested aggregate files; namespace uses the same aggregate contract.
 Multiple kinds are siblings, for example:
 
 ```text
-order-card.component.ts
-.quality/reviews/files/
+frontend/src/app/orders/order-card/order-card.component.ts
+reviews/frontend/src/app/orders/order-card/files/
   file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.code.json
   file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.performance.json
   file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.security.json
@@ -1685,8 +1693,8 @@ This example assumes Project tuple
 `["qs-v1/angular/project/254c8c041896bb3ef68a596323c46467df421c2dffe9be0658c2ca18df62deb7","root","frontend","root"]`,
 and File tuple
 `["qs-v1/angular/module/3ed36aa4e7c06837ce411a6a11a1b353dcaf7f11a2a39583620986c0c552adbf","frontend/src/app/orders/order-card/order-card.component.ts"]`.
-Location:
-`frontend/src/app/orders/order-card/.quality/reviews/files/file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.code.json`.
+Location, below the project's data root:
+`reviews/frontend/src/app/orders/order-card/files/file.d7170540c0a8a471383c141f3557f7115c684defb559fa37bc48be55905b44a4.review-meta.code.json`.
 The unit ID, filename key, and enclosing manifest hashes are calculated from the
 displayed values.
 
@@ -1806,8 +1814,8 @@ This example assumes Project tuple `["QualityStudio.slnx"]`, Module tuple
 `["qs-v1/dotnet/project/1111dd746cabfdcf84531563191ceab0bc21df4a4b93568d37a365264a100a40","src/Orders/Orders.csproj"]`,
 and File tuple
 `["qs-v1/dotnet/module/d2a6bc5baf360ab309d942087a702041e00e846b8a8e7140f25d49fba459fb08","src/Orders/Services/OrderPricingService.cs"]`.
-Location:
-`src/Orders/Services/.quality/reviews/files/file.787c31f88bf0d42fe6e85aba59a1db122e157d7cd3bb5968a741701df8a3ba50.review-meta.performance.json`.
+Location, below the project's data root:
+`reviews/src/Orders/Services/files/file.787c31f88bf0d42fe6e85aba59a1db122e157d7cd3bb5968a741701df8a3ba50.review-meta.performance.json`.
 
 ```json
 {
@@ -1914,9 +1922,11 @@ Location:
 
 ### Aggregate example: .NET module code review
 
-Location (the unit key is the actual SHA-256 of the example `unit.id`):
-`src/Orders/.quality/reviews/module.35ed9fc8dc157c6c42093044005fd8fcd538162c87754629af99e59055297183.review-meta.code.json`.
-Project aggregates use the same shape at the project anchor.
+Location below the project's data root (the unit key is the actual SHA-256 of the
+example `unit.id`):
+`reviews/src/Orders/module.35ed9fc8dc157c6c42093044005fd8fcd538162c87754629af99e59055297183.review-meta.code.json`.
+Project aggregates use the same shape at the project anchor, which mirrors the
+repository root and therefore sits directly below `reviews/`.
 
 ```json
 {
@@ -2012,7 +2022,7 @@ Project aggregates use the same shape at the project anchor.
 ## V1 acceptance boundary
 
 V1 is credible when a developer can derive an Angular or .NET hierarchy, run a
-file-level review of any built-in kind, commit independently stale-aware sidecars,
+file-level review of any built-in kind, produce independently stale-aware sidecars,
 browse them at the code within measured budgets, inspect the exact identifiers and
 content hashes of the standards that informed them, and hand a lossless finding
 snapshot to Agent Studio. It does not claim to recover deleted external standard
