@@ -48,7 +48,25 @@
     }
   },
   "relatedTaskKeys": [
-    "QS-70"
+    "QS-70",
+    "QS-84"
+  ],
+  "implementationReceipts": [
+    {
+      "taskKey": "QS-70",
+      "date": "2026-08-23",
+      "slices": [
+        "S1 delivered",
+        "S2 backend contract landed, UI and prompt integration queued"
+      ]
+    },
+    {
+      "taskKey": "QS-84",
+      "date": "2026-09-07",
+      "slices": [
+        "S3 exact-first finding ignore list delivered; assessment events and scoped rule preview still queued"
+      ]
+    }
   ],
   "editedBy": "Operator, recorded by AGT-2621"
 }

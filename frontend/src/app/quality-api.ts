@@ -4,7 +4,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiContext } from './api-context';
 import {
-  AgentStudioImportResponse, AttackCoverageMatrix, FindingStateMutationRequest, Guideline,
+  AgentStudioImportResponse, AttackCoverageMatrix, FindingStateMutationRequest, FindingSuppressionMutation,
+  FindingSuppressionsResponse, Guideline,
   GuidelineCatalogueEntry, GuidelineDraft, GuidelineImpact, GuidelineTrace, HandoverRequest, HandoverResult, ProjectDashboard,
   QualityRunReport, QualityRunTrendPage, RepositoryRegistration, RepositoryRegistrationRequest,
   RepositoryTransition, ResolvedInputs, ReviewFinding, ReviewKind, ReviewModelRecommendation,
@@ -82,6 +83,7 @@ export class QualityApi {
   readonly focusedThreadId = this.findingsApi.focusedThreadId;
   readonly handoverConfigured = this.findingsApi.handoverConfigured;
   readonly handoverDryRun = this.findingsApi.handoverDryRun;
+  readonly findingSuppressions = this.findingsApi.findingSuppressions;
   readonly scopeRules = this.scopeApi.scopeRules;
   readonly guidelines = this.scopeApi.guidelines;
   readonly guidelineCatalogue = this.scopeApi.guidelineCatalogue;
@@ -270,6 +272,9 @@ export class QualityApi {
   mutateThread(request: ThreadMutationRequest): Promise<ReviewThread> { return this.findingsApi.mutateThread(request); }
   mutateFindingState(request: FindingStateMutationRequest): Promise<ReviewFinding | null> { return this.findingsApi.mutateFindingState(request); }
   createTask(request: HandoverRequest): Promise<HandoverResult> { return this.findingsApi.createTask(request); }
+  loadFindingSuppressions(): Promise<FindingSuppressionsResponse> { return this.findingsApi.loadFindingSuppressions(); }
+  addFindingSuppression(request: FindingSuppressionMutation): Promise<ReviewFinding | null> { return this.findingsApi.addFindingSuppression(request); }
+  deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> { return this.findingsApi.deleteFindingSuppression(id, expectedRevision); }
 
   // --- scope and guidelines -----------------------------------------------------------------
 
@@ -319,11 +324,12 @@ export class QualityApi {
   private async loadRepositoryDetails(repositoryId: string): Promise<void> {
     const base = this.context.repositoryApiBase(repositoryId);
     try {
-      const [scan, inputs, guidelines, risk] = await Promise.all([
+      const [scan, inputs, guidelines, risk, suppressions] = await Promise.all([
         firstValueFrom(this.http.get<ScanReport>(`${base}/scan`)),
         firstValueFrom(this.http.get<{ kinds: Record<ReviewKind, ResolvedInputs> }>(`${base}/inputs`)),
         firstValueFrom(this.http.get<{ guidelines: Guideline[]; catalogue: GuidelineCatalogueEntry[]; traces: GuidelineTrace[] }>(`${base}/guidelines`)),
         firstValueFrom(this.http.get<RiskReport>(`${base}/risk?days=90`)),
+        firstValueFrom(this.http.get<FindingSuppressionsResponse>(`${base}/findings/suppressions`)),
       ]);
       if (repositoryId !== this.selectedRepositoryId()) return;
       this.scan.set(scan);
@@ -332,6 +338,7 @@ export class QualityApi {
       this.guidelineCatalogue.set(guidelines.catalogue);
       this.guidelineTraces.set(guidelines.traces);
       this.risk.set(risk);
+      this.findingSuppressions.set(suppressions);
       await this.findingsApi.loadHandoverConfiguration();
     } catch (error) {
       if (repositoryId === this.selectedRepositoryId()) {

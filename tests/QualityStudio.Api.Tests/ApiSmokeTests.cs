@@ -722,6 +722,84 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Finding_ignore_list_persists_exact_fingerprint_and_restores_observation()
+    {
+        var fingerprint = "sha256:" + new string('e', 64);
+        var findingId = "finding-" + new string('e', 64);
+        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
+        Directory.CreateDirectory(metadataDirectory);
+        var metadataPath = Path.Combine(metadataDirectory, "file.ignore.review-meta.code.json");
+        var grade = new ReviewGrade(60, GradeBand.D, "One finding.");
+        var metadata = new ReviewMetaDocument
+        {
+            Unit = new ReviewUnit("qs-v1/generic/file/" + new string('e', 64), ReviewAdapter.Generic,
+                ReviewLevel.File, "Sample.cs", "Sample.cs"),
+            ReviewedAt = new DateTimeOffset(2026, 8, 12, 20, 0, 0, TimeSpan.Zero),
+            Kind = ReviewKind.Code,
+            Reviewer = new ReviewerIdentity("test", "test"),
+            ReviewedHash = ManifestHash.Subject(new string('b', 64)),
+            SubjectInputs = [new SubjectInputHash("Sample.cs", "file", "sha256:" + new string('c', 64))],
+            ReviewInputs = new ReviewInputs(
+                ManifestHash.ReviewInput(new string('e', 64)), true, [], [],
+                new PromptReference("file-code-review", "1.0.0", "sha256:" + new string('f', 64))),
+            Grade = grade,
+            Summary = "One finding.",
+            Aspects = [new ReviewAspect("correctness", "Correctness", grade)],
+            Findings = [new ReviewFinding(findingId, "correctness", FindingSeverity.High, "Persistent ignored finding",
+                "A finding used by the ignore-list API test.", "Review it.", [new FindingLocation("Sample.cs")],
+                fingerprint, "correctness.ignore-test")],
+        };
+        await File.WriteAllTextAsync(
+            metadataPath, ReviewMetaJson.Serialize(metadata), TestContext.Current.CancellationToken);
+
+        try
+        {
+            using var client = application!.CreateClient();
+            using var ignoredResponse = await client.PostAsJsonAsync("/api/findings/suppressions", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint,
+                author = "Ada",
+                reason = "Known generated-code debt.",
+                expectedRevision = 0,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, ignoredResponse.StatusCode);
+            var ignored = await ignoredResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal(1, ignored.GetProperty("revision").GetInt64());
+            var rule = Assert.Single(ignored.GetProperty("rules").EnumerateArray());
+            Assert.Equal(fingerprint, rule.GetProperty("match").GetProperty("fingerprint").GetString());
+
+            var afterRestart = await new FindingSuppressionStore(repositoryRoot).ReadAsync(TestContext.Current.CancellationToken);
+            Assert.Single(afterRestart.Rules);
+            var file = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var projected = Assert.Single(Assert.Single(file.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.Equal(rule.GetProperty("id").GetString(), projected.GetProperty("suppression").GetProperty("id").GetString());
+            Assert.Equal("open", projected.GetProperty("state").GetString());
+            var suppressedGrade = file.GetProperty("metaDocuments")[0].GetProperty("grade").GetProperty("score").GetInt32();
+
+            using var restored = await client.DeleteAsync(
+                $"/api/findings/suppressions/{Uri.EscapeDataString(rule.GetProperty("id").GetString()!)}?expectedRevision=1",
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+            var restoredFile = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            var restoredFinding = Assert.Single(Assert.Single(restoredFile.GetProperty("metaDocuments").EnumerateArray())
+                .GetProperty("findings").EnumerateArray());
+            Assert.False(restoredFinding.TryGetProperty("suppression", out _));
+            var restoredGrade = restoredFile.GetProperty("metaDocuments")[0].GetProperty("grade").GetProperty("score").GetInt32();
+            Assert.True(restoredGrade < suppressedGrade, "restoring an ignored finding must return its deficit to the grade");
+        }
+        finally
+        {
+            File.Delete(metadataPath);
+            var suppressionPath = Path.Combine(repositoryRoot,
+                FindingSuppressionStore.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(suppressionPath)) File.Delete(suppressionPath);
+        }
+    }
+
+    [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
         var timestamp = DateTimeOffset.UtcNow.AddMinutes(-1);
