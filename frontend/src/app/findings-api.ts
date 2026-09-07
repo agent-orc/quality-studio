@@ -5,8 +5,9 @@ import { firstValueFrom } from 'rxjs';
 import { ApiContext } from './api-context';
 import { describeFileError } from './api-errors';
 import {
-  CoverageFact, FileDocument, FileError, FindingStateMutationRequest, HandoverRequest, HandoverResult,
-  ReviewFinding, ReviewThread, ThreadMutationRequest,
+  CoverageFact, FileDocument, FileError, FindingStateMutationRequest, FindingSuppressionMutation,
+  FindingSuppressionsResponse, HandoverRequest, HandoverResult, ReviewFinding, ReviewThread,
+  ThreadMutationRequest,
 } from './contracts';
 import type { PreviewFixtures } from './preview-fixtures';
 
@@ -33,6 +34,7 @@ export class FindingsApi {
   readonly focusedThreadId = signal<string | null>(null);
   readonly handoverConfigured = signal(false);
   readonly handoverDryRun = signal(true);
+  readonly findingSuppressions = signal<FindingSuppressionsResponse>({ schemaVersion: 1, revision: 0, rules: [] });
 
   /** Called after a mutation that changes review state elsewhere, such as a finding disposition. */
   onFindingsChanged: (() => Promise<void>) | null = null;
@@ -85,6 +87,36 @@ export class FindingsApi {
 
   createTask(request: HandoverRequest): Promise<HandoverResult> {
     return firstValueFrom(this.http.post<HandoverResult>(`${this.context.repositoryApiBase()}/handover`, request));
+  }
+
+  /**
+   * The ignore list is repository-owned and revisioned. Only the API writes the file; the browser
+   * sends the revision it last saw so a concurrent edit is rejected instead of silently overwritten.
+   */
+  async loadFindingSuppressions(): Promise<FindingSuppressionsResponse> {
+    const response = await firstValueFrom(this.http.get<FindingSuppressionsResponse>(`${this.context.repositoryApiBase()}/findings/suppressions`));
+    this.findingSuppressions.set(response);
+    return response;
+  }
+
+  async addFindingSuppression(request: FindingSuppressionMutation): Promise<ReviewFinding | null> {
+    const response = await firstValueFrom(this.http.post<FindingSuppressionsResponse>(
+      `${this.context.repositoryApiBase()}/findings/suppressions`, request));
+    this.findingSuppressions.set(response);
+    await Promise.all([this.loadFile(request.path), this.onFindingsChanged?.() ?? Promise.resolve()]);
+    console.info(JSON.stringify({ event: 'qs.finding.suppressed', fingerprint: request.fingerprint, revision: response.revision }));
+    return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
+      .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> {
+    const response = await firstValueFrom(this.http.delete<FindingSuppressionsResponse>(
+      `${this.context.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}`,
+      { params: { expectedRevision } }));
+    this.findingSuppressions.set(response);
+    const path = this.file()?.path;
+    await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.onFindingsChanged?.() ?? Promise.resolve()]);
+    console.info(JSON.stringify({ event: 'qs.finding.unsuppressed', suppressionId: id, revision: response.revision }));
   }
 
   async loadHandoverConfiguration(): Promise<void> {

@@ -45,7 +45,12 @@ export interface FindingStateCounts { open: number; accepted: number; waived: nu
 export interface FindingPosition { line: number; column: number; }
 export interface FindingLocation { path: string; range?: { start: FindingPosition; end: FindingPosition }; }
 export interface FindingSource { kind: 'deterministic'; sensorId: string; producer: string; producerVersion?: string; runIndex?: number; }
-export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; locations: FindingLocation[]; }
+/** The active ignore-list rule muting a finding, projected onto the finding itself by the API. */
+export interface FindingSuppression { id: string; reason: string; author: string; createdAt: string; expiresAt: string | null; }
+export interface FindingSuppressionRule extends FindingSuppression { enabled: boolean; match: { fingerprint: string }; effect: 'suppress'; path: string | null; ruleId: string | null; title: string | null; }
+export interface FindingSuppressionsResponse { schemaVersion: 1; revision: number; rules: FindingSuppressionRule[]; }
+export interface FindingSuppressionMutation { path: string; kind: ReviewKind; fingerprint: string; author: string; reason: string; expiresAt?: string | null; expectedRevision?: number | null; }
+export interface ReviewFinding { id: string; aspect: string; severity: FindingSeverity; title: string; description: string; recommendation: string; evidence?: string; fingerprint?: string; ruleId: string; source?: FindingSource; accepted?: boolean; state?: FindingState; stateAuthor?: string; stateReason?: string; stateTimestamp?: string; stateExpiresAt?: string; suppression?: FindingSuppression | null; locations: FindingLocation[]; }
 export type ThreadStatus = 'open' | 'resolved';
 export type AnchorState = 'anchored' | 'healed' | 'detached';
 export interface ReviewThreadAuthor { kind: 'agent' | 'human'; agent?: string; model?: string; name?: string; }
