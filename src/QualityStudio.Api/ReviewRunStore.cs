@@ -347,12 +347,18 @@ public sealed class ReviewRunStore
         return observations;
     }
 
+    /// <summary>
+    /// Resolves the journal directory for a run. The id becomes a directory name that <see cref="Prune"/>
+    /// deletes recursively, so the guard rejects anything that would not stay a single child of the runs
+    /// root: either platform's separator, so a journal carried between Linux and Windows keeps the same
+    /// meaning, and the relative tokens that would otherwise resolve to the runs root or its parent.
+    /// </summary>
     private string RunDirectory(string runId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         if (!string.Equals(runId, Path.GetFileName(runId), StringComparison.Ordinal) ||
-            runId.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0)
-            throw new ArgumentException("A review run id cannot contain path separators.", nameof(runId));
+            runId.IndexOfAny(['/', '\\']) >= 0 || runId is "." or "..")
+            throw new ArgumentException("A review run id must be a single directory name.", nameof(runId));
         return Path.Combine(runsPath, runId);
     }
 
