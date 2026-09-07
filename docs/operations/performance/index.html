@@ -25,7 +25,7 @@
   <div class="kicker">Quality Studio · performance · living dossier</div>
   <h1>Large-repository transport after QS-82</h1>
   <p class="lede">QS-59 found that a warm project switch still transferred a recursively repeated 29.1 MB tree. QS-82 delivers the next slice cleanly on top of QS-54 and QS-78: one-level tree transport, lazy expansion, snapshot-pinned child pages, complete timing, and production bundle headroom.</p>
-  <div class="meta"><div><b>Status</b><br><span class="pill done">documented</span></div><div><b>Implemented</b><br>12 August 2026</div><div><b>Re-measured</b><br>24 August 2026</div><div><b>Reproduced</b><br>24 August 2026 on <code>b36bfe3</code></div><div><b>Card</b><br><code>QS-82</code></div><div><b>Integration base</b><br><code>origin/main e31089c</code></div><div><b>Target</b><br>3,927 tracked files</div></div>
+  <div class="meta"><div><b>Status</b><br><span class="pill done">documented</span></div><div><b>Implemented</b><br>12 August 2026</div><div><b>Re-measured</b><br>7 September 2026</div><div><b>Reproduced</b><br>7 September 2026 on <code>origin/main 6b4e7b3</code></div><div><b>Card</b><br><code>QS-82</code></div><div><b>Integration base</b><br><code>origin/main 6b4e7b3</code></div><div><b>Target</b><br>3,927 tracked files</div></div>
 </header>
 
 <section class="callout"><b>Outcome.</b> A valid persisted snapshot plus the v2 root made five measured restarts usable in 1,516.87 ms median instead of the QS-59 10,004.99 ms median (84.84% lower; the &lt;2 s target now passes). The root response is 15,391 bytes instead of 29,119,333 bytes (99.95% smaller). Ten same-build project-plus-root samples measured 31.23 ms median / 42.45 ms p95 with v2 against 331.36 / 902.38 ms with v1. Five live Angular switches measured 19.8 / 87.0 ms and first lazy expansion measured 33.1 ms.</section>
@@ -52,7 +52,7 @@
   <tr><td>Snapshot integration</td><td><span class="pill done">built · QS-78/QS-82</span></td><td>QS-78 hierarchy/dashboard restoration is retained. The existing QS-54 prewarmer now fills the bounded one-slot aggregate projection; child pages pin the root snapshot and avoid another Git-state scan.</td></tr>
   <tr><td>Explorer migration</td><td><span class="pill done">built · QS-82</span></td><td>Children load on expansion, pages remain in the per-repository browser snapshot, server search preserves unloaded deep links, and keyboard/virtualized-row behavior remains.</td></tr>
   <tr><td>Honest timing</td><td><span class="pill done">built · QS-82</span></td><td><code>Server-Timing</code> includes snapshot, projection, and JSON serialization. <code>qs.tree.transport</code> records bytes and response completion.</td></tr>
-  <tr><td>Bundle headroom</td><td><span class="pill done">built · QS-82</span></td><td>The editor is deferred through the established Angular component boundary. The final initial production bundle is 438.02 kB versus the 480 kB error ceiling.</td></tr>
+  <tr><td>Bundle headroom</td><td><span class="pill done">built · QS-82</span></td><td>The editor is deferred through the established Angular component boundary. Re-measured on 2026-09-07 after the rebase onto <code>6b4e7b3</code>: 334.86 kB on main versus 305.97 kB here, both against the 480 kB error ceiling.</td></tr>
   <tr><td>Bounded retention</td><td><span class="pill done">built · QS-78</span></td><td>The dashboard cache is bounded per repository/root and invalidated with the shared repository cache state; QS-82 adds only a one-slot derived tree projection.</td></tr>
   <tr><td>Review completion</td><td><span class="pill pending">not built</span></td><td>Server-sent review transitions and phase telemetry remain the next governed review-latency slice. Model and thinking-level routing are unchanged.</td></tr>
 </tbody></table>
@@ -79,8 +79,8 @@
 <div class="grid">
   <figure><img src="results/tree-transport-before.png" alt="Agent Studio before expanding the lazy tree root"><figcaption><b>Before interaction.</b> The app is usable with only the 15,391-byte root page loaded; the explorer footer reads 13 items and the selected solution is still collapsed.</figcaption></figure>
   <figure><img src="results/tree-transport-after.png" alt="Agent Studio after QS-82 with a lazily expanded project"><figcaption><b>After interaction.</b> The same live app shows the selected solution's ten children — 23 items — after a 33.1 ms snapshot-pinned lazy expansion.</figcaption></figure>
-  <figure><img src="results/agent-studio-switcher-full-path.png" alt="Repository switcher showing wrapped full root paths"><figcaption><b>Switcher.</b> Root paths wrap instead of truncating, and the three actions share one token-spaced row.</figcaption></figure>
-  <figure><img src="results/agent-studio-api-down-notice.png" alt="API unavailable notice with a retry action"><figcaption><b>API down.</b> Losing the API raises an explicit notice instead of silently presenting stale data as live; Retry recovered the session in the same run.</figcaption></figure>
+  <figure><img src="results/agent-studio-switcher-full-path.png" alt="Repository switcher showing wrapped full root paths"><figcaption><b>Switcher.</b> Root paths wrap instead of truncating. Re-captured 7 September 2026 after the rebase: the three repository actions share one token-spaced row and main's API-access action spans the row below them.</figcaption></figure>
+  <figure><img src="results/agent-studio-api-down-notice.png" alt="API unavailable notice with a retry action"><figcaption><b>API down.</b> Losing the API raises an explicit notice instead of silently presenting stale data as live; Retry recovered the session in the same run. Re-captured 7 September 2026 from the rebased build.</figcaption></figure>
 </div>
 
 <h2>6. Verification and evidence</h2>
@@ -138,4 +138,41 @@
 <li>Tree-v2 live contract harness: 13/13 passed; this checkout measured 1,653,398-byte v1 versus 5,331-byte v2 roots, a 99.68% reduction.</li>
 </ul>
 <p class="muted">The 24 August before/after series remains the controlled QS-59 comparison and is not replaced by this final integration gate. The 1 September contract run is a functional current-tree receipt; its smaller repository is not used to revise the large-repository performance claims.</p>
+
+<h2>9. Rebase onto current main and re-gate (7 September 2026)</h2>
+<p>The delivery tip <code>2390474</code> was rebased onto <code>origin/main 6b4e7b3</code>. Main had advanced substantially in the interim — the frontend API service was split along its domains, the project-dashboard cache became a bounded LRU, the hierarchy cache gained a one-second Git-fingerprint TTL, and the .NET hierarchy now derives function units below file nodes. Eleven files conflicted. Every conflict was resolved by keeping main's newer structure and re-expressing the QS-82 change on top of it; no QS-82 feature was dropped and no feature was reworked.</p>
+<table><thead><tr><th>Conflict</th><th>Resolution</th></tr></thead><tbody>
+  <tr><td><code>quality-api.ts</code> (service split)</td><td>The lazy transport was ported onto main's facade. The root now loads over <code>/api/tree/v2</code> with main's conditional <code>If-None-Match</code> revalidation on the first page, falling back to the recursive route on a 404. Path-scoped loads keep the recursive route.</td></tr>
+  <tr><td><code>app.ts</code> (<code>nodeAt</code>/<code>allNodes</code>)</td><td>Main's cached path lookup is kept; <code>nodesByPath</code> now also covers server search hits, which is what QS-82 needed the extra flattening for.</td></tr>
+  <tr><td><code>explorer.ts</code> (debounced filter)</td><td>Main's debounce is kept and now drives the bounded server-side search, because a lazy tree cannot answer a filter from the loaded levels alone.</td></tr>
+  <tr><td><code>app.html</code> / <code>app.css</code></td><td>QS-82's three-column repository menu is kept together with main's API-access action, which spans the row. <code>.secondary-button</code>, which the QS-82 markup referenced but nothing defined, is now a token-based shared class in <code>styles.css</code>.</td></tr>
+  <tr><td><code>ProjectDashboard.cs</code></td><td>Main's bounded LRU replaces QS-82's one-slot-per-repository cache; QS-82's <code>Seed</code> is re-expressed against it so the prewarmer still avoids a rebuild.</td></tr>
+  <tr><td><code>RepositoryHierarchyCache.cs</code></td><td>QS-82's public <code>MeasureState</code> now reads main's TTL-cached Git fingerprint instead of running Git again, and the fingerprint carries HEAD for the diagnostic field.</td></tr>
+  <tr><td><code>Program.cs</code></td><td>The sensors endpoint keeps QS-82's per-repository availability cache; the surrounding QS-86 registrations were untouched.</td></tr>
+</tbody></table>
+<p>Three test assertions were corrected because main changed the ground truth underneath them, not because behaviour regressed: the tree-v2 search test now asserts that a file states <code>hasChildren</code>/<code>childCount</code> without shipping its (newly derived) function children; the sensor-availability test constructs its hierarchy cache with a zero fingerprint TTL so it measures invalidation rather than main's deliberate one-second reuse window; and the explorer filter tests now flush the server search. One genuine defect surfaced and was fixed: with a server-side filter, <code>Escape</code> no longer cleared a filter that had matched nothing, because the key handler returned early on an empty row set.</p>
+<ul>
+<li>Release solution build: zero warnings, zero errors.</li>
+<li><code>dotnet format --verify-no-changes</code>: clean (one import-ordering fix in <code>TreeTransport.cs</code>).</li>
+<li>.NET tests: 150 API + 397 core passed, 2 skipped, zero failures — repeated three times consecutively. A single first-run failure of the 150 ms 5,000-file dashboard budget did not recur in any of the three repeats and is the known host-timing flake, not a regression in this diff.</li>
+<li>Angular tests: 144/144 passed in Chrome Headless 153.</li>
+<li><code>npm run lint</code>: clean. Production <code>ng build</code>: clean apart from the pre-existing prismjs CommonJS warnings.</li>
+<li>Tree-v2 live contract harness: 13/13 passed against this repository — v1 root 2,868,549 bytes versus v2 root 2,256 bytes, 99.92% smaller.</li>
+</ul>
+<table><thead><tr><th>Metric</th><th><code>origin/main 6b4e7b3</code></th><th>Rebased QS-82</th><th>Change</th></tr></thead><tbody>
+  <tr><td>Root payload (this repository)</td><td>2,868,549 bytes</td><td>2,255 bytes</td><td class="good">-99.92%</td></tr>
+  <tr><td>Root request, 10 warm samples</td><td>79.13 ms median / 93.85 ms p95</td><td>3.20 ms / 3.55 ms</td><td class="good">-95.96% median</td></tr>
+  <tr><td>Cached child page (one level of 5)</td><td>n/a — descendants were eager</td><td>4.73 ms</td><td class="good">pinned to the root snapshot</td></tr>
+  <tr><td>Repeat conditional root request</td><td>—</td><td>304 in 9.95 ms</td><td class="good">no payload</td></tr>
+  <tr><td>Initial production bundle</td><td>334.86 kB raw / 92.49 kB transfer</td><td>305.97 kB / 86.04 kB</td><td class="good">-28.89 kB (-8.63%)</td></tr>
+</tbody></table>
+<p>The live browser harness was re-run against the same 3,927-file Agent Studio target (<code>9af1a848e3be</code>) from the rebased build in Chromium 153.0.8010.12; the raw series is <code>results/lazy-tree-browser.json</code>.</p>
+<table><thead><tr><th>Browser measurement</th><th>Budget</th><th>7 September 2026 result</th></tr></thead><tbody>
+  <tr><td>Large-repository switch to usable, 5 samples</td><td>&lt; 500 ms</td><td class="good">40.7 ms median / 47.0 ms p95 (34.9–47.0 ms)</td></tr>
+  <tr><td>First lazy expansion, 10 children fetched</td><td>&lt; 100 ms</td><td class="good">23.3 ms</td></tr>
+  <tr><td>Cached expand/collapse, 6 samples</td><td>&lt; 50 ms</td><td class="good">2.0 ms median / 11.4 ms p95</td></tr>
+  <tr><td>Repository transitions visible, 5 samples</td><td>&lt; 100 ms</td><td class="good">11.4–17.3 ms, all inside budget</td></tr>
+</tbody></table>
+<p>The switcher run from the same build restored the last repository across a reload, rendered both full root paths, and raised the explicit <em>API unavailable</em> notice whose Retry recovered the session — the two screenshots in section 5 are that run's captures.</p>
+<p class="muted">This repository is much smaller than the 3,927-file Agent Studio target of the controlled 24 August series, so only the ratios carry over; the absolute large-repository numbers in section 4 are not revised by this run. Backend orchestration owns pushes and merges; this section records that the rebased tree is gate-clean, not that it has been merged.</p>
 </main></body></html>
