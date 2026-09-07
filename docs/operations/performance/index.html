@@ -175,4 +175,28 @@
 </tbody></table>
 <p>The switcher run from the same build restored the last repository across a reload, rendered both full root paths, and raised the explicit <em>API unavailable</em> notice whose Retry recovered the session — the two screenshots in section 5 are that run's captures.</p>
 <p class="muted">This repository is much smaller than the 3,927-file Agent Studio target of the controlled 24 August series, so only the ratios carry over; the absolute large-repository numbers in section 4 are not revised by this run. Backend orchestration owns pushes and merges; this section records that the rebased tree is gate-clean, not that it has been merged.</p>
+
+<h2>10. Recovery re-gate and a harness defect this round found (7 September 2026)</h2>
+<p>The fenced delivery <code>2390474</code> was recovered and confirmed to already sit on current <code>origin/main 6b4e7b3</code>, so this round produced no new conflicts. Every job of <code>.github/workflows/build.yml</code> was then replayed locally on the Linux host, and one of them failed for a reason that was genuinely in this diff.</p>
+<p><strong>Defect found and fixed.</strong> <code>npm run perf</code> failed at the repository-dashboard step. The cause was not the dashboard: <code>frontend/tests/perf.mjs</code> stubs the API so it can measure a fixed worst-case fixture, but its hierarchy stub only matched the recursive <code>/api/tree</code> route. Once the shell moved to <code>/api/tree/v2</code> and <code>/api/tree/v2/search</code>, nothing matched, the fixture went dead, and the harness silently measured whatever repository the dev stack served &mdash; where the first row is a project, not the repository, so no health card ever appeared. The harness now answers the level and search routes from the same fixture, one level at a time and shallow, the way the server does, and addresses the repository node by id again instead of by position. The fixture is measured once more, and the run now also exercises the lazy expansion this card introduced.</p>
+<table><thead><tr><th>Browser budget (fixture)</th><th>Budget</th><th>Result</th></tr></thead><tbody>
+  <tr><td><code>qs.project.first-interactive</code></td><td>&lt; 150 ms</td><td class="good">35.8 ms</td></tr>
+  <tr><td><code>qs.tree.expand-loaded</code>, first lazy level</td><td>&lt; 100 ms</td><td class="good">30.4 ms</td></tr>
+  <tr><td><code>qs.tree.toggle</code>, cached</td><td>&lt; 50 ms</td><td class="good">19.8 ms and 17.3 ms</td></tr>
+  <tr><td><code>qs.file.first-content</code>, 6,000-line payload</td><td>&lt; 150 ms</td><td class="good">67.5 ms</td></tr>
+  <tr><td><code>qs.review.aspect-switch</code></td><td>&lt; 50 ms</td><td class="good">7.5 ms</td></tr>
+  <tr><td>Repository dashboard visible</td><td>&lt; 150 ms</td><td class="good">59.6 ms</td></tr>
+</tbody></table>
+<p>The live-API half of the same gate (<code>project-switch-perf.mjs</code>) is where this card's own win shows on this host: <code>qs.project.first-interactive</code> for the default repository measures 73.3 ms here against 222.6 ms on a pristine <code>origin/main 6b4e7b3</code> checkout, which misses its own 150 ms budget. Repository switches to usable measure 25.5&ndash;46.9 ms against a 500 ms budget.</p>
+<ul>
+<li><code>dotnet restore --locked-mode</code>, <code>dotnet format --verify-no-changes</code>, Release build: clean, zero warnings.</li>
+<li>Gate test step (<code>--filter "Category!=MachineBound"</code>) with coverage: 149 API + 396 core passed, 2 skipped, zero failures.</li>
+<li>Coverage against the baselines: core 82.28% (floor 77.07%), API 47.73% (floor 41.26%), frontend 69.86% (floor 58.82%).</li>
+<li>Security scan: pass &mdash; 710 files, 0 new, 0 blocking. Solution and spike NuGet vulnerability checks: none.</li>
+<li>Repository scripts: catalog snapshot valid, rule catalogue matches 27 authored rules, 6 catalogue tests, 5 dev-stack tests, 17 coverage-validator tests.</li>
+<li>Frontend: lint clean, production build clean apart from the pre-existing prismjs CommonJS warnings, 144/144 Angular tests in Chrome Headless 153, production audit reports no vulnerabilities.</li>
+<li>Browser performance budgets: both harnesses pass.</li>
+</ul>
+<p><strong>Correction to section 9.</strong> That section reported the 150 ms 5,000-file dashboard budget as a first-run flake that did not recur. On this host it does recur: it fails in every full-solution run and passes in every isolated run, because the two test assemblies run concurrently and the assertion is on wall-clock time. It fails the same way on a pristine <code>origin/main 6b4e7b3</code> checkout, and by a wider margin &mdash; 278 ms there against 175&ndash;316 ms here &mdash; so it is not this diff. The test carries <code>[Trait("Category", "MachineBound")]</code> and the gate excludes that category by design, which is why the gate step above is green. It is left untouched: it belongs to main, and re-tuning a host-sensitive budget from inside this card would hide whatever it is meant to catch.</p>
+<p class="muted">The delivery history was also given real commit subjects in place of the runner's <code>wip &hellip; salvage before teardown</code> placeholders. The trees are identical to the reviewed delivery; only the messages changed.</p>
 </main></body></html>
