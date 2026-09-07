@@ -16,7 +16,10 @@ public sealed class ChangeSetReviewTests
         var root = RepositoryTestContext.FindRepositoryRoot();
         var schema = JsonSchema.FromText(File.ReadAllText(
             Path.Combine(root, "schemas", "change-review.v1.schema.json")));
-        var samples = Directory.GetFiles(Path.Combine(root, ".quality", "changes"), "*.json");
+        // The corpus is committed repository content, not run output: it is the contract's evidence
+        // and is read from the checkout even though a run now writes change reviews to the data root.
+        var samples = Directory.GetFiles(
+            Path.Combine(root, ChangeSetReviewService.LegacyRelativePath), "*.json");
 
         Assert.Equal(20, samples.Length);
         foreach (var path in samples)
@@ -117,7 +120,8 @@ public sealed class ChangeSetReviewTests
         Assert.Equal(merge, change.MergeCommit);
         Assert.Equal(merge, change.ResultCommit);
         Assert.Equal(ChangeSetReviewService.GetPath(repository.Root, change),
-            Path.Combine(repository.Root, ".quality", "changes", merge + ".json"));
+            QualityWorkspace.ForRepository(repository.Root)
+                .Combine(ChangeSetReviewService.DataRelativePath, merge + ".json"));
     }
 
     [Fact]

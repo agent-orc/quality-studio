@@ -215,7 +215,11 @@ public sealed record QualityRunReportPruneResult(int Removed, long FreedBytes, i
 /// <summary>Atomic repository-owned storage for canonical review-run snapshots.</summary>
 public sealed class QualityRunReportStore
 {
-    public const string RelativeReportsPath = ".quality/reports/runs";
+    /// <summary>Where run reports lived inside the checkout before QS-102. Only the migration reads it.</summary>
+    public const string LegacyRelativePath = ".quality/reports/runs";
+
+    /// <summary>Where run reports live, below the project's data root.</summary>
+    public const string DataRelativePath = "reports/runs";
 
     /// <summary>
     /// Provisional retention default from the ux-review-flow dossier (S6): newest 50 snapshots per
@@ -225,10 +229,14 @@ public sealed class QualityRunReportStore
     private readonly string reportsPath;
 
     public QualityRunReportStore(string repositoryRoot)
+        : this(QualityWorkspace.ForRepository(repositoryRoot))
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        reportsPath = Path.Combine(Path.GetFullPath(repositoryRoot),
-            RelativeReportsPath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    public QualityRunReportStore(QualityWorkspace workspace)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        reportsPath = workspace.Combine(DataRelativePath);
     }
 
     public string ReportsPath => reportsPath;

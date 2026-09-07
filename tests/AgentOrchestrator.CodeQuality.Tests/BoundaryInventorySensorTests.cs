@@ -73,8 +73,9 @@ public sealed class BoundaryInventorySensorTests
             Assert.Contains(mvc.Inputs, input => input.Name == "id" && input.Source == "route");
             Assert.Contains(mvc.Inputs, input => input.Name == "request" && input.Source == "body");
 
-            var persisted = Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath);
+            var persisted = BoundaryInventorySensor.InventoryPath(root);
             Assert.True(File.Exists(persisted));
+            Assert.False(Directory.Exists(Path.Combine(root, ".quality")));
             using var json = JsonDocument.Parse(await File.ReadAllTextAsync(persisted, TestContext.Current.CancellationToken));
             Assert.Equal(1, json.RootElement.GetProperty("schemaVersion").GetInt32());
         }
@@ -85,7 +86,7 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
-    public async Task Adding_an_endpoint_changes_the_repository_owned_inventory()
+    public async Task Adding_an_endpoint_changes_the_persisted_inventory()
     {
         var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-diff-").FullName;
         var program = Path.Combine(root, "Program.cs");
@@ -99,7 +100,7 @@ public sealed class BoundaryInventorySensorTests
             var sensor = new BoundaryInventorySensor();
             await sensor.RunAsync(new SensorScanRequest(root), TestContext.Current.CancellationToken);
             var before = await File.ReadAllTextAsync(
-                Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath),
+                BoundaryInventorySensor.InventoryPath(root),
                 TestContext.Current.CancellationToken);
 
             await File.WriteAllTextAsync(program, """
@@ -110,7 +111,7 @@ public sealed class BoundaryInventorySensorTests
                 """, TestContext.Current.CancellationToken);
             await sensor.RunAsync(new SensorScanRequest(root), TestContext.Current.CancellationToken);
             var after = await File.ReadAllTextAsync(
-                Path.Combine(root, BoundaryInventorySensor.InventoryRelativePath),
+                BoundaryInventorySensor.InventoryPath(root),
                 TestContext.Current.CancellationToken);
 
             Assert.NotEqual(before, after);

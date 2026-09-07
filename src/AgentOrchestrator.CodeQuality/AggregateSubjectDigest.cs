@@ -238,8 +238,7 @@ public static partial class AggregateSubjectDigest
         AggregateDigestRequest request,
         IReadOnlyList<MemberSource> members)
     {
-        var path = Path.Combine(request.RepositoryRoot,
-            BoundaryInventorySensor.InventoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = BoundaryInventorySensor.InventoryPath(request.RepositoryRoot);
         var builder = new StringBuilder();
         builder.AppendLine();
         builder.AppendLine("## Derived boundary inventory");

@@ -69,8 +69,20 @@ public static class UsageLedger
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>Where monthly ledgers lived inside the checkout before QS-102. Only the migration reads it.</summary>
+    public const string LegacyRelativePath = ".quality/usage";
+
+    /// <summary>Where monthly ledgers live, below the project's data root.</summary>
+    public const string DataRelativePath = "usage";
+
     public static string GetLedgerPath(string repositoryRoot, DateTimeOffset timestamp) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage", timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
+        GetLedgerPath(QualityWorkspace.ForRepository(repositoryRoot), timestamp);
+
+    public static string GetLedgerPath(QualityWorkspace workspace, DateTimeOffset timestamp)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        return workspace.Combine(DataRelativePath, timestamp.UtcDateTime.ToString("yyyy-MM") + ".jsonl");
+    }
 
     public static async Task AppendAsync(string repositoryRoot, ReviewUsageEntry entry, CancellationToken cancellationToken = default)
     {
@@ -98,7 +110,7 @@ public static class UsageLedger
         string? kind = null, int recentLimit = 50, CancellationToken cancellationToken = default)
     {
         var entries = new List<ReviewUsageEntry>();
-        var directory = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "usage");
+        var directory = QualityWorkspace.ForRepository(repositoryRoot).Combine(DataRelativePath);
         if (Directory.Exists(directory))
         {
             foreach (var path in Directory.EnumerateFiles(directory, "????-??.jsonl", SearchOption.TopDirectoryOnly).Order(StringComparer.Ordinal))

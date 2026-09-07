@@ -117,9 +117,15 @@ public sealed class ChangeSetReviewService
     public static string Serialize(ChangeReviewDocument document) =>
         JsonSerializer.Serialize(document, JsonOptions) + "\n";
 
+    /// <summary>Where change reviews lived inside the checkout before QS-102. Only the migration reads it.</summary>
+    public const string LegacyRelativePath = ".quality/changes";
+
+    /// <summary>Where change reviews live, below the project's data root.</summary>
+    public const string DataRelativePath = "changes";
+
     public static string GetPath(string repositoryRoot, ChangeSet changeSet) =>
-        Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "changes",
-            (changeSet.MergeCommit ?? changeSet.HeadCommit) + ".json");
+        QualityWorkspace.ForRepository(repositoryRoot)
+            .Combine(DataRelativePath, (changeSet.MergeCommit ?? changeSet.HeadCommit) + ".json");
 
     private static async Task SaveAsync(
         string path,

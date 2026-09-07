@@ -25,14 +25,18 @@ public sealed record CoverageSnapshot(
     IReadOnlyList<string> Reports,
     IReadOnlyList<CoverageFile> Files)
 {
-    public const string RelativePath = ".quality/coverage/coverage.json";
+    /// <summary>Where the snapshot lived inside the checkout before QS-102. Only the migration reads it.</summary>
+    public const string LegacyRelativePath = ".quality/coverage/coverage.json";
+
+    /// <summary>Where the snapshot lives, below the project's data root.</summary>
+    public const string DataRelativePath = "coverage/coverage.json";
 
     public static CoverageSnapshot Empty(string measuredAt, string? commit, IReadOnlyList<string>? reports = null) =>
         new(1, CoverageSensor.CurrentVersion, measuredAt, commit, reports ?? [], []);
 
     public static CoverageSnapshot? Load(string repositoryRoot)
     {
-        var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var path = QualityWorkspace.ForRepository(repositoryRoot).Combine(DataRelativePath);
         if (!File.Exists(path)) return null;
         try
         {
@@ -46,7 +50,7 @@ public sealed record CoverageSnapshot(
 
     public async Task SaveAsync(string repositoryRoot, CancellationToken cancellationToken = default)
     {
-        var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var path = QualityWorkspace.ForRepository(repositoryRoot).Combine(DataRelativePath);
         await AtomicFile.WriteAllTextAsync(
             path, JsonSerializer.Serialize(this, JsonOptions) + Environment.NewLine, cancellationToken)
             .ConfigureAwait(false);

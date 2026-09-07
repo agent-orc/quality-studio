@@ -10,15 +10,24 @@ public sealed record QualityRunReportPinDocument(int SchemaVersion, IReadOnlyLis
 /// </summary>
 public sealed class QualityRunReportPinStore
 {
-    public const string RelativePath = ".quality/reports/pins.json";
+    /// <summary>Where pins lived inside the checkout before QS-102. Only the migration reads it.</summary>
+    public const string LegacyRelativePath = ".quality/reports/pins.json";
+
+    /// <summary>Where pins live, below the project's data root.</summary>
+    public const string DataRelativePath = "reports/pins.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly string path;
     private readonly object gate = new();
 
     public QualityRunReportPinStore(string repositoryRoot)
+        : this(QualityWorkspace.ForRepository(repositoryRoot))
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        path = Path.Combine(Path.GetFullPath(repositoryRoot), RelativePath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    public QualityRunReportPinStore(QualityWorkspace workspace)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        path = workspace.Combine(DataRelativePath);
     }
 
     public IReadOnlySet<string> Load()

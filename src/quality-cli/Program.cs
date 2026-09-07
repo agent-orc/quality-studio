@@ -298,7 +298,7 @@ public static class QualityCli
             var stopwatch = Stopwatch.StartNew();
             var inventory = await new BoundaryInventorySensor().InventoryAsync(new SensorScanRequest(path));
             Console.WriteLine(
-                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryRelativePath} | {stopwatch.ElapsedMilliseconds} ms");
+                $"quality boundaries scan: {inventory.Entries.Count} entries | {inventory.Findings.Count} findings | wrote {BoundaryInventorySensor.InventoryPath(path)} | {stopwatch.ElapsedMilliseconds} ms");
             foreach (var finding in inventory.Findings)
             {
                 Console.WriteLine(

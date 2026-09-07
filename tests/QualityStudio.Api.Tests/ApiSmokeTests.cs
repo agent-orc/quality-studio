@@ -571,7 +571,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        Assert.True(File.Exists(Path.Combine(repositoryRoot, AttackCoverageLedger.RelativePath)));
+        Assert.True(File.Exists(new AttackCoverageLedger(repositoryRoot).Path));
+        Assert.False(Directory.Exists(Path.Combine(repositoryRoot, ".quality", "attacks")));
         var observation = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("api-test", observation.GetProperty("reviewer").GetProperty("agent").GetString());
         Assert.Equal("fixture-model", observation.GetProperty("reviewer").GetProperty("model").GetString());
@@ -600,15 +601,16 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Boundary_sensor_scan_persists_repository_owned_inventory()
+    public async Task Boundary_sensor_scan_persists_inventory_in_the_data_root()
     {
         using var client = application!.CreateClient();
         using var response = await client.PostAsync("/api/sensors/boundaries/scan", null,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
+        var path = BoundaryInventorySensor.InventoryPath(repositoryRoot);
         Assert.True(File.Exists(path));
+        Assert.False(Directory.Exists(Path.Combine(repositoryRoot, ".quality", "boundaries")));
         using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("boundaries", inventory.RootElement.GetProperty("sensor").GetString());
@@ -789,7 +791,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var id = accepted.GetProperty("id").GetString()!;
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
-        var runDirectory = Path.Combine(repositoryRoot, ".quality", "runs", id);
+        var runDirectory = Path.Combine(new ReviewRunStore(repositoryRoot).RunsPath, id);
         using (var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
                    Path.Combine(runDirectory, "manifest.json"), TestContext.Current.CancellationToken)))
         {

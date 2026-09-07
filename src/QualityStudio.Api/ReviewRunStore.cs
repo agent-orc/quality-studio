@@ -118,16 +118,25 @@ public sealed record ReviewRunPruneResult(int Removed, int Remaining);
 /// <summary>Persists the orchestration state for review sweeps inside a repository.</summary>
 public sealed class ReviewRunStore
 {
-    public const string RelativeRunsPath = ".quality/runs";
+    /// <summary>Where run journals lived inside the checkout before QS-102. Only the migration reads it.</summary>
+    public const string LegacyRelativePath = ".quality/runs";
+
+    /// <summary>Where run journals live, below the project's data root.</summary>
+    public const string DataRelativePath = "runs";
     private static readonly UTF8Encoding Utf8 = new(false);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private static readonly JsonSerializerOptions LineJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string runsPath;
 
     public ReviewRunStore(string repositoryRoot)
+        : this(QualityWorkspace.ForRepository(repositoryRoot))
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        runsPath = Path.Combine(Path.GetFullPath(repositoryRoot), RelativeRunsPath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    public ReviewRunStore(QualityWorkspace workspace)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        runsPath = workspace.Combine(DataRelativePath);
     }
 
     public string RunsPath => runsPath;
