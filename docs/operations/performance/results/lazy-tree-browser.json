@@ -1,7 +1,7 @@
 {
-  "measuredAt": "2026-08-24T08:03:51.803Z",
-  "browser": "151.0.7922.34",
-  "productCommit": "e31089ccd5640bb2742a25a2a08a9a3120534656",
+  "measuredAt": "2026-09-07T04:26:33.862Z",
+  "browser": "153.0.8010.12",
+  "productCommit": "368bd063253e1c9b507ea5efa6622a683c4e0d14",
   "productWorktreeDirty": true,
   "target": {
     "root": "/home/agent/runner-work/PROJ-002/repo",
@@ -10,31 +10,31 @@
   },
   "largeSwitch": {
     "samples": 5,
-    "medianMs": 19.8,
-    "p95Ms": 87,
-    "minMs": 16.2,
-    "maxMs": 87,
+    "medianMs": 40.7,
+    "p95Ms": 47,
+    "minMs": 34.9,
+    "maxMs": 47,
     "values": [
-      87,
-      19.8,
-      16.2,
-      18.7,
-      21.8
+      34.9,
+      40.7,
+      37,
+      40.7,
+      47
     ]
   },
   "cachedExpand": {
     "samples": 6,
-    "medianMs": 6.8,
-    "p95Ms": 14.1,
-    "minMs": 3.6,
-    "maxMs": 14.1,
+    "medianMs": 2,
+    "p95Ms": 11.4,
+    "minMs": 1.5,
+    "maxMs": 11.4,
     "values": [
-      7.4,
-      14.1,
-      5.7,
-      6.8,
-      3.6,
-      8
+      1.9,
+      11.4,
+      2,
+      5.3,
+      1.5,
+      2.8
     ]
   },
   "firstLazyLoad": {
@@ -45,26 +45,56 @@
   },
   "firstLazyExpand": {
     "event": "qs.tree.expand-loaded",
-    "durationMs": 33.1,
+    "durationMs": 23.3,
     "budgetMs": 100,
     "withinBudget": true
   },
   "transitionEvents": [
     {
       "event": "qs.repository.transition-visible",
-      "durationMs": 21.8,
+      "durationMs": 13.1,
       "budgetMs": 100,
       "withinBudget": true
     },
     {
       "event": "qs.repository.transition-visible",
-      "durationMs": 16.5,
+      "durationMs": 11.5,
       "budgetMs": 100,
       "withinBudget": true
     },
     {
       "event": "qs.repository.transition-visible",
-      "durationMs": 19.5,
+      "durationMs": 17.3,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 11.4,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 20.4,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 10,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 20.4,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 17.2,
       "budgetMs": 100,
       "withinBudget": true
     },
@@ -76,43 +106,13 @@
     },
     {
       "event": "qs.repository.transition-visible",
-      "durationMs": 15.8,
+      "durationMs": 16.1,
       "budgetMs": 100,
       "withinBudget": true
     },
     {
       "event": "qs.repository.transition-visible",
-      "durationMs": 19.1,
-      "budgetMs": 100,
-      "withinBudget": true
-    },
-    {
-      "event": "qs.repository.transition-visible",
-      "durationMs": 18.3,
-      "budgetMs": 100,
-      "withinBudget": true
-    },
-    {
-      "event": "qs.repository.transition-visible",
-      "durationMs": 14.1,
-      "budgetMs": 100,
-      "withinBudget": true
-    },
-    {
-      "event": "qs.repository.transition-visible",
-      "durationMs": 21.6,
-      "budgetMs": 100,
-      "withinBudget": true
-    },
-    {
-      "event": "qs.repository.transition-visible",
-      "durationMs": 26.8,
-      "budgetMs": 100,
-      "withinBudget": true
-    },
-    {
-      "event": "qs.repository.transition-visible",
-      "durationMs": 16.3,
+      "durationMs": 20.5,
       "budgetMs": 100,
       "withinBudget": true
     }
@@ -120,67 +120,67 @@
   "switchEvents": [
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 87,
+      "durationMs": 34.9,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 16.9,
+      "durationMs": 30.1,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 19.8,
+      "durationMs": 40.7,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 19.5,
+      "durationMs": 26,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 16.2,
+      "durationMs": 37,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 19.6,
+      "durationMs": 27.5,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 18.7,
+      "durationMs": 40.7,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 14.4,
+      "durationMs": 32.1,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 21.8,
+      "durationMs": 47,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 28.5,
+      "durationMs": 32.5,
       "budgetMs": 500,
       "withinBudget": true
     },
     {
       "event": "qs.repository.switch.usable",
-      "durationMs": 16.5,
+      "durationMs": 46.6,
       "budgetMs": 500,
       "withinBudget": true
     }
@@ -188,37 +188,37 @@
   "toggleEvents": [
     {
       "event": "qs.tree.toggle",
-      "durationMs": 7.4,
+      "durationMs": 1.9,
       "budgetMs": 50,
       "withinBudget": true
     },
     {
       "event": "qs.tree.toggle",
-      "durationMs": 14.1,
+      "durationMs": 11.4,
       "budgetMs": 50,
       "withinBudget": true
     },
     {
       "event": "qs.tree.toggle",
-      "durationMs": 5.7,
+      "durationMs": 2,
       "budgetMs": 50,
       "withinBudget": true
     },
     {
       "event": "qs.tree.toggle",
-      "durationMs": 6.8,
+      "durationMs": 5.3,
       "budgetMs": 50,
       "withinBudget": true
     },
     {
       "event": "qs.tree.toggle",
-      "durationMs": 3.6,
+      "durationMs": 1.5,
       "budgetMs": 50,
       "withinBudget": true
     },
     {
       "event": "qs.tree.toggle",
-      "durationMs": 8,
+      "durationMs": 2.8,
       "budgetMs": 50,
       "withinBudget": true
     }
