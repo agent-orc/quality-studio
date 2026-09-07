@@ -199,4 +199,30 @@
 </ul>
 <p><strong>Correction to section 9.</strong> That section reported the 150 ms 5,000-file dashboard budget as a first-run flake that did not recur. On this host it does recur: it fails in every full-solution run and passes in every isolated run, because the two test assemblies run concurrently and the assertion is on wall-clock time. It fails the same way on a pristine <code>origin/main 6b4e7b3</code> checkout, and by a wider margin &mdash; 278 ms there against 175&ndash;316 ms here &mdash; so it is not this diff. The test carries <code>[Trait("Category", "MachineBound")]</code> and the gate excludes that category by design, which is why the gate step above is green. It is left untouched: it belongs to main, and re-tuning a host-sensitive budget from inside this card would hide whatever it is meant to catch.</p>
 <p class="muted">The delivery history was also given real commit subjects in place of the runner's <code>wip &hellip; salvage before teardown</code> placeholders. The trees are identical to the reviewed delivery; only the messages changed.</p>
+
+<h2>11. Replay onto a moved main, same evening (7 September 2026)</h2>
+<p><code>origin/main</code> advanced three commits past the base of section 10: a documentation merge, a <code>ReviewRunStore</code> path-safety fix with its tests, and a run-persistence dossier update. The five delivery commits were rebased from <code>6b4e7b3</code> onto <code>origin/main 24824c2</code>. None of the moved files is touched by this card, so the rebase produced no conflicts, and the resulting diff against the new base is identical to the reviewed one &mdash; same 43 files, same 4,142 insertions and 187 deletions. No feature work was redone.</p>
+<p>The whole of <code>.github/workflows/build.yml</code> was replayed again on the new base. The API assembly now reports seven tests more than section 10 because main's path-safety fix brought its own; every other movement is host noise.</p>
+<ul>
+<li><code>dotnet restore --locked-mode</code>, <code>dotnet format --verify-no-changes</code>, Release build: clean, zero warnings.</li>
+<li>Gate test step (<code>--filter "Category!=MachineBound"</code>) with coverage: 156 API + 396 core passed, 2 skipped, zero failures. This is the step that died of host OOM in the round that blocked integration; it now completes in 38 s.</li>
+<li>Coverage against the baselines: core 82.28% (floor 77.07%), API 47.75% (floor 41.26%), frontend 69.86% (floor 58.82%).</li>
+<li>Security scan: pass &mdash; 711 files, 0 new, 0 blocking. Solution and spike NuGet vulnerability checks: none.</li>
+<li>Repository scripts: catalog snapshot valid, rule catalogue matches 27 authored rules, coverage-validator and catalogue tests green, 5 dev-stack tests green.</li>
+<li>Frontend: lint clean, production build clean apart from the pre-existing prismjs CommonJS warnings, 144/144 Angular tests in Chrome Headless 153, production audit reports no vulnerabilities.</li>
+<li>Browser performance budgets: <code>npm run perf</code> exits 0 with all fourteen budget checks inside budget.</li>
+</ul>
+<table><thead><tr><th>Browser budget</th><th>Budget</th><th>Result</th></tr></thead><tbody>
+  <tr><td><code>qs.project.first-interactive</code>, fixture</td><td>&lt; 150 ms</td><td class="good">35.4 ms</td></tr>
+  <tr><td><code>qs.tree.expand-loaded</code>, first lazy level</td><td>&lt; 100 ms</td><td class="good">28.6 ms</td></tr>
+  <tr><td><code>qs.tree.toggle</code>, cached</td><td>&lt; 50 ms</td><td class="good">17.7 ms and 15.5 ms</td></tr>
+  <tr><td><code>qs.file.first-content</code>, 6,000-line payload</td><td>&lt; 150 ms</td><td class="good">47.2 ms</td></tr>
+  <tr><td><code>qs.review.aspect-switch</code></td><td>&lt; 50 ms</td><td class="good">12.3 ms</td></tr>
+  <tr><td>Repository dashboard visible</td><td>&lt; 150 ms</td><td class="good">70.8 ms</td></tr>
+  <tr><td><code>qs.project.first-interactive</code>, live API</td><td>&lt; 150 ms</td><td class="good">69.9 ms and 37.5 ms</td></tr>
+  <tr><td><code>qs.repository.transition-visible</code></td><td>&lt; 100 ms</td><td class="good">13.2&ndash;15.4 ms</td></tr>
+  <tr><td><code>qs.repository.switch.usable</code></td><td>&lt; 500 ms</td><td class="good">28.7&ndash;38.1 ms</td></tr>
+</tbody></table>
+<p>One qualification on the scripts leg. <code>npm run test:dev-stack</code> failed one of its five tests on the first attempt, when it happened to run alongside the coverage validation; run on its own it passes 5/5, three times in a row. The suite starts real services on fixed ports and waits on readiness timeouts, so it is sensitive to a loaded host. That is a property of the suite on this machine, not of this diff, and it is left untouched for the same reason as the machine-bound dashboard budget in section 9.</p>
+<p class="muted">Backend orchestration owns pushes and merges. This section records that the tree rebased onto <code>24824c2</code> is gate-clean, not that it has been merged.</p>
 </main></body></html>
