@@ -1,9 +1,9 @@
-name: deploy-website
+name: publish-website-reference
 
-# Publishes website/ as a single-commit "deploy" branch on every push to main.
-# The agent-orchestrator.dev web host pulls that branch and serves it under
-# /quality/ (see the private website meta-repository for the hosting side).
-# The site is plain static HTML with relative links — no build step required.
+# Exports the product reference page to this repository's "deploy" branch.
+# The public /quality/ site is published separately from quality-studio-website
+# on main. This export does not update that live site; see website/DEPLOY.md.
+# The exported page is static HTML with relative links.
 on:
   push:
     branches: [ main ]
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish website/ to deploy branch
+      - name: Publish reference website to product deploy branch
         run: |
           cd website
           git init -b deploy

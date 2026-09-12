@@ -237,6 +237,8 @@ technology — no per-repository install step. A repository disables or re-weigh
 in `.quality/rules/overrides.json`, and `GET /api/rules` returns the resolved catalogue with a
 trace per rule.
 
+The workbench's **Review policy** explains effective rules, included prompt inputs, and metric formulas with their limits. The [public review-policy guide](https://agent-orchestrator.dev/quality/#review-policy) uses the same versioned sources, including [`rules/review-methodology.json`](rules/review-methodology.json). The live DE/EN website is maintained in the separate website repository; see the [publication guide](website/DEPLOY.md) for its sync and release path.
+
 ## Review usage telemetry
 
 Agent-backed reviews persist their model, CLI, token counts, duration, and run
