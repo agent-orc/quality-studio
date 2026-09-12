@@ -309,6 +309,9 @@ public static partial class RepositoryHierarchyBuilder
         try
         {
             if (!process.Start()) return null;
+            // Drain stderr concurrently; an unread redirected stream blocks git once its pipe is full.
+            process.ErrorDataReceived += static (_, _) => { };
+            process.BeginErrorReadLine();
             var output = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
             return process.ExitCode == 0

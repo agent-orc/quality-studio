@@ -243,6 +243,8 @@ public sealed class StalenessEvaluator
             throw new StalenessScanException("Git is required to enumerate files with .gitignore semantics.", exception);
         }
 
+        // Read stderr concurrently with stdout; a full, unread stderr pipe would block git mid-listing.
+        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
         var buffer = new char[4096];
         var pathBuilder = new StringBuilder();
         int charactersRead;
@@ -262,7 +264,7 @@ public sealed class StalenessEvaluator
             }
         }
 
-        var error = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        var error = await errorTask.ConfigureAwait(false);
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         if (process.ExitCode != 0)
         {
