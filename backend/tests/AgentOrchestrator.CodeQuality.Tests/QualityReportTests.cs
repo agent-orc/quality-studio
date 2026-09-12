@@ -5,6 +5,7 @@ using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class QualityReportTests
 {
     [Fact]
@@ -171,9 +172,7 @@ public sealed class QualityReportTests
             Directory.CreateDirectory(Path.Combine(root, "src"));
             await File.WriteAllTextAsync(Path.Combine(root, "src", "App.cs"),
                 "namespace Fixture; public sealed class App { }\n", TestContext.Current.CancellationToken);
-            await RunGitAsync(root, "init", "--quiet");
-            await RunGitAsync(root, "config", "user.email", "quality@example.test");
-            await RunGitAsync(root, "config", "user.name", "Quality Fixture");
+            await GitTestRepository.InitializeAsync(root, TestContext.Current.CancellationToken);
             var contentHash = await ReviewSubjectHasher.ComputeFileContentHashAsync(
                 Path.Combine(root, "src", "App.cs"), TestContext.Current.CancellationToken);
             const string unitId = "qs-v1/generic/file/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -266,22 +265,7 @@ public sealed class QualityReportTests
         }
 
         private static async Task RunGitAsync(string root, params string[] arguments)
-        {
-            using var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-                {
-                    WorkingDirectory = root,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            var error = await process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);
-            await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-            Assert.True(process.ExitCode == 0, error);
-        }
+            => await GitTestRepository.RunAsync(root, TestContext.Current.CancellationToken, arguments);
 
         public void Dispose()
         {

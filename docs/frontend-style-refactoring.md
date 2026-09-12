@@ -14,6 +14,7 @@ backend/
   src/                  # analysis core, API, CLI
   tests/                # core/API tests and shared C# test helpers
 frontend/
+  style-reference/      # separate development reference application
   src/app/
     app.config.ts       # application providers
     shell/              # composition, navigation, pane layout
@@ -106,3 +107,25 @@ findings, and historical review IDs across the source moves. Browser checks exer
 light/dark themes, narrow and wide layouts, larger text, table alignment, focus,
 virtualized scrolling, and the reference surface. Performance budgets remain in
 [PERF.md](../PERF.md); machine-dependent tests retain their existing separate category.
+
+## Recorded frontend acceptance
+
+The integrated source passes ESLint, the 30 architecture/typography rule cases,
+the browser-resolver tests, and all 179 Angular tests. Both production builds
+pass their budgets. Angular line coverage is 72.08%, above the existing 60.82%
+baseline; the baseline was not lowered.
+
+Browser DOM and layout assertions covered both themes at 1600, 1280, 1024, and 853
+CSS pixels (the latter two also representing narrower effective viewports when
+zoomed). Visible text stayed at least 11px, with no page-wide overflow or JavaScript
+errors. Keyboard focus, collapsed panes, dashboard scrolling, and settings/review
+dialogs were checked. Namespace navigation displayed 9 file rows; all 10 column
+positions matched their headings before and after 554px horizontal scrolling.
+Coverage navigation opened a real C# file with 59 rendered code lines. A locally
+intercepted API outage showed the blocking state; retry restored the project view.
+
+The existing browser performance checks passed for the 6000-line file fixture and
+the 1600-file repository-switch fixture. The separate previously known backend
+machine-bound dashboard measurement remains documented in
+[backend validation](backend-layout-validation.md). These browser checks do not
+claim that the separate backend timing limit is met.

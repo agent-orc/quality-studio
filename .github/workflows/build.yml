@@ -31,6 +31,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      # The test lanes are defined once in scripts/test-lanes.mjs and executed through
+      # scripts/run-dotnet-lane.mjs, so this job needs the pinned Node as well.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
       # --locked-mode fails the restore when a packages.lock.json no longer matches the
       # project references, so dependency drift surfaces here instead of in the canary.
       - name: Restore
@@ -43,15 +50,20 @@ jobs:
       - name: Build
         run: dotnet build QualityStudio.slnx --configuration Release --no-restore
 
-      - name: Test
-        run: >-
-          dotnet test QualityStudio.slnx
-          --configuration Release
-          --no-build
-          --filter "Category!=MachineBound"
-          --collect:"XPlat Code Coverage"
-          --
-          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      # Portable and controlled tool-bound tests run as separate lanes so a boundary that
+      # escapes its category is visible here instead of in the canary. Every lane refuses
+      # an empty selection, which is what turns a silent filter typo into a failed job.
+      - name: Test portable .NET lane
+        run: node scripts/run-dotnet-lane.mjs portable --configuration Release --no-build
+
+      - name: Test controlled tool-bound .NET lane
+        run: node scripts/run-dotnet-lane.mjs tool-bound --configuration Release --no-build
+
+      # Coverage is measured once over the combined non-machine selection so the committed
+      # ratchet stays comparable. Machine-bound timing and external-live checks belong to
+      # the release canary and are excluded here by the shared lane definition.
+      - name: Generate non-machine .NET coverage
+        run: node scripts/run-dotnet-lane.mjs non-machine --configuration Release --no-build --coverage
 
       - name: Validate .NET coverage against the baseline
         if: matrix.os == 'ubuntu-latest'
@@ -169,6 +181,9 @@ jobs:
       - name: Dev stack launcher tests
         run: npm run test:dev-stack
 
+      - name: Test lane, fixture, and release-canary contracts
+        run: npm run test:repository-contracts
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -186,6 +201,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Test browser binary resolution
+        working-directory: frontend
+        run: npm run test:browser-resolver
 
       - name: Lint frontend
         working-directory: frontend

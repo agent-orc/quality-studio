@@ -2,6 +2,7 @@ using System.Diagnostics;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class ProcessSensorCommandRunnerTests
 {
     [Fact]
@@ -146,8 +147,6 @@ public sealed class ProcessSensorCommandRunnerTests
     private static void SkipUnlessPosix()
     {
         if (OperatingSystem.IsWindows())
-        {
-            Assert.Skip("The process-tree fixture uses the POSIX shell available on runner hosts.");
-        }
+            Assert.Skip("The process-tree fixture requires POSIX shell process semantics unavailable on Windows.");
     }
 }

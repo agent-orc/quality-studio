@@ -15,30 +15,51 @@ the new layout. Published historical review JSON is preserved. Its identity test
 reconstructs the explicitly migrated source layout in a temporary fixture while
 continuing to require stable IDs for unchanged source paths.
 
-## Checks
+## Final checks after integrating the incoming test infrastructure
 
-- `dotnet format QualityStudio.slnx --verify-no-changes --no-restore`: passed.
-- `dotnet test QualityStudio.slnx --configuration Release --filter "Category!=MachineBound" --collect:"XPlat Code Coverage"`: passed using the routine CI filter.
-- Both .NET Cobertura reports pass `tests/coverage-baseline.json` thresholds.
-- Launcher tests: 6 passed, including a check that the relocated API's default and allowed roots resolve to the complete repository containing the solution and Angular workspace.
-- Rule-catalogue tests and rule/model catalogue integrity checks: passed.
+The final merged tree uses the named lanes from `scripts/test-lanes.mjs`. Each runner
+inventoried both relocated test projects before execution; no selection was empty.
 
-Final routine-suite results:
+| Lane | Core | API | Result |
+| --- | --- | --- | --- |
+| Portable | 388 passed | 44 passed | Passed without skips |
+| Tool-bound | 43 passed, 3 Windows/POSIX skips | 116 passed | Passed |
+| Combined non-machine coverage | 431 passed, 3 Windows/POSIX skips | 160 passed | Passed |
 
-```text
-Passed!  - Failed:     0, Passed:   158, Skipped:     0, Total:   158, Duration: 1 m 29 s - QualityStudio.Api.Tests.dll (net10.0)
-Passed!  - Failed:     0, Passed:   430, Skipped:     4, Total:   434, Duration: 1 m 45 s - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)
+The combined lane therefore passed **591 tests**, with the **3 existing operating-system
+skips**. External-live and machine-bound cases retain their explicit canary lanes.
+No selection or assertion was weakened to pass the merge.
+
+Reproduce from the repository root:
+
+```sh
+dotnet build QualityStudio.slnx --configuration Release
+node scripts/run-dotnet-lane.mjs portable --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs tool-bound --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs non-machine --configuration Release --no-build --coverage
+dotnet format QualityStudio.slnx --verify-no-changes --no-restore
 ```
 
-## Separate machine-bound measurement
+- Release build, format verification, and `git diff --check`: passed.
+- Cobertura baseline checks: Core **82.70%** against baseline **79.07%**; API **48.62%** against **43.26%**. Both passed without lowering floors.
+- Repository Node checks: **18 passed**, covering the API's complete-repository default, Windows-safe launcher startup/teardown, named-lane and fixture contracts, release-canary retention, and rule-catalogue generation.
+- Rule catalogue 1.3.0: matches all 28 authored rules.
 
-The full, unfiltered API suite passed all functional checks. Its existing
+The incoming `GitTestRepository` now belongs to `backend/tests/TestSupport/`, while
+the Node process fixture remains under root `tests/TestSupport/`. The source contract
+inspects actual backend test files and excludes generated `bin`, `obj`, and `TestResults`
+directories. The new Git-backed review fixture uses the shared attribute-aware cleanup;
+the launcher fixture waits for its own process tree to close before asserting port release.
+
+## Historical machine-bound measurement
+
+Before integrating the named-lane infrastructure, the full API suite measured
 `ProjectDashboardTests.Cached_dashboard_for_5000_file_repository_is_within_interaction_budget`
-test measured **201 ms against its 150 ms first-visible budget** on this machine.
-That test carries the existing `MachineBound` category and is excluded by the normal
-CI filter; its release-canary coverage remains unchanged. No performance threshold
-or classification was relaxed.
+at **201 ms against its 150 ms first-visible budget** on this machine. That previously
+recorded observation is separate from the final merged-tree lane receipts above.
+Its existing `MachineBound` classification, performance threshold, and canary coverage
+remain unchanged.
 
-The [existing test-baseline evidence](operations/test-baseline/index.html) already
-records this same dashboard check at 354 ms. These are observations under different
-machine conditions, not a claim that the refactoring improved its performance.
+The [existing test-baseline evidence](operations/test-baseline/index.html) records the
+same dashboard check at 354 ms. These observations come from different machine
+conditions and do not establish a performance improvement from this refactoring.

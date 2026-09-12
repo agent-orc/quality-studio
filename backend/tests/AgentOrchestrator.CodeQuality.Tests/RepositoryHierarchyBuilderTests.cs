@@ -134,55 +134,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
     }
 
     [Fact]
-    public void GitStateTtlThrottlesGitAndAWorkingTreeWithoutGitIsAnExplicitError()
-    {
-        Directory.CreateDirectory(root);
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(1)" + Environment.NewLine);
-        var withoutGit = new RepositoryHierarchyCache(TimeSpan.Zero).GetMeasured(root).Snapshot;
-
-        RunGit("init", "--quiet");
-        var throttled = new RepositoryHierarchyCache(TimeSpan.FromMinutes(5));
-        var first = throttled.GetMeasured(root).Snapshot;
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(2)" + Environment.NewLine);
-        var withinTtl = throttled.GetMeasured(root);
-
-        Assert.Equal("unavailable", withoutGit.GitStateStatus);
-        Assert.StartsWith("git-unavailable", withoutGit.GitState, StringComparison.Ordinal);
-        Assert.Contains("git status failed", withoutGit.GitStateDetail!, StringComparison.Ordinal);
-        Assert.Equal("ok", first.GitStateStatus);
-        Assert.Null(first.GitStateDetail);
-        Assert.True(withinTtl.CacheHit);
-        Assert.Same(first, withinTtl.Snapshot);
-    }
-
-    [Fact]
-    public void CacheReusesGitStateAndInvalidatesOnWorktreeContent()
-    {
-        Directory.CreateDirectory(root);
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(1)\n");
-        RunGit("init", "--quiet");
-        // No Git-state TTL here: this asserts the invalidation itself, not the throttle in front of it.
-        var cache = new RepositoryHierarchyCache(TimeSpan.Zero);
-
-        var firstMeasurement = cache.GetMeasured(root);
-        var warmMeasurement = cache.GetMeasured(root);
-        var first = firstMeasurement.Snapshot;
-        var warm = warmMeasurement.Snapshot;
-        File.WriteAllText(Path.Combine(root, "main.py"), "print(2)\n");
-        var changedMeasurement = cache.GetMeasured(root);
-        var changed = changedMeasurement.Snapshot;
-
-        Assert.False(firstMeasurement.CacheHit);
-        Assert.True(warmMeasurement.CacheHit);
-        Assert.Equal(0, warmMeasurement.ScanMilliseconds);
-        Assert.Equal(0, warmMeasurement.ReviewMetaDiscoveryMilliseconds);
-        Assert.False(changedMeasurement.CacheHit);
-        Assert.Same(first, warm);
-        Assert.NotSame(first, changed);
-        Assert.NotEqual(first.ETag, changed.ETag);
-    }
-
-    [Fact]
     [Trait("Category", "MachineBound")]
     public void GenericFiveThousandFileScanStaysWithinBudget()
     {
@@ -200,19 +151,6 @@ public sealed class RepositoryHierarchyBuilderTests : IDisposable
 
         Assert.Equal(5_000, Flatten([project]).Count(node => node.Level == ReviewLevel.File));
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"5,000-file hierarchy took {stopwatch.Elapsed}.");
-    }
-
-    private void RunGit(params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        using var process = Process.Start(startInfo)!;
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)

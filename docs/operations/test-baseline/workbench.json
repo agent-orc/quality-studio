@@ -4,9 +4,9 @@
   "title": "Quality Studio Test Baseline",
   "summary": "Decision-ready, repository-grounded analysis of the red Quality Studio acceptance surface, test coverage by feature area, portable versus machine-bound boundaries, CI and fixture requirements, options, and an ordered implementation plan. Recommends a tiered required gate plus release canary while preserving the existing production bundle budget.",
   "entrypoint": "index.html",
-  "status": "decided",
-  "phase": "decision-ready",
-  "updatedAt": "2026-08-11T14:43:19Z",
+  "status": "documented",
+  "phase": "implementation",
+  "updatedAt": "2026-09-12T21:00:00Z",
   "sourceTaskKeys": [
     "QS-66"
   ],
@@ -14,7 +14,8 @@
     "QS-57",
     "QS-51",
     "QS-52",
-    "QS-75"
+    "QS-75",
+    "QS-89"
   ],
   "key": "QS-W5",
   "decision": {
@@ -52,6 +53,12 @@
       "mode": "coding",
       "taskType": "feature"
     }
+  },
+  "implementation": {
+    "state": "documented",
+    "latestTaskKey": "QS-89",
+    "updatedAt": "2026-09-12T21:00:00Z",
+    "summary": "Wave 2 (QS-89) enforces named, non-empty test lanes with a portable versus tool-bound versus machine-bound versus external-live split, centralizes real Git and Node process fixtures, and adds the scoped fast pre-review target documented in keep-green.md."
   },
   "editedBy": "Operator, recorded by AGT-2621"
 }

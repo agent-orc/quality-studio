@@ -5,6 +5,7 @@ using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class ReviewMetaReaderTests
 {
     private static JsonSchema V3Schema => SchemaCatalogue.Get("review-meta.v3.schema.json");
@@ -19,9 +20,7 @@ public sealed class ReviewMetaReaderTests
             await File.WriteAllTextAsync(Path.Combine(root, "src", "Small.cs"),
                 "internal static class Small { }\n", TestContext.Current.CancellationToken);
             // sourceRevision is only written inside a repository, and a real sidecar carries it.
-            await GitAsync(root, "init", "--quiet");
-            await GitAsync(root, "config", "user.email", "quality@example.test");
-            await GitAsync(root, "config", "user.name", "Quality Fixture");
+            await GitTestRepository.InitializeAsync(root, TestContext.Current.CancellationToken);
             await GitAsync(root, "add", ".");
             await GitAsync(root, "commit", "--quiet", "-m", "fixture");
             var response = ReviewResponseParserTests.ValidResponse.Replace(
@@ -137,16 +136,8 @@ public sealed class ReviewMetaReaderTests
         }
     }
 
-    private static async Task GitAsync(string root, params string[] arguments)
-    {
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git", arguments)
-        {
-            WorkingDirectory = root,
-            UseShellExecute = false,
-        })!;
-        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(0, process.ExitCode);
-    }
+    private static async Task GitAsync(string root, params string[] arguments) =>
+        await GitTestRepository.RunAsync(root, TestContext.Current.CancellationToken, arguments);
 
     private sealed class WritingAgent(string response) : IReviewAgent
     {

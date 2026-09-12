@@ -11,13 +11,14 @@ use the same framework, dependency-lock and warning policy.
 | `src/quality-cli/` | Command-line host over the same analysis engine. |
 | `tests/AgentOrchestrator.CodeQuality.Tests/` | Engine and CLI tests with their recorded fixtures. |
 | `tests/QualityStudio.Api.Tests/` | API contract, security and hosting integration tests. |
-| `tests/*.cs` | Shared isolated-directory and quality-data test helpers. |
+| `tests/*.cs`, `tests/TestSupport/` | Shared isolated-directory, quality-data and controlled Git test helpers. |
 
 Run these commands from the repository root:
 
 ```sh
-dotnet build QualityStudio.slnx
-dotnet test QualityStudio.slnx
+dotnet build QualityStudio.slnx --configuration Release
+node scripts/run-dotnet-lane.mjs portable --no-build
+node scripts/run-dotnet-lane.mjs tool-bound --no-build
 dotnet run --project backend/src/QualityStudio.Api
 dotnet run --project backend/src/quality-cli -- scan .
 dotnet pack backend/src/AgentOrchestrator.CodeQuality --configuration Release

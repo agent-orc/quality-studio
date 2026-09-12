@@ -13,6 +13,7 @@ namespace QualityStudio.Api.Tests;
 /// rebuilt exactly the reports the last prune deleted, on every restart. These tests pin both halves of
 /// the fix: journals follow the same retention, and recovery does not resurrect a pruned report.
 /// </summary>
+[Trait("Category", "ToolBound")]
 public sealed class ReviewRunRetentionTests
 {
     [Fact]
@@ -81,7 +82,7 @@ public sealed class ReviewRunRetentionTests
         Directory.CreateDirectory(hostRoot);
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Sample.cs"), "public class Sample { }",
             TestContext.Current.CancellationToken);
-        await RunGitAsync(repositoryRoot);
+        await GitTestRepository.InitializeAsync(repositoryRoot, TestContext.Current.CancellationToken);
 
         var runStore = new ReviewRunStore(repositoryRoot);
         var reportStore = new QualityRunReportStore(repositoryRoot);
@@ -183,18 +184,6 @@ public sealed class ReviewRunRetentionTests
                     new Dictionary<string, int> { ["critical"] = 0, ["high"] = 0, ["medium"] = 0, ["low"] = 0, ["info"] = 0 },
                     new Dictionary<string, int>()),
                 null, null));
-    }
-
-    private static async Task RunGitAsync(string directory)
-    {
-        using var process = System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-            {
-                WorkingDirectory = directory,
-                UseShellExecute = false,
-            })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class RetentionApplication(string root, string contentRoot) : WebApplicationFactory<Program>

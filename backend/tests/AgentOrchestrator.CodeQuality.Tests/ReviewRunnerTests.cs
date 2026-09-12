@@ -489,68 +489,6 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
-    public async Task ReviewAsync_CapturesSourceSpanEvidenceAndExecutionProvenanceInV3Metadata()
-    {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        await WithReviewFileAsync(async (root, file) =>
-        {
-            RunGit(root, "init", "--quiet");
-            RunGit(root, "config", "user.email", "fixture@example.test");
-            RunGit(root, "config", "user.name", "Fixture");
-            RunGit(root, "add", ".");
-            RunGit(root, "commit", "--quiet", "-m", "seed");
-
-            var agent = new FakeAgent(
-                response: ReviewResponseParserTests.ValidResponse.Replace(
-                    "\"findings\": []", "\"findings\": [" + ReviewResponseParserTests.ValidFinding + "]", StringComparison.Ordinal),
-                thinkingLevel: "medium");
-
-            var result = await new ReviewRunner(agent).ReviewAsync(
-                new ReviewRequest("src/Small.cs", "code", RepositoryRoot: root), cancellationToken);
-
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken));
-            var json = document.RootElement;
-            Assert.Equal(3, json.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("deterministic", json.GetProperty("reviewer").GetProperty("requestedModel").GetString());
-            Assert.Equal("medium", json.GetProperty("reviewer").GetProperty("requestedThinkingLevel").GetString());
-            Assert.Matches("^git:[a-f0-9]{40}(-dirty)?$", json.GetProperty("sourceRevision").GetString());
-
-            var finding = json.GetProperty("findings")[0];
-            var anchor = Assert.Single(finding.GetProperty("anchors").EnumerateArray());
-            Assert.Equal("primary", anchor.GetProperty("role").GetString());
-            Assert.Equal("src/Small.cs", anchor.GetProperty("path").GetString());
-            var excerpt = anchor.GetProperty("capturedExcerpt");
-            Assert.Equal("internal", excerpt.GetProperty("text").GetString());
-            Assert.Matches("^sha256:[a-f0-9]{64}$", excerpt.GetProperty("contentHash").GetString());
-            Assert.Matches("^sha256:[a-f0-9]{64}$", excerpt.GetProperty("excerptHash").GetString());
-
-            var evidenceItem = Assert.Single(finding.GetProperty("evidenceItems").EnumerateArray());
-            Assert.Equal("sourceSpan", evidenceItem.GetProperty("class").GetString());
-            Assert.Equal("observed", evidenceItem.GetProperty("status").GetString());
-            Assert.Equal("primary", evidenceItem.GetProperty("anchorId").GetString());
-            Assert.Equal("unknown", finding.GetProperty("reproduction").GetProperty("status").GetString());
-        });
-    }
-
-    private static void RunGit(string root, params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.Start();
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
-    }
-
-    [Fact]
     public async Task SecurityReview_MergesPlantedSecretIntoOneBlockingStatement()
     {
         await WithReviewFileAsync(async (root, file) =>
@@ -1081,7 +1019,7 @@ public sealed class ReviewRunnerTests
         }
     }
 
-    private sealed class FakeAgent : IReviewAgent
+    internal sealed class FakeAgent : IReviewAgent
     {
         private readonly string _response;
         private readonly Action? _onRun;
@@ -1184,12 +1122,15 @@ public sealed class ReviewRunnerTests
 public sealed class LiveReviewIntegrationTests
 {
     [Fact]
+    [Trait("Category", "ExternalLive")]
     public async Task CodexCanReviewSmallFile_WhenExplicitlyEnabled()
     {
-        if (!string.Equals(Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW"), "1", StringComparison.Ordinal))
-        {
-            Assert.Skip("Set QUALITY_RUN_LIVE_REVIEW=1 to run the installed Codex CLI integration.");
-        }
+        // A missing opt-in means the selection was wrong, not that the check may be skipped:
+        // every required lane excludes ExternalLive, and the canary that selects it sets the
+        // variable. Skipping here is what let the live check silently never run.
+        Assert.True(Environment.GetEnvironmentVariable("QUALITY_RUN_LIVE_REVIEW") == "1",
+            "The external-live lane requires QUALITY_RUN_LIVE_REVIEW=1. Required runs must select "
+            + "Category!=MachineBound&Category!=ExternalLive - see docs/operations/test-baseline/keep-green.md.");
 
         var root = RepositoryTestContext.FindRepositoryRoot();
         var result = await new ReviewRunner().ReviewAsync(new ReviewRequest(

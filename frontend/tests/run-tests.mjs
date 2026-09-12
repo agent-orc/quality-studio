@@ -1,43 +1,17 @@
-import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { chromium } from 'playwright-core';
+import { findBrowserBinary } from './browser-binary.mjs';
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testsDir, '..');
 
-function findBrowserBinary() {
-  const override = process.env.CHROME_BIN;
-  if (override && existsSync(override)) {
-    return override;
-  }
-
-  const candidates = process.platform === 'win32'
-    ? [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-      ]
-    : process.platform === 'darwin'
-      ? [
-          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-          '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-        ]
-      : [
-          '/usr/bin/google-chrome',
-          '/usr/bin/google-chrome-stable',
-          '/usr/bin/chromium',
-          '/usr/bin/chromium-browser',
-          '/snap/bin/chromium',
-        ];
-
-  return candidates.find((candidate) => existsSync(candidate));
-}
-
-const chromeBin = findBrowserBinary();
+// The resolver itself lives in browser-binary.mjs so `npm run test:browser-resolver`
+// can check the CHROME_BIN, Playwright, and system precedence without a browser install.
+const chromeBin = findBrowserBinary({ playwrightExecutablePath: () => chromium.executablePath() });
 if (!chromeBin) {
-  console.error('Unable to locate a Chrome-compatible browser binary for the Angular test runner.');
+  console.error('Unable to locate a Chrome-compatible browser. Run `npm run browser:install` or set CHROME_BIN.');
   process.exit(1);
 }
 
