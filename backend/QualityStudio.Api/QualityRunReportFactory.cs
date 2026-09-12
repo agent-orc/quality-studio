@@ -266,7 +266,9 @@ public static class QualityRunReportFactory
             StringAt(metadata, "reviewer", "runId"),
             grade,
             metadata["summary"]?.GetValue<string>(),
-            findings);
+            findings,
+            metadata["sourceRevision"]?.GetValue<string>(),
+            metadata["reviewer"]?.Deserialize<ReviewerIdentity>(ReviewMetaJson.Options));
     }
 
     private static QualityRunFinding? ParseFinding(
@@ -304,7 +306,10 @@ public static class QualityRunReportFactory
             locations,
             source,
             sensorId,
-            producer);
+            producer,
+            finding["anchors"]?.Deserialize<IReadOnlyList<FindingAnchor>>(ReviewMetaJson.Options),
+            finding["evidenceItems"]?.Deserialize<IReadOnlyList<FindingEvidenceItem>>(ReviewMetaJson.Options),
+            finding["reproduction"]?.Deserialize<ReproductionInfo>(ReviewMetaJson.Options));
     }
 
     private static string TerminalOutcome(string state, string runState) => state switch

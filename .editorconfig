@@ -92,5 +92,5 @@ dotnet_naming_style.prefixed_with_i.capitalization = pascal_case
 
 # Keep the Windows formatter from inserting CRLF next to comments into these
 # already-normalized LF files; leave all other legacy line endings untouched.
-[backend/AgentOrchestrator.CodeQuality/{FlowReviewRunner,ReviewRunner}.cs]
+[backend/AgentOrchestrator.CodeQuality/{FlowReviewRunner,QualityRunReport,ReviewRunner}.cs]
 end_of_line = lf

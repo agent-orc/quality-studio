@@ -276,6 +276,11 @@ public sealed class CoverageReportParser
             foreach (var argument in new[] { "merge", path, "-f", "cobertura", "-o", output })
                 process.StartInfo.ArgumentList.Add(argument);
             if (!process.Start()) return null;
+            // Drain both redirected streams; an unread pipe blocks the tool once it is full.
+            process.OutputDataReceived += static (_, _) => { };
+            process.ErrorDataReceived += static (_, _) => { };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             process.WaitForExit();
             converted = process.ExitCode == 0 && File.Exists(output) && new FileInfo(output).Length > 0;
             return converted ? output : null;
@@ -591,6 +596,9 @@ public sealed class CoverageSensor : IReviewSensor
             };
             foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
             if (!process.Start()) return null;
+            // Drain stderr concurrently; an unread redirected stream blocks git once its pipe is full.
+            process.ErrorDataReceived += static (_, _) => { };
+            process.BeginErrorReadLine();
             var output = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
             return process.ExitCode == 0 ? output.Trim() : null;

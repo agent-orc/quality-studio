@@ -1,14 +1,14 @@
 {
   "$schema": "model-routing-policy.schema.json",
   "schemaVersion": 1,
-  "policyVersion": "2026-07-24",
+  "policyVersion": "2026-09-12",
   "evidenceAsOfDate": "2026-07-24",
   "authority": {
     "repositoryPath": "docs/system/domains/model-routing-policy.md",
     "upstreamRepository": "agent-orc/agent-studio",
     "upstreamPath": "docs/system/domains/model-routing-policy.md",
-    "contentSha256": "7269fbd6466f8bf86f838b4297c59933d8bb7472dbdd1383ce9439f4350b4ca0",
-    "synchronization": "The repository copy is an exact snapshot of the canonical Agent Studio document. A policy change requires a new policyVersion, refreshed hash, updated machine data, regenerated public view, and passing drift tests in one change."
+    "contentSha256": "bd89457335211d510df1ffe219c79980adc896ecffa22ee68bbf4b38594ca6d1",
+    "synchronization": "The core ladder derives from the 2026-07-24 Agent Studio document. The 2026-09-12 Token Economy revision adds local Astra and Fable 5.1 support without changing that ladder or its evidence date; it does not claim an upstream update. Policy changes require a new policyVersion, refreshed hash, updated machine data, regenerated public view, and passing drift tests in one change."
   },
   "providers": [
     { "id": "openai", "cliId": "codex", "cliLabel": "Codex CLI", "evidenceStatus": "observed" },
@@ -71,6 +71,38 @@
       "capabilityTier": "frontier",
       "workflowRoles": ["coreTask", "boundedPipelineDecision"],
       "note": "Sol/medium has the strongest favorable historical signal; Sol/xhigh remains a correctness floor, not a blanket default."
+    },
+    {
+      "canonicalId": "gpt-6-astra",
+      "aliases": ["astra"],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6-astra",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6-astra",
+      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask"],
+      "note": "Supported for explicit evaluation, compatibility comparison, and operator-pinned core tasks. External benchmarks and dated prices are retained; no comparable local completion or review cohort is available. Provisional support does not add a default core tier, declare fallback equivalence, or lower a correctness floor."
+    },
+    {
+      "canonicalId": "claude-fable-5-1",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-fable-5-1",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-fable-5-1",
+      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask"],
+      "note": "Provider-supported model and five-level effort ladder: https://platform.claude.com/docs/en/models/fable-5-1/overview and https://platform.claude.com/docs/en/build-with-claude/effort (retrieved 2026-09-12). Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks. Local completion and review fit remain unvalidated; support does not add a default tier or declare provider-fallback equivalence."
     },
     {
       "canonicalId": "gpt-5.4-mini",

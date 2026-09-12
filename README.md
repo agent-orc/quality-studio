@@ -250,6 +250,8 @@ catalogs, including capability tiers, supported thinking levels, and retirement 
 See [`docs/model-catalog-integration.md`](docs/model-catalog-integration.md) for the
 package-vs-snapshot decision, drift check, picker rules, and run evidence artifact.
 
+[Code-review capability research](docs/code-review-capability-research-2026-09-12.md) connects direct model review studies with the native finding-evidence export, metric definitions, and the remaining assessment bridge.
+
 ## Quality reports
 
 Export the project scorecard, Git-backed score trend, findings, coverage, sensor

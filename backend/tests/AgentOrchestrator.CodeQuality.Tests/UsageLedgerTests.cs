@@ -84,8 +84,7 @@ public sealed class UsageLedgerTests
         Assert.Equal("resolved", priced.Status);
         Assert.Equal("USD", priced.Currency);
         // 800k uncached input at 1.00, 200k cached input at 0.10, 100k output at 6.00 per million.
-        Assert.NotNull(priced.Total);
-        Assert.InRange(priced.Total.Value, 1.40m, 1.45m);
+        Assert.Equal(1.42m, priced.Total);
 
         var unknown = UsageLedger.EstimateCost(ReviewModelSource.RunnerDefault, tokens, insideValidity);
         Assert.Null(unknown.Total);
@@ -94,12 +93,38 @@ public sealed class UsageLedgerTests
         // The snapshot's later entry (the 2026-07-30 price cut) supersedes the launch price.
         var afterPriceCut = UsageLedger.EstimateCost("gpt-5.6-luna", tokens, new DateTimeOffset(2026, 9, 6, 0, 0, 0, TimeSpan.Zero));
         Assert.Equal("resolved", afterPriceCut.Status);
-        Assert.NotNull(afterPriceCut.Total);
-        Assert.InRange(afterPriceCut.Total.Value, 0.28m, 0.29m);
+        Assert.Equal(0.284m, afterPriceCut.Total);
 
-        // A model the snapshot lists without a price history is known but unpriced, never zero.
-        var unpriced = UsageLedger.EstimateCost("gpt-5", tokens, insideValidity);
+        // GPT-5 has a confirmed historical tariff: 0.8*1.25 + 0.2*0.125 + 0.1*10.
+        var historical = UsageLedger.EstimateCost("gpt-5", tokens, insideValidity);
+        Assert.Equal("resolved", historical.Status);
+        Assert.Equal("USD", historical.Currency);
+        Assert.Equal(2.025m, historical.Total);
+
+        // Before the first dated price the model is known, but its cost remains unknown, never zero.
+        var launch = new DateTimeOffset(2025, 8, 7, 0, 0, 0, TimeSpan.Zero);
+        Assert.Equal(2.025m, UsageLedger.EstimateCost("gpt-5", tokens, launch).Total);
+        var unpriced = UsageLedger.EstimateCost("gpt-5", tokens, launch.AddTicks(-1));
         Assert.Null(unpriced.Total);
         Assert.Equal("noPriceForDate", unpriced.Status);
+    }
+
+    [Theory]
+    [InlineData("gpt-6-astra", 3, "13.2")]
+    [InlineData("claude-fable-5-1", 1, "13.05")]
+    public void Newly_supported_models_use_their_dated_input_cache_and_output_tariffs(
+        string modelId, int septemberLaunchDay, string expectedUsd)
+    {
+        var tokens = new TokenUsage(1_000_000, 100_000, 200_000, 0, 1000);
+        var launch = new DateTimeOffset(2026, 9, septemberLaunchDay, 0, 0, 0, TimeSpan.Zero);
+        var price = UsageLedger.EstimateCost(modelId, tokens, launch);
+
+        Assert.Equal("resolved", price.Status);
+        Assert.Equal("USD", price.Currency);
+        Assert.Equal(decimal.Parse(expectedUsd, System.Globalization.CultureInfo.InvariantCulture), price.Total);
+
+        var beforeLaunch = UsageLedger.EstimateCost(modelId, tokens, launch.AddTicks(-1));
+        Assert.Null(beforeLaunch.Total);
+        Assert.Equal("noPriceForDate", beforeLaunch.Status);
     }
 }

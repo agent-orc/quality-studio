@@ -84,6 +84,92 @@ public sealed class QualityRunReportTests
     }
 
     [Fact]
+    public void Structured_evidence_and_operation_provenance_round_trip_in_native_json()
+    {
+        var report = CreateReport("review-native-evidence", findingCount: 1);
+        var anchor = new FindingAnchor("primary", FindingAnchorRole.Primary, "src/App.cs",
+            new FindingRange(new(3, 2), new(3, 9)),
+            new CapturedExcerpt("unsafe()", "sha256:" + new string('a', 64),
+                "sha256:" + new string('b', 64)), "App.Run");
+        var related = anchor with { Id = "related", Role = FindingAnchorRole.Related };
+        var evidence = new FindingEvidenceItem("span", FindingEvidenceClass.SourceSpan,
+            FindingEvidenceStatus.Observed, "primary");
+        var legacyClaim = new FindingEvidenceItem("legacy", FindingEvidenceClass.LegacyClaim,
+            FindingEvidenceStatus.Unverified, Summary: "A retained claim, not a verified reproduction.");
+        var reviewer = new ReviewerIdentity("codex", "gpt-6-astra", "0.154.0", "provider-observed-run",
+            new ReviewerUsage("codex", 100, 25, 10, 5, 1200),
+            [new ReviewerSensorReference("fixture", "1", "sha256:" + new string('c', 64))],
+            "gpt-5.6-sol", "high");
+        report = report with
+        {
+            Observations = [report.Observations[0] with
+            {
+                SourceRevision = "git:" + new string('d', 40),
+                Reviewer = reviewer,
+                Findings = [report.Observations[0].Findings[0] with
+                {
+                    Anchors = [anchor, related],
+                    EvidenceItems = [evidence, legacyClaim],
+                    Reproduction = new ReproductionInfo(ReproductionStatus.Unknown, "No command was executed."),
+                }],
+            }],
+        };
+
+        var canonical = QualityRunReportJson.Serialize(report);
+        using var json = JsonDocument.Parse(canonical);
+        var validation = RunReportSchema.Value.Evaluate(json.RootElement,
+            new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(validation.IsValid, validation.ToString());
+        var observation = Assert.Single(json.RootElement.GetProperty("observations").EnumerateArray());
+        var finding = Assert.Single(observation.GetProperty("findings").EnumerateArray());
+        Assert.Equal("sourceSpan", finding.GetProperty("evidenceItems")[0].GetProperty("class").GetString());
+        Assert.Equal("unverified", finding.GetProperty("evidenceItems")[1].GetProperty("status").GetString());
+        Assert.Equal("unknown", finding.GetProperty("reproduction").GetProperty("status").GetString());
+        Assert.False(observation.GetProperty("reviewer").TryGetProperty("resolvedThinkingLevel", out _));
+        Assert.False(observation.GetProperty("reviewer").TryGetProperty("executedThinkingLevel", out _));
+
+        var roundTrip = QualityRunReportJson.Deserialize(canonical);
+        var captured = Assert.Single(roundTrip.Observations);
+        Assert.Equal(report.Run.Model, roundTrip.Run.Model);
+        Assert.Equal(report.Observations[0].SourceRevision, captured.SourceRevision);
+        Assert.Equal("gpt-6-astra", captured.Reviewer!.Model);
+        Assert.Equal("gpt-5.6-sol", captured.Reviewer.RequestedModel);
+        Assert.Equal("high", captured.Reviewer.RequestedThinkingLevel);
+        Assert.Equal(reviewer.Usage, captured.Reviewer.Usage);
+        Assert.Equal(reviewer.Sensors!.Single(), Assert.Single(captured.Reviewer.Sensors!));
+        var retained = Assert.Single(captured.Findings);
+        Assert.Equal(new[] { anchor, related }, retained.Anchors);
+        Assert.Equal(new[] { evidence, legacyClaim }, retained.EvidenceItems);
+        Assert.Equal(ReproductionStatus.Unknown, retained.Reproduction!.Status);
+        Assert.Equal("No command was executed.", retained.Reproduction.Reason);
+    }
+
+    [Fact]
+    public void Earlier_v1_reports_without_structured_fields_remain_readable_and_do_not_invent_evidence()
+    {
+        var canonical = QualityRunReportJson.Serialize(CreateReport("review-legacy-v1", findingCount: 1));
+        using var json = JsonDocument.Parse(canonical);
+        var observation = json.RootElement.GetProperty("observations")[0];
+        var finding = observation.GetProperty("findings")[0];
+        Assert.False(observation.TryGetProperty("reviewer", out _));
+        Assert.False(observation.TryGetProperty("sourceRevision", out _));
+        Assert.False(finding.TryGetProperty("anchors", out _));
+        Assert.False(finding.TryGetProperty("evidenceItems", out _));
+        Assert.False(finding.TryGetProperty("reproduction", out _));
+
+        var roundTrip = QualityRunReportJson.Deserialize(canonical);
+        Assert.Null(roundTrip.Observations[0].Reviewer);
+        Assert.Null(roundTrip.Observations[0].SourceRevision);
+        Assert.Null(roundTrip.Observations[0].Findings[0].Anchors);
+        Assert.Null(roundTrip.Observations[0].Findings[0].EvidenceItems);
+        Assert.Null(roundTrip.Observations[0].Findings[0].Reproduction);
+        Assert.Equal("Hostile </style><script> evidence", roundTrip.Observations[0].Findings[0].Evidence);
+        var validation = RunReportSchema.Value.Evaluate(json.RootElement,
+            new EvaluationOptions { OutputFormat = OutputFormat.List });
+        Assert.True(validation.IsValid, validation.ToString());
+    }
+
+    [Fact]
     public void Store_replaces_atomically_and_ignores_incomplete_temporary_writes()
     {
         var root = Directory.CreateTempSubdirectory("quality-run-report-store-").FullName;

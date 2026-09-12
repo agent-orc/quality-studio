@@ -151,7 +151,9 @@
         "providerRunId": { "$ref": "#/$defs/nullableString" },
         "grade": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/grade" }] },
         "summary": { "$ref": "#/$defs/nullableString" },
-        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "sourceRevision": { "type": "string", "minLength": 1, "description": "Source revision retained from the captured review metadata; absent when unknown." },
+        "reviewer": { "$ref": "#/$defs/reviewMetaReviewer", "description": "Captured operation reviewer. Model is the recorded execution identity; requestedModel and requestedThinkingLevel preserve the request. No resolved thinking level is inferred." }
       }
     },
     "grade": {
@@ -182,7 +184,10 @@
         "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
         "source": { "enum": ["agent", "deterministic"] },
         "sensorId": { "$ref": "#/$defs/nullableString" },
-        "producer": { "$ref": "#/$defs/nullableString" }
+        "producer": { "$ref": "#/$defs/nullableString" },
+        "anchors": { "type": "array", "items": { "$ref": "#/$defs/reviewMetaFindingAnchor" } },
+        "evidenceItems": { "type": "array", "items": { "$ref": "#/$defs/reviewMetaFindingEvidenceItem" } },
+        "reproduction": { "$ref": "#/$defs/reviewMetaReproduction" }
       }
     },
     "location": {
@@ -234,6 +239,294 @@
         "total": { "type": "integer", "minimum": 0 },
         "bySeverity": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
         "byState": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "reviewMetaReviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent",
+        "model"
+      ],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "agentVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "usage": {
+          "$ref": "#/$defs/reviewMetaTokenUsage"
+        },
+        "sensors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/reviewMetaReviewerSensor"
+          }
+        },
+        "requestedModel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "requestedThinkingLevel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    },
+    "reviewMetaFindingAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role",
+        "path",
+        "range",
+        "capturedExcerpt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "role": {
+          "enum": [
+            "primary",
+            "related"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/reviewMetaRepoPath"
+        },
+        "range": {
+          "$ref": "#/$defs/reviewMetaRange"
+        },
+        "symbolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "capturedExcerpt": {
+          "$ref": "#/$defs/reviewMetaCapturedExcerpt"
+        }
+      }
+    },
+    "reviewMetaFindingEvidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "class",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "class": {
+          "enum": [
+            "sourceSpan",
+            "legacyClaim"
+          ]
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "unverified"
+          ]
+        },
+        "anchorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      }
+    },
+    "reviewMetaReproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unknown",
+            "specified",
+            "verified",
+            "notApplicable",
+            "blocked"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "reviewMetaTokenUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cliType",
+        "inputTokens",
+        "outputTokens",
+        "cachedInputTokens",
+        "reasoningOutputTokens",
+        "durationMs"
+      ],
+      "properties": {
+        "cliType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "inputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cachedInputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "reasoningOutputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "reviewMetaReviewerSensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "resultHash"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "resultHash": {
+          "$ref": "#/$defs/reviewMetaSha256String"
+        }
+      }
+    },
+    "reviewMetaRepoPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "reviewMetaRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/reviewMetaPosition"
+        },
+        "end": {
+          "$ref": "#/$defs/reviewMetaPosition"
+        }
+      }
+    },
+    "reviewMetaCapturedExcerpt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "contentHash",
+        "excerptHash"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "contentHash": {
+          "$ref": "#/$defs/reviewMetaSha256String"
+        },
+        "excerptHash": {
+          "$ref": "#/$defs/reviewMetaSha256String"
+        }
+      }
+    },
+    "reviewMetaSha256String": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "reviewMetaPosition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line",
+        "column"
+      ],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }

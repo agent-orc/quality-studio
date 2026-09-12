@@ -8,8 +8,10 @@ public sealed class ReviewModelCatalogTests
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {
         Assert.Equal("agent-orc/token-economy", catalog.Snapshot.SourceRepository);
-        Assert.Equal("7c0ce918a4039710f5a9628372ef071d1d101290", catalog.Snapshot.SourceCommit);
-        Assert.Equal("2026-07-24", catalog.Snapshot.PolicyVersion);
+        Assert.Equal("98ddcc91fba414919231e242de01dc022aed74dd", catalog.Snapshot.SourceCommit);
+        Assert.Equal("2026-09-12", catalog.Snapshot.PolicyVersion);
+        Assert.Equal(22, catalog.Snapshot.Models.Count);
+        Assert.All(catalog.Snapshot.Models, model => Assert.True(model.PriceAvailable));
 
         var sol = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == "gpt-5.6-sol");
         Assert.Equal("codex", sol.CliType);
@@ -19,6 +21,39 @@ public sealed class ReviewModelCatalogTests
         Assert.Contains("xhigh", sol.SupportedThinkingLevels);
         Assert.True(sol.PriceAvailable);
         Assert.True(sol.AvailableForNewRuns);
+    }
+
+    [Theory]
+    [InlineData("gpt-6-astra", "astra", "codex", "codex")]
+    [InlineData("claude-fable-5-1", "claude-fable-5-1", "claude-code", "claude")]
+    public void Newly_supported_models_are_explicit_provisional_choices_without_default_floor_equivalence(
+        string modelId, string requestedId, string requestedCli, string canonicalCli)
+    {
+        var option = catalog.Find(modelId)!;
+        Assert.Equal("selectable", option.RoutingStatus);
+        Assert.Equal("frontier", option.CapabilityTier);
+        Assert.True(option.Provisional);
+        Assert.Equal("provisional", option.EvidenceStatus);
+        Assert.True(option.AvailableForNewRuns);
+        Assert.True(option.PriceAvailable);
+        Assert.Equal(new[] { "low", "medium", "high", "xhigh", "max" }, option.SupportedThinkingLevels);
+
+        var selected = catalog.Resolve(requestedCli, requestedId, "MAX");
+        Assert.Equal(modelId, selected.Model);
+        Assert.Equal(canonicalCli, selected.CliType);
+        Assert.Equal("max", selected.ThinkingLevel);
+        Assert.True(selected.Catalogued);
+        Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve(requestedCli, requestedId, "ultra"));
+        Assert.Throws<ReviewModelSelectionException>(() =>
+            catalog.Resolve(canonicalCli == "codex" ? "claude" : "codex", modelId, "max"));
+
+        // Selectable support does not declare a qualified core route or provider fallback.
+        var small = catalog.Recommend("code", ReviewLevel.File, 1);
+        var security = catalog.Recommend("security", ReviewLevel.File, 1);
+        Assert.True(catalog.IsBelowCorrectnessFloor(selected, small));
+        Assert.True(catalog.IsBelowCorrectnessFloor(selected, security));
+        Assert.NotEqual(modelId, catalog.ResolveDefault(canonicalCli, small)!.Model);
+        Assert.NotEqual(modelId, catalog.ResolveDefault(canonicalCli, security)!.Model);
     }
 
     [Theory]

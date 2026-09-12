@@ -100,7 +100,10 @@ public sealed record QualityRunObservation(
     string? ProviderRunId,
     QualityRunGrade? Grade,
     string? Summary,
-    IReadOnlyList<QualityRunFinding> Findings);
+    IReadOnlyList<QualityRunFinding> Findings,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SourceRevision = null,
+    // Captured per-operation provenance. Run.Model/ThinkingLevel remain the requested sweep route.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewerIdentity? Reviewer = null);
 
 public sealed record QualityRunGrade(int Score, string Band, string Rationale);
 
@@ -118,7 +121,10 @@ public sealed record QualityRunFinding(
     IReadOnlyList<QualityFindingLocation> Locations,
     string Source,
     string? SensorId,
-    string? Producer);
+    string? Producer,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<FindingAnchor>? Anchors = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<FindingEvidenceItem>? EvidenceItems = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReproductionInfo? Reproduction = null);
 
 public sealed record QualityRunDelta(
     string Status,
@@ -200,6 +206,7 @@ public static class QualityRunReportJson
         WriteIndented = true,
         Encoder = JavaScriptEncoder.Default,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 }
 
