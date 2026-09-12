@@ -11,6 +11,9 @@ The interaction budgets are contracts, not aspirations:
 | Project dashboard open (5,000-file summary) | < 150 ms click-to-interactive | 65.8 ms | Pass |
 | Repository transition visible | < 100 ms click-to-transition | 13.6–24.5 ms | Pass |
 | Real-backend repository switch | < 500 ms click-to-usable | 131.3 ms cold UI / 73.3 ms SWR | Pass |
+| Agent Studio lazy-root switch | < 500 ms click-to-usable | 19.8 ms median / 87.0 ms p95 | Pass |
+| Lazy child expansion | < 100 ms request-to-paint | 33.1 ms | Pass |
+| Cached tree toggle | < 50 ms scripting-to-paint | 6.8 ms median / 14.1 ms p95 | Pass |
 
 Re-measured for QS-9 on 2026-07-11 in Microsoft Edge 150.0.4078.65 (Chromium), headless at 1600 × 1000. The file route returned 333,782 bytes, deliberately above the 200 KB acceptance boundary, together with two review documents. The view split the response into lines but inserted only 80 overscanned line rows. Tree expand/collapse inserted only the visible fixed-height window. Network time is included in the file-open mark because it starts at selection and ends on the first animation frame after visible content renders. The aspect switch reused the loaded file response; the request counter remained at two (initial file plus opened file) after switching.
 
@@ -54,6 +57,31 @@ tokens above 200 KB, and the two file requests all held. That stage now serves i
 fixture: the shell no longer carries a built-in demonstration tree, so a measurement must bring its
 own nodes rather than depend on preview data appearing under a real path.
 
+QS-82 measured the real 3,927-file Agent Studio repository, re-run on 2026-08-24
+in Chromium 151.0.7922.34. Five switches using the v2 one-level root contract
+were usable in 16.2–87.0 ms (19.8 ms median). The first project expansion
+fetched ten children and painted in 33.1 ms; six later cached expand/collapse
+actions measured 3.6–14.1 ms. Eleven repository transitions all painted inside
+the 100 ms budget. Child requests carry the immutable root snapshot ETag, so
+they skip redundant Git-state measurement. The explorer keeps keyboard and
+virtualized-row behavior, while deep links and unloaded file lookup use the
+bounded server-side tree search instead of forcing the recursive root response.
+
+A separate real-app run covers the switcher surface: a cold Agent Studio switch
+was usable in 111.7 ms and a warm one in 12.9 ms, the last selected repository
+was restored from `localStorage` across a reload, and stopping the API raised an
+explicit "API unavailable" notice whose Retry recovered the session.
+
+The editor surface is now a deferred standard component chunk. As first measured
+on 2026-08-24 that moved the production initial bundle from 478.30 kB to
+438.02 kB (40.28 kB / 8.42%). Those absolute figures predate the separate
+initial-bundle work that landed on main afterwards, so both arms were measured
+again on 2026-09-07 after rebasing onto main: `ng build` reports 334.86 kB raw /
+92.49 kB transfer on main and 305.97 kB raw / 86.04 kB transfer with the editor
+deferred — 28.89 kB (8.63%) off the raw initial bundle and 6.45 kB (6.97%) off
+the transfer size, with the editor now a 35.12 kB lazy chunk. The 480 kB error
+ceiling is unchanged.
+
 ## Repeat the automated measurement
 
 1. Run `npm start` (the harness defaults to `http://127.0.0.1:4200`; set `QS_URL` to use another URL).
@@ -79,5 +107,5 @@ The app also logs stable JSON events named `qs.tree.toggle`, `qs.file.first-cont
 - Finding ranges are indexed once per loaded review/aspect; only markers belonging to the visible 80-line window enter the DOM.
 - Aspect switching selects an already-loaded `metaDocuments` entry and does not fetch file content again.
 - The first-content path displays plain escaped text. Supported files up to 200 KB are tokenized only after that paint in a cancellable single-concurrency worker and delivered in 200-line chunks; whole-file main-thread highlighting is prohibited.
-- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 12/16 KB per component stylesheet. The initial bundle is 334.57 kB raw / 92.39 kB transfer.
-- Everything that is not part of opening a repository is a deferred chunk and is not paid on the first-content path: the review panel and its run history, the review launcher, the project dashboard, the attack matrix, the container overview, the repository, guideline, import, usage, and API-access dialogs, the syntax tokenizer, and the offline preview fixtures. The explorer is deferred on immediate, so its chunk is fetched at bootstrap instead of parsed before the first paint.
+- Production bundle budgets are enforced at 350 KB warning / 480 KB error initially and 12/16 KB per component stylesheet. The initial bundle is 305.97 kB raw / 86.04 kB transfer.
+- Everything that is not part of opening a repository is a deferred chunk and is not paid on the first-content path: the review panel and its run history, the review launcher, the project dashboard, the attack matrix, the container overview, the repository, guideline, import, usage, and API-access dialogs, the editor, the syntax tokenizer, and the offline preview fixtures. The explorer is deferred on immediate, so its chunk is fetched at bootstrap instead of parsed before the first paint.

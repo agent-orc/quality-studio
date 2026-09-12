@@ -43,10 +43,27 @@ const tree = [{
     }],
   }],
 }];
-await page.route(/\/api\/(?:repos\/[^/]+\/)?tree(?:\?|$)/, route => route.fulfill({
-  contentType: 'application/json',
-  body: JSON.stringify({ nodes: tree }),
-}));
+// The shell asks for one level at a time over the versioned contract and filters over the search
+// route, so the fixture is served the same way. Answering only the recursive route would let the
+// live repository answer instead, and the measurement would stop being the fixture's.
+const fixtureNodes = (function flatten(nodes, into = []) {
+  for (const node of nodes) { into.push(node); flatten(node.children, into); }
+  return into;
+})(tree);
+const shallow = node => ({ ...node, children: [], hasChildren: node.children.length > 0, childCount: node.children.length });
+const levelBody = nodes => JSON.stringify({ schemaVersion: 2, nodes: nodes.map(shallow), nextCursor: null, snapshotEtag: '"perf-fixture"' });
+await page.route(/\/api\/(?:repos\/[^/]+\/)?tree\/v2\?/, route => {
+  const parentId = new URL(route.request().url()).searchParams.get('parentId');
+  const level = parentId ? fixtureNodes.find(node => node.id === parentId)?.children ?? [] : tree;
+  return route.fulfill({ contentType: 'application/json', body: levelBody(level) });
+});
+await page.route(/\/api\/(?:repos\/[^/]+\/)?tree\/v2\/search\?/, route => {
+  const query = (new URL(route.request().url()).searchParams.get('query') ?? '').toLowerCase();
+  return route.fulfill({
+    contentType: 'application/json',
+    body: levelBody(fixtureNodes.filter(node => node.name.toLowerCase().includes(query) || node.path.toLowerCase().includes(query))),
+  });
+});
 
 const project = {
   generatedAt: '2026-07-25T10:00:00Z',

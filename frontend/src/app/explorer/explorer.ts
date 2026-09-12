@@ -35,7 +35,7 @@ export class Explorer {
   readonly treeRows = computed(() => flattenTree(this.api.tree(), this.expanded()));
   readonly filteredRows = computed(() => {
     const q = this.query().trim().toLowerCase();
-    return q ? this.api.allNodes().filter(n => n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q)) : this.treeRows();
+    return q ? flattenTree(this.api.treeSearchResults(), new Set(), true) : this.treeRows();
   });
   readonly visibleRows = computed(() => {
     const start = Math.max(0, Math.floor(this.scrollTop() / ROW_HEIGHT) - 5);
@@ -51,6 +51,11 @@ export class Explorer {
   exclusionTitle(node: TreeNode): string {
     return (node.excluded ?? []).map(item => `${item.path}: ${item.reason}`).join('\n');
   }
+
+  hasChildren(node: TreeNode): boolean { return node.hasChildren ?? node.children.length > 0; }
+
+  childrenLoading(node: TreeNode): boolean { return this.api.treeChildrenLoading().has(node.id); }
+
   /**
    * Logical "focus lives in the tree" flag, tracked independently of document.activeElement.
    * A recycled or entirely-replaced row (virtualization scroll, or the tree dataset itself
@@ -107,6 +112,7 @@ export class Explorer {
     this.searchTimer = setTimeout(() => {
       this.searchTimer = null;
       this.query.set(value);
+      void this.api.searchTree(value);
     }, SEARCH_DEBOUNCE_MS);
   }
 
@@ -115,6 +121,7 @@ export class Explorer {
     this.searchTimer = null;
     this.queryInput.set('');
     this.query.set('');
+    void this.api.searchTree('');
   }
 
   onTreeFocusIn(): void {
@@ -132,7 +139,7 @@ export class Explorer {
   }
 
   open(node: FlatNode): void {
-    if (node.level !== 'file' && node.children.length) this.toggle(node);
+    if (node.level !== 'file' && this.hasChildren(node)) void this.toggle(node);
     this.nodeOpen.emit(node.path);
   }
 
@@ -141,14 +148,20 @@ export class Explorer {
     this.expanded.update(current => new Set([...current, ...ids]));
   }
 
-  toggle(node: FlatNode): void {
+  async toggle(node: FlatNode): Promise<void> {
     const start = performance.now();
+    const expanding = !this.expanded().has(node.id);
+    const childrenCached = node.childrenLoaded || node.children.length > 0;
     this.expanded.update(current => {
       const next = new Set(current);
       if (next.has(node.id)) next.delete(node.id); else next.add(node.id);
       return next;
     });
-    requestAnimationFrame(() => this.measure('qs.tree.toggle', start, 50));
+    if (expanding) await this.api.loadTreeChildren(node);
+    requestAnimationFrame(() => this.measure(
+      expanding && !childrenCached ? 'qs.tree.expand-loaded' : 'qs.tree.toggle',
+      start,
+      expanding && !childrenCached ? 100 : 50));
   }
 
   onRowClick(node: FlatNode): void {
@@ -158,12 +171,19 @@ export class Explorer {
 
   onChevronClick(event: MouseEvent, node: FlatNode): void {
     event.stopPropagation();
-    if (!node.children.length) return;
+    if (!this.hasChildren(node)) return;
     this.activeId.set(node.id);
-    this.toggle(node);
+    void this.toggle(node);
   }
 
   onTreeKeydown(event: KeyboardEvent): void {
+    // Escape clears the filter before the rows are consulted: a filter that matched nothing is
+    // exactly the one that has to be escapable.
+    if (event.key === 'Escape' && this.queryInput()) {
+      event.preventDefault();
+      this.clearQuery();
+      return;
+    }
     const rows = this.filteredRows();
     if (!rows.length) return;
     const index = Math.max(0, this.activeIndex());
@@ -198,12 +218,6 @@ export class Explorer {
         event.preventDefault();
         this.activateNode(node);
         break;
-      case 'Escape':
-        if (this.queryInput()) {
-          event.preventDefault();
-          this.clearQuery();
-        }
-        break;
       default:
         if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) this.typeahead(rows, event.key);
     }
@@ -214,17 +228,17 @@ export class Explorer {
       this.nodeOpen.emit(node.path);
       return;
     }
-    if (!node.children.length) return;
+    if (!this.hasChildren(node)) return;
     if (!this.expanded().has(node.id)) {
-      this.toggle(node);
+      void this.toggle(node);
       return;
     }
     this.setActive(rows, Math.min(rows.length - 1, index + 1));
   }
 
   private arrowLeft(rows: FlatNode[], node: FlatNode, index: number): void {
-    if (node.level !== 'file' && node.children.length && this.expanded().has(node.id)) {
-      this.toggle(node);
+    if (node.level !== 'file' && this.hasChildren(node) && this.expanded().has(node.id)) {
+      void this.toggle(node);
       return;
     }
     for (let i = index - 1; i >= 0; i--) {

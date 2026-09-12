@@ -1,0 +1,232 @@
+{
+  "measuredAt": "2026-09-07T04:26:33.862Z",
+  "browser": "153.0.8010.12",
+  "productCommit": "368bd063253e1c9b507ea5efa6622a683c4e0d14",
+  "productWorktreeDirty": true,
+  "target": {
+    "root": "/home/agent/runner-work/PROJ-002/repo",
+    "commit": "9af1a848e3be1401340b3b15c9704ae1f87c9408",
+    "trackedFiles": 3927
+  },
+  "largeSwitch": {
+    "samples": 5,
+    "medianMs": 40.7,
+    "p95Ms": 47,
+    "minMs": 34.9,
+    "maxMs": 47,
+    "values": [
+      34.9,
+      40.7,
+      37,
+      40.7,
+      47
+    ]
+  },
+  "cachedExpand": {
+    "samples": 6,
+    "medianMs": 2,
+    "p95Ms": 11.4,
+    "minMs": 1.5,
+    "maxMs": 11.4,
+    "values": [
+      1.9,
+      11.4,
+      2,
+      5.3,
+      1.5,
+      2.8
+    ]
+  },
+  "firstLazyLoad": {
+    "event": "qs.data.tree-children-loaded",
+    "parentId": "qs-v1/dotnet/project/e9715fa2ca18b4440b871a5bdef77b493b21fb9f9f8405dd45440fea36e16df5",
+    "nodeCount": 10,
+    "source": "api"
+  },
+  "firstLazyExpand": {
+    "event": "qs.tree.expand-loaded",
+    "durationMs": 23.3,
+    "budgetMs": 100,
+    "withinBudget": true
+  },
+  "transitionEvents": [
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 13.1,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 11.5,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 17.3,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 11.4,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 20.4,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 10,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 20.4,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 17.2,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 19.1,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 16.1,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 20.5,
+      "budgetMs": 100,
+      "withinBudget": true
+    }
+  ],
+  "switchEvents": [
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 34.9,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 30.1,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 40.7,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 26,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 37,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 27.5,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 40.7,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 32.1,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 47,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 32.5,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 46.6,
+      "budgetMs": 500,
+      "withinBudget": true
+    }
+  ],
+  "toggleEvents": [
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 1.9,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 11.4,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 2,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 5.3,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 1.5,
+      "budgetMs": 50,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.tree.toggle",
+      "durationMs": 2.8,
+      "budgetMs": 50,
+      "withinBudget": true
+    }
+  ],
+  "screenshots": [
+    "tree-transport-before.png",
+    "tree-transport-before-dark.png",
+    "tree-transport-after.png",
+    "tree-transport-after-dark.png"
+  ]
+}

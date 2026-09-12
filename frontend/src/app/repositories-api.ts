@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -22,6 +22,9 @@ export class RepositoriesApi {
     this.repositories().find(repository => repository.id === this.context.selectedRepositoryId()) ?? null);
 
   async load(preferredId?: string | null): Promise<void> {
+    // Claim the preferred repository before the round trip: a restored session must keep asking
+    // for the repository it left off at even when the registry request never answers.
+    if (preferredId) this.context.selectedRepositoryId.set(preferredId);
     try {
       const result = await firstValueFrom(this.http.get<{ repositories: RepositoryRegistration[]; defaultRepositoryId: string }>('/api/repos'));
       this.context.legacyApi.set(false);
@@ -33,11 +36,19 @@ export class RepositoriesApi {
           : result.defaultRepositoryId;
       this.context.selectedRepositoryId.set(selected);
     } catch (error) {
-      // A pre-registry server still exposes the legacy default endpoints.
-      this.context.legacyApi.set(true);
-      this.repositories.set([LEGACY_DEFAULT]);
-      this.context.selectedRepositoryId.set('default');
-      console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.context.errorMessage(error) }));
+      if (error instanceof HttpErrorResponse && error.status === 404) {
+        // A pre-registry server still exposes the legacy default endpoints.
+        this.context.legacyApi.set(true);
+        this.repositories.set([LEGACY_DEFAULT]);
+        this.context.selectedRepositoryId.set('default');
+        console.warn(JSON.stringify({ event: 'qs.repositories.legacy-fallback', reason: this.context.errorMessage(error) }));
+        return;
+      }
+      // Anything else means the registry itself is down. Pretending the single legacy repository
+      // exists would hide the outage behind a repository the user never onboarded.
+      this.context.connectionState.set('offline');
+      this.context.connectionError.set(this.context.errorMessage(error));
+      console.warn(JSON.stringify({ event: 'qs.repositories.unavailable', reason: this.context.errorMessage(error) }));
     }
   }
 

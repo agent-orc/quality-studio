@@ -36,7 +36,24 @@ export interface TreeNode {
   lineCount?: number | null;
   coverage?: CoverageFact;
   excluded?: ScopeExclusion[];
+  parentId?: string | null;
+  /** The v2 level contract states this without shipping the descendants. */
+  hasChildren?: boolean;
+  childCount?: number;
+  /** False while a container's children are still one request away. */
+  childrenLoaded?: boolean;
   children: TreeNode[];
+}
+/** One level of the versioned lazy tree contract served at `/api/.../tree/v2`. */
+export interface TreeLevelResponse {
+  schemaVersion: 2;
+  parentId: string | null;
+  path: string;
+  snapshotEtag?: string;
+  offset: number;
+  limit: number;
+  nextCursor: string | null;
+  nodes: TreeNode[];
 }
 export type ReviewKind = 'code' | 'security' | 'performance';
 export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
