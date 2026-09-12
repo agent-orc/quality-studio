@@ -999,8 +999,22 @@ public sealed class ApiSmokeTests : IAsyncLifetime
 
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal("2026-07-24", json.GetProperty("policyVersion").GetString());
+        Assert.Equal("2026-09-12", json.GetProperty("policyVersion").GetString());
+        Assert.Equal("98ddcc91fba414919231e242de01dc022aed74dd", json.GetProperty("sourceCommit").GetString());
         var models = json.GetProperty("models").EnumerateArray().ToArray();
+        Assert.Equal(22, models.Length);
+        Assert.All(models, model => Assert.True(model.GetProperty("priceAvailable").GetBoolean()));
+        foreach (var (id, cli) in new[] { ("gpt-6-astra", "codex"), ("claude-fable-5-1", "claude") })
+        {
+            var supported = Assert.Single(models, model => model.GetProperty("modelId").GetString() == id);
+            Assert.Equal(cli, supported.GetProperty("cliType").GetString());
+            Assert.Equal("selectable", supported.GetProperty("routingStatus").GetString());
+            Assert.True(supported.GetProperty("availableForNewRuns").GetBoolean());
+            Assert.True(supported.GetProperty("provisional").GetBoolean());
+            Assert.Equal("provisional", supported.GetProperty("evidenceStatus").GetString());
+            Assert.Equal(new[] { "low", "medium", "high", "xhigh", "max" },
+                supported.GetProperty("supportedThinkingLevels").EnumerateArray().Select(level => level.GetString()));
+        }
         var sol = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "gpt-5.6-sol");
         Assert.Equal("frontier", sol.GetProperty("capabilityTier").GetString());
         Assert.True(sol.GetProperty("availableForNewRuns").GetBoolean());

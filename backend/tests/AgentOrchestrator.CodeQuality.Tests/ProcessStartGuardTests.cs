@@ -62,7 +62,7 @@ public sealed class ProcessStartGuardTests
     }
 
     /// <summary>
-    /// Returns the object initializer block that follows <c>new ProcessStartInfo(...)</c>,
+    /// Returns the object initializer block following a <c>ProcessStartInfo</c> constructor call,
     /// or null when the construction has none.
     /// </summary>
     private static string? ExtractInitializer(string text, int start)

@@ -96,6 +96,29 @@ uses relative paths, stable automation and fingerprint identities, and only emit
 baseline state when the run has a comprehensive comparable predecessor. Exported
 documents omit the absolute repository root.
 
+### Captured finding evidence in native JSON
+
+The canonical [`quality-run-report.v1`](../schemas/quality-run-report.v1.schema.json)
+JSON preserves optional fields from the captured review metadata:
+
+- `observations[].sourceRevision` and `observations[].reviewer` reuse the native
+  source revision and `ReviewerIdentity`: `agent`, recorded `model`, and available
+  `agentVersion`, `runId`, `usage`, `sensors`, `requestedModel` and
+  `requestedThinkingLevel`.
+- `observations[].findings[].anchors`, `evidenceItems` and `reproduction` reuse
+  `FindingAnchor`, `FindingEvidenceItem` and `ReproductionInfo`, including captured
+  excerpts/hashes, evidence class/status and reproduction status/reason.
+
+Missing values are omitted. Reviewer provenance comes from frozen operation
+metadata; `run.model` and `run.thinkingLevel` still identify the manifest request.
+A requested thinking level is not a verified executed level, and the export does
+not invent one. Previously stored reports are not retrospectively enriched.
+
+New readers accept older v1 documents without these optional fields. Older
+consumers using the previous closed schema or strict DTOs must update their
+schema/DTO before accepting reports containing the new fields. This extension
+does not mean that every older consumer can read new documents unchanged.
+
 ## HTTP
 
 `GET /api/report` builds a comparison report for every active registry
