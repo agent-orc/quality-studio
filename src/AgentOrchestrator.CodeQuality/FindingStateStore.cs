@@ -23,7 +23,8 @@ public sealed record FindingStateDocument(int SchemaVersion, long Revision, IRea
 
 public sealed class FindingStateStore
 {
-    public const string RelativePath = ".quality/findings/state.json";
+    /// <summary>The state file, relative to the project's data root.</summary>
+    public const string RelativePath = "findings/state.json";
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     // One parsed document per state file, keyed by the exact bytes it was parsed from. Every
     // operation still reads the file, so another process's write is always seen; only the parse,
@@ -37,7 +38,7 @@ public sealed class FindingStateStore
     public FindingStateStore(string repositoryRoot, Func<DateTimeOffset>? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        statePath = Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "findings", "state.json");
+        statePath = QualityDataRoot.Combine(repositoryRoot, RelativePath.Split('/'));
         this.clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 

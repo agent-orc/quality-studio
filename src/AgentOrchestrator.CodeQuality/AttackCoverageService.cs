@@ -151,19 +151,18 @@ public static partial class BoundaryCoverageHasher
     }
 }
 
-/// <summary>Append-only repository ledger. Existing observations are never rewritten.</summary>
+/// <summary>Append-only project ledger. Existing observations are never rewritten.</summary>
 public sealed class AttackCoverageLedger
 {
-    public const string RelativePath = ".quality/attacks/coverage-ledger.jsonl";
+    /// <summary>The ledger, relative to the project's data root.</summary>
+    public const string RelativePath = "attacks/coverage-ledger.jsonl";
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
     private readonly string path;
 
     public AttackCoverageLedger(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        path = System.IO.Path.Combine(
-            System.IO.Path.GetFullPath(repositoryRoot),
-            RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        path = QualityDataRoot.Combine(repositoryRoot, RelativePath.Split('/'));
     }
 
     public string Path => path;

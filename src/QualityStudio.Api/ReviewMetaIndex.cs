@@ -22,7 +22,11 @@ public sealed class ReviewMetaIndex : IDisposable
     /// </summary>
     public void Release(string root)
     {
-        if (repositories.TryRemove(Path.GetFullPath(root), out var index)) index.Value.Dispose();
+        // Only a Lazy that produced a value has anything to dispose. Touching `.Value` on one whose
+        // factory threw would rethrow the cached exception here - during Dispose, that would abort
+        // the loop and leak every watcher after it.
+        if (repositories.TryRemove(Path.GetFullPath(root), out var index) && index.IsValueCreated)
+            index.Value.Dispose();
     }
 
     public void Dispose()
@@ -35,20 +39,35 @@ public sealed class ReviewMetaIndex : IDisposable
     // so every discarded instance leaked a live directory handle that went on receiving
     // events for the rest of the process. Lazy with ExecutionAndPublication builds exactly
     // one watcher per root, and makes Release deterministic against a concurrent first read.
-    private RepositoryIndex Get(string root) => repositories.GetOrAdd(
-        Path.GetFullPath(root),
-        static path => new Lazy<RepositoryIndex>(
-            () => new RepositoryIndex(path), LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+    private RepositoryIndex Get(string root)
+    {
+        var path = Path.GetFullPath(root);
+        var index = repositories.GetOrAdd(path, static key => new Lazy<RepositoryIndex>(
+            () => new RepositoryIndex(key), LazyThreadSafetyMode.ExecutionAndPublication));
+        try
+        {
+            return index.Value;
+        }
+        catch
+        {
+            // A Lazy caches the exception its factory threw, for the lifetime of the process. The
+            // factory touches the data root, so one unwritable mount at the wrong moment would make
+            // this repository permanently unreadable even after the mount was fixed. Drop the
+            // faulted entry so the next request retries instead.
+            repositories.TryRemove(new KeyValuePair<string, Lazy<RepositoryIndex>>(path, index));
+            throw;
+        }
+    }
 
     private sealed class RepositoryIndex : IDisposable
     {
-        private static readonly EnumerationOptions ConfinedEnumeration = new()
-        {
-            RecurseSubdirectories = true,
-            AttributesToSkip = FileAttributes.ReparsePoint,
-        };
         private readonly object gate = new();
+
+        /// <summary>The checkout, which every indexed sidecar names a file inside.</summary>
         private readonly string root;
+
+        /// <summary>The project's sidecar lane in the data root, which is what is watched.</summary>
+        private readonly string lane;
         private readonly Dictionary<string, IndexedDocument> documents =
             new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         private readonly FileSystemWatcher watcher;
@@ -56,11 +75,13 @@ public sealed class ReviewMetaIndex : IDisposable
         public RepositoryIndex(string root)
         {
             this.root = root;
-            foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
-                         .Where(IsReviewMetaPath))
-                Update(path);
+            lane = ReviewMetaPath.LaneRootFor(root);
+            // A watcher needs an existing directory, and a repository registered before its first
+            // review has none yet. Creating it costs one empty folder in the studio's own data root.
+            Directory.CreateDirectory(lane);
+            foreach (var path in ReviewMetaPath.Enumerate(root)) Update(path);
 
-            watcher = new FileSystemWatcher(root, "*.json")
+            watcher = new FileSystemWatcher(lane, "*.json")
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
@@ -87,8 +108,7 @@ public sealed class ReviewMetaIndex : IDisposable
         {
             try
             {
-                var rebuilt = Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
-                    .Where(IsReviewMetaPath).ToArray();
+                var rebuilt = ReviewMetaPath.Enumerate(root).ToArray();
                 lock (gate) documents.Clear();
                 foreach (var path in rebuilt) Update(path);
                 try
@@ -142,8 +162,8 @@ public sealed class ReviewMetaIndex : IDisposable
             if (!IsReviewMetaPath(path) || !File.Exists(path)) return;
             try
             {
-                if (!PathConfinement.IsWithin(root, path)) return;
-                PathConfinement.RejectReparseTraversal(root, path);
+                if (!PathConfinement.IsWithin(lane, path)) return;
+                PathConfinement.RejectReparseTraversal(lane, path);
                 // The one reader decides what a sidecar says and reports what it cannot read; the
                 // raw payload is kept because callers still project over the whole document.
                 if (!ReviewMetaReader.TryLoad(path, out var sidecar, out _)) return;

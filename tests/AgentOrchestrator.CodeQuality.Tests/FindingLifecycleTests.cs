@@ -40,7 +40,8 @@ public sealed class FindingLifecycleTests
 
             var resolved = await store.MergeReviewAsync([], [finding], "agent", TestContext.Current.CancellationToken);
             Assert.Equal(FindingState.Resolved, resolved[finding.Fingerprint].State);
-            Assert.True(File.Exists(Path.Combine(root.FullName, FindingStateStore.RelativePath.Replace('/', Path.DirectorySeparatorChar))));
+            Assert.True(File.Exists(
+                QualityDataRoot.Combine(root.FullName, FindingStateStore.RelativePath.Split('/'))));
         }
         finally
         {

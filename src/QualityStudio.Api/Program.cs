@@ -21,6 +21,11 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 builder.Services.Configure<RepositoryOptions>(builder.Configuration.GetSection(RepositoryOptions.SectionName));
+// Before anything resolves a path: every store asks QualityDataRoot where this host keeps generated
+// data, and a store constructed against the default would file it somewhere the rest never looks.
+QualityDataRoot.Configure(RepositoryOptions.ResolveDataRoot(
+    builder.Configuration.GetSection(RepositoryOptions.SectionName)["DataRoot"],
+    builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(serviceProvider => AnalyzerProfileOptions.CreateCatalog(
     serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>().Value.AnalyzerProfiles,
     serviceProvider.GetRequiredService<IHostEnvironment>().ContentRootPath));
@@ -80,6 +85,7 @@ var corsOptions = builder.Configuration.GetSection(RepositoryOptions.SectionName
 LocalModeBindingGuard.ValidateConfiguredAddresses(builder.Configuration, corsOptions.Security);
 corsOptions.Limits.Validate();
 builder.Services.AddHostedService<LocalModeBindingGuard>();
+builder.Services.AddHostedService<CheckoutCleanlinessCheck>();
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = corsOptions.Security.MaxRequestBodyBytes;
@@ -970,8 +976,7 @@ static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(string reposit
 {
     var ids = guidelineIds.ToHashSet(StringComparer.Ordinal);
     var findings = ids.ToDictionary(id => id, _ => new List<GuidelineTraceFindingResponse>(), StringComparer.Ordinal);
-    foreach (var path in Directory.EnumerateFiles(repositoryRoot, "*.json", SearchOption.AllDirectories)
-                 .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
+    foreach (var path in ReviewMetaPath.Enumerate(repositoryRoot))
     {
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var root = document.RootElement;
@@ -986,7 +991,7 @@ static IReadOnlyList<GuidelineTraceResponse> BuildGuidelineTraces(string reposit
             target.Add(new GuidelineTraceFindingResponse(
                 finding.GetProperty("id").GetString()!, ruleId, finding.GetProperty("title").GetString()!,
                 finding.GetProperty("severity").GetString()!, kind, unitPath,
-                Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/')));
+                ReviewMetaPath.Describe(repositoryRoot, path)));
         }
     }
     return findings.Select(pair => new GuidelineTraceResponse(pair.Key, pair.Value.Count, pair.Value)).ToArray();

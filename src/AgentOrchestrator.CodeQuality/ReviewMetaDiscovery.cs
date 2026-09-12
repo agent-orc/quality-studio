@@ -6,12 +6,6 @@ namespace AgentOrchestrator.CodeQuality;
 /// <summary>Discovers review-meta sidecars and attaches matching documents by unit ID.</summary>
 public static class ReviewMetaDiscovery
 {
-    private static readonly EnumerationOptions ConfinedEnumeration = new()
-    {
-        RecurseSubdirectories = true,
-        AttributesToSkip = FileAttributes.ReparsePoint,
-    };
-
     public static void AttachDiscovered(
         string repositoryPath,
         IEnumerable<HierarchyNode> projects,
@@ -25,8 +19,7 @@ public static class ReviewMetaDiscovery
         var nodes = Flatten(projects)
             .DistinctBy(node => node.Id, StringComparer.Ordinal)
             .ToDictionary(node => node.Id, StringComparer.Ordinal);
-        foreach (var path in Directory.EnumerateFiles(root, "*.json", ConfinedEnumeration)
-                     .Where(path => path.Contains(".review-meta.", StringComparison.Ordinal)))
+        foreach (var path in ReviewMetaPath.Enumerate(root))
         {
             // A sidecar that cannot be trusted attaches to no unit; the reader reports it, and the
             // unit stays "not reviewed" instead of inheriting a grade from an unvalidated file.
@@ -38,7 +31,7 @@ public static class ReviewMetaDiscovery
                 document.Unit.Id,
                 document.Kind,
                 DetermineState(root, node, document, inputResolver ?? new InputResolver(), globalInputsDirectory, inputBudgetCharacters),
-                Path.GetRelativePath(root, path).Replace('\\', '/'),
+                ReviewMetaPath.Describe(root, path),
                 sidecar.Json));
         }
     }

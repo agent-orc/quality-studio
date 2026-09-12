@@ -571,7 +571,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        Assert.True(File.Exists(Path.Combine(repositoryRoot, AttackCoverageLedger.RelativePath)));
+        Assert.True(File.Exists(new AttackCoverageLedger(repositoryRoot).Path));
         var observation = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("api-test", observation.GetProperty("reviewer").GetProperty("agent").GetString());
         Assert.Equal("fixture-model", observation.GetProperty("reviewer").GetProperty("model").GetString());
@@ -607,7 +607,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var path = Path.Combine(repositoryRoot, BoundaryInventorySensor.InventoryRelativePath);
+        var path = BoundaryInventorySensor.InventoryPathFor(repositoryRoot);
         Assert.True(File.Exists(path));
         using var inventory = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         Assert.Equal(1, inventory.RootElement.GetProperty("schemaVersion").GetInt32());
@@ -648,9 +648,8 @@ public sealed class ApiSmokeTests : IAsyncLifetime
     {
         var fingerprint = "sha256:" + new string('d', 64);
         var findingId = "finding-" + new string('d', 64);
-        var metadataDirectory = Path.Combine(repositoryRoot, ".quality", "reviews", "files");
-        Directory.CreateDirectory(metadataDirectory);
-        var metadataPath = Path.Combine(metadataDirectory, "file.test.review-meta.code.json");
+        var metadataPath = ReviewMetaPath.ForFile(repositoryRoot, "Sample.cs", "code");
+        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
         var grade = new ReviewGrade(60, GradeBand.D, "One finding.");
         var metadata = new ReviewMetaDocument
         {
@@ -789,7 +788,7 @@ public sealed class ApiSmokeTests : IAsyncLifetime
         var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         var id = accepted.GetProperty("id").GetString()!;
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
-        var runDirectory = Path.Combine(repositoryRoot, ".quality", "runs", id);
+        var runDirectory = Path.Combine(new ReviewRunStore(repositoryRoot).RunsPath, id);
         using (var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
                    Path.Combine(runDirectory, "manifest.json"), TestContext.Current.CancellationToken)))
         {

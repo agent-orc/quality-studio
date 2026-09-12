@@ -3,10 +3,11 @@
 Quality Studio's `boundaries` sensor derives externally callable and
 caller-influenced surfaces from source and configuration. It does not consume a
 hand-maintained endpoint list. A repository scan atomically writes the stable,
-diffable result to:
+diffable result below the project's data root, outside the scanned checkout
+([`data-root.md`](data-root.md)):
 
 ```text
-.quality/boundaries/inventory.json
+boundaries/inventory.json
 ```
 
 Run it directly with:
@@ -17,7 +18,7 @@ quality boundaries scan .
 
 It is also available through the sensor API as sensor id `boundaries`.
 Repository scans persist the inventory; path-scoped scans return a partial
-inventory without replacing the repository truth.
+inventory without replacing the stored repository-wide one.
 
 ## Contract
 
@@ -48,5 +49,6 @@ surfaces. They are returned as normal sensor findings so later security review
 stages consume the same deterministic evidence.
 
 The inventory intentionally contains no generation timestamp. Re-running it
-against unchanged source produces identical content, while adding, changing, or
-removing a boundary creates a normal repository diff.
+against unchanged source produces byte-identical content, so adding, changing, or
+removing a boundary is the only thing that can change the file, and comparing two
+copies of it names exactly what moved.

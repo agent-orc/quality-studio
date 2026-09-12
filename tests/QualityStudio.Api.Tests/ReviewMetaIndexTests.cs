@@ -84,10 +84,8 @@ public sealed class ReviewMetaIndexTests
 
     private static string WriteSidecar(TemporaryDirectory fixture, string unitPath, ReviewKind kind)
     {
-        var directory = fixture.CreateSubdirectory(".quality", "reviews", "files");
-        var name = Path.GetFileNameWithoutExtension(unitPath).ToLowerInvariant();
-        var path = Path.Combine(directory,
-            $"{name}.review-meta.{kind.ToString().ToLowerInvariant()}.json");
+        var path = ReviewMetaPath.ForFile(fixture.Path, unitPath, kind.ToString().ToLowerInvariant());
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var grade = new ReviewGrade(80, GradeBand.B, "Fixture grade.");
         File.WriteAllText(path, ReviewMetaJson.Serialize(new ReviewMetaDocument
         {

@@ -25,14 +25,19 @@ public sealed record CoverageSnapshot(
     IReadOnlyList<string> Reports,
     IReadOnlyList<CoverageFile> Files)
 {
-    public const string RelativePath = ".quality/coverage/coverage.json";
+    /// <summary>The snapshot, relative to the project's data root.</summary>
+    public const string RelativePath = "coverage/coverage.json";
 
     public static CoverageSnapshot Empty(string measuredAt, string? commit, IReadOnlyList<string>? reports = null) =>
         new(1, CoverageSensor.CurrentVersion, measuredAt, commit, reports ?? [], []);
 
+    /// <summary>Where this project's coverage snapshot is read from and written to.</summary>
+    public static string PathFor(string repositoryRoot) =>
+        QualityDataRoot.Combine(repositoryRoot, RelativePath.Split('/'));
+
     public static CoverageSnapshot? Load(string repositoryRoot)
     {
-        var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var path = PathFor(repositoryRoot);
         if (!File.Exists(path)) return null;
         try
         {
@@ -46,7 +51,7 @@ public sealed record CoverageSnapshot(
 
     public async Task SaveAsync(string repositoryRoot, CancellationToken cancellationToken = default)
     {
-        var path = System.IO.Path.Combine(repositoryRoot, RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        var path = PathFor(repositoryRoot);
         await AtomicFile.WriteAllTextAsync(
             path, JsonSerializer.Serialize(this, JsonOptions) + Environment.NewLine, cancellationToken)
             .ConfigureAwait(false);

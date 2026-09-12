@@ -212,10 +212,11 @@ public sealed record QualityRunReportSizeSummary(int Count, long TotalBytes, lon
 
 public sealed record QualityRunReportPruneResult(int Removed, long FreedBytes, int Remaining, int Pinned);
 
-/// <summary>Atomic repository-owned storage for canonical review-run snapshots.</summary>
+/// <summary>Atomic project-owned storage for canonical review-run snapshots.</summary>
 public sealed class QualityRunReportStore
 {
-    public const string RelativeReportsPath = ".quality/reports/runs";
+    /// <summary>The snapshot folder, relative to the project's data root.</summary>
+    public const string RelativeReportsPath = "reports/runs";
 
     /// <summary>
     /// Provisional retention default from the ux-review-flow dossier (S6): newest 50 snapshots per
@@ -227,8 +228,7 @@ public sealed class QualityRunReportStore
     public QualityRunReportStore(string repositoryRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        reportsPath = Path.Combine(Path.GetFullPath(repositoryRoot),
-            RelativeReportsPath.Replace('/', Path.DirectorySeparatorChar));
+        reportsPath = QualityDataRoot.Combine(repositoryRoot, RelativeReportsPath.Split('/'));
     }
 
     public string ReportsPath => reportsPath;

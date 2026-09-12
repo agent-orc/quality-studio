@@ -117,7 +117,7 @@ public sealed class ChangeSetReviewTests
         Assert.Equal(merge, change.MergeCommit);
         Assert.Equal(merge, change.ResultCommit);
         Assert.Equal(ChangeSetReviewService.GetPath(repository.Root, change),
-            Path.Combine(repository.Root, ".quality", "changes", merge + ".json"));
+            QualityDataRoot.Combine(repository.Root, "changes", merge + ".json"));
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class ChangeSetReviewTests
         Assert.Equal(ChangeDiffCommand.SuccessExitCode, exitCode);
         Assert.Empty(error.ToString());
         Assert.True(File.Exists(artifactPath));
-        Assert.False(Directory.Exists(Path.Combine(repository.Root, ".quality", "changes")));
+        Assert.False(Directory.Exists(QualityDataRoot.Combine(repository.Root, "changes")));
         Assert.Equal(statusBefore,
             await repository.GitCommandAsync("status", "--porcelain=v1", "--untracked-files=all"));
         Assert.Equal(indexBefore, await repository.GitCommandAsync("diff", "--cached", "--binary"));

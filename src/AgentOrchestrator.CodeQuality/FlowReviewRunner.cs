@@ -121,7 +121,7 @@ public sealed class FlowReviewRunner
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(flowId);
-        return Path.Combine(Path.GetFullPath(repositoryRoot), ".quality", "flows",
+        return QualityDataRoot.Combine(repositoryRoot, "flows",
             Sha256("quality-studio-flow-report-v1\0" + flowId.Trim()) + ".flow-review.json");
     }
 
