@@ -16,6 +16,7 @@ namespace QualityStudio.Api.Tests;
 /// The operating lids: one request may not return an unbounded file, an availability listing may not
 /// start a process per sensor per call, and the dashboard cache may not grow with the commit history.
 /// </summary>
+[Trait("Category", "ToolBound")]
 public sealed class OperatingLimitTests : IAsyncLifetime
 {
     private const int FileLimitBytes = 8 * 1024;
@@ -123,7 +124,7 @@ public sealed class OperatingLimitTests : IAsyncLifetime
         // Two-byte characters throughout, so a naive byte cut would land inside one of them.
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Large.txt"),
             string.Concat(Enumerable.Repeat("ä", 32 * 1024)), new UTF8Encoding(false));
-        await RunGitAsync(RepositoryRoot);
+        await GitTestRepository.InitializeAsync(RepositoryRoot);
         application = new LimitedApplication(RepositoryRoot, HostRoot);
     }
 
@@ -133,18 +134,6 @@ public sealed class OperatingLimitTests : IAsyncLifetime
         try { TemporaryDirectory.Delete(testRoot); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
-    }
-
-    private static async Task RunGitAsync(string directory)
-    {
-        using var process = System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-            {
-                WorkingDirectory = directory,
-                UseShellExecute = false,
-            })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class CountingSensor : IReviewSensor

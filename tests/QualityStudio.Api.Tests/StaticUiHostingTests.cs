@@ -14,6 +14,7 @@ namespace QualityStudio.Api.Tests;
 /// Proves the single-port contract the container image relies on: the published browser bundle is
 /// served by the API host itself, client routes fall back to the shell, and API routes never do.
 /// </summary>
+[Trait("Category", "ToolBound")]
 public sealed class StaticUiHostingTests : IAsyncLifetime
 {
     private const string ShellMarker = "<!-- quality-studio-shell -->";
@@ -116,7 +117,7 @@ public sealed class StaticUiHostingTests : IAsyncLifetime
         var bundle = Path.Combine(HostRoot, StaticUiHosting.DefaultDirectoryName);
         Directory.CreateDirectory(bundle);
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Sample.cs"), "public class Sample { }");
-        await RunGitAsync(RepositoryRoot);
+        await GitTestRepository.InitializeAsync(RepositoryRoot);
         await File.WriteAllTextAsync(Path.Combine(bundle, "index.html"),
             $"<!doctype html><html><head><title>Quality Studio</title></head><body>{ShellMarker}</body></html>");
         await File.WriteAllTextAsync(Path.Combine(bundle, FingerprintedAsset), "export const marker = 1;");
@@ -136,18 +137,6 @@ public sealed class StaticUiHostingTests : IAsyncLifetime
     {
         AllowAutoRedirect = false,
     });
-
-    private static async Task RunGitAsync(string directory)
-    {
-        using var process = System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-            {
-                WorkingDirectory = directory,
-                UseShellExecute = false,
-            })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
-    }
 
     private sealed class StubEnvironment(string contentRoot) : IHostEnvironment
     {

@@ -2,10 +2,12 @@ using AgentOrchestrator.CodeQuality;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class RepositorySnapshotCacheTests : IAsyncLifetime
 {
     private readonly string root = Path.Combine(
@@ -124,9 +126,7 @@ public sealed class RepositorySnapshotCacheTests : IAsyncLifetime
         await File.WriteAllTextAsync(
             Path.Combine(root, "Sample.cs"),
             "namespace Sample; public sealed class Initial;");
-        RunGit("init", "--quiet");
-        RunGit("config", "user.email", "snapshot-tests@example.invalid");
-        RunGit("config", "user.name", "Snapshot tests");
+        GitTestRepository.Initialize(root);
         RunGit("add", ".");
         RunGit("commit", "--quiet", "-m", "Initial fixture");
     }
@@ -156,21 +156,7 @@ public sealed class RepositorySnapshotCacheTests : IAsyncLifetime
         new RepositorySensorAvailabilityCache(hierarchy),
         NullLogger<RepositorySnapshotStore>.Instance);
 
-    private void RunGit(params string[] arguments)
-    {
-        using var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                UseShellExecute = false,
-            },
-        };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        process.Start();
-        process.WaitForExit();
-        Assert.Equal(0, process.ExitCode);
-    }
+    private void RunGit(params string[] arguments) => GitTestRepository.Run(root, arguments);
 
     private sealed class CountingSensor : IReviewSensor
     {

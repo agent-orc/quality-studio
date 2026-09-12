@@ -24,6 +24,7 @@ namespace QualityStudio.Api.Tests;
 /// run pins, pause, handover configuration and thread mutation. One host serves the
 /// whole class - each test works on ids of its own so they do not collide.
 /// </summary>
+[Trait("Category", "ToolBound")]
 public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
     : IClassFixture<ApiRouteCoverageTests.Fixture>
 {
@@ -507,9 +508,7 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             // written after the host started through an asynchronous watcher event.
             await WriteReviewedFileAsync("Threaded.cs");
             await WriteReviewedFileAsync("Rejected.cs");
-            await RunGitAsync("init", "--quiet");
-            await RunGitAsync("config", "user.email", "fixture@example.test");
-            await RunGitAsync("config", "user.name", "Fixture");
+            await GitTestRepository.InitializeAsync(RepositoryRoot);
             await RunGitAsync("add", ".");
             await RunGitAsync("commit", "--quiet", "-m", "seed");
             application = new TestApplication(RepositoryRoot, HostRoot, Executor);
@@ -554,21 +553,8 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             await File.WriteAllTextAsync(sidecarPath, ReviewMetaJson.Serialize(metadata));
         }
 
-        private async Task RunGitAsync(params string[] arguments)
-        {
-            using var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo("git")
-                {
-                    WorkingDirectory = RepositoryRoot,
-                    UseShellExecute = false,
-                },
-            };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-            process.Start();
-            await process.WaitForExitAsync();
-            Assert.Equal(0, process.ExitCode);
-        }
+        private async Task RunGitAsync(params string[] arguments) =>
+            await GitTestRepository.RunAsync(RepositoryRoot, default, arguments);
     }
 
     public sealed record RegisteredRoute(string Method, string Pattern);
