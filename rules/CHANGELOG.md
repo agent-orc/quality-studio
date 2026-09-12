@@ -3,6 +3,11 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.4.0 (2026-09-12)
+
+- Added evidence-first finding guidance (QS-GN-004) for all review kinds.
+- Published shared review methodology and exact metric explanations for the tool and website.
+
 ## 1.3.0 (2026-09-12)
 
 - Added repository-owned architecture contracts and deterministic structure findings (QS-GN-003).

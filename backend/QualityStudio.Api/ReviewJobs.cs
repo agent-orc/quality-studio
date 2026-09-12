@@ -19,7 +19,8 @@ public sealed record StartReviewRequest(
     long? TokenCap = null,
     decimal? CostCap = null,
     bool Force = false,
-    bool ConfirmBelowFloor = false);
+    bool ConfirmBelowFloor = false,
+    string? ScopeType = null);
 
 public sealed record ResumeReviewRequest(long? TokenCap = null, decimal? CostCap = null);
 
@@ -281,8 +282,12 @@ public sealed class ReviewJobService : BackgroundService
         var access = new RepositoryAccess(registration.RootPath);
         var path = access.NormalizeRelativePath(request.Path);
         var hierarchy = hierarchyCache.Get(registration.RootPath).Roots;
-        var node = Flatten(hierarchy).FirstOrDefault(candidate =>
-            candidate.Level != ReviewLevel.Function && string.Equals(candidate.Path, path, StringComparison.Ordinal));
+        if (request.ScopeType is not (null or "directory"))
+            throw new ArgumentException("Scope type must be directory or omitted.");
+        var node = request.ScopeType == "directory"
+            ? DirectoryReviewScopes.Build(hierarchy).GetValueOrDefault(path)
+            : Flatten(hierarchy).FirstOrDefault(candidate =>
+                candidate.Level != ReviewLevel.Function && string.Equals(candidate.Path, path, StringComparison.Ordinal));
         if (node is null) throw new KeyNotFoundException($"No reviewable hierarchy node exists at '{path}'.");
         var files = node.Level == ReviewLevel.File
             ? [node]
@@ -351,6 +356,7 @@ public sealed class ReviewJobService : BackgroundService
             GlobalInputsDirectory: plan.Registration.GlobalInputsDirectory,
             InputBudgetCharacters: plan.Registration.InputBudgetCharacters,
             UnitId: node.Id,
+            DirectoryScope: node.Id == RepositoryExplorerProjection.ScopeId(node.Path),
             SubjectFiles: files,
             DisplayName: node.Name,
             SubjectUnits: level == ReviewLevel.File
@@ -691,6 +697,7 @@ public sealed class ReviewJobService : BackgroundService
             GlobalInputsDirectory: item.Repository.GlobalInputsDirectory,
             InputBudgetCharacters: item.Repository.InputBudgetCharacters,
             UnitId: node.Id,
+            DirectoryScope: node.Id == RepositoryExplorerProjection.ScopeId(node.Path),
             SubjectFiles: files,
             DisplayName: node.Name,
             SubjectUnits: level == ReviewLevel.File
@@ -728,12 +735,14 @@ public sealed class ReviewJobService : BackgroundService
     /// A run restored from its durable manifest carries the selected node without its children, so
     /// the structure is taken from the current cached hierarchy when that node still derives.
     /// </summary>
-    private HierarchyNode LiveNode(ReviewWorkItem item, HierarchyNode node) =>
-        node.Children.Count > 0
-            ? node
-            : Flatten(hierarchyCache.Get(item.Repository.RootPath).Roots).FirstOrDefault(candidate =>
-                  candidate.Level == node.Level &&
-                  string.Equals(candidate.Path, node.Path, StringComparison.Ordinal)) ?? node;
+    private HierarchyNode LiveNode(ReviewWorkItem item, HierarchyNode node)
+    {
+        if (node.Children.Count > 0) return node;
+        var roots = hierarchyCache.Get(item.Repository.RootPath).Roots;
+        if (node.Id == RepositoryExplorerProjection.ScopeId(node.Path))
+            return DirectoryReviewScopes.Build(roots).GetValueOrDefault(node.Path) ?? node;
+        return Flatten(roots).FirstOrDefault(candidate => candidate.Id == node.Id) ?? node;
+    }
 
     private static IReadOnlyList<string>? AggregateControls(HierarchyNode node) => node.Level switch
     {

@@ -1,6 +1,8 @@
 <div class="dialog-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
   <section class="repository-dialog guideline-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="guideline-dialog-title">
-    <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Guidelines</h2></div><button class="studio-icon-button icon-button" type="button" aria-label="Close guidelines" data-modal-autofocus (click)="closed.emit()">×</button></header>
+    <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Review policy</h2></div><button class="studio-icon-button icon-button" type="button" aria-label="Close review policy" data-modal-autofocus (click)="closed.emit()">×</button></header>
+    <nav class="policy-sections" aria-label="Review policy sections"><button class="studio-button" type="button" [attr.aria-pressed]="section() === 'criteria'" (click)="section.set('criteria')">Criteria & metrics</button><button class="studio-button" type="button" [attr.aria-pressed]="section() === 'guidelines'" (click)="section.set('guidelines')">Repository guidelines · {{ guidelines().length }}</button></nav>
+    @if (section() === 'criteria') { <qs-review-criteria /> } @else {
     <div class="dialog-body guideline-body">
       <nav class="repository-list guideline-list" aria-label="Repository guidelines">
         <button class="studio-button add-repository" type="button" (click)="newRequested.emit()">+ New guideline</button>
@@ -38,5 +40,6 @@
         </footer>
       </form>
     </div>
+    }
   </section>
 </div>

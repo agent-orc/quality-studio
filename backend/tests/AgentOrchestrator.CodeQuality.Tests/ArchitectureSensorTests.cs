@@ -20,9 +20,9 @@ public sealed class ArchitectureSensorTests
     public async Task Declared_layout_detects_retired_source_missing_directory_and_misplaced_feature()
     {
         using var repository = new Fixture();
-        repository.Contract(required: ["backend/src", "backend/tests"], forbidden: ["src"],
+        repository.Contract(required: ["backend", "backend/tests"], forbidden: ["src"],
             rules: [new ArchitectureDirectoryRule("frontend/src/app", ["core", "shared", "features", "shell"], ["app.config.ts"])]);
-        repository.Write("backend/src/Api/Program.cs", "class Api;");
+        repository.Write("backend/Api/Program.cs", "class Api;");
         repository.Write("src/OldApi/Program.cs", "class OldApi;");
         repository.Write("frontend/src/app/dashboard/dashboard.ts", "export class Dashboard {}");
         var result = await repository.Scan();

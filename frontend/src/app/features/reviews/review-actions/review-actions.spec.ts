@@ -25,7 +25,7 @@ describe('ReviewActions', () => {
     reviewRuns: signal<any[]>([]),
     connected: computed(() => true),
     reviewError: signal(''),
-    selectedRepository: signal({ displayName: 'Sample repository' }),
+    selectedRepository: signal({ id: 'default', displayName: 'Sample repository' }),
     estimateReview: jasmine.createSpy('estimateReview'),
     startReview: jasmine.createSpy('startReview'),
     pauseReview: jasmine.createSpy('pauseReview'), cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
@@ -38,6 +38,7 @@ describe('ReviewActions', () => {
     api.estimateReview.calls.reset();
     api.startReview.calls.reset();
     api.reviewRuns.set([]);
+    api.selectedRepository.set({ id: 'default', displayName: 'Sample repository' });
     await TestBed.configureTestingModule({
       imports: [ReviewActions],
       providers: [{ provide: QualityApi, useValue: api }],
@@ -184,4 +185,58 @@ describe('ReviewActions', () => {
 
     expect((document.activeElement as HTMLElement).textContent).toContain('Review again');
   });
+
+  it('keeps a lazy folder review available and asks preflight for the count', async () => {
+    fixture.componentRef.setInput('node', { ...node, level: 'folder', path: 'backend', id: 'backend',
+      hasChildren: true, childCount: 3, childrenLoaded: false, children: [] });
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('.review-intent') as HTMLButtonElement;
+    expect(button.disabled).toBeFalse();
+    expect(button.textContent).toContain('Review selected scope');
+    expect(button.textContent).not.toContain('0 files');
+    api.estimateReview.and.resolveTo({});
+    await component.prepare();
+    expect(api.estimateReview).toHaveBeenCalledWith(jasmine.objectContaining({ path: 'backend', scopeType: 'directory' }));
+  });
+
+  for (const level of ['repository', 'folder'] as const) {
+    it(`sends an explicit directory scope for a ${level} review`, async () => {
+      fixture.componentRef.setInput('node', { ...node, level, path: 'frontend', id: 'directory' });
+      api.estimateReview.and.resolveTo({});
+      await component.prepare();
+      expect(api.estimateReview).toHaveBeenCalledWith(jasmine.objectContaining({
+        path: 'frontend', scopeType: 'directory',
+      }));
+    });
+  }
+
+  for (const change of ['scope', 'kind', 'repository', 'model', 'cancel'] as const) {
+    it(`discards a late estimate after ${change} changes`, async () => {
+      let resolve!: (value: any) => void;
+      api.estimateReview.and.returnValue(new Promise(value => { resolve = value; }));
+      const prepare = component.prepare();
+      if (change === 'scope') fixture.componentRef.setInput('node', { ...node, id: 'other', path: 'Other.cs' });
+      if (change === 'kind') fixture.componentRef.setInput('activeKind', 'security');
+      if (change === 'repository') api.selectedRepository.set({ id: 'other', displayName: 'Other' });
+      if (change === 'model') component.onModelInput('gpt-5.6-sol');
+      if (change === 'cancel') component.clearPreflight();
+      resolve({ overrideBelowFloor: false });
+      await prepare;
+      expect(component.preflight()).toBeNull();
+      expect(component.pendingRequest()).toBeNull();
+      expect(component.starting()).toBeFalse();
+      await component.start();
+      expect(api.startReview).not.toHaveBeenCalled();
+    });
+  }
+
+  it('refuses a prepared review when the repository changed before the effect renders', async () => {
+    api.estimateReview.and.resolveTo({ overrideBelowFloor: false });
+    await component.prepare();
+    api.selectedRepository.set({ id: 'other', displayName: 'Other' });
+    await component.start();
+    expect(api.startReview).not.toHaveBeenCalled();
+    expect(component.preflight()).toBeNull();
+  });
+
 });

@@ -52,6 +52,12 @@ test('real process fixtures are centralized and every consumer declares ToolBoun
   assert.deepEqual(violations, []);
 });
 
+test('fixture classification recognizes attributed partial classes without accepting unclassified classes', () => {
+  assert.ok(hasClassCategory('[Trait("Category", "ToolBound")]\npublic sealed partial class ApiSmokeTests {}', 'ToolBound'));
+  assert.equal(hasClassCategory('public sealed partial class ApiSmokeTests {}', 'ToolBound'), false);
+  assert.equal(hasClassCategory('[Trait("Category", "MachineBound")]\npublic sealed partial class ApiSmokeTests {}', 'ToolBound'), false);
+});
+
 test('dev-stack tests consume the shared platform-neutral process fixture', async () => {
   const source = await readFile(resolve(repoRoot, 'tests/dev-stack.test.mjs'), 'utf8');
   assert.match(source, /from '\.\/TestSupport\/node-process-fixture\.mjs'/);
@@ -83,7 +89,7 @@ function unguardedSkips(source) {
 
 function hasClassCategory(source, category) {
   const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`\\[Trait\\("Category", "${escaped}"\\)\\]\\s*(?:public )?(?:sealed )?class`).test(source);
+  return new RegExp(`\\[Trait\\("Category", "${escaped}"\\)\\]\\s*(?:public )?(?:sealed )?(?:partial )?class`).test(source);
 }
 
 async function sourceFiles(directory) {

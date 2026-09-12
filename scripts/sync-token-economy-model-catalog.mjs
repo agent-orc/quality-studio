@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const targetDirectory = join(repositoryRoot, 'backend', 'src', 'AgentOrchestrator.CodeQuality', 'catalogues');
+const targetDirectory = join(repositoryRoot, 'backend', 'AgentOrchestrator.CodeQuality', 'catalogues');
 const snapshotPath = join(targetDirectory, 'token-economy-model-catalog.snapshot.json');
 const files = {
   'model-routing-policy.json': 'token-economy-model-routing-policy.json',

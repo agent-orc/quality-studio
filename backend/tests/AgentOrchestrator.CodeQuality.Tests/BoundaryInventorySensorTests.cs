@@ -179,11 +179,11 @@ public sealed class BoundaryInventorySensorTests
         var inventory = await new BoundaryInventorySensor().InventoryAsync(
             new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
 
-        var programPath = Path.Combine(root, "backend", "src", "QualityStudio.Api", "Program.cs");
+        var programPath = Path.Combine(root, "backend", "QualityStudio.Api", "Program.cs");
         var program = await File.ReadAllTextAsync(programPath, TestContext.Current.CancellationToken);
         var registrations = Regex.Matches(program, @"\bapp\.Map(?:Get|Post|Put|Delete|Patch)\s*\(").Count;
         var inventoried = inventory.Entries.Count(entry =>
-            entry.Kind == "http" && entry.Location.Path == "backend/src/QualityStudio.Api/Program.cs");
+            entry.Kind == "http" && entry.Location.Path == "backend/QualityStudio.Api/Program.cs");
         Assert.Equal(registrations, inventoried);
 
         Assert.Contains(inventory.Entries, entry =>
@@ -200,7 +200,7 @@ public sealed class BoundaryInventorySensorTests
             entry.Name.Contains("gitleaksPath", StringComparison.Ordinal));
         Assert.Contains(gitleaks.Inputs, input => input.Source == "request");
         Assert.Contains(gitleaks.KnownConsumers, consumer =>
-            consumer.Path == "backend/src/QualityStudio.Api/Program.cs");
+            consumer.Path == "backend/QualityStudio.Api/Program.cs");
 
         using var generated = JsonDocument.Parse(JsonSerializer.Serialize(inventory,
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));

@@ -316,7 +316,8 @@ public sealed record ThreadMutationRequest(
     string? Status,
     string? HumanName,
     int? Line,
-    string? FindingFingerprint);
+    string? FindingFingerprint,
+    string? UnitId = null);
 
 public sealed record FindingStateMutationRequest(
     string Path,
@@ -326,7 +327,8 @@ public sealed record FindingStateMutationRequest(
     string Author,
     string Reason,
     DateTimeOffset? ExpiresAt,
-    DateTimeOffset? ExpectedTimestamp);
+    DateTimeOffset? ExpectedTimestamp,
+    string? UnitId = null);
 
 public sealed record FindingSuppressionMutationRequest(
     string Path,
@@ -335,7 +337,8 @@ public sealed record FindingSuppressionMutationRequest(
     string Author,
     string Reason,
     DateTimeOffset? ExpiresAt,
-    long? ExpectedRevision);
+    long? ExpectedRevision,
+    string? UnitId = null);
 
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(

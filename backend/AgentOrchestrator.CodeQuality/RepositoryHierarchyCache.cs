@@ -24,6 +24,9 @@ public sealed record RepositoryGitState(string State, string Status, string? Det
 
     /// <summary>The resolved HEAD commit behind this fingerprint, carried for diagnostics only.</summary>
     public string Head { get; init; } = "unborn";
+
+    /// <summary>Source and scope state, excluding review documents and review inputs.</summary>
+    public string StructureState { get; init; } = State;
 }
 
 public sealed record RepositoryHierarchyMeasurement(
@@ -52,6 +55,7 @@ public sealed class RepositoryHierarchyCache
 
     private readonly ConcurrentDictionary<string, CacheSlot> slots = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, GitStateEntry> gitStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, object> gitStateGates = new(StringComparer.OrdinalIgnoreCase);
     private readonly TimeSpan gitStateTtl;
 
     public RepositoryHierarchyCache(TimeSpan? gitStateTtl = null) =>
@@ -73,18 +77,21 @@ public sealed class RepositoryHierarchyCache
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryPath);
         var totalStarted = Stopwatch.GetTimestamp();
         var root = Path.GetFullPath(repositoryPath);
-        var gitStatusStarted = Stopwatch.GetTimestamp();
-        var git = GitState(root);
-        var state = git.State + "\0" +
-                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
-        var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
         var slot = slots.GetOrAdd(root, _ => new CacheSlot());
         var cacheWaitStarted = Stopwatch.GetTimestamp();
         lock (slot.Gate)
         {
             var cacheWaitMilliseconds = Stopwatch.GetElapsedTime(cacheWaitStarted).TotalMilliseconds;
+            // Measure after waiting: a queued reader must not rebuild a state superseded while
+            // another reader was deriving the hierarchy.
+            var gitStatusStarted = Stopwatch.GetTimestamp();
+            var git = GitState(root);
+            var state = git.State + "\0" +
+                        ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
+            var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
             if (slot.Snapshot is not null && StringComparer.Ordinal.Equals(slot.Snapshot.GitState, state))
             {
+                slot.StructureState ??= git.StructureState;
                 return new RepositoryHierarchyMeasurement(
                     slot.Snapshot,
                     true,
@@ -95,9 +102,17 @@ public sealed class RepositoryHierarchyCache
                     Stopwatch.GetElapsedTime(totalStarted).TotalMilliseconds);
             }
 
-            var scanStarted = Stopwatch.GetTimestamp();
-            var hierarchy = RepositoryHierarchyBuilder.Build(root);
-            var scanMilliseconds = Stopwatch.GetElapsedTime(scanStarted).TotalMilliseconds;
+            double scanMilliseconds = 0;
+            if (slot.Structure is null || !StringComparer.Ordinal.Equals(slot.StructureState, git.StructureState))
+            {
+                var scanStarted = Stopwatch.GetTimestamp();
+                slot.Structure = RepositoryHierarchyBuilder.Build(root);
+                slot.StructureState = git.StructureState;
+                scanMilliseconds = Stopwatch.GetElapsedTime(scanStarted).TotalMilliseconds;
+            }
+            // Metadata changes need fresh attachments, not another MSBuild/Roslyn derivation.
+            // Clone canonical aliases together so published snapshots remain immutable.
+            var hierarchy = CloneStructure(slot.Structure);
             var discoveryStarted = Stopwatch.GetTimestamp();
             ReviewMetaDiscovery.AttachDiscovered(
                 root, hierarchy, inputResolver, globalInputsDirectory, inputBudgetCharacters);
@@ -148,9 +163,18 @@ public sealed class RepositoryHierarchyCache
             return cached.State;
         }
 
-        var computed = ComputeGitState(root);
-        gitStates[root] = new GitStateEntry(computed, Stopwatch.GetTimestamp());
-        return computed;
+        lock (gitStateGates.GetOrAdd(root, _ => new object()))
+        {
+            if (gitStateTtl > TimeSpan.Zero &&
+                gitStates.TryGetValue(root, out cached) &&
+                Stopwatch.GetElapsedTime(cached.Timestamp) < gitStateTtl)
+            {
+                return cached.State;
+            }
+            var computed = ComputeGitState(root);
+            gitStates[root] = new GitStateEntry(computed, Stopwatch.GetTimestamp());
+            return computed;
+        }
     }
 
     /// <summary>Seeds a previously verified immutable snapshot for this repository.</summary>
@@ -163,6 +187,8 @@ public sealed class RepositoryHierarchyCache
         lock (slot.Gate)
         {
             slot.Snapshot = snapshot;
+            slot.Structure = CloneStructure(snapshot.Roots);
+            slot.StructureState = null;
         }
     }
 
@@ -210,27 +236,84 @@ public sealed class RepositoryHierarchyCache
         }
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var structureHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, head);
         Append(hash, index);
+        foreach (var entry in index.Split('\0', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = entry.IndexOf('\t');
+            var path = separator < 0 ? entry : entry[(separator + 1)..];
+            if (!IsReviewMetadataPath(path)) Append(structureHash, entry);
+        }
         var entries = GitStatusPaths.Parse(status).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
         foreach (var relativePath in entries)
         {
             Append(hash, relativePath);
+            var affectsStructure = !IsReviewMetadataPath(relativePath);
+            if (affectsStructure) Append(structureHash, relativePath);
             var absolutePath = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(absolutePath))
             {
                 Append(hash, "deleted");
+                if (affectsStructure) Append(structureHash, "deleted");
                 continue;
             }
 
             using var stream = File.OpenRead(absolutePath);
             var buffer = new byte[16 * 1024];
             int read;
-            while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);
+            while ((read = stream.Read(buffer)) > 0)
+            {
+                hash.AppendData(buffer, 0, read);
+                if (affectsStructure) structureHash.AppendData(buffer, 0, read);
+            }
+        }
+        // Generated reviews live outside Git; an unchanged checkout can still gain, replace,
+        // or lose a review. Include their content in the snapshot key but not the source key.
+        foreach (var path in ReviewMetaPath.Enumerate(root).Order(StringComparer.Ordinal))
+        {
+            Append(hash, ReviewMetaPath.Describe(root, path));
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var buffer = new byte[16 * 1024];
+                int read;
+                while ((read = stream.Read(buffer)) > 0) hash.AppendData(buffer, 0, read);
+            }
+            catch (IOException) when (!File.Exists(path))
+            {
+                Append(hash, "deleted");
+            }
         }
         return new RepositoryGitState(
             Convert.ToHexStringLower(hash.GetHashAndReset()), RepositoryGitState.OkStatus, null)
-        { Head = head };
+        {
+            Head = head,
+            StructureState = Convert.ToHexStringLower(structureHash.GetHashAndReset()),
+        };
+    }
+
+    private static bool IsReviewMetadataPath(string path)
+    {
+        var normalized = "/" + path.Replace('\\', '/');
+        return normalized.Contains("/.quality/inputs/", StringComparison.Ordinal) ||
+               (normalized.Contains(".review-meta.", StringComparison.Ordinal) &&
+                normalized.EndsWith(".json", StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyList<HierarchyNode> CloneStructure(IReadOnlyList<HierarchyNode> roots)
+    {
+        var copies = new Dictionary<HierarchyNode, HierarchyNode>(ReferenceEqualityComparer.Instance);
+        HierarchyNode Clone(HierarchyNode node)
+        {
+            if (copies.TryGetValue(node, out var existing)) return existing;
+            var copy = new HierarchyNode(node.Id, node.Name, node.Level, node.Path, node.SizeBytes, node.LineCount);
+            copies.Add(node, copy);
+            copy.AddExclusions(node.Exclusions);
+            foreach (var child in node.Children) copy.AddChild(Clone(child));
+            return copy;
+        }
+        return roots.Select(Clone).ToArray();
     }
 
     private static string ComputeGlobalInputsState(string? directory, int budgetCharacters)
@@ -275,6 +358,7 @@ public sealed class RepositoryHierarchyCache
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
+                CreateNoWindow = true,
             },
         };
         foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
@@ -301,6 +385,8 @@ public sealed class RepositoryHierarchyCache
     {
         public object Gate { get; } = new();
         public RepositoryHierarchySnapshot? Snapshot { get; set; }
+        public IReadOnlyList<HierarchyNode>? Structure { get; set; }
+        public string? StructureState { get; set; }
     }
 
     private sealed record GitStateEntry(RepositoryGitState State, long Timestamp);

@@ -16,7 +16,7 @@ public sealed class RuleLibraryTests : IDisposable
     {
         var repository = RepositoryTestContext.FindRepositoryRoot();
         using var catalogue = JsonDocument.Parse(await File.ReadAllTextAsync(
-            Path.Combine(repository, "backend", "src", "AgentOrchestrator.CodeQuality", "catalogues", "rule-catalogue.v1.json"),
+            Path.Combine(repository, "backend", "AgentOrchestrator.CodeQuality", "catalogues", "rule-catalogue.v1.json"),
             TestContext.Current.CancellationToken));
         var schema = JsonSchema.FromText(await File.ReadAllTextAsync(
             Path.Combine(repository, "schemas", "rule-catalogue.v1.schema.json"),

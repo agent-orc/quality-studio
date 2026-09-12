@@ -39,7 +39,7 @@ document this process just wrote is not a violation.
 ## Good example
 
 ```csharp
-// backend/src/AgentOrchestrator.CodeQuality/QualityRunReport.cs
+// backend/AgentOrchestrator.CodeQuality/QualityRunReport.cs
 private static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)
 {
     WriteIndented = true,

@@ -40,7 +40,7 @@ fixture is not a violation.
 ## Good example
 
 ```csharp
-// backend/src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs
+// backend/QualityStudio.Api/RepositorySnapshotPrewarmer.cs
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 {
     // Keep host startup non-blocking: the API becomes reachable while snapshots warm in the background.

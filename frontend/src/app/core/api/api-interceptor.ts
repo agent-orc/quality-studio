@@ -4,7 +4,7 @@ import { Observable, retry, tap, throwError, timeout, timer } from 'rxjs';
 
 import { ApiAccess } from './api-access';
 import { ApiContext } from './api-context';
-import { ApiTimeoutError } from './api-errors';
+import { ApiTimeoutError, isUnreachable } from './api-errors';
 
 export interface ApiRequestPolicy {
   /** Budget for an ordinary request, in milliseconds. */
@@ -40,9 +40,9 @@ const LONG_RUNNING = [
 /** Transport-level failures worth repeating; a server verdict such as 404 or 409 never is. */
 function retryable(request: HttpRequest<unknown>, error: unknown): boolean {
   if (request.method !== 'GET') return false;
-  if (error instanceof ApiTimeoutError) return true;
+  if (isUnreachable(error)) return true;
   if (!(error instanceof HttpErrorResponse)) return false;
-  return error.status === 0 || error.status === 502 || error.status === 503 || error.status === 504;
+  return error.status === 502 || error.status === 503 || error.status === 504;
 }
 
 function budgetFor(url: string, policy: ApiRequestPolicy): number {

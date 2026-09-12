@@ -7,7 +7,7 @@ repository does not inherit this folder convention merely because Quality Studio
 
 `quality-architecture.json` declares required directories, retired source paths, and allowed
 direct children. The current product has sibling `backend/` and `frontend/` workspaces;
-.NET source/tests live under `backend/src` and `backend/tests`. Angular application ownership
+.NET source/tests live under `backend` and `backend/tests`. Angular application ownership
 lives under `frontend/src/app/core`, `shared`, `features`, and `shell`. Only bootstrap
 configuration stays directly in `app/`.
 
@@ -21,7 +21,7 @@ contract reports that the analysis is unavailable rather than claiming a clean r
 Run the same sensor without an agent or API:
 
 ```sh
-dotnet run --project backend/src/quality-cli -- analyze . --analysis architecture
+dotnet run --project backend/quality-cli -- analyze . --analysis architecture
 ```
 
 Retired source-path checks ignore `bin`, `obj`, `node_modules`, compiled frontend output,

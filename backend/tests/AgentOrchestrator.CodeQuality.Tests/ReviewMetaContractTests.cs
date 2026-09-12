@@ -321,7 +321,7 @@ public sealed class ReviewMetaContractTests
         // The runner writes reviewedAt with round-trip precision while this contract writes
         // milliseconds; the typed reader must accept what the product actually persists.
         var directory = Path.Combine(RepositoryTestContext.FindRepositoryRoot(),
-            "backend", "src", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files");
+            "backend", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files");
         var sidecars = Directory.Exists(directory)
             ? Directory.GetFiles(directory, "*.review-meta.code.json").OrderBy(path => path, StringComparer.Ordinal).Take(5).ToArray()
             : [];

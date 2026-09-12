@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json",
   "schemaVersion": 1,
-  "catalogueVersion": "1.3.0",
+  "catalogueVersion": "1.4.0",
   "entries": [
     {
       "id": "QS-CS-001",
@@ -13,7 +13,7 @@
         "code"
       ],
       "statement": "A minimal-API endpoint is a `static` (or local) handler function that takes its dependencies as parameters (`HttpContext`, registered services, route/body values) via ASP.NET Core's parameter binding, and returns a typed `IResult` (`Results.Ok`, `Results.Created`, `Results.NoContent`, ...). Route registration (`app.MapGet`/`MapPost`/...) stays a one-line pointer to that handler.",
-      "rationale": "`backend/src/QualityStudio.Api/Program.cs` already establishes this shape consistently (`Guidelines`, `InstallGuideline`, `CreateGuideline`, ...): the handler is independently testable without spinning up the HTTP pipeline, dependencies are explicit in the signature instead of pulled from an ambient service locator, and every route returns the same small set of typed results the framework can serialize predictably.",
+      "rationale": "`backend/QualityStudio.Api/Program.cs` already establishes this shape consistently (`Guidelines`, `InstallGuideline`, `CreateGuideline`, ...): the handler is independently testable without spinning up the HTTP pipeline, dependencies are explicit in the signature instead of pulled from an ambient service locator, and every route returns the same small set of typed results the framework can serialize predictably.",
       "detection": "Look at the `app.Map*` registrations for inline lambdas with bodies longer than one expression, and at handlers for `IServiceProvider`/`GetRequiredService` use, `HttpContext.Response` written by hand, or a return type that is not `IResult`/`Task<IResult>`. A one-line lambda that forwards to a named handler is the intended shape.",
       "goodExample": "static IResult InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry, GuidelineStore store)\n{\n    var (_, repository) = ResolveRepository(context, registry);\n    var installed = store.Install(repository.Root, catalogueId);\n    return Results.Created($\"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}\", installed);\n}",
       "badExample": "app.MapPost(\"/api/widgets\", async (HttpContext context) =>\n{\n    var store = context.RequestServices.GetRequiredService<WidgetStore>(); // service-locator pull\n    var body = await JsonSerializer.DeserializeAsync<WidgetRequest>(context.Request.Body);\n    await store.SaveAsync(body!);\n    context.Response.StatusCode = 201; // untyped result, no IResult\n});",
@@ -32,7 +32,7 @@
         {
           "version": "1.0.0",
           "date": "2026-08-27",
-          "change": "Initial rule, grounded in the handler-function convention used throughout `backend/src/QualityStudio.Api/Program.cs`."
+          "change": "Initial rule, grounded in the handler-function convention used throughout `backend/QualityStudio.Api/Program.cs`."
         }
       ],
       "enabled": true
@@ -47,7 +47,7 @@
         "code"
       ],
       "statement": "Register a service as `Singleton` only when it is stateless or its internal state is safe to share across all requests; register per-operation or short-lived collaborators as `Transient` (or `Scoped` where request-scoped state is genuinely needed). Consume dependencies through constructor (or primary-constructor) parameters — never resolve them ad hoc via `IServiceProvider.GetService`/`GetRequiredService` inside a class that could take them as constructor parameters instead.",
-      "rationale": "`backend/src/QualityStudio.Api/Program.cs` registers `GuidelineStore` as `Singleton` (stateless, delegates to the filesystem per call) but `GuidelineImpactAnalyzer` as `Transient` (does per-analysis work); mismatching this — e.g. making a per-request analyzer a singleton — risks leaking state across unrelated requests. Constructor injection keeps a class's true dependencies visible in its signature and keeps it trivially constructible in unit tests without a DI container.",
+      "rationale": "`backend/QualityStudio.Api/Program.cs` registers `GuidelineStore` as `Singleton` (stateless, delegates to the filesystem per call) but `GuidelineImpactAnalyzer` as `Transient` (does per-analysis work); mismatching this — e.g. making a per-request analyzer a singleton — risks leaking state across unrelated requests. Constructor injection keeps a class's true dependencies visible in its signature and keeps it trivially constructible in unit tests without a DI container.",
       "detection": "Read the `builder.Services.Add*` registration next to the type's actual state. Flag `AddSingleton` on a type holding per-operation mutable fields, and any `GetService`/`GetRequiredService` call inside a class that already has a constructor able to take the dependency. `IServiceProvider` use inside composition-root code is not a violation.",
       "goodExample": "// Program.cs\nbuilder.Services.AddSingleton<GuidelineStore>();\nbuilder.Services.AddTransient<GuidelineImpactAnalyzer>();\n\n// ReviewJobs.cs — dependencies arrive as primary-constructor parameters\npublic sealed class ReviewExecutorFactory(\n    SensorRegistry sensors,\n    StalenessEvaluator stalenessEvaluator) : IReviewExecutorFactory",
       "badExample": "public sealed class ReviewExecutorFactory : IReviewExecutorFactory\n{\n    public IReviewExecutor Create(IServiceProvider provider, ...) =>\n        new ReviewExecutor(new ReviewRunner(sensorRegistry: provider.GetRequiredService<SensorRegistry>()));\n        // hides the real dependency behind a service-locator pull instead of a constructor parameter\n}",
@@ -66,7 +66,7 @@
         {
           "version": "1.0.0",
           "date": "2026-08-27",
-          "change": "Initial rule, grounded in the `Singleton`/`Transient` split for `GuidelineStore`/`GuidelineImpactAnalyzer` and the primary-constructor DI pattern used by `ReviewExecutorFactory` in `backend/src/QualityStudio.Api/Program.cs` and `ReviewJobs.cs`."
+          "change": "Initial rule, grounded in the `Singleton`/`Transient` split for `GuidelineStore`/`GuidelineImpactAnalyzer` and the primary-constructor DI pattern used by `ReviewExecutorFactory` in `backend/QualityStudio.Api/Program.cs` and `ReviewJobs.cs`."
         }
       ],
       "enabled": true
@@ -151,7 +151,7 @@
       "statement": "A path that reaches the filesystem from a request, a configuration file, or a stored document is canonicalised with `Path.GetFullPath`, checked to sit under its configured root, and walked segment by segment to reject symbolic links and junctions — through `PathConfinement`, not through a second implementation. Reject rooted paths and `..` segments instead of normalising them away silently.",
       "rationale": "`RepositoryAccess.NormalizeRelativePath` and `RepositoryAccess.ResolveFile` funnel every Studio file read through `PathConfinement.IsWithin` and `PathConfinement.RejectReparseTraversal`, which is why `GET /api/file?path=../other-repo/Second.cs` answers 400 instead of serving another repository's source. A prefix comparison on its own is not enough on Windows, where case differs and a junction inside the root points anywhere; a second, slightly different copy of the check is how one call site ends up with the weaker half.",
       "detection": "Look for `Path.Combine` or `Path.GetFullPath` on a value that arrived from outside the process followed by a file or directory operation with no containment check, for `StartsWith` comparisons that skip the trailing separator or use the wrong `StringComparison`, and for a private `IsWithin`/`ContainedPath` helper duplicating `PathConfinement`. A path built entirely from constants is not a violation.",
-      "goodExample": "// backend/src/QualityStudio.Api/PathConfinement.cs\npublic static void RejectReparseTraversal(string root, string candidate)\n{\n    if (!IsWithin(root, candidate)) throw new ArgumentException(\"Path escapes its configured root.\");\n    var current = Path.GetFullPath(root);\n    foreach (var segment in Path.GetRelativePath(root, candidate).Split(\n                 [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))\n    {\n        current = Path.Combine(current, segment);\n        if (File.GetAttributes(current).HasFlag(FileAttributes.ReparsePoint))\n            throw new ArgumentException(\"Paths cannot traverse symbolic links or junctions.\");\n    }\n}",
+      "goodExample": "// backend/QualityStudio.Api/PathConfinement.cs\npublic static void RejectReparseTraversal(string root, string candidate)\n{\n    if (!IsWithin(root, candidate)) throw new ArgumentException(\"Path escapes its configured root.\");\n    var current = Path.GetFullPath(root);\n    foreach (var segment in Path.GetRelativePath(root, candidate).Split(\n                 [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))\n    {\n        current = Path.Combine(current, segment);\n        if (File.GetAttributes(current).HasFlag(FileAttributes.ReparsePoint))\n            throw new ArgumentException(\"Paths cannot traverse symbolic links or junctions.\");\n    }\n}",
       "badExample": "var absolute = Path.Combine(repositoryRoot, request.Path);   // \"..\" is still in there\nif (absolute.StartsWith(repositoryRoot))                     // no separator, no case rule, no link check\n{\n    return await File.ReadAllTextAsync(absolute, cancellationToken);\n}",
       "severity": "critical",
       "defaultOn": true,
@@ -180,7 +180,7 @@
       "statement": "The executable of a spawned process comes from code or a host-owned allowlist, never from repository or request data. Arguments go into `ProcessStartInfo.ArgumentList` one at a time — never a concatenated `Arguments` string — with `UseShellExecute = false`, `CreateNoWindow = true`, redirected streams, and a `CancellationToken` on the wait.",
       "rationale": "`ProcessSensorCommandRunner.RunAsync`, `GitleaksSecurityScanner.RunScanAsync`, and `GitleaksBinaryResolver.RunVersionAsync` all use `ArgumentList`, so a repository path containing a space or a quote is an argument and not a new command. The executable is the part that argument escaping cannot protect: a configured command string lets a repository name a shell, and that process reads beyond its working directory, inherits the host's credentials, reaches the network, and writes host-visible files — the whole confinement story above it is then decoration.",
       "detection": "Look for `ProcessStartInfo.Arguments` assigned from an interpolated string, for the executable being read from configuration, a request, or a repository file, and for `WaitForExit()` without a token or a timeout. `ArgumentList.Add` on values that only reach the child as data is the intended shape; the file name is what must be fixed.",
-      "goodExample": "// backend/src/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs\nStartInfo = new ProcessStartInfo(executable)\n{\n    WorkingDirectory = workingDirectory,\n    RedirectStandardOutput = true, RedirectStandardError = true,\n    UseShellExecute = false, CreateNoWindow = true,\n},\n...\nforeach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);\nawait process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);",
+      "goodExample": "// backend/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs\nStartInfo = new ProcessStartInfo(executable)\n{\n    WorkingDirectory = workingDirectory,\n    RedirectStandardOutput = true, RedirectStandardError = true,\n    UseShellExecute = false, CreateNoWindow = true,\n},\n...\nforeach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);\nawait process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);",
       "badExample": "var command = configuration.AnalyzerCommand;              // free-form, repository-owned\nvar parts = command.Split(' ');\nusing var process = Process.Start(new ProcessStartInfo(parts[0])\n{\n    Arguments = string.Join(' ', parts.Skip(1)) + \" \" + target,   // one quote away from a new command\n});\nprocess!.WaitForExit();                                   // no token, no timeout",
       "severity": "critical",
       "defaultOn": true,
@@ -209,7 +209,7 @@
       "statement": "A secret a scanner found is never read into a model that can be written, logged, or returned. An exception message, a filesystem path, and a child process's output stay in the log; a caller gets a stable title and a status code. Delete a temporary report that held sensitive output in a `finally`.",
       "rationale": "`GitleaksSecurityScanner.ParseJsonFinding` reads the rule id, the location, the description, and the fingerprint and never touches gitleaks' `Secret` or `Match` fields, and `BuildFinding` passes `null` for the finding's evidence, so the secret is structurally absent from anything Quality Studio persists — redaction that cannot be forgotten later. The API mirrors it: only `ReviewModelSelectionException.Message` is echoed to a caller so a path or an internal detail is never handed back.",
       "detection": "Look for a scanner's secret-bearing field being mapped into a record, for `exception.Message`, `exception.ToString()`, a full path, or a child process's stdout or stderr flowing into an HTTP response or a persisted document, and for a temporary file holding scanner output that is not deleted on every path. Logging the same detail through the logger is the intended shape.",
-      "goodExample": "// backend/src/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs\nprocess.StartInfo.ArgumentList.Add(\"--redact=100\");\n// ParseJsonFinding reads RuleID, File, the range, Description and Fingerprint —\n// never the Secret or Match fields the report also carries.\nreturn new SecurityFindingRecord(ruleId, severity, description, location, Evidence: null, path, accepted);",
+      "goodExample": "// backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs\nprocess.StartInfo.ArgumentList.Add(\"--redact=100\");\n// ParseJsonFinding reads RuleID, File, the range, Description and Fingerprint —\n// never the Secret or Match fields the report also carries.\nreturn new SecurityFindingRecord(ruleId, severity, description, location, Evidence: null, path, accepted);",
       "badExample": "catch (IOException exception)\n{\n    // Hands the caller the host path and the scanner's raw output, secret included.\n    return Results.Problem(detail: exception.ToString() + \"\\n\" + process.StandardOutput.ReadToEnd());\n}",
       "severity": "high",
       "defaultOn": true,
@@ -238,7 +238,7 @@
       "statement": "Deserializing a document that came from a repository, a request, or another process checks its schema id and version before its content is used, rejects members the contract does not declare (`JsonUnmappedMemberHandling.Disallow`), and bounds what it will read — a size limit before the bytes are loaded, an explicit `MaxDepth`, and no `AllowTrailingCommas` shortcut.",
       "rationale": "`QualityRunReport` sets `UnmappedMemberHandling.Disallow` and refuses a document whose `schemaVersion` or `$schema` is not the one it understands, so an old or foreign document fails loudly instead of binding half its fields; `ReviewMetaContract`, `QualityFindingContract`, and `FindingStateStore` follow the same shape. The missing half is size: reading a repository file into a string with no cap lets one caller exhaust process memory by repeating the request, and nothing in this codebase sets `MaxDepth`, so the 64-level default is the only depth bound there is.",
       "detection": "Look for `JsonSerializer.Deserialize`, `JsonDocument.Parse`, or `File.ReadAllText`/`ReadAllBytes` on a path or stream the process does not own, and check for three things before the result is used: a schema and version gate, unmapped-member rejection, and a byte or length limit. A round-trip of a document this process just wrote is not a violation.",
-      "goodExample": "// backend/src/AgentOrchestrator.CodeQuality/QualityRunReport.cs\nprivate static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)\n{\n    WriteIndented = true,\n    Encoder = JavaScriptEncoder.Default,\n    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,\n};\n\nif (report.SchemaVersion != 1 || !string.Equals(report.Schema, SchemaId, StringComparison.Ordinal))\n    throw new JsonException(\"Unsupported quality run report schema.\");",
+      "goodExample": "// backend/AgentOrchestrator.CodeQuality/QualityRunReport.cs\nprivate static JsonSerializerOptions CreateOptions() => new(JsonSerializerDefaults.Web)\n{\n    WriteIndented = true,\n    Encoder = JavaScriptEncoder.Default,\n    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,\n};\n\nif (report.SchemaVersion != 1 || !string.Equals(report.Schema, SchemaId, StringComparison.Ordinal))\n    throw new JsonException(\"Unsupported quality run report schema.\");",
       "badExample": "// No size check, no depth bound, no version gate: the file decides how much memory this costs.\nvar text = await File.ReadAllTextAsync(sidecarPath, cancellationToken);\nvar meta = JsonSerializer.Deserialize<ReviewMeta>(text)!;\nreturn meta.Findings;",
       "severity": "high",
       "defaultOn": true,
@@ -267,7 +267,7 @@
       "statement": "Code that runs while a request is open uses the asynchronous file, stream, and process APIs and awaits them with a `CancellationToken`. No `File.ReadAllText`, `StandardOutput.ReadToEnd`, `WaitForExit()`, or `.Result` on a request path — and none of them inside a `lock`, which converts one slow call into a queue for every other caller of the same gate.",
       "rationale": "Quality Studio's browser contract is under 100 ms to a visible transition and under 500 ms to a usable dashboard, and `PERF.md` measures a cold hierarchy scan at 85% of a repository switch, so a request path has no room for a thread parked on a disk or a child process. Blocking inside a held lock is the worse half: `RepositoryHierarchyCache` reads every changed file while holding the slot gate, which makes a multi-second scan a multi-second wait for every concurrent switch of that repository, not just the one that paid for it.",
       "detection": "Look for the synchronous `File`, `Directory`, `Stream`, and `Process` members in anything an endpoint, a handler, or a background reader can reach, for `.Result`, `.Wait()`, and `GetAwaiter().GetResult()`, and for any of them lexically inside a `lock` block or between a `Semaphore.Wait` and its release. Synchronous I/O in start-up code, a CLI command, or a test fixture is not a violation.",
-      "goodExample": "// backend/src/QualityStudio.Api/RepositorySnapshotPrewarmer.cs\nprotected override async Task ExecuteAsync(CancellationToken stoppingToken)\n{\n    // Keep host startup non-blocking: the API becomes reachable while snapshots warm in the background.\n    await Task.Yield();\n    await foreach (var registration in queue.Reader.ReadAllAsync(stoppingToken))\n    {\n        var hierarchy = await Task.Run(() => hierarchyCache.GetMeasured(registration.Root), stoppingToken);\n    }\n}",
+      "goodExample": "// backend/QualityStudio.Api/RepositorySnapshotPrewarmer.cs\nprotected override async Task ExecuteAsync(CancellationToken stoppingToken)\n{\n    // Keep host startup non-blocking: the API becomes reachable while snapshots warm in the background.\n    await Task.Yield();\n    await foreach (var registration in queue.Reader.ReadAllAsync(stoppingToken))\n    {\n        var hierarchy = await Task.Run(() => hierarchyCache.GetMeasured(registration.Root), stoppingToken);\n    }\n}",
       "badExample": "lock (slot.Gate)                                  // every other caller of this slot now waits too\n{\n    var head = process.StandardOutput.ReadToEnd();     // blocking read of a child process\n    process.WaitForExit();                             // no token, no timeout\n    foreach (var path in changed) hash.Append(File.ReadAllText(path));\n}",
       "severity": "high",
       "defaultOn": true,
@@ -296,7 +296,7 @@
       "statement": "A cache key is derived from the content it stands for, so a stale entry is impossible rather than unlikely — not a timestamp, not a time-to-live. Every cache also declares its bound: a size cap with eviction, or a key space that provably cannot grow (one entry per registered repository, not one per observed commit).",
       "rationale": "`RepositoryHierarchyCache.GetMeasured` keys a slot on the Git state — HEAD, the staged index, and the hashed contents of every dirty or untracked path — which is why a warm switch is 17.60 ms against a 9,781.93 ms cold scan without a freshness window to guess at. The bound is the part that is easy to forget: `ProjectDashboardService` uses the same derived key but keeps one full dashboard per `(root, gitState)` pair, so every commit and every dirty state ever observed stays in memory for the life of the process.",
       "detection": "Look at each `ConcurrentDictionary`, `Dictionary`, or `MemoryCache` field for two things: what the key is derived from, and what removes an entry. A key containing a timestamp, a run id, or a monotonically growing value with no eviction is a violation; a key space bounded by a registration list is not.",
-      "goodExample": "// backend/src/QualityStudio.Api/ProjectDashboard.cs\nvar key = root + \"\\0\" + snapshot.GitState;   // derived from content, so a stale hit cannot happen\nif (cache.TryGetValue(key, out var cached)) return cached;",
+      "goodExample": "// backend/QualityStudio.Api/ProjectDashboard.cs\nvar key = root + \"\\0\" + snapshot.GitState;   // derived from content, so a stale hit cannot happen\nif (cache.TryGetValue(key, out var cached)) return cached;",
       "badExample": "// One retained entry per commit and per dirty state, for the life of the process.\nprivate readonly ConcurrentDictionary<string, Dashboard> cache = new();\npublic Dashboard Get(string root, string gitState) =>\n    cache.GetOrAdd(root + \"\\0\" + gitState, _ => Build(root));",
       "severity": "medium",
       "defaultOn": true,
@@ -384,7 +384,7 @@
       "statement": "Repository source, model output, sensor output, and anything a caller supplies is data. When it is embedded in a prompt, a command, a template, a query, or a document, mark or escape its boundary so the content cannot end that boundary itself, and validate what comes back rather than trusting what it claims about itself.",
       "rationale": "`ReviewPromptBuilder` generates a fresh 128-bit boundary marker per prompt precisely so file content cannot guess and forge the closing marker, and the prompts state that everything between the markers is untrusted no matter what it claims to be. The output side is the other half: `ReviewResponseParser` rejects a finding that claims deterministic provenance and `FindingIdentity` computes the excerpt hashes itself, because a value the model supplied about its own trustworthiness is not evidence. Prompt wording alone is not a boundary — the marker, the validation, and the host-computed anchors are.",
       "detection": "Look for untrusted content concatenated into a prompt, a shell command, an SQL statement, a path, or markup with a fixed or predictable delimiter, and for a field the producer controls being used to decide how much that producer is trusted — a claimed source, a claimed hash, a claimed severity. Content passed as a bound parameter, an argument-list entry, or an escaped value is not a violation.",
-      "goodExample": "// backend/src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs\n// Fresh per prompt so repository content cannot pre-guess and forge a closing marker.\nprivate static string GenerateContentBoundary() =>\n    \"QS-CONTENT-\" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));",
+      "goodExample": "// backend/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs\n// Fresh per prompt so repository content cannot pre-guess and forge a closing marker.\nprivate static string GenerateContentBoundary() =>\n    \"QS-CONTENT-\" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));",
       "badExample": "var prompt = \"Review this file:\\n---\\n\" + fileContent + \"\\n---\\n\" + instructions;\n// and, on the way back, believing what the response says about itself:\nif (response[\"source\"]?.GetValue<string>() == \"analyzer\") finding.Trusted = true;",
       "severity": "high",
       "defaultOn": true,
@@ -415,7 +415,7 @@
       "statement": "Anything whose size someone else decides carries a stated limit: request and document bytes, nesting depth, collection and result counts, retained cache entries, concurrent operations, and wall-clock duration. The limit is validated where it is configured and enforced where the resource is consumed, and exceeding it is a clear refusal rather than a slow failure.",
       "rationale": "`ApiSecurity` validates its limits at start-up — request bodies between 1 KiB and 10 MiB, 1 to 1024 concurrent requests, 1 to 1000 spend requests per minute — so a misconfiguration fails the host instead of quietly removing a bound. The gaps show what happens without that discipline: reading a repository file with no size check lets one caller exhaust process memory by repeating a request, and the sidecar index retains a parsed document per file with no byte cap, so cost grows with a number the repository chooses rather than one this process agreed to.",
       "detection": "For each resource crossing a boundary, ask what its limit is and where it is enforced: a read with no length check, a parse with no depth bound, a collection accumulated in a loop with no cap, a cache with no eviction, a wait with no timeout, a retry with no ceiling. A limit only present in documentation or in the client is not a bound.",
-      "goodExample": "// backend/src/QualityStudio.Api/ApiSecurity.cs\nif (MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)\n    throw new InvalidOperationException(\"MaxRequestBodyBytes must be between 1 KiB and 10 MiB.\");\nif (MaxConcurrentRequests is < 1 or > 1024)\n    throw new InvalidOperationException(\"MaxConcurrentRequests must be between 1 and 1024.\");",
+      "goodExample": "// backend/QualityStudio.Api/ApiSecurity.cs\nif (MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)\n    throw new InvalidOperationException(\"MaxRequestBodyBytes must be between 1 KiB and 10 MiB.\");\nif (MaxConcurrentRequests is < 1 or > 1024)\n    throw new InvalidOperationException(\"MaxConcurrentRequests must be between 1 and 1024.\");",
       "badExample": "// Size chosen by the repository, retained for the life of the process, parsed at default depth.\nvar payload = JsonDocument.Parse(File.ReadAllText(sidecarPath));\nindex[relativePath] = payload.RootElement.Clone();",
       "severity": "high",
       "defaultOn": true,
@@ -444,8 +444,8 @@
       "statement": "Respect the repository's declared source ownership and dependency direction. When a `quality-architecture.json` contract exists, keep required directories, retired source locations and directory allowlists consistent with it. Treat an intentional architecture change as a coordinated update to code, contract, scripts and documentation.",
       "rationale": "An asymmetric or drifting repository layout makes ownership harder to discover and leaves build, test and review tools referring to stale locations. A version-controlled contract turns an agreed architecture into reviewable evidence without assuming one folder convention is correct for every repository.",
       "detection": "Use the architecture sensor's source-located findings and compare touched paths to the repository-owned contract. Flag source returned to a retired location, missing required directories, unexpected direct children and invalid contracts. Do not infer violations from folder names alone when a repository has no contract. Generated build output and historical review metadata are not product source. Directory checks do not prove component cohesion or dependency direction; language-native analyzers and reviewer judgment cover those.",
-      "goodExample": "{\n  \"schemaVersion\": 1,\n  \"requiredDirectories\": [\"backend/src\", \"backend/tests\", \"frontend/src\"],\n  \"forbiddenSourcePaths\": [\"src\"],\n  \"directoryRules\": []\n}",
-      "badExample": "quality-architecture.json  # declares backend/src and forbids source under src\nbackend/src/Api/Program.cs\nsrc/AnotherApi/Program.cs  # reintroduces the retired product-source location",
+      "goodExample": "{\n  \"schemaVersion\": 1,\n  \"requiredDirectories\": [\"backend\", \"backend/tests\", \"frontend/src\"],\n  \"forbiddenSourcePaths\": [\"src\", \"backend/src\"],\n  \"directoryRules\": []\n}",
+      "badExample": "quality-architecture.json  # declares backend and forbids retired src locations\nbackend/Api/Program.cs\nbackend/src/AnotherApi/Program.cs  # reintroduces an unnecessary retired source wrapper",
       "severity": "medium",
       "defaultOn": true,
       "autofixable": false,
@@ -462,6 +462,37 @@
           "version": "1.0.0",
           "date": "2026-09-12",
           "change": "Added repository-owned structure checks and deterministic architecture sensor mappings."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-004",
+      "version": "1.0.0",
+      "title": "Report concrete failures and explain their impact",
+      "technology": "generic",
+      "category": "review-evidence",
+      "kinds": [
+        "code",
+        "security",
+        "performance"
+      ],
+      "statement": "Ground every finding in a concrete source location and a plausible trigger. Explain the affected behavior or trust boundary, the consequence and a proportionate correction. Use the violated engineering rule's id when one applies. Distinguish a repository contract violation from a personal preference, and state uncertainty when required context is absent.",
+      "rationale": "A review is useful when another engineer can understand what fails and why the proposed change fixes it. Unsupported severity claims and arbitrary style demands produce noise, while failure paths, concurrency and user-visible regressions deserve explicit reasoning.",
+      "detection": "For a suspected issue, trace the input or state transition to the observable consequence; inspect adjacent callers, the repository contract and relevant tests. Name the missing condition or incorrect dependency, not only a broad smell. Do not turn an unverified assumption, a folder-name preference or a test-count target into a finding. Prefer a small behavior regression test when it demonstrates the failure; do not demand tests that merely repeat trivial implementation details.",
+      "goodExample": "When request A finishes after the user selects repository B, its response replaces B's tree.\nThe completion handler does not compare the captured repository id with the current one.\nGuard the response before applying it and test the A/B response order.",
+      "badExample": "The service is long, so it must contain critical bugs. Rename src and add more tests.",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": "testing-confidence",
+      "since": "1.4.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-12",
+          "change": "Added evidence, impact and uncertainty guidance, informed by Google's code review guidance and Quality Studio's stale-response and architecture regressions."
         }
       ],
       "enabled": true

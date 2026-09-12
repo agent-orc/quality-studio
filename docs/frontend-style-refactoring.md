@@ -11,7 +11,9 @@ Node tooling remain at the repository root.
 
 ```text
 backend/
-  src/                  # analysis core, API, CLI
+  AgentOrchestrator.CodeQuality/  # analysis core
+  QualityStudio.Api/             # HTTP host
+  quality-cli/                   # command-line host
   tests/                # core/API tests and shared C# test helpers
 frontend/
   style-reference/      # separate development reference application

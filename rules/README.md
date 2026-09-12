@@ -14,7 +14,7 @@ git history and can be reviewed like any other change.
 | Authoring | `rules/<technology>/<id>-<slug>.md`, this tree |
 | Generation | [`scripts/sync-rule-catalogue.mjs`](../scripts/sync-rule-catalogue.mjs) (`npm run rules:sync`) |
 | Contract | [`schemas/rule-catalogue.v1.schema.json`](../schemas/rule-catalogue.v1.schema.json) |
-| Generated catalogue | `backend/src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json`, committed |
+| Generated catalogue | `backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json`, committed |
 | Load | embedded resource in the analysis-core assembly, read once per process by `RuleCatalogueResolver` |
 | Injection | `InputResolver` renders the effective rules as built-in review inputs |
 | Inspection | `GET /api/rules`, `GET /api/repos/{repoId}/rules` |
@@ -128,7 +128,7 @@ disabling one rule and softening another's severity:
 
 ## Review integration
 
-`RuleCatalogueResolver` (`backend/src/AgentOrchestrator.CodeQuality/RuleLibrary.cs`) resolves the
+`RuleCatalogueResolver` (`backend/AgentOrchestrator.CodeQuality/RuleLibrary.cs`) resolves the
 effective rule set (built-in + overrides). `InputResolver` renders each enabled, applicable rule
 as a built-in-scope review input with its own `## QS-NG-001`-style heading, and the existing
 prompt-budget machinery carries it into the review prompt unchanged — no prompt template knows
@@ -167,10 +167,34 @@ versus agent-review-only.
 - Regenerate the JSON catalogue in the same commit as the rule change:
 
   ```sh
-  npm run rules:sync     # writes backend/src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json
+  npm run rules:sync     # writes backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json
   npm run rules:check    # exits 1 if the catalogue and the rule tree disagree; runs in CI
   ```
 
 A version-only bump does not invalidate stored reviews: the effective input hash covers the rule
 text that reached the prompt, not its version number. Change the text, and the affected units
 report `policyDrift`.
+
+## Review criteria in the tool and website
+
+The application header opens **Review policy**. **Criteria & metrics** shows the effective
+named-rule library returned by the repository API, including enablement, severity,
+override reasons, rationale, detection guidance and examples. **Repository guidelines**
+remains the editor for repository-owned input files.
+
+The **Prompt input preview** shows the repository-wide, file-level input resolution for
+the selected review kind, across all technologies. It displays the actual included text
+and explicit character-budget or override omissions. It is not a stored prompt from a
+completed run: an individual review also filters by its unit's adapter and level.
+
+`review-methodology.json` owns the cross-cutting explanations and exact implemented metric
+formulas, their interpretation, limits and source references. It references existing named
+rules instead of duplicating them. `scripts/sync-review-reference.mjs` derives the Angular
+reference data and the website's criteria section from this file and the generated named-rule
+catalogue. The website describes shipped defaults; the application shows repository overrides.
+
+Run `npm run rules:sync` after changing a rule or the methodology. `npm run rules:check`
+checks both generated surfaces for drift. `npm run test:review-reference` checks rule/source
+references, source-file links and safe HTML rendering. Formulas link to the implementing code;
+update the formula explanation when that calculation changes. Coverage, grading and ranking
+heuristics retain their distinct meanings and do not establish that a program is correct.

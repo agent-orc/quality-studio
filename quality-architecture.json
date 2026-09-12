@@ -2,14 +2,16 @@
   "$schema": "./schemas/architecture-contract.v1.schema.json",
   "schemaVersion": 1,
   "requiredDirectories": [
-    "backend/src",
+    "backend/AgentOrchestrator.CodeQuality",
+    "backend/QualityStudio.Api",
+    "backend/quality-cli",
     "backend/tests",
     "frontend/src/app/core",
     "frontend/src/app/shared",
     "frontend/src/app/features",
     "frontend/src/app/shell"
   ],
-  "forbiddenSourcePaths": ["src"],
+  "forbiddenSourcePaths": ["src", "backend/src"],
   "directoryRules": [
     {
       "path": "frontend/src/app",

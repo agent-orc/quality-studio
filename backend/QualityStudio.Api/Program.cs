@@ -458,11 +458,12 @@ static IReadOnlyList<string> ScopeCandidateFiles(string repositoryRoot, Reposito
         .Order(StringComparer.Ordinal)
         .ToArray();
 
-static async Task<IResult> Tree(HttpContext context, string? path, RepositoryRegistry registry,
-    RepositoryHierarchyCache hierarchyCache, InputResolver inputResolver, ILogger<Program> logger,
+static async Task<IResult> Tree(HttpContext context, string? path, string? view, RepositoryRegistry registry,
+    RepositoryHierarchyCache hierarchyCache, TreeProjectionCache projectionCache, InputResolver inputResolver, ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
+    var filesView = IsFilesTreeView(view);
     var (registration, repository) = ResolveRepository(context, registry);
     var requested = repository.NormalizeRelativePath(path);
     var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
@@ -472,7 +473,7 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
         repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
     var coverage = CoverageSnapshot.Load(repository.Root);
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
-        snapshot.GitState + "\0" + requested + "\0" + coverage?.MeasuredAt)))}\"";
+        snapshot.GitState + "\0" + requested + "\0" + filesView + "\0" + coverage?.MeasuredAt)))}\"";
     context.Response.Headers.ETag = etag;
     if (context.Request.Headers.IfNoneMatch.Any(value => value!.Split(',').Select(candidate => candidate.Trim())
             .Any(candidate => candidate == "*" || StringComparer.Ordinal.Equals(candidate, etag))))
@@ -484,6 +485,24 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
     var treeSuppressions = FindingSuppressionStore.ActiveByFingerprint(
         await new FindingSuppressionStore(repository.Root).ReadAsync(cancellationToken));
     var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
+    if (filesView)
+    {
+        var explorer = projectionCache.Get(repository.Root, snapshot, findingStates, coverage, currentCommit)
+            .GetExplorer(repository.Root, projects, () => DirectoryReviewScopes.Load(
+                repository.Root, projects, inputResolver, globalDirectory, registration.InputBudgetCharacters));
+        var selectedPath = explorer.FindPath(requested);
+        if (selectedPath is null)
+            return Results.NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Tree path not found",
+                Detail = $"No reviewable source path exists at '{requested}'.",
+            });
+        return Results.Ok(new TreeResponse(requested, [explorer.ToTreeNode(selectedPath)],
+            snapshot.GitStateStatus == RepositoryGitState.OkStatus
+                ? null : new GitStateResponse(snapshot.GitStateStatus, snapshot.GitStateDetail)));
+    }
+
     IReadOnlyList<HierarchyNode> selected = requested == "."
         ? projects
         : Flatten(projects).Where(node => string.Equals(node.Path, requested, StringComparison.Ordinal)).ToArray();
@@ -509,6 +528,7 @@ static async Task<IResult> Tree(HttpContext context, string? path, RepositoryReg
 
 static async Task<IResult> TreeLevel(
     HttpContext context,
+    string? view,
     string? parentId,
     string? snapshot,
     string? cursor,
@@ -523,10 +543,12 @@ static async Task<IResult> TreeLevel(
     const int defaultLimit = 200;
     const int maximumLimit = 1_000;
     var requestStarted = Stopwatch.GetTimestamp();
+    var filesView = IsFilesTreeView(view);
     var pageLimit = limit ?? defaultLimit;
     if (pageLimit is < 1 or > maximumLimit)
         throw new ArgumentException($"Tree page limit must be between 1 and {maximumLimit}.", nameof(limit));
-    var offset = DecodeTreeCursor(cursor);
+    var offset = DecodeTreeCursor(cursor, filesView);
+    var canonicalSnapshot = CanonicalTreeSnapshot(snapshot, filesView);
     parentId = string.IsNullOrWhiteSpace(parentId) ? null : parentId;
 
     var (registration, repository) = ResolveRepository(context, registry);
@@ -535,15 +557,23 @@ static async Task<IResult> TreeLevel(
         : registration.GlobalInputsDirectory;
     var snapshotStarted = Stopwatch.GetTimestamp();
     var hierarchySnapshot = (parentId is not null || !string.IsNullOrWhiteSpace(cursor)) &&
-                            !string.IsNullOrWhiteSpace(snapshot) &&
-                            hierarchyCache.TryGetSeeded(repository.Root, snapshot, out var selectedSnapshot)
+                            !string.IsNullOrWhiteSpace(canonicalSnapshot) &&
+                            hierarchyCache.TryGetSeeded(repository.Root, canonicalSnapshot, out var selectedSnapshot)
         ? selectedSnapshot
         : hierarchyCache.Get(
             repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
     var snapshotMilliseconds = Stopwatch.GetElapsedTime(snapshotStarted).TotalMilliseconds;
-    var parent = parentId is null
-        ? null
-        : Flatten(hierarchySnapshot.Roots).FirstOrDefault(node => StringComparer.Ordinal.Equals(node.Id, parentId));
+    var projectionStarted = Stopwatch.GetTimestamp();
+    var coverage = CoverageSnapshot.Load(repository.Root);
+    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
+    var projection = projectionCache.Get(repository.Root, hierarchySnapshot, findingStates, coverage, currentCommit);
+    var explorer = filesView ? projection.GetExplorer(repository.Root, hierarchySnapshot.Roots, () => DirectoryReviewScopes.Load(
+                repository.Root, hierarchySnapshot.Roots, inputResolver, globalDirectory, registration.InputBudgetCharacters)) : null;
+    var canonicalParent = parentId is null || filesView ? null : Flatten(hierarchySnapshot.Roots)
+        .FirstOrDefault(node => StringComparer.Ordinal.Equals(node.Id, parentId));
+    var parent = parentId is null ? null : filesView ? explorer!.Find(parentId)
+        : canonicalParent is null ? null : projection.Get(canonicalParent);
     if (parentId is not null && parent is null)
     {
         return Results.NotFound(new ProblemDetails
@@ -554,11 +584,12 @@ static async Task<IResult> TreeLevel(
         });
     }
 
-    IReadOnlyList<HierarchyNode> available = parent?.Children ?? hierarchySnapshot.Roots;
+    IReadOnlyList<TreeLevelNodeResponse> available = filesView
+        ? explorer!.Children(parentId)
+        : (canonicalParent?.Children ?? hierarchySnapshot.Roots).Select(projection.Get).ToArray();
     if (offset > available.Count)
         throw new ArgumentException("Tree cursor is outside the selected level.", nameof(cursor));
-    var coverage = CoverageSnapshot.Load(repository.Root);
-    var etagSource = string.Join('\0', "tree-v2", hierarchySnapshot.GitState, parentId ?? "root",
+    var etagSource = string.Join('\0', filesView ? "tree-v2-files" : "tree-v2", hierarchySnapshot.GitState, parentId ?? "root",
         offset.ToString(System.Globalization.CultureInfo.InvariantCulture),
         pageLimit.ToString(System.Globalization.CultureInfo.InvariantCulture), coverage?.MeasuredAt ?? "no-coverage");
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(etagSource)))}\"";
@@ -569,30 +600,26 @@ static async Task<IResult> TreeLevel(
         return Results.StatusCode(StatusCodes.Status304NotModified);
     }
 
-    var projectionStarted = Stopwatch.GetTimestamp();
-    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
-    var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
-    var projection = projectionCache.Get(repository.Root, hierarchySnapshot, findingStates, coverage, currentCommit);
-    var page = available.Skip(offset).Take(pageLimit).Select(projection.Get).ToArray();
+    var page = available.Skip(offset).Take(pageLimit).ToArray();
     var nextOffset = offset + page.Length;
     var payload = new TreeLevelResponse(
         2,
         parentId,
         parent?.Path ?? ".",
-        hierarchySnapshot.ETag,
+        filesView ? "files:" + hierarchySnapshot.ETag : hierarchySnapshot.ETag,
         offset,
         pageLimit,
-        nextOffset < available.Count ? EncodeTreeCursor(nextOffset) : null,
+        nextOffset < available.Count ? EncodeTreeCursor(nextOffset, filesView) : null,
         page);
     var projectionMilliseconds = Stopwatch.GetElapsedTime(projectionStarted).TotalMilliseconds;
     return new MeasuredTreeJsonResult(payload, requestStarted, snapshotMilliseconds,
         projectionMilliseconds, registration.Id, logger);
 }
 
-static int DecodeTreeCursor(string? cursor)
+static int DecodeTreeCursor(string? cursor, bool filesView = false)
 {
     if (string.IsNullOrWhiteSpace(cursor)) return 0;
-    const string prefix = "tree-v2:";
+    var prefix = filesView ? "tree-v2-files:" : "tree-v2:";
     if (!cursor.StartsWith(prefix, StringComparison.Ordinal) ||
         !int.TryParse(cursor[prefix.Length..], System.Globalization.NumberStyles.None,
             System.Globalization.CultureInfo.InvariantCulture, out var offset) || offset < 0)
@@ -602,11 +629,24 @@ static int DecodeTreeCursor(string? cursor)
     return offset;
 }
 
-static string EncodeTreeCursor(int offset) =>
-    $"tree-v2:{offset.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+static string EncodeTreeCursor(int offset, bool filesView = false) =>
+    $"{(filesView ? "tree-v2-files:" : "tree-v2:")}{offset.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+static bool IsFilesTreeView(string? view) => string.IsNullOrWhiteSpace(view) ? false : view == "files"
+    ? true : throw new ArgumentException("Tree view must be 'files' or omitted.", nameof(view));
+
+static string? CanonicalTreeSnapshot(string? snapshot, bool filesView)
+{
+    if (string.IsNullOrWhiteSpace(snapshot)) return null;
+    const string prefix = "files:";
+    if (filesView != snapshot.StartsWith(prefix, StringComparison.Ordinal))
+        throw new ArgumentException("Tree snapshot belongs to a different view.", nameof(snapshot));
+    return filesView ? snapshot[prefix.Length..] : snapshot;
+}
 
 static async Task<IResult> TreeSearch(
     HttpContext context,
+    string? view,
     string? query,
     string? cursor,
     int? limit,
@@ -620,12 +660,13 @@ static async Task<IResult> TreeSearch(
     const int defaultLimit = 100;
     const int maximumLimit = 200;
     var requestStarted = Stopwatch.GetTimestamp();
+    var filesView = IsFilesTreeView(view);
     query = query?.Trim();
     if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("A tree search query is required.", nameof(query));
     var pageLimit = limit ?? defaultLimit;
     if (pageLimit is < 1 or > maximumLimit)
         throw new ArgumentException($"Tree search limit must be between 1 and {maximumLimit}.", nameof(limit));
-    var offset = DecodeTreeCursor(cursor);
+    var offset = DecodeTreeCursor(cursor, filesView);
 
     var (registration, repository) = ResolveRepository(context, registry);
     var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
@@ -635,15 +676,21 @@ static async Task<IResult> TreeSearch(
     var snapshot = hierarchyCache.Get(
         repository.Root, inputResolver, globalDirectory, registration.InputBudgetCharacters);
     var snapshotMilliseconds = Stopwatch.GetElapsedTime(snapshotStarted).TotalMilliseconds;
-    var matches = Flatten(snapshot.Roots)
-        .Where(node => node.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                       node.Path.Contains(query, StringComparison.OrdinalIgnoreCase))
-        .DistinctBy(node => node.Id, StringComparer.Ordinal)
-        .ToArray();
+    var projectionStarted = Stopwatch.GetTimestamp();
+    var coverage = CoverageSnapshot.Load(repository.Root);
+    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
+    var projection = projectionCache.Get(repository.Root, snapshot, findingStates, coverage, currentCommit);
+    var matches = filesView
+        ? projection.GetExplorer(repository.Root, snapshot.Roots, () => DirectoryReviewScopes.Load(
+                repository.Root, snapshot.Roots, inputResolver, globalDirectory, registration.InputBudgetCharacters)).Search(query).ToArray()
+        : Flatten(snapshot.Roots)
+            .Where(node => node.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                           node.Path.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .DistinctBy(node => node.Id, StringComparer.Ordinal).Select(projection.Get).ToArray();
     if (offset > matches.Length) throw new ArgumentException("Tree cursor is outside the search result.", nameof(cursor));
 
-    var coverage = CoverageSnapshot.Load(repository.Root);
-    var etagSource = string.Join('\0', "tree-v2-search", snapshot.GitState, query,
+    var etagSource = string.Join('\0', filesView ? "tree-v2-files-search" : "tree-v2-search", snapshot.GitState, query,
         offset.ToString(System.Globalization.CultureInfo.InvariantCulture),
         pageLimit.ToString(System.Globalization.CultureInfo.InvariantCulture), coverage?.MeasuredAt ?? "no-coverage");
     var etag = $"\"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(etagSource)))}\"";
@@ -654,20 +701,16 @@ static async Task<IResult> TreeSearch(
         return Results.StatusCode(StatusCodes.Status304NotModified);
     }
 
-    var projectionStarted = Stopwatch.GetTimestamp();
-    var findingStates = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
-    var currentCommit = CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD");
-    var projection = projectionCache.Get(repository.Root, snapshot, findingStates, coverage, currentCommit);
-    var page = matches.Skip(offset).Take(pageLimit).Select(projection.Get).ToArray();
+    var page = matches.Skip(offset).Take(pageLimit).ToArray();
     var nextOffset = offset + page.Length;
     var payload = new TreeLevelResponse(
         2,
         null,
         $"search:{query}",
-        snapshot.ETag,
+        filesView ? "files:" + snapshot.ETag : snapshot.ETag,
         offset,
         pageLimit,
-        nextOffset < matches.Length ? EncodeTreeCursor(nextOffset) : null,
+        nextOffset < matches.Length ? EncodeTreeCursor(nextOffset, filesView) : null,
         page);
     var projectionMilliseconds = Stopwatch.GetElapsedTime(projectionStarted).TotalMilliseconds;
     return new MeasuredTreeJsonResult(payload, requestStarted, snapshotMilliseconds,
@@ -861,7 +904,7 @@ static async Task<IResult> MutateFindingState(HttpContext context, FindingStateM
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(request.Path);
-    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind, request.UnitId);
     FindingIdentityRecord identity;
     using (var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken)))
     {
@@ -908,7 +951,7 @@ static async Task<IResult> AddFindingSuppression(HttpContext context, FindingSup
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(request.Path);
-    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind, request.UnitId);
     FindingIdentityRecord identity;
     string title;
     using (var metadata = JsonDocument.Parse(await File.ReadAllTextAsync(metaPath, cancellationToken)))
@@ -960,7 +1003,7 @@ static async Task<IResult> MutateThread(HttpContext context, ThreadMutationReque
         throw new ArgumentException("Thread status must be open or resolved.");
     var (registration, repository) = ResolveRepository(context, registry);
     var relative = repository.NormalizeRelativePath(request.Path);
-    var metaPath = repository.FindMetaDocument(relative, request.Kind);
+    var metaPath = repository.FindMetaDocument(relative, request.Kind, request.UnitId);
     var writeLock = ReviewThreadManager.GetWriteLock(metaPath);
     await writeLock.WaitAsync(cancellationToken);
     try

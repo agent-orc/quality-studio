@@ -106,7 +106,7 @@ public sealed class ReviewMetaReaderTests
     private static string CommittedSidecar() =>
         Directory.GetFiles(
                 Path.Combine(RepositoryTestContext.FindRepositoryRoot(),
-                    "backend", "src", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files"),
+                    "backend", "AgentOrchestrator.CodeQuality", ".quality", "reviews", "files"),
                 "*.review-meta.code.json")
             .Order(StringComparer.Ordinal)
             .First(path => ReviewMetaReader.TryLoad(path, out _, out _));

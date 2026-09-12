@@ -65,11 +65,12 @@ public sealed class RepositoryAccess
     public IReadOnlyList<JsonElement> ReadMetaDocuments(
         string relativePath,
         IReadOnlyDictionary<string, FindingStateRecord>? states = null,
-        IReadOnlyDictionary<string, FindingSuppressionRule>? suppressions = null)
+        IReadOnlyDictionary<string, FindingSuppressionRule>? suppressions = null,
+        string? unitId = null)
     {
         var normalized = NormalizeRelativePath(relativePath);
         var documents = (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
-            .Read(root, normalized);
+            .Read(root, normalized, unitId);
         if (states is null)
         {
             return documents;
@@ -83,10 +84,10 @@ public sealed class RepositoryAccess
         }).ToArray();
     }
 
-    public string FindMetaDocument(string relativePath, string kind)
+    public string FindMetaDocument(string relativePath, string kind, string? unitId = null)
     {
         var normalized = NormalizeRelativePath(relativePath);
         return (metaIndex ?? throw new InvalidOperationException("Review metadata indexing is unavailable."))
-            .Find(root, normalized, kind);
+            .Find(root, normalized, kind, unitId);
     }
 }

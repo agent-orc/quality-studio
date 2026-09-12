@@ -10,9 +10,17 @@ export class ApiTimeoutError extends Error {
   }
 }
 
-/** True when the request produced no server judgement at all: no response, or no response in time. */
+/** Vite emits an empty plain-text 500 when its API proxy cannot connect to the backend. */
+function isEmptyProxyFailure(error: HttpErrorResponse): boolean {
+  const contentType = error.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase();
+  return error.status === 500 && contentType === 'text/plain'
+    && (error.error == null || (typeof error.error === 'string' && error.error.trim() === ''));
+}
+
+/** True when the request produced no API judgement: no response, timeout, or a failed proxy connection. */
 export function isUnreachable(error: unknown): boolean {
-  return error instanceof ApiTimeoutError || (error instanceof HttpErrorResponse && error.status === 0);
+  return error instanceof ApiTimeoutError
+    || (error instanceof HttpErrorResponse && (error.status === 0 || isEmptyProxyFailure(error)));
 }
 
 const STATUS_MESSAGES: Record<number, string> = {
@@ -44,7 +52,7 @@ export function describeHttpError(error: unknown): string {
     return `${error.message} The request was cancelled; the work may still be running on the server.`;
   }
   if (error instanceof HttpErrorResponse) {
-    if (error.status === 0) return 'The API is not reachable. Check that the Quality Studio API is running.';
+    if (isUnreachable(error)) return 'The API is not reachable. Check that the Quality Studio API is running.';
     const detail = serverDetail(error);
     if (detail) return detail;
     if (error.status >= 500) return `The API reported an internal error (HTTP ${error.status}).`;

@@ -20,7 +20,7 @@ Run the development host from the repository root:
 
 ```powershell
 $env:QualityStudio__RepositoryRoot = (Get-Location).Path
-dotnet run --project backend/src/QualityStudio.Api
+dotnet run --project backend/QualityStudio.Api
 ```
 
 `QualityStudio:RepositoryRoot` defaults to `../../..` relative to the API content root.
@@ -208,8 +208,8 @@ curl "http://127.0.0.1:5127/api/project"
 #      "testCoverage":{...},"metrics":{"languages":[...],"dependencyEdges":[...]},
 #      "hotspots":[...]}
 
-curl "http://127.0.0.1:5127/api/file?path=backend/src/QualityStudio.Api/appsettings.json"
-# 200 {"path":"backend/src/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[],"largeFile":null}
+curl "http://127.0.0.1:5127/api/file?path=backend/QualityStudio.Api/appsettings.json"
+# 200 {"path":"backend/QualityStudio.Api/appsettings.json","content":"...","metaDocuments":[],"largeFile":null}
 
 curl "http://127.0.0.1:5127/api/scan"
 # 200 {"files":[...],"freshCount":0,"staleCount":0,"policyDriftCount":0,"missingCount":20,
@@ -221,10 +221,10 @@ curl "http://127.0.0.1:5127/api/scan"
 curl "http://127.0.0.1:5127/api/security/scan"
 # 200 {"verdict":"pass","available":true,"scanner":"gitleaks",...}
 
-curl "http://127.0.0.1:5127/api/security/attack-coverage?path=backend/src/QualityStudio.Api"
+curl "http://127.0.0.1:5127/api/security/attack-coverage?path=backend/QualityStudio.Api"
 # 200 {"cellCount":...,"notYetCheckedCount":...,"staleCount":...,"rows":[...]}
 
-curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path=backend/src/QualityStudio.Api" \
+curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path=backend/QualityStudio.Api" \
   -H "Content-Type: application/json" \
   -d '{"assessmentId":"assessment-42","boundaryId":"...","attackId":"OWASP-API7-SSRF","verdict":"pass","reasoning":"The target is selected from a fixed allowlist.","evidence":[{"kind":"code","reference":"src/Api.cs#symbol:Fetch","summary":"Allowlist checked immediately before the HTTP call."}],"deterministicSensorInput":[],"source":"agent","reviewer":{"agent":"security-reviewer","model":"routed-model","thinkingLevel":"routed-level"},"tokenCost":{"inputTokens":1200,"outputTokens":180,"cachedInputTokens":0,"reasoningOutputTokens":80},"commit":"...","commitRange":"base..head"}'
 # 201 and appends attacks/coverage-ledger.jsonl in the project's data root

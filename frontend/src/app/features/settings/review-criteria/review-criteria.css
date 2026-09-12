@@ -1,0 +1,129 @@
+:host {
+  display: block;
+  min-height: 0;
+  overflow: auto;
+}
+
+.criteria-content {
+  padding: 18px 22px;
+  font-size: var(--studio-font-size-body);
+  line-height: 1.6;
+}
+
+.intro {
+  margin: 0 0 14px;
+  color: var(--studio-fg-muted);
+}
+
+.criteria-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.criteria-tabs button[aria-pressed=true] {
+  border-color: var(--studio-accent);
+  background: var(--studio-selected);
+}
+
+.criteria-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.criteria-filters label {
+  display: grid;
+  gap: 5px;
+  font-size: var(--studio-font-size-control);
+}
+
+.rule-search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.reference-card {
+  margin: 10px 0;
+  padding: 13px 15px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-bg-surface);
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+summary:focus-visible {
+  outline: 2px solid var(--studio-accent);
+  outline-offset: 4px;
+}
+
+summary small {
+  display: block;
+  margin: 5px 0 0;
+  color: var(--studio-fg-muted);
+  font-size: var(--studio-font-size-label);
+  font-weight: 400;
+}
+
+.reference-card h3 {
+  font-size: var(--studio-font-size-title);
+  margin: 18px 0 7px;
+}
+
+.reference-card h4 {
+  margin: 16px 0 5px;
+  font-size: var(--studio-font-size-body);
+}
+
+.reference-card p {
+  margin: 9px 0;
+  color: var(--studio-fg-muted);
+}
+
+.reference-card pre,.formula {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--studio-font-size-code);
+  padding: 12px;
+  border-radius: 5px;
+  background: var(--studio-bg-elevated);
+}
+
+.source-links {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0 0;
+}
+
+a {
+  color: var(--studio-accent);
+}
+
+.muted {
+  color: var(--studio-fg-muted);
+}
+
+.input-notice,.override {
+  padding: 8px 12px;
+  border-left: 3px solid var(--status-policy);
+  background: var(--studio-bg-elevated);
+}
+
+@media(max-width:650px) {
+  .criteria-content {
+    padding: 14px;
+  }
+  .criteria-filters label {
+    width: 100%;
+  }
+}

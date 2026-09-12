@@ -15,7 +15,7 @@ using Xunit;
 namespace QualityStudio.Api.Tests;
 
 [Trait("Category", "ToolBound")]
-public sealed class ApiSmokeTests : IAsyncLifetime
+public sealed partial class ApiSmokeTests : IAsyncLifetime
 {
     private readonly string repositoryRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-tests", Guid.NewGuid().ToString("N"));
     private readonly string hostRoot = Path.Combine(Path.GetTempPath(), "quality-studio-api-hosts", Guid.NewGuid().ToString("N"));

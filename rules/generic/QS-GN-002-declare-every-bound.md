@@ -38,7 +38,7 @@ documentation or in the client is not a bound.
 ## Good example
 
 ```csharp
-// backend/src/QualityStudio.Api/ApiSecurity.cs
+// backend/QualityStudio.Api/ApiSecurity.cs
 if (MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)
     throw new InvalidOperationException("MaxRequestBodyBytes must be between 1 KiB and 10 MiB.");
 if (MaxConcurrentRequests is < 1 or > 1024)

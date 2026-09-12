@@ -41,8 +41,8 @@ cohesion or dependency direction; language-native analyzers and reviewer judgmen
 ```json
 {
   "schemaVersion": 1,
-  "requiredDirectories": ["backend/src", "backend/tests", "frontend/src"],
-  "forbiddenSourcePaths": ["src"],
+  "requiredDirectories": ["backend", "backend/tests", "frontend/src"],
+  "forbiddenSourcePaths": ["src", "backend/src"],
   "directoryRules": []
 }
 ```
@@ -50,9 +50,9 @@ cohesion or dependency direction; language-native analyzers and reviewer judgmen
 ## Bad example
 
 ```text
-quality-architecture.json  # declares backend/src and forbids source under src
-backend/src/Api/Program.cs
-src/AnotherApi/Program.cs  # reintroduces the retired product-source location
+quality-architecture.json  # declares backend and forbids retired src locations
+backend/Api/Program.cs
+backend/src/AnotherApi/Program.cs  # reintroduces an unnecessary retired source wrapper
 ```
 
 ## Change history

@@ -41,7 +41,7 @@ constants is not a violation.
 ## Good example
 
 ```csharp
-// backend/src/QualityStudio.Api/PathConfinement.cs
+// backend/QualityStudio.Api/PathConfinement.cs
 public static void RejectReparseTraversal(string root, string candidate)
 {
     if (!IsWithin(root, candidate)) throw new ArgumentException("Path escapes its configured root.");

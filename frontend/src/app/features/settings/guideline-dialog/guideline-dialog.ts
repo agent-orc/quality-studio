@@ -1,9 +1,10 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { Guideline, GuidelineCatalogueEntry, GuidelineImpact, GuidelineTrace } from '../../../core/models/contracts';
 import { Modal, ModalBackdrop } from '../../../shared/dialog/modal';
 import { GuidelineForm } from './guideline-form';
+import { ReviewCriteria } from '../review-criteria/review-criteria';
 
 /**
  * Editor for the repository's guideline files, with the starter catalogue, the finding trace of a
@@ -12,12 +13,13 @@ import { GuidelineForm } from './guideline-form';
  */
 @Component({
   selector: 'qs-guideline-dialog',
-  imports: [FormsModule, Modal, ModalBackdrop],
+  imports: [FormsModule, Modal, ModalBackdrop, ReviewCriteria],
   templateUrl: './guideline-dialog.html',
   styleUrls: ['../../../shared/dialog/dialog-shell.css', './guideline-dialog.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GuidelineDialog {
+  readonly section = signal<'criteria' | 'guidelines'>('criteria');
   readonly guidelines = input.required<Guideline[]>();
   readonly catalogue = input.required<GuidelineCatalogueEntry[]>();
   readonly traces = input.required<GuidelineTrace[]>();

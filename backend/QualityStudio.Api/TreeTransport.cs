@@ -44,8 +44,39 @@ public sealed record TreeLevelNodeResponse(
 public sealed class TreeProjectionIndex
 {
     private readonly Dictionary<HierarchyNode, NodeFacts> facts;
+    private readonly IReadOnlyDictionary<string, FindingStateRecord> findingStates;
+    private readonly object explorerGate = new();
+    private RepositoryExplorerProjection? explorer;
 
-    private TreeProjectionIndex(Dictionary<HierarchyNode, NodeFacts> facts) => this.facts = facts;
+    public RepositoryExplorerProjection GetExplorer(string repositoryRoot, IReadOnlyList<HierarchyNode> roots,
+        Func<IReadOnlyDictionary<string, HierarchyNode>>? scopeFactory = null)
+    {
+        lock (explorerGate)
+            return explorer ??= RepositoryExplorerProjection.Create(repositoryRoot, roots, this, scopeFactory?.Invoke());
+    }
+
+
+    private TreeProjectionIndex(Dictionary<HierarchyNode, NodeFacts> facts,
+        IReadOnlyDictionary<string, FindingStateRecord> findingStates)
+    {
+        this.facts = facts;
+        this.findingStates = findingStates;
+    }
+
+    /// <summary>Direct evidence on a directory scope, without recounting its source members.</summary>
+    public TreeLevelNodeResponse GetDirect(HierarchyNode node)
+    {
+        var summary = DirectReviewSummary(node, findingStates);
+        var kinds = Enum.GetValues<ReviewKind>().ToDictionary(kind => kind.ToString().ToLowerInvariant(), kind =>
+        {
+            var direct = node.Documents.TryGetValue(kind, out var document) ? document.State : ReviewState.NotReviewed;
+            return KindStateResponse.From(node, new KindAggregation(kind, direct, ReviewState.NotReviewed, direct), findingStates);
+        }, StringComparer.Ordinal);
+        return new TreeLevelNodeResponse(node.Id, null, node.Name, node.Level.ToString().ToLowerInvariant(),
+            node.Path, kinds, summary.FindingsCount, summary.Counts,
+            summary.ReviewedAt?.ToUniversalTime().ToString("O"), null, null, CoverageAggregate.Unknown,
+            node.Exclusions.Select(item => new ScopeExclusionResponse(item.Path, item.Reason)).ToArray(), false, 0, []);
+    }
 
     public static TreeProjectionIndex Create(
         IReadOnlyList<HierarchyNode> roots,
@@ -63,7 +94,7 @@ public sealed class TreeProjectionIndex
             Build(root, parentId: null, states, coverage, currentCommit, coverageFiles, facts);
         }
 
-        return new TreeProjectionIndex(facts);
+        return new TreeProjectionIndex(facts, states);
     }
 
     public TreeLevelNodeResponse Get(HierarchyNode node)

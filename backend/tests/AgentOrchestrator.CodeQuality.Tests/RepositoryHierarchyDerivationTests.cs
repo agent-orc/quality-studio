@@ -264,14 +264,14 @@ public sealed class RepositoryHierarchyDerivationTests : IDisposable
     /// </summary>
     private static readonly string[] KnownOrphanedUnits =
     [
-        // backend/src/AgentOrchestrator.CodeQuality/StalenessState.cs, code, reviewed 2026-07-11T19:18:11Z.
+        // backend/AgentOrchestrator.CodeQuality/StalenessState.cs, code, reviewed 2026-07-11T19:18:11Z.
         "qs-v1/dotnet/file/81d3729e439083d881cfae72aeb40974a8982a9f2bac908f5a03e66657fb7f6d",
     ];
 
     /// <summary>
     /// Unmoved published units must retain their IDs. The explicit backend/frontend layout
     /// refactoring moves source paths, which deliberately changes path-derived IDs. For those
-    /// units, reconstruct the published layout from current source in an isolated fixture and
+    /// units, reconstruct both published backend layouts from current source in isolated fixtures and
     /// prove the original ID still derives there, while the new target resolves in this checkout.
     /// Historical review documents themselves are never rewritten to claim a fresh review.
     /// </summary>
@@ -293,7 +293,11 @@ public sealed class RepositoryHierarchyDerivationTests : IDisposable
         Assert.NotEmpty(sidecars);
         using var publishedLayout = TemporaryDirectory.Create("quality-studio-published-layout");
         WritePublishedLayout(repositoryRoot, publishedLayout.Path, sidecars.Select(entry => entry.Unit), angularMoves);
+        using var intermediateLayout = TemporaryDirectory.Create("quality-studio-intermediate-layout");
+        WritePublishedLayout(repositoryRoot, intermediateLayout.Path, sidecars.Select(entry => entry.Unit), angularMoves,
+            intermediateBackendLayout: true);
         var publishedIdentifiers = Flatten(RepositoryHierarchyBuilder.Build(publishedLayout.Path))
+            .Concat(Flatten(RepositoryHierarchyBuilder.Build(intermediateLayout.Path)))
             .Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
         var movedCount = 0;
         var unmovedCount = 0;
@@ -332,24 +336,29 @@ public sealed class RepositoryHierarchyDerivationTests : IDisposable
     private static string CurrentSourcePath(string publishedPath, IReadOnlyDictionary<string, string> angularMoves)
     {
         if (angularMoves.TryGetValue(publishedPath, out var currentPath)) return currentPath;
+        if (publishedPath.StartsWith("backend/src/", StringComparison.Ordinal))
+            return "backend/" + publishedPath["backend/src/".Length..];
         return publishedPath.StartsWith("src/AgentOrchestrator.CodeQuality/", StringComparison.Ordinal) ||
                publishedPath.StartsWith("src/QualityStudio.Api/", StringComparison.Ordinal) ||
                publishedPath.StartsWith("src/quality-cli/", StringComparison.Ordinal)
-            ? "backend/" + publishedPath
+            ? "backend/" + publishedPath["src/".Length..]
             : publishedPath;
     }
 
     private static void WritePublishedLayout(
         string repositoryRoot, string fixtureRoot, IEnumerable<PublishedUnit> units,
-        IReadOnlyDictionary<string, string> angularMoves)
+        IReadOnlyDictionary<string, string> angularMoves, bool intermediateBackendLayout = false)
     {
-        var solution = File.ReadAllText(Path.Combine(repositoryRoot, "QualityStudio.slnx"))
-            .Replace("backend/src/", "src/", StringComparison.Ordinal)
-            .Replace("backend/tests/", "tests/", StringComparison.Ordinal);
+        var sourcePrefix = intermediateBackendLayout ? "backend/src" : "src";
+        var solution = File.ReadAllText(Path.Combine(repositoryRoot, "QualityStudio.slnx"));
+        foreach (var project in new[] { "AgentOrchestrator.CodeQuality", "QualityStudio.Api", "quality-cli" })
+            solution = solution.Replace($"backend/{project}/", $"{sourcePrefix}/{project}/", StringComparison.Ordinal);
+        if (!intermediateBackendLayout)
+            solution = solution.Replace("backend/tests/", "tests/", StringComparison.Ordinal);
         File.WriteAllText(Path.Combine(fixtureRoot, "QualityStudio.slnx"), solution);
         CopySource("frontend/angular.json", "frontend/angular.json");
         foreach (var project in new[] { "AgentOrchestrator.CodeQuality", "QualityStudio.Api", "quality-cli" })
-            CopySource($"backend/src/{project}/{project}.csproj", $"src/{project}/{project}.csproj");
+            CopySource($"backend/{project}/{project}.csproj", $"{sourcePrefix}/{project}/{project}.csproj");
         foreach (var unit in units.DistinctBy(unit => unit.Path))
             CopySource(CurrentSourcePath(unit.Path, angularMoves), unit.Path);
 

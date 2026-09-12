@@ -11,7 +11,7 @@ import { chromium } from 'playwright-core';
 const testsRoot = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testsRoot, '..');
 const repositoryRoot = resolve(frontendRoot, '..');
-const apiDll = process.env.QS_API_DLL || resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Debug/net10.0/QualityStudio.Api.dll');
+const apiDll = process.env.QS_API_DLL || resolve(repositoryRoot, 'backend/QualityStudio.Api/bin/Debug/net10.0/QualityStudio.Api.dll');
 const resultsRoot = process.env.JOB_RESULTS_DIR || resolve(frontendRoot, 'evidence');
 const executablePath = process.env.CHROME_BIN || chromium.executablePath();
 const transitionBudgetMs = 100;

@@ -1134,7 +1134,7 @@ public sealed class LiveReviewIntegrationTests
 
         var root = RepositoryTestContext.FindRepositoryRoot();
         var result = await new ReviewRunner().ReviewAsync(new ReviewRequest(
-            "backend/src/AgentOrchestrator.CodeQuality/StalenessState.cs",
+            "backend/AgentOrchestrator.CodeQuality/StalenessState.cs",
             RepositoryRoot: root), TestContext.Current.CancellationToken);
         Assert.True(File.Exists(result.MetaPath));
     }

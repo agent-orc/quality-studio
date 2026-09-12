@@ -20,15 +20,15 @@ RUN npm run build -- --configuration production
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api
 WORKDIR /src
 COPY Directory.Build.props ./
-COPY backend/src/ ./backend/src/
-RUN dotnet publish backend/src/QualityStudio.Api/QualityStudio.Api.csproj \
+COPY backend/ ./backend/
+RUN dotnet publish backend/QualityStudio.Api/QualityStudio.Api.csproj \
         --configuration Release \
         --output /publish \
         /p:UseAppHost=true
 
 # ---------------------------------------------------------------- pinned gitleaks
 # Downloaded once at build time and checked against the digest tracked in
-# backend/src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json, so no scan ever downloads at runtime.
+# backend/AgentOrchestrator.CodeQuality/gitleaks-binaries.json, so no scan ever downloads at runtime.
 FROM debian:bookworm-slim AS gitleaks
 ARG GITLEAKS_VERSION=8.24.2
 ARG GITLEAKS_SHA256=fa0500f6b7e41d28791ebc680f5dd9899cd42b58629218a5f041efa899151a8e

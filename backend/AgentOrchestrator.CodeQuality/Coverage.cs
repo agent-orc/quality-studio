@@ -270,6 +270,7 @@ public sealed class CoverageReportParser
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
+                    CreateNoWindow = true,
                 },
             };
             foreach (var argument in new[] { "merge", path, "-f", "cobertura", "-o", output })
@@ -585,6 +586,7 @@ public sealed class CoverageSensor : IReviewSensor
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
+                    CreateNoWindow = true,
                 },
             };
             foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);

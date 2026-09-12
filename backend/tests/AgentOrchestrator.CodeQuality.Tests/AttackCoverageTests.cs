@@ -90,7 +90,7 @@ public sealed class AttackCoverageTests
     {
         var root = RepositoryTestContext.FindRepositoryRoot();
         using var catalogue = JsonDocument.Parse(await File.ReadAllTextAsync(
-            Path.Combine(root, "backend", "src", "AgentOrchestrator.CodeQuality", "catalogues",
+            Path.Combine(root, "backend", "AgentOrchestrator.CodeQuality", "catalogues",
                 "attack-catalogue.v1.json"),
             TestContext.Current.CancellationToken));
         var schema = JsonSchema.FromText(await File.ReadAllTextAsync(
@@ -110,7 +110,7 @@ public sealed class AttackCoverageTests
         var root = Directory.CreateTempSubdirectory("quality-studio-api-coverage-").FullName;
         try
         {
-            var relativeProject = Path.Combine("backend", "src", "QualityStudio.Api");
+            var relativeProject = Path.Combine("backend", "QualityStudio.Api");
             var targetProject = Path.Combine(root, relativeProject);
             Directory.CreateDirectory(targetProject);
             foreach (var source in Directory.EnumerateFiles(
@@ -119,12 +119,12 @@ public sealed class AttackCoverageTests
                 File.Copy(source, Path.Combine(targetProject, Path.GetFileName(source)));
             }
             var inventory = await new BoundaryInventorySensor().InventoryAsync(
-                new SensorScanRequest(root, SensorScope.Path, "backend/src/QualityStudio.Api", PersistMetadata: false),
+                new SensorScanRequest(root, SensorScope.Path, "backend/QualityStudio.Api", PersistMetadata: false),
                 TestContext.Current.CancellationToken);
             var catalogue = new AttackCatalogueResolver().Resolve(root);
 
             var matrix = await new AttackCoverageService().BuildAsync(
-                root, inventory, catalogue, "backend/src/QualityStudio.Api", recheckDeterministic: true,
+                root, inventory, catalogue, "backend/QualityStudio.Api", recheckDeterministic: true,
                 cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotEmpty(matrix.Rows);

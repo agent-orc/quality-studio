@@ -10,11 +10,11 @@ public sealed class ReviewMetaIndex : IDisposable
     private readonly ConcurrentDictionary<string, Lazy<RepositoryIndex>> repositories =
         new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
-    public IReadOnlyList<JsonElement> Read(string root, string relativePath) =>
-        Get(root).Read(relativePath);
+    public IReadOnlyList<JsonElement> Read(string root, string relativePath, string? unitId = null) =>
+        Get(root).Read(relativePath, unitId);
 
-    public string Find(string root, string relativePath, string kind) =>
-        Get(root).Find(relativePath, kind);
+    public string Find(string root, string relativePath, string kind, string? unitId = null) =>
+        Get(root).Find(relativePath, kind, unitId);
 
     /// <summary>
     /// Drops the index and its filesystem watcher for one repository. Archiving a registration means
@@ -128,23 +128,25 @@ public sealed class ReviewMetaIndex : IDisposable
             }
         }
 
-        public IReadOnlyList<JsonElement> Read(string relativePath)
+        public IReadOnlyList<JsonElement> Read(string relativePath, string? unitId)
         {
             lock (gate)
             {
                 return documents.Values
-                    .Where(document => string.Equals(document.UnitPath, relativePath, StringComparison.Ordinal))
+                    .Where(document => string.Equals(document.UnitPath, relativePath, StringComparison.Ordinal) &&
+                        SelectsUnit(document, unitId))
                     .Select(document => document.Payload.Clone()).ToArray();
             }
         }
 
-        public string Find(string relativePath, string kind)
+        public string Find(string relativePath, string kind, string? unitId)
         {
             lock (gate)
             {
                 return documents.Values.FirstOrDefault(document =>
                            string.Equals(document.UnitPath, relativePath, StringComparison.Ordinal) &&
                            string.Equals(document.Kind, kind, StringComparison.OrdinalIgnoreCase) &&
+                           SelectsUnit(document, unitId) &&
                            File.Exists(document.Path))?.Path
                        ?? throw new FileNotFoundException(
                            $"No {kind} review metadata exists for '{relativePath}'.", relativePath);
@@ -175,7 +177,7 @@ public sealed class ReviewMetaIndex : IDisposable
                 using var parsed = JsonDocument.Parse(sidecar.Json);
                 var normalized = Path.GetRelativePath(root, absoluteSubject).Replace('\\', '/');
                 lock (gate)
-                    documents[path] = new IndexedDocument(path, normalized,
+                    documents[path] = new IndexedDocument(path, normalized, sidecar.Document.Unit.Id,
                         sidecar.Document.Kind.ToString().ToLowerInvariant(), parsed.RootElement.Clone());
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -200,6 +202,12 @@ public sealed class ReviewMetaIndex : IDisposable
             path.Contains(".review-meta.", StringComparison.Ordinal) &&
             path.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
 
-        private sealed record IndexedDocument(string Path, string UnitPath, string Kind, JsonElement Payload);
+        // Existing path-only callers continue to address canonical reviews. A physical directory
+        // is a distinct unit even when an Angular/generic namespace has the same path and kind.
+        private static bool SelectsUnit(IndexedDocument document, string? unitId) => unitId is not null
+            ? string.Equals(document.UnitId, unitId, StringComparison.Ordinal)
+            : document.UnitId != RepositoryExplorerProjection.ScopeId(document.UnitPath);
+
+        private sealed record IndexedDocument(string Path, string UnitPath, string UnitId, string Kind, JsonElement Payload);
     }
 }

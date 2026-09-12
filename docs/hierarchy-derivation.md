@@ -18,6 +18,29 @@ is the specification rather than a guess.
 A level that an adapter cannot derive has no units. An empty level is honest; a
 plausible-looking one derived from text patterns is not.
 
+## Physical Explorer view
+
+The repository Explorer uses `view=files` on the tree endpoints. Its repository
+root and intermediate folders mirror the actual paths of reviewable source files;
+solution, synthetic root-module, and namespace wrappers are absent. The view is
+derived from the same cached source units, without rescanning the worktree.
+
+File nodes retain their canonical review IDs. Aliased or linked files with the
+same physical path appear once, using the ordinally first canonical ID, as in
+`HierarchyUnitResolver.FileUnitsByPath`. Folder names are path segments, their API
+level is `folder`, and the root has level `repository` and path `.`. These are
+navigation levels independent of the five language-derived review levels below.
+
+`/api/tree?view=files&path=...` resolves physical source paths. The lazy
+`/api/tree/v2?view=files` and search endpoints use the same projection and keep
+their cursors, snapshot identifiers, and conditional-cache identities separate
+from the canonical view. Omitting `view` preserves the canonical hierarchy.
+
+This is a source Explorer, not an inventory of every file on disk. Generated or
+ignored output and files outside the selected adapters' reviewable source set do
+not become visible just because they occupy a directory. Existing canonical
+review IDs and language scopes remain unchanged by the display projection.
+
 ## Adapter overview
 
 | Level | .NET solution | Angular / TypeScript | Generic path |

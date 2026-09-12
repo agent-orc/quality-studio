@@ -26,7 +26,8 @@ public sealed record ReviewRequest(
     IReadOnlyList<ReviewSensorConfiguration>? DeterministicSensors = null,
     IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
     string? ModelSource = null,
-    IReadOnlyList<ReviewSubjectGroup>? SubjectGroups = null);
+    IReadOnlyList<ReviewSubjectGroup>? SubjectGroups = null,
+    bool DirectoryScope = false);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -319,7 +320,7 @@ public sealed class ReviewRunner
             request.GlobalInputsDirectory, request.InputBudgetCharacters, AdapterFromUnitId(unitId));
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
         var projectGuidelines = Combine(inputs.Guidelines("project"), request.ProjectGuidelines);
-        var metaPath = ReviewMetaPath.For(root, files[0], relativePath, request.Level, request.Kind);
+        var metaPath = ReviewMetaPath.For(root, files[0], relativePath, request.Level, request.Kind, request.DirectoryScope);
         var threads = ReviewThreadManager.LoadAndHeal(metaPath, relativePath, fileContent);
         var openThreads = new JsonArray(threads.OfType<JsonObject>()
             .Where(thread => thread["status"]?.GetValue<string>() == "open")

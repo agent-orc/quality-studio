@@ -14,7 +14,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/QualityStudio.Api/QualityStudio.Api.csproj" />
+    <ProjectReference Include="../../QualityStudio.Api/QualityStudio.Api.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../TemporaryDirectory.cs" Link="TemporaryDirectory.cs" />

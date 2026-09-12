@@ -1,7 +1,7 @@
 import { AfterViewInit, Directive, ElementRef, OnDestroy, inject, output } from '@angular/core';
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), '
-  + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  + 'textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
 
 /**
  * The stack of currently open modals. Only the topmost one traps focus and answers Escape, so a
@@ -78,8 +78,10 @@ export class Modal implements AfterViewInit, OnDestroy {
   }
 
   private focusable(): HTMLElement[] {
+    // Closed details can retain layout boxes for invisible links. Native visibility
+    // also checks that hidden content, so it cannot become the modal's last tab stop.
     return Array.from(this.element.nativeElement.querySelectorAll<HTMLElement>(FOCUSABLE))
-      .filter(candidate => candidate.offsetParent !== null || candidate === document.activeElement);
+      .filter(candidate => candidate.checkVisibility());
   }
 
   private focusInside(): void {

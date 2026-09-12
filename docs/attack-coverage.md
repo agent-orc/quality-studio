@@ -14,7 +14,7 @@ trajectory.
 ## Catalogue and precedence
 
 The built-in catalogue is
-[`backend/src/AgentOrchestrator.CodeQuality/catalogues/attack-catalogue.v1.json`](../backend/src/AgentOrchestrator.CodeQuality/catalogues/attack-catalogue.v1.json)
+[`backend/AgentOrchestrator.CodeQuality/catalogues/attack-catalogue.v1.json`](../backend/AgentOrchestrator.CodeQuality/catalogues/attack-catalogue.v1.json)
 and conforms to
 [`schemas/attack-catalogue.v1.schema.json`](../schemas/attack-catalogue.v1.schema.json).
 It is seeded from the OWASP API Security Top 10, relevant OWASP Top 10 entries,
@@ -94,8 +94,8 @@ contradicting agent claim; the override remains visible in the cell.
 The repository-aware endpoints are:
 
 ```text
-GET  /api/repos/{repoId}/security/attack-coverage?path=backend/src/QualityStudio.Api
-POST /api/repos/{repoId}/security/attack-coverage/judgements?path=backend/src/QualityStudio.Api
+GET  /api/repos/{repoId}/security/attack-coverage?path=backend/QualityStudio.Api
+POST /api/repos/{repoId}/security/attack-coverage/judgements?path=backend/QualityStudio.Api
 ```
 
 Legacy-default routes omit `/repos/{repoId}`. GET records deterministic checks

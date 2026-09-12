@@ -103,7 +103,7 @@ jobs:
           for sample in 1 2 3; do
             JOB_RESULTS_DIR="$CANARY_RESULTS/browser-$sample" node tests/perf.mjs || status=1
             JOB_RESULTS_DIR="$CANARY_RESULTS/project-switch-$sample" \
-              QS_API_DLL="$GITHUB_WORKSPACE/backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll" \
+              QS_API_DLL="$GITHUB_WORKSPACE/backend/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll" \
               node tests/project-switch-perf.mjs || status=1
           done
           exit "$status"

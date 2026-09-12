@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "overview": "Quality Studio combines named review rules, repository policy and reproducible evidence. Reviewers explain a concrete problem; measurements help decide where to look. A score alone does not establish correctness.",
+  "principles": [
+    {
+      "id": "evidence",
+      "title": "Actionable findings",
+      "why": "A finding should help someone reproduce and fix a problem, rather than record a reviewer preference.",
+      "method": "Describe the trigger, source location, affected behavior and a proportionate fix. Check edge cases, concurrent work and failure recovery; relate severity to the concrete impact.",
+      "limits": "Readability suggestions are advice unless they violate an agreed rule or cause a demonstrated maintenance problem. Missing context is uncertainty, not proof of a defect.",
+      "ruleIds": [
+        "QS-GN-004",
+        "QS-CS-004"
+      ],
+      "sourceIds": [
+        "google-review"
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": "Clear ownership and dependency direction",
+      "why": "Explicit boundaries make it easier to find a feature and understand which changes can affect it.",
+      "method": "Compare source placement and imports with the repository contract. Keep Angular feature code together and components focused; separate application responsibilities in .NET.",
+      "limits": "backend/<projects>, backend/tests and frontend/src are this repository’s convention. A directory named src is not inherently wrong, and a folder tree cannot prove component cohesion.",
+      "ruleIds": [
+        "QS-GN-003",
+        "QS-NG-003",
+        "QS-CS-002"
+      ],
+      "sourceIds": [
+        "angular-style",
+        "dotnet-architecture"
+      ]
+    },
+    {
+      "id": "interface",
+      "title": "Consistent and usable interfaces",
+      "why": "Shared controls and typography reduce visual drift and make similar actions behave consistently.",
+      "method": "Use the declared design tokens and native interaction semantics. Check keyboard access, loading/error states and the actual rendered UI; enforce the repository’s font and bundle budgets.",
+      "limits": "The local 11 px minimum catches an agreed floor, not complete readability or accessibility. Browser zoom, contrast, content length and interaction still need inspection.",
+      "ruleIds": [
+        "QS-NG-001",
+        "QS-NG-002",
+        "QS-NG-004",
+        "QS-NG-012"
+      ],
+      "sourceIds": [
+        "angular-style",
+        "google-review"
+      ]
+    },
+    {
+      "id": "runtime",
+      "title": "Bounded work and observable failure",
+      "why": "A change must stay understandable and responsive when data grows, requests race or dependencies fail.",
+      "method": "Review cancellation, cache keys, resource bounds and stale responses. Measure realistic scenarios and write tests that fail when externally visible behavior breaks.",
+      "limits": "A passing benchmark is evidence for its workload and machine. Coverage and a green test run do not establish that every important behavior was asserted.",
+      "ruleIds": [
+        "QS-GN-002",
+        "QS-CS-010",
+        "QS-CS-012",
+        "QS-NG-011",
+        "QS-NG-013"
+      ],
+      "sourceIds": [
+        "google-review"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "review-coverage",
+      "title": "Review coverage",
+      "formula": "round(100 × files with review documents / reviewable files, 1)",
+      "why": "Shows which reviewable files have recorded review evidence.",
+      "interpretation": "An empty scope reports 0%. A file counts when it has a review document for any kind.",
+      "limits": "A stale review still counts; this is not test coverage or proof that all review kinds are fresh.",
+      "implementation": "backend/QualityStudio.Api/ProjectDashboard.cs"
+    },
+    {
+      "id": "test-coverage",
+      "title": "Test line coverage",
+      "formula": "round(100 × covered lines / executable lines, 1)",
+      "why": "Shows which reported executable lines were reached by tests.",
+      "interpretation": "Reads supported coverage reports; a reported XML line rate may provide a percentage without counts.",
+      "limits": "Missing or invalid reports are unavailable, not 0%. Executed lines do not prove useful assertions, branch coverage or correct behavior.",
+      "implementation": "backend/QualityStudio.Api/ProjectDashboard.cs"
+    },
+    {
+      "id": "risk-view",
+      "title": "Risk view score",
+      "formula": "round(0.4 × (100 − code grade) + 0.4 × (100 − line coverage %) + 20 × changes / max(1, largest change count), 2)",
+      "why": "Prioritizes files with weak recorded grades, less coverage and more recent changes.",
+      "interpretation": "The churn window is the requested number of days (90 by default). A missing grade or coverage value leaves the score unknown.",
+      "limits": "This is a prioritization heuristic, not a failure probability. Inspect review and coverage freshness before using the score.",
+      "implementation": "backend/QualityStudio.Api/Program.cs"
+    },
+    {
+      "id": "finding-density",
+      "title": "Findings per KLOC",
+      "formula": "round(1000 × unresolved findings in review documents / max(1, file lines), 2)",
+      "why": "Normalizes the dashboard’s finding count by file size.",
+      "interpretation": "Counts findings across recorded review kinds using the dashboard’s resolution filter.",
+      "limits": "A small file can have high density. Findings depend on review scope, policy, recency and reviewer judgment; compare like-for-like.",
+      "implementation": "backend/QualityStudio.Api/ProjectDashboard.cs"
+    },
+    {
+      "id": "hotspot",
+      "title": "Dashboard hotspot priority",
+      "formula": "round(log10(changes + 1) × (findings per KLOC + 1) × (101 − (code grade or 50)) / 100, 2)",
+      "why": "Combines churn, finding density and recorded grade to order the dashboard’s review candidates.",
+      "interpretation": "An unknown code grade uses 50 for this ranking; zero changes produce zero. This differs from the coverage-based Risk view.",
+      "limits": "The fallback is an explicit ranking assumption, not an assigned grade. A low score does not imply safety or complete review coverage.",
+      "implementation": "backend/QualityStudio.Api/ProjectDashboard.cs"
+    },
+    {
+      "id": "grade",
+      "title": "Recorded and effective review grade",
+      "formula": "When E > 0: effective = min(security cap, clamp(roundAway(100 − (100 − base) × I / (I + E)), base, 100)). When E = 0: effective = base. Project summary: roundEven(mean(available recorded root scores per review kind)).",
+      "why": "Explains both the recorded review assessment and the current triage-adjusted grade. A finding-status change can change the displayed effective score without another review.",
+      "interpretation": "Base is the stored review score (0–100). I sums included finding weights: open and accepted. E sums excluded weights: waived, false-positive, resolved or actively suppressed. Weights are critical 16, high 8, medium 4, low 2, otherwise 1. roundAway rounds a midpoint away from zero; roundEven rounds a midpoint to the nearest even integer. For reviews with a security verdict, the cap is 79 for warn and 59 for block or unavailable; otherwise it is 100. The cap applies to the adjustment when E > 0. Observed example: three high findings with one marked false-positive leave I = 16 and E = 8; base 72 (C) becomes 81 (B), unless a security cap applies. Bands are A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, otherwise F.",
+      "limits": "The base is reviewer judgment. Triage can raise the effective grade without changing code or test coverage; excluded observations remain in the history. Project summaries average recorded root grades, not the effective grades of all files; missing scores are excluded. Inspect findings, policy, security signals and freshness alongside any grade.",
+      "implementation": "backend/AgentOrchestrator.CodeQuality/FindingStateProjection.cs"
+    }
+  ],
+  "sources": [
+    {
+      "id": "angular-style",
+      "title": "Angular coding style guide",
+      "url": "https://angular.dev/style-guide"
+    },
+    {
+      "id": "google-review",
+      "title": "Google: What to look for in a code review",
+      "url": "https://google.github.io/eng-practices/review/reviewer/looking-for.html"
+    },
+    {
+      "id": "dotnet-architecture",
+      "title": "Microsoft: Common web application architectures",
+      "url": "https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures"
+    }
+  ]
+}

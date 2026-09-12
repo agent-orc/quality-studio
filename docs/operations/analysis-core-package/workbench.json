@@ -13,11 +13,11 @@
     "QS-90"
   ],
   "artifacts": [
-    "backend/src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
-    "backend/src/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
-    "backend/src/AgentOrchestrator.CodeQuality/README.md",
-    "backend/src/quality-cli/Program.cs",
-    "backend/src/QualityStudio.Api/AgentStudioTaskClient.cs"
+    "backend/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj",
+    "backend/AgentOrchestrator.CodeQuality/QualityAnalysisRunner.cs",
+    "backend/AgentOrchestrator.CodeQuality/README.md",
+    "backend/quality-cli/Program.cs",
+    "backend/QualityStudio.Api/AgentStudioTaskClient.cs"
   ],
   "key": "QS-W9",
   "decisionNote": {

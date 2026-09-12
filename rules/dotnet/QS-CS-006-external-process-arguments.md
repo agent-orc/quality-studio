@@ -39,7 +39,7 @@ shape; the file name is what must be fixed.
 ## Good example
 
 ```csharp
-// backend/src/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs
+// backend/AgentOrchestrator.CodeQuality/DependencyVulnerabilitySensor.cs
 StartInfo = new ProcessStartInfo(executable)
 {
     WorkingDirectory = workingDirectory,

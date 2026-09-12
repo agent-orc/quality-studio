@@ -12,7 +12,7 @@ const repositoryRoot = resolve(new URL('..', import.meta.url).pathname);
 const frontendRoot = resolve(repositoryRoot, 'frontend');
 const largeRepositoryRoot = resolve(process.env.QS_PERF_REPOSITORY ?? '/home/agent/runner-work/PROJ-002/repo');
 const resultsRoot = resolve(process.env.JOB_RESULTS_DIR ?? resolve(repositoryRoot, 'results'));
-const apiDll = resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
+const apiDll = resolve(repositoryRoot, 'backend/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
 const children = [];
 let tempRoot;
 

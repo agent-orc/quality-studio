@@ -32,7 +32,7 @@ Use `quality review <file> --kind code --explain-inputs` to inspect the exact se
 
 Alongside the repository's own guidelines, every review resolves the built-in named-rule library
 in [`rules/`](../rules/README.md). Its rules are authored as Markdown, generated into
-`backend/src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json` by
+`backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json` by
 `npm run rules:sync`, and embedded in the analysis-core assembly, so they need no per-repository
 install step and no network access.
 

@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const repositoryRoot = resolve(new URL('..', import.meta.url).pathname);
 const targetRoot = resolve(process.env.QS_TARGET ?? repositoryRoot);
-const apiDll = resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
+const apiDll = resolve(repositoryRoot, 'backend/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
 const checks = [];
 const record = (name, pass, detail) => { checks.push({ name, pass, detail }); console.log(`${pass ? 'PASS' : 'FAIL'}  ${name} — ${detail}`); };
 

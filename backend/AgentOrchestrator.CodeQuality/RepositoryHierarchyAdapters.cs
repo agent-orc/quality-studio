@@ -298,6 +298,7 @@ public static partial class RepositoryHierarchyBuilder
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
+                CreateNoWindow = true,
             },
         };
         process.StartInfo.ArgumentList.Add("ls-files");

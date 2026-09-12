@@ -19,7 +19,7 @@ for (const [size, viewport] of Object.entries(viewports)) {
     const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
     const url = new URL(baseUrl);
     url.searchParams.set('theme', theme);
-    url.searchParams.set('path', 'backend/src/QualityStudio.Api/Program.cs');
+    url.searchParams.set('path', 'backend/QualityStudio.Api/Program.cs');
     await page.goto(url.toString());
     await page.locator('[data-connection-state="live"]').waitFor();
     const picker = page.locator('.scope-review-launcher [aria-label="Review model"]');

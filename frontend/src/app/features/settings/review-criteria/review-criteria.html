@@ -1,0 +1,50 @@
+<section class="criteria-content" aria-label="Review criteria and metrics">
+  <p class="intro">{{ methodology.overview }}</p>
+  <nav class="criteria-tabs" aria-label="Criteria sections">
+    <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'rules'" (click)="section.set('rules')">Rules & rationale</button>
+    <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'prompt'" (click)="section.set('prompt')">Prompt input preview</button>
+    <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'metrics'" (click)="section.set('metrics')">Metrics & formulas</button>
+  </nav>
+  @if (section() === 'metrics') {
+    @for (metric of methodology.metrics; track metric.id) {
+      <details class="reference-card"><summary>{{ metric.title }}</summary><p>{{ metric.why }}</p><code class="formula">{{ metric.formula }}</code><p>{{ metric.interpretation }}</p><p><strong>Limits:</strong> {{ metric.limits }}</p><a [href]="'https://github.com/agent-orc/quality-studio/blob/main/' + metric.implementation" target="_blank" rel="noopener noreferrer">Implementation ↗</a></details>
+    }
+  } @else {
+    <div class="criteria-filters">
+      <label><span>Review kind</span><select class="studio-field" [value]="kind()" (change)="setKind($any($event.target).value)"><option value="code">Code</option><option value="security">Security</option><option value="performance">Performance</option></select></label>
+      @if (section() === 'rules') {
+        <label><span>Technology</span><select class="studio-field" [value]="technology()" (change)="technology.set($any($event.target).value)"><option value="all">All technologies</option><option value="angular">Angular + generic</option><option value="dotnet">.NET + generic</option><option value="generic">Generic</option></select></label>
+        <label class="rule-search"><span>Find a rule</span><input class="studio-field" type="search" [value]="query()" (input)="query.set($any($event.target).value)" placeholder="Rule id or topic"></label>
+      }
+    </div>
+    @if (policy.loading()) { <p role="status">Loading this repository’s review policy…</p> }
+    @if (policy.error()) { <div class="studio-notice" role="alert"><p>{{ policy.error() }}</p><button class="studio-button" type="button" (click)="policy.load()">Retry policy</button></div> }
+    @if (section() === 'rules') {
+      <details class="reference-card principles"><summary>How to interpret these checks</summary>
+        @for (principle of methodology.principles; track principle.id) { <article><h3>{{ principle.title }}</h3><p>{{ principle.why }}</p><p>{{ principle.method }}</p><p><strong>Limits:</strong> {{ principle.limits }}</p></article> }
+        <div class="source-links">@for (source of methodology.sources; track source.id) { <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }} ↗</a> }</div>
+      </details>
+      @if (policy.catalogue(); as catalogue) {
+        <p class="muted">{{ ruleRows().length }} rules · Library {{ catalogue.catalogueVersion }}. Enablement and severity below include repository overrides. Enabled rules still depend on review kind, technology and prompt budget.</p>
+        @for (row of ruleRows(); track row.rule.id) {
+          <details class="reference-card rule-card"><summary><span><code>{{ row.rule.id }}</code> {{ row.rule.title }}</span><small>{{ row.rule.enabled ? 'Enabled' : 'Disabled' }} · {{ row.rule.severity }} · {{ row.rule.technology }} · {{ row.trace?.source ?? 'built-in' }}</small></summary>
+            <p>{{ row.rule.statement }}</p><h4>Why</h4><p>{{ row.rule.rationale }}</p><h4>How to detect it</h4><p>{{ row.rule.detection }}</p>
+            @if (row.trace?.reason) { <p class="override"><strong>Override reason:</strong> {{ row.trace?.reason }}</p> }
+            <p><strong>Deterministic mappings:</strong> {{ row.rule.deterministicRuleIds.join(', ') || 'Reviewer judgment; no deterministic rule mapping.' }}</p>
+            <details><summary>Worked examples</summary><h4>Good example</h4><pre>{{ row.rule.goodExample }}</pre><h4>Problem example</h4><pre>{{ row.rule.badExample }}</pre></details>
+          </details>
+        } @empty { <p class="studio-empty-state">No rules match these filters.</p> }
+      }
+    } @else {
+      <p class="muted">Repository-wide input preview · file level, all technologies. This is the actual resolved input text for that preview. A review of a specific unit additionally filters by its technology and level; this is not a saved prompt from a completed run.</p>
+      @if (inputPreview(); as preview) {
+        <p><strong>{{ preview.includedCharacters }} / {{ preview.budgetCharacters }} characters</strong> · {{ preview.complete ? 'All applicable input content fits' : 'Budget or override notices apply' }}</p>
+        <p class="muted">Named rules contribute their statement and detection guidance. Rationale and examples remain in the catalogue. Repository guidelines can override an input with the same id.</p>
+        @for (omission of preview.omissions; track omission.id + ':' + omission.source + ':' + omission.reason) { <p class="input-notice"><strong>{{ omission.id }}</strong> · {{ omission.reason }} · {{ omission.omittedCharacters }} characters omitted</p> }
+        @for (input of preview.inputs; track input.id + ':' + input.source) {
+          <details class="reference-card"><summary>{{ input.id }}<small>{{ input.scope }} · priority {{ input.priority }} · {{ input.includedContent.length }} included characters{{ input.truncated ? ' · truncated' : '' }}</small></summary><pre>{{ input.includedContent || 'No text included: the preview budget was exhausted.' }}</pre></details>
+        }
+      } @else if (!policy.loading() && !policy.error()) { <p class="studio-empty-state">This review kind has no enabled input preview in this repository.</p> }
+    }
+  }
+</section>

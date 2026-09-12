@@ -1,5 +1,7 @@
 .guideline-dialog {
   width: min(1040px,calc(100vw - 50px));
+  grid-template-rows: auto auto minmax(0,1fr);
+  max-height: calc(100dvh - 50px);
 }
 
 .guideline-body {
@@ -139,4 +141,16 @@
 
 .enabled-field {
   min-height: var(--studio-control-action);
+}
+
+.policy-sections {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--studio-border);
+}
+
+.policy-sections button[aria-pressed=true] {
+  border-color: var(--studio-accent);
+  background: var(--studio-selected);
 }

@@ -1,5 +1,5 @@
 import { WORKSPACE_METRICS } from '../../../shared/ui/layout-metrics';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { QualityApi } from '../../../core/api/quality-api';
 import { ReviewKind, TreeNode } from '../../../core/models/contracts';
 import { FlatNode, ancestorIds, flattenTree } from '../../../shared/utils/tree-utils';
@@ -27,7 +27,7 @@ export class Explorer {
   readonly kindSelect = output<ReviewKind>();
   readonly reviewRequest = output<void>();
 
-  readonly expanded = signal(new Set<string>(['quality-studio', 'src', 'api']));
+  readonly expanded = signal(new Set<string>());
   /** What the field shows right now. */
   readonly queryInput = signal('');
   /** What the tree is filtered by; trails `queryInput` by one debounce interval. */
@@ -68,6 +68,8 @@ export class Explorer {
   private readonly treeHasFocus = signal(false);
 
   private readonly treeContainer = viewChild<ElementRef<HTMLElement>>('treeContainer');
+  private initializedRepositoryId: string | null = null;
+  private revealedSelection: string | null = null;
   private typeaheadBuffer = '';
   private typeaheadTimer: ReturnType<typeof setTimeout> | null = null;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -77,14 +79,31 @@ export class Explorer {
       if (this.searchTimer !== null) clearTimeout(this.searchTimer);
       if (this.typeaheadTimer !== null) clearTimeout(this.typeaheadTimer);
     });
-    // Keep the selection visible without changing the selected container's own
-    // expansion state. The chevron therefore remains a toggle-only target.
+    // Open the real repository root once when it arrives. Later refreshes keep
+    // the user's expansion choices, including an explicitly collapsed root.
     effect(() => {
-      if (!this.api.tree().length) return;
-      const ancestors = ancestorIds(this.api.tree(), this.selectedPath()).slice(0, -1);
-      if (ancestors.some(id => !this.expanded().has(id))) {
-        this.expanded.update(current => new Set([...current, ...ancestors]));
-      }
+      const repositoryId = this.api.selectedRepositoryId();
+      const root = this.api.tree().find(node => node.level === 'repository' && node.path === '.');
+      if (!root || this.initializedRepositoryId === repositoryId) return;
+      this.initializedRepositoryId = repositoryId;
+      untracked(() => this.expanded.set(new Set([root.id])));
+    });
+    // Reveal a new selection once its ancestors are available. Reading expansion
+    // untracked prevents a chevron collapse from immediately reopening itself.
+    effect(() => {
+      const selection = `${this.api.selectedRepositoryId()}\0${this.selectedPath()}`;
+      const ancestors = ancestorIds(this.api.tree(), this.selectedPath());
+      if (!ancestors.length || this.revealedSelection === selection) return;
+      this.revealedSelection = selection;
+      untracked(() => this.expanded.update(current => new Set([...current, ...ancestors.slice(0, -1)])));
+    });
+    // Expanded branches can become lazy again after refresh. Load their current
+    // children without toggling rows, changing selection, or taking keyboard focus.
+    effect(() => {
+      const expanded = this.expanded();
+      const nodes = this.api.allNodes().filter(node => expanded.has(node.id)
+        && this.hasChildren(node) && !node.childrenLoaded && !node.children.length);
+      untracked(() => { for (const node of nodes) void this.api.loadTreeChildren(node); });
     });
     // Keeps the roving-focus target valid: picks the deep-linked row once rows exist, and
     // re-anchors it if filtering or collapsing makes the current active row disappear.

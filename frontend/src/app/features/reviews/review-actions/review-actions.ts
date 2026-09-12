@@ -18,6 +18,8 @@ let reviewActionsInstance = 0;
 export class ReviewActions {
   readonly api = inject(QualityApi);
   private readonly element = inject(ElementRef<HTMLElement>);
+  private preflightGeneration = 0;
+  private readonly preparedContext = signal<string | null>(null);
   readonly modelOptionsId = `review-model-options-${++reviewActionsInstance}`;
   readonly node = input<TreeNode | undefined>();
   readonly activeKind = input.required<ReviewKind>();
@@ -41,7 +43,6 @@ export class ReviewActions {
   readonly tokenCapText = signal('');
   readonly tokenCapError = signal('');
   readonly cliTypes = ['codex', 'claude', 'antigravity', 'gemini'];
-  readonly fileCount = computed(() => this.countFiles(this.node()));
   readonly scopeRuns = computed(() => this.api.reviewRuns().filter(run =>
     run.path === this.node()?.path && run.kind === this.activeKind()));
   readonly currentRun = computed(() => this.scopeRuns()[0] ?? null);
@@ -78,6 +79,10 @@ export class ReviewActions {
   });
 
   constructor() {
+    effect(() => {
+      const context = this.requestContext();
+      if (this.preparedContext() !== null && this.preparedContext() !== context) this.clearPreflight();
+    });
     effect(() => {
       const request = this.focusRequest();
       if (!request) return;
@@ -180,10 +185,14 @@ export class ReviewActions {
       this.api.reviewError.set('Enter a positive per-run cap before estimating the review.');
       return;
     }
+    this.clearPreflight();
+    const generation = this.preflightGeneration;
+    const context = this.requestContext();
     this.starting.set(true);
     try {
       const request: StartReviewRequest = {
         path: node.path,
+        ...(node.level === 'repository' || node.level === 'folder' ? { scopeType: 'directory' as const } : {}),
         kind: this.activeKind(),
         model: this.model().trim() || null,
         cliType: this.cliType(),
@@ -193,6 +202,8 @@ export class ReviewActions {
         force: this.force(),
       };
       const preflight = await this.api.estimateReview(request);
+      if (generation !== this.preflightGeneration || context !== this.requestContext()) return;
+      this.preparedContext.set(context);
       this.pendingRequest.set(request);
       this.preflight.set(preflight);
     } catch {
@@ -206,6 +217,10 @@ export class ReviewActions {
     const request = this.pendingRequest();
     const preflight = this.preflight();
     if (!request || !preflight || this.starting()) return;
+    if (this.preparedContext() !== this.requestContext()) {
+      this.clearPreflight();
+      return;
+    }
     this.starting.set(true);
     try {
       await this.api.startReview({ ...request, confirmBelowFloor: preflight.overrideBelowFloor });
@@ -230,7 +245,17 @@ export class ReviewActions {
     void this.prepare();
   }
 
+  private requestContext(): string {
+    return JSON.stringify([
+      this.api.selectedRepository()?.id, this.node()?.id, this.node()?.path, this.node()?.level,
+      this.activeKind(), this.cliType(), this.model().trim(), this.thinkingLevel(),
+      this.capKind(), this.capValue(), this.force(),
+    ]);
+  }
+
   clearPreflight(): void {
+    this.preflightGeneration++;
+    this.preparedContext.set(null);
     this.preflight.set(null);
     this.pendingRequest.set(null);
   }
@@ -275,9 +300,4 @@ export class ReviewActions {
     if (run) await this.api.resumeReview(run.id, cap);
   }
 
-  private countFiles(node: TreeNode | undefined): number {
-    if (!node) return 0;
-    if (node.level === 'file') return 1;
-    return node.children.reduce((sum, child) => sum + this.countFiles(child), 0);
-  }
 }

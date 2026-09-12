@@ -136,7 +136,7 @@ await page.setContent(`<!doctype html>
 const initialUrl = new URL(baseUrl);
 initialUrl.searchParams.set('theme', 'dark');
 initialUrl.searchParams.set('repo', 'default');
-initialUrl.searchParams.set('path', 'backend/src/QualityStudio.Api/Program.cs');
+initialUrl.searchParams.set('path', 'backend/QualityStudio.Api/Program.cs');
 initialUrl.searchParams.set('kind', 'code');
 await page.locator('#quality-studio').evaluate((frame, url) => {
   frame.src = url;
@@ -149,7 +149,7 @@ await embeddedApp.locator('[data-connection-state="live"]').waitFor();
 await embeddedApp.locator('.code-line').first().waitFor();
 const initial = await readAndAssertLastMessage(page, {
   repository: 'default',
-  path: 'backend/src/QualityStudio.Api/Program.cs',
+  path: 'backend/QualityStudio.Api/Program.cs',
   kind: 'code',
 });
 await capture(
@@ -165,7 +165,7 @@ await page.waitForFunction(
 );
 const navigated = await readAndAssertLastMessage(page, {
   repository: 'default',
-  path: 'backend/src/QualityStudio.Api/Program.cs',
+  path: 'backend/QualityStudio.Api/Program.cs',
   kind: 'security',
 });
 if (navigated.iframeSrc !== initial.iframeSrc)

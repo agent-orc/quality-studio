@@ -10,10 +10,10 @@ const browser = await chromium.launch({ executablePath, headless: true, args: ['
 
 const hash = value => `sha256:${value.repeat(64).slice(0, 64)}`;
 const run = {
-  id: 'review-evidence-20260811', repositoryId: 'default', path: 'backend/src/QualityStudio.Api/Program.cs', level: 'file', kind: 'code',
+  id: 'review-evidence-20260811', repositoryId: 'default', path: 'backend/QualityStudio.Api/Program.cs', level: 'file', kind: 'code',
   model: 'gpt-evidence', thinkingLevel: 'high', cliType: 'codex', state: 'done', totalFiles: 1, completedFiles: 1,
   failedFiles: 0, skippedFiles: 0, createdAt: '2026-08-11T08:00:00Z', startedAt: '2026-08-11T08:00:01Z',
-  finishedAt: '2026-08-11T08:00:05Z', files: [{ path: 'backend/src/QualityStudio.Api/Program.cs', state: 'done', startedAt: '2026-08-11T08:00:01Z', finishedAt: '2026-08-11T08:00:05Z', error: null }],
+  finishedAt: '2026-08-11T08:00:05Z', files: [{ path: 'backend/QualityStudio.Api/Program.cs', state: 'done', startedAt: '2026-08-11T08:00:01Z', finishedAt: '2026-08-11T08:00:05Z', error: null }],
   errors: [], usageOperations: 1, usage: { inputTokens: 620, outputTokens: 140, cachedInputTokens: 80, reasoningOutputTokens: 30, durationMs: 4000 },
   estimate: null, tokenCap: null, costCap: null, costSpent: null, currency: null, priceStatus: 'unavailable', aggregateState: null,
   stopReason: null, deviation: null,
@@ -22,7 +22,7 @@ const finding = {
   id: 'error-boundary', ruleId: 'correctness.error-boundary', aspect: 'correctness', severity: 'high', state: 'open',
   title: 'Stored report failures need a precise client boundary', description: 'The report is portable and keeps its exact run evidence.',
   recommendation: 'Keep report failures distinct from repository availability failures.', evidence: 'Captured from the terminal run snapshot.',
-  fingerprint: hash('b'), locations: [{ path: 'backend/src/QualityStudio.Api/Program.cs', startLine: 112, startColumn: 9, endLine: 113, endColumn: 40 }],
+  fingerprint: hash('b'), locations: [{ path: 'backend/QualityStudio.Api/Program.cs', startLine: 112, startColumn: 9, endLine: 113, endColumn: 40 }],
   source: 'agent', sensorId: null, producer: null,
 };
 const report = {
@@ -33,7 +33,7 @@ const report = {
     usage: { ...run.usage, operations: 1, cost: null, currency: null, priceStatus: 'unavailable', inputEstimateDeviationPercent: null, outputEstimateDeviationPercent: null, costEstimateDeviationPercent: null },
     cap: { tokenLimit: null, costLimit: null, outcome: 'not-configured', reason: null }, estimate: null },
   observations: [{ unitId: 'program', level: 'file', path: run.path, outcome: 'done', producedByRun: true,
-    sidecarPath: 'backend/src/QualityStudio.Api/.quality/reviews/files/Program.cs.code.review-meta.json', sidecarSha256: hash('d'),
+    sidecarPath: 'backend/QualityStudio.Api/.quality/reviews/files/Program.cs.code.review-meta.json', sidecarSha256: hash('d'),
     capturedAt: '2026-08-11T08:00:05Z', reviewedHash: hash('c'), providerRunId: 'provider-evidence',
     grade: { score: 88, band: 'B', rationale: 'Portable evidence is complete.' }, summary: 'The run completed with one actionable finding.', findings: [finding] }],
   delta: { status: 'available', priorRunId: 'review-prior', reason: null, new: [finding.fingerprint], persisting: [], resolved: [], stateChanged: [] },

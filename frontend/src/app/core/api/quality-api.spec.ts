@@ -24,7 +24,7 @@ describe('QualityApi', () => {
     const filterRows = [{ id: 'filter', name: 'Filter match', level: 'file', path: 'other.cs', kinds: {}, children: [] }] satisfies TreeNode[];
     api.treeSearchResults.set(filterRows);
     const resolving = api.resolveNode('deep/Coverage.cs');
-    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200').flush({ nodes: [
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200' && request.params.get('view') === 'files').flush({ nodes: [
       { id: 'partial', name: 'Partial match', level: 'file', path: 'deep/Coverage.cs.meta.json', kinds: {}, children: [] },
       { id: 'target', name: 'Coverage.cs', level: 'file', path: 'deep/Coverage.cs', kinds: {}, children: [] },
     ] });
@@ -32,20 +32,20 @@ describe('QualityApi', () => {
     expect(api.treeSearchResults()).toBe(filterRows);
     await api.searchTree('');
     expect((await api.resolveNode('deep/Coverage.cs'))?.id).toBe('target');
-    http.expectNone(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200');
+    http.expectNone(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200' && request.params.get('view') === 'files');
   });
 
-  it('fills a namespace reached only through startup search with its direct children', async () => {
+  it('fills a folder reached only through startup search with its direct children', async () => {
     const path = 'frontend/src/app/features/code/editor';
     const searching = api.searchTree(path);
     http.expectOne(request => request.url === '/api/repos/default/tree/v2/search').flush({ nodes: [
-      { id: 'editor-folder', name: path, path, level: 'namespace', kinds: {},
+      { id: 'editor-folder', name: 'editor', path, level: 'folder', kinds: {},
         hasChildren: true, childCount: 1, children: [] },
     ] });
     await searching;
     expect(api.tree()).toEqual([]);
     const loading = api.loadTreeChildren(api.nodeAt(path)!);
-    http.expectOne(request => request.url === '/api/repos/default/tree/v2' && request.params.get('parentId') === 'editor-folder')
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2' && request.params.get('parentId') === 'editor-folder' && request.params.get('view') === 'files')
       .flush({ schemaVersion: 2, parentId: 'editor-folder', path, offset: 0, limit: 500, nextCursor: null,
         nodes: [{ id: 'editor-file', name: 'editor.ts', path: path + '/editor.ts', level: 'file', kinds: {},
           hasChildren: false, childCount: 0, children: [] }] });
@@ -61,7 +61,7 @@ describe('QualityApi', () => {
   it('ignores a navigation target that resolves after the selected repository changed', async () => {
     const resolving = api.resolveNode('deep/Coverage.cs');
     api.selectedRepositoryId.set('other');
-    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200').flush({ nodes: [
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200' && request.params.get('view') === 'files').flush({ nodes: [
       { id: 'target', name: 'Coverage.cs', level: 'file', path: 'deep/Coverage.cs', kinds: {}, children: [] },
     ] });
     expect(await resolving).toBeUndefined();
@@ -71,7 +71,7 @@ describe('QualityApi', () => {
   it('reuses a retained tree snapshot on 304 and completes the live transition', async () => {
     const retainedNodes = [{ id: 'old', name: 'Old tree', level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[];
     const initial = api.loadTree('default', false, 'src/app');
-    const initialRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    const initialRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp&view=files');
     expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
     initialRequest.flush({ nodes: retainedNodes }, { headers: { ETag: '"tree-v1"' } });
     await initial;
@@ -79,7 +79,7 @@ describe('QualityApi', () => {
     api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
     api.connectionState.set('connecting');
     const revalidation = api.loadTree('default', false, 'src/app');
-    const conditionalRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    const conditionalRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp&view=files');
     expect(conditionalRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
     conditionalRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"tree-v1"' } });
     await revalidation;
@@ -91,18 +91,18 @@ describe('QualityApi', () => {
 
   it('keys retained tree ETags by both repository and requested path', async () => {
     const first = api.loadTree('default', false, 'src/first');
-    http.expectOne('/api/repos/default/tree?path=src%2Ffirst')
+    http.expectOne('/api/repos/default/tree?path=src%2Ffirst&view=files')
       .flush({ nodes: [] }, { headers: { ETag: '"first-path"' } });
     await first;
 
     const otherPath = api.loadTree('default', false, 'src/second');
-    const otherPathRequest = http.expectOne('/api/repos/default/tree?path=src%2Fsecond');
+    const otherPathRequest = http.expectOne('/api/repos/default/tree?path=src%2Fsecond&view=files');
     expect(otherPathRequest.request.headers.has('If-None-Match')).toBeFalse();
     otherPathRequest.flush({ nodes: [] }, { headers: { ETag: '"second-path"' } });
     await otherPath;
 
     const firstAgain = api.loadTree('default', false, 'src/first');
-    const firstAgainRequest = http.expectOne('/api/repos/default/tree?path=src%2Ffirst');
+    const firstAgainRequest = http.expectOne('/api/repos/default/tree?path=src%2Ffirst&view=files');
     expect(firstAgainRequest.request.headers.get('If-None-Match')).toBe('"first-path"');
     firstAgainRequest.flush(null, { status: 304, statusText: 'Not Modified' });
     await firstAgain;
@@ -114,21 +114,21 @@ describe('QualityApi', () => {
       nodes: [{ id, name: id, level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[],
     });
     const initial = api.loadTree('default', false);
-    const initialRequest = http.expectOne('/api/repos/default/tree/v2?limit=500');
+    const initialRequest = http.expectOne('/api/repos/default/tree/v2?limit=500&view=files');
     expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
     initialRequest.flush(level('old'), { headers: { ETag: '"tree-v1"' } });
     await initial;
     expect(api.tree().map(node => node.id)).toEqual(['old']);
 
     const changed = api.loadTree('default', false);
-    const changedRequest = http.expectOne('/api/repos/default/tree/v2?limit=500');
+    const changedRequest = http.expectOne('/api/repos/default/tree/v2?limit=500&view=files');
     expect(changedRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
     changedRequest.flush(level('fresh'), { headers: { ETag: '"tree-v2"' } });
     await changed;
     expect(api.tree().map(node => node.id)).toEqual(['fresh']);
 
     const verifyTag = api.loadTree('default', false);
-    const verifyRequest = http.expectOne('/api/repos/default/tree/v2?limit=500');
+    const verifyRequest = http.expectOne('/api/repos/default/tree/v2?limit=500&view=files');
     expect(verifyRequest.request.headers.get('If-None-Match')).toBe('"tree-v2"');
     verifyRequest.flush(null, { status: 304, statusText: 'Not Modified' });
     await verifyTag;
@@ -137,10 +137,10 @@ describe('QualityApi', () => {
 
   it('falls back to the recursive route when a server does not know the versioned contract', async () => {
     const loading = api.loadTree('default', false);
-    http.expectOne('/api/repos/default/tree/v2?limit=500')
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files')
       .flush({ detail: 'Not found.' }, { status: 404, statusText: 'Not Found' });
     await new Promise(resolve => setTimeout(resolve));
-    http.expectOne('/api/repos/default/tree?path=').flush({
+    http.expectOne('/api/repos/default/tree?path=&view=files').flush({
       nodes: [{ id: 'project', name: 'Project', level: 'project', path: '.', kinds: {},
         children: [{ id: 'child', name: 'Child', level: 'module', path: 'child', kinds: {}, children: [] }] }],
     });
@@ -208,7 +208,7 @@ describe('QualityApi', () => {
     expect(api.connectionState()).toBe('offline');
 
     const retry = api.loadTree('default', false);
-    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files').flush({ schemaVersion: 2, parentId: null,
       path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
     await retry;
 
@@ -229,7 +229,7 @@ describe('QualityApi', () => {
       { id: 'restored', displayName: 'Restored repository', rootPath: '/work/restored' },
     ], defaultRepositoryId: 'restored' });
     await new Promise(resolve => setTimeout(resolve));
-    http.expectOne('/api/repos/restored/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+    http.expectOne('/api/repos/restored/tree/v2?limit=500&view=files').flush({ schemaVersion: 2, parentId: null,
       path: '.', offset: 0, limit: 500, nextCursor: null,
       nodes: [{ id: 'project', name: 'Restored project', path: '.', level: 'project', kinds: {}, children: [] }] });
     http.expectOne('/api/repos/restored/project').flush({ generatedAt: '2026-09-12T10:00:00Z', metrics: { fileCount: 12 } });
@@ -262,7 +262,7 @@ describe('QualityApi', () => {
     await retry;
     expect(api.connectionState()).toBe('offline');
     expect(api.retryingConnection()).toBeFalse();
-    http.expectNone('/api/repos/default/tree/v2?limit=500');
+    http.expectNone('/api/repos/default/tree/v2?limit=500&view=files');
   });
 
   it('loads resolved review inputs with the repository data', async () => {
@@ -285,7 +285,7 @@ describe('QualityApi', () => {
     };
 
     const loading = api.loadTree();
-    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files').flush({ schemaVersion: 2, parentId: null,
       path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
     http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
     http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
@@ -356,7 +356,7 @@ describe('QualityApi', () => {
 
   it('shows API unavailability without inventing tree or source data', async () => {
     const treeLoading = api.loadTree('default', false);
-    http.expectOne('/api/repos/default/tree/v2?limit=500')
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files')
       .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
     await treeLoading;
 
@@ -376,7 +376,7 @@ describe('QualityApi', () => {
 
   it('keeps the tree empty and names the reason when a reachable API rejects it', async () => {
     const treeLoading = api.loadTree('default', false);
-    http.expectOne('/api/repos/default/tree/v2?limit=500')
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files')
       .flush({ detail: 'Repository root is not readable.' }, { status: 500, statusText: 'Server Error' });
     await treeLoading;
 
@@ -428,7 +428,7 @@ describe('QualityApi', () => {
 
     const loading = api.loadTreeChildren(root);
     http.expectOne(request => request.url === '/api/repos/default/tree/v2'
-      && request.params.get('limit') === '500'
+      && request.params.get('limit') === '500' && request.params.get('view') === 'files'
       && request.params.get('parentId') === 'project'
       && request.params.get('cursor') === null).flush({
         schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 0, limit: 500,
@@ -437,7 +437,7 @@ describe('QualityApi', () => {
       });
     await new Promise(resolve => setTimeout(resolve));
     http.expectOne(request => request.url === '/api/repos/default/tree/v2'
-      && request.params.get('cursor') === 'tree-v2:1').flush({
+      && request.params.get('cursor') === 'tree-v2:1' && request.params.get('view') === 'files').flush({
         schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 1, limit: 500,
         nextCursor: null, nodes: [{ id: 'two', parentId: 'project', name: 'Two', level: 'module',
           path: 'two', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
@@ -455,7 +455,7 @@ describe('QualityApi', () => {
       hasChildren: true, childCount: 1, childrenLoaded: false, children: [],
     };
     const rootLoading = api.loadTree('default', false);
-    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files').flush({
       schemaVersion: 2, parentId: null, path: '.', snapshotEtag: '"snapshot-1"',
       offset: 0, limit: 500, nextCursor: null, nodes: [root],
     });
@@ -464,7 +464,7 @@ describe('QualityApi', () => {
     const childLoading = api.loadTreeChildren(api.tree()[0]);
     http.expectOne(request => request.url === '/api/repos/default/tree/v2'
       && request.params.get('parentId') === 'project'
-      && request.params.get('snapshot') === '"snapshot-1"').flush({
+      && request.params.get('snapshot') === '"snapshot-1"' && request.params.get('view') === 'files').flush({
         schemaVersion: 2, parentId: 'project', path: 'Project.slnx', snapshotEtag: '"snapshot-1"',
         offset: 0, limit: 500, nextCursor: null, nodes: [{ id: 'child', parentId: 'project',
           name: 'Child', level: 'module', path: 'child', kinds: {}, hasChildren: false,
@@ -475,11 +475,63 @@ describe('QualityApi', () => {
     expect(api.tree()[0].children.map(child => child.id)).toEqual(['child']);
   });
 
+  it('refreshes the root without pinning the old snapshot and keeps the new snapshot when old children finish', async () => {
+    const root: TreeNode = { id: 'root', name: 'Repository', level: 'repository', path: '.', kinds: {},
+      hasChildren: true, childrenLoaded: false, children: [] };
+    const level = (snapshotEtag: string, nodes: TreeNode[]) => ({
+      schemaVersion: 2, parentId: null, path: '.', snapshotEtag, offset: 0, limit: 500, nextCursor: null, nodes,
+    });
+    const initial = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files')
+      .flush(level('files:old', [root]), { headers: { ETag: '"old-root"' } });
+    await initial;
+
+    const oldChildren = api.loadTreeChildren(api.tree()[0]);
+    const oldRequest = http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('parentId') === 'root' && request.params.get('snapshot') === 'files:old'
+      && request.params.get('view') === 'files');
+    const refresh = api.loadTree('default', false);
+    const refreshRequest = http.expectOne('/api/repos/default/tree/v2?limit=500&view=files');
+    expect(refreshRequest.request.params.has('snapshot')).toBeFalse();
+    expect(refreshRequest.request.headers.get('If-None-Match')).toBe('"old-root"');
+    refreshRequest.flush(level('files:new', [root]));
+    await refresh;
+    oldRequest.flush(level('files:old', [{ id: 'obsolete', name: 'obsolete', level: 'folder',
+      path: 'obsolete', kinds: {}, children: [] }]));
+    await oldChildren;
+    expect(api.tree()[0].children).withContext('old children cannot repopulate a refreshed tree').toEqual([]);
+    expect(api.tree()[0].childrenLoaded).toBeFalse();
+
+    const folder: TreeNode = { id: 'backend', name: 'backend', level: 'folder', path: 'backend', kinds: {},
+      hasChildren: true, childrenLoaded: false, children: [] };
+    const children = api.loadTreeChildren(folder);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('parentId') === 'backend' && request.params.get('snapshot') === 'files:new'
+      && request.params.get('view') === 'files').flush(level('files:new', []));
+    await children;
+  });
+
+  it('uses the files snapshot and cursor for every page of a root level', async () => {
+    const loading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500&view=files').flush({
+      schemaVersion: 2, parentId: null, path: '.', snapshotEtag: 'files:root', offset: 0, limit: 500,
+      nextCursor: 'tree-v2-files:next', nodes: [],
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('view') === 'files' && request.params.get('snapshot') === 'files:root'
+      && request.params.get('cursor') === 'tree-v2-files:next').flush({
+        schemaVersion: 2, parentId: null, path: '.', snapshotEtag: 'files:root', offset: 500, limit: 500,
+        nextCursor: null, nodes: [],
+      });
+    await loading;
+  });
+
   it('searches unloaded tree nodes through the bounded v2 search route', async () => {
     const searching = api.searchTree('Program.cs');
     http.expectOne(request => request.url === '/api/repos/default/tree/v2/search'
       && request.params.get('query') === 'Program.cs'
-      && request.params.get('limit') === '200').flush({
+      && request.params.get('limit') === '200' && request.params.get('view') === 'files').flush({
         schemaVersion: 2, parentId: null, path: 'search:Program.cs', offset: 0, limit: 200,
         nextCursor: null, nodes: [{ id: 'program', parentId: 'api', name: 'Program.cs', level: 'file',
           path: 'src/QualityStudio.Api/Program.cs', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
@@ -577,7 +629,7 @@ describe('QualityApi', () => {
 /** Brings the service to a live connection so file-level behaviour can be asserted on its own. */
 async function connect(api: QualityApi, http: HttpTestingController): Promise<void> {
   const loading = api.loadTree();
-  http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+  http.expectOne('/api/repos/default/tree/v2?limit=500&view=files').flush({ schemaVersion: 2, parentId: null,
     path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
   http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
   http.expectOne('/api/repos/default/inputs').flush({ kinds: {} });

@@ -9,10 +9,10 @@ public sealed class AgentStudioTaskClientTests
 {
     private static readonly FindingTaskTemplate Finding = new(
         "Cache hierarchy construction",
-        "backend/src/QualityStudio.Api/Program.cs",
+        "backend/QualityStudio.Api/Program.cs",
         "The hierarchy is rebuilt for every request. Cache it and invalidate on repository changes.",
         "performance",
-        "backend/src/QualityStudio.Api/.quality/reviews/program.review-meta.performance.json#hierarchy-cache");
+        "backend/QualityStudio.Api/.quality/reviews/program.review-meta.performance.json#hierarchy-cache");
 
     [Fact]
     public async Task CreateTask_posts_current_agent_studio_contract_with_client_identity()
@@ -31,7 +31,7 @@ public sealed class AgentStudioTaskClientTests
         Assert.Equal(new Uri("http://agent-studio.test/api/tasks"), handler.Request!.RequestUri);
         Assert.Equal("quality-studio", Assert.Single(handler.Request.Headers.GetValues("X-Client-Id")));
         using var body = JsonDocument.Parse(handler.Body!);
-        Assert.Equal("Fix: Cache hierarchy construction in backend/src/QualityStudio.Api/Program.cs", body.RootElement.GetProperty("title").GetString());
+        Assert.Equal("Fix: Cache hierarchy construction in backend/QualityStudio.Api/Program.cs", body.RootElement.GetProperty("title").GetString());
         Assert.Equal("QS", body.RootElement.GetProperty("project").GetString());
         Assert.Contains("review re-run comes back fresh+clean", body.RootElement.GetProperty("promptMarkdown").GetString(), StringComparison.Ordinal);
         Assert.Equal("bug", body.RootElement.GetProperty("taskType").GetString());

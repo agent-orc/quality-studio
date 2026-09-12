@@ -1,4 +1,4 @@
-# The image build needs Directory.Build.props, backend/src/ and frontend/ sources only.
+# The image build needs Directory.Build.props, backend/ and frontend/ sources only.
 **/bin
 **/obj
 **/node_modules

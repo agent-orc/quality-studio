@@ -42,7 +42,7 @@
       }
     </div>
     <button class="studio-button guidelines-button security-landing-button" type="button" [disabled]="!api.connected()" (click)="openAttackCoverage()">Security matrix</button>
-    <button class="studio-button guidelines-button" type="button" [disabled]="!api.connected()" (click)="openGuidelines()">Guidelines <b>{{ api.guidelines().length }}</b></button>
+    <button class="studio-button guidelines-button" type="button" [disabled]="!api.connected()" (click)="openGuidelines()">Review policy</button>
     <button #usageButton class="studio-button usage-button" type="button" [disabled]="!api.connected()" (click)="openUsageHistory()" aria-haspopup="dialog">
       Usage <b>{{ usageTotalLabel() }}</b>
     </button>

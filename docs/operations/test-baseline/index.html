@@ -317,7 +317,7 @@
       <tr>
         <td><b>API, registry, auth, review runs</b></td>
         <td>41 portable tests exercise in-process HTTP, tenancy and auth, rate limits, repository import, reports, sensors, usage, quotas, finding state, and review-run recovery.</td>
-        <td>No direct HTTP test references repository update/delete, risk, guideline update/delete/catalog/impact, review estimate, pause, cancel, handover configuration, or thread mutation routes declared in <a href="../../../backend/src/QualityStudio.Api/Program.cs">Program.cs</a>.</td>
+        <td>No direct HTTP test references repository update/delete, risk, guideline update/delete/catalog/impact, review estimate, pause, cancel, handover configuration, or thread mutation routes declared in <a href="../../../backend/QualityStudio.Api/Program.cs">Program.cs</a>.</td>
         <td><span class="pill open">High</span></td>
       </tr>
       <tr>
@@ -540,7 +540,7 @@
       <tr><td>Coverage ingestion exists, but repository coverage generation does not.</td><td><a href="../../../frontend/karma.conf.cjs"><code>frontend/karma.conf.cjs</code></a>, both xUnit project files, and <a href="../../../docs/coverage-and-risk.md"><code>docs/coverage-and-risk.md</code></a></td></tr>
       <tr><td>Angular test generation is disabled by default.</td><td><a href="../../../frontend/angular.json"><code>frontend/angular.json</code></a>, <code>schematics.*.skipTests</code></td></tr>
       <tr><td>QS-57 supplied prepared-run evidence but no repository diff.</td><td><code>/home/agent/runner-work/tasks/QS-57/results/</code>: 34 files; clean QS-57 worktree at <code>3e0b655</code></td></tr>
-      <tr><td>Security scanner is pinned but can download on a cold host.</td><td><a href="../../../backend/src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs"><code>GitleaksBinaryResolver.cs</code></a>; standalone scan passed with 8.24.2</td></tr>
+      <tr><td>Security scanner is pinned but can download on a cold host.</td><td><a href="../../../backend/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs"><code>GitleaksBinaryResolver.cs</code></a>; standalone scan passed with 8.24.2</td></tr>
     </tbody>
   </table>
 

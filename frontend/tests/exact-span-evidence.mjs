@@ -34,19 +34,19 @@ const meta = {
       id: 'finding-thinking-level', fingerprint: selectedFingerprint, ruleId: 'built-in:code', aspect: 'correctness', severity: 'high',
       title: 'Review route omits thinking level', description: 'The selected reasoning level is not passed into the review run.',
       recommendation: 'Capture requested and resolved thinking level through CliRunRequest.',
-      locations: [{ path: 'backend/src/QualityStudio.Api/Program.cs', range: { start: { line: 8, column: 5 }, end: { line: 8, column: 17 } } }],
+      locations: [{ path: 'backend/QualityStudio.Api/Program.cs', range: { start: { line: 8, column: 5 }, end: { line: 8, column: 17 } } }],
     },
     {
       id: 'finding-model-default', fingerprint: overlappingFingerprint, ruleId: 'built-in:code', aspect: 'maintainability', severity: 'medium',
       title: 'Model default is silently nullable', description: 'A null model falls back without recording why the request had no explicit model.',
       recommendation: 'Require an explicit model or record the fallback reason.',
-      locations: [{ path: 'backend/src/QualityStudio.Api/Program.cs', range: { start: { line: 8, column: 13 }, end: { line: 8, column: 25 } } }],
+      locations: [{ path: 'backend/QualityStudio.Api/Program.cs', range: { start: { line: 8, column: 13 }, end: { line: 8, column: 25 } } }],
     },
   ],
 };
 
 const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
-const path = 'backend/src/QualityStudio.Api/Program.cs';
+const path = 'backend/QualityStudio.Api/Program.cs';
 for (const theme of ['dark', 'light']) {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
   // Force the app's built-in demo dataset (any live dev-stack backend's own repository tree

@@ -11,12 +11,14 @@ public static class ReviewMetaDiscovery
         IEnumerable<HierarchyNode> projects,
         InputResolver? inputResolver = null,
         string? globalInputsDirectory = null,
-        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters)
+        int inputBudgetCharacters = InputResolver.DefaultBudgetCharacters,
+        Func<HierarchyNode, bool>? nodeFilter = null)
     {
         var root = Path.GetFullPath(repositoryPath);
         // A file contributing to several namespaces is aliased below each of them while remaining
         // one canonical unit, so the same node can be reached more than once during the walk.
         var nodes = Flatten(projects)
+            .Where(node => nodeFilter is null || nodeFilter(node))
             .DistinctBy(node => node.Id, StringComparer.Ordinal)
             .ToDictionary(node => node.Id, StringComparer.Ordinal);
         foreach (var path in ReviewMetaPath.Enumerate(root))

@@ -18,7 +18,7 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const launcher = resolve(repoRoot, 'scripts', 'dev-stack.mjs');
 
 test('the relocated API defaults to the complete repository and permits its root', async () => {
-  const apiRoot = resolve(repoRoot, 'backend', 'src', 'QualityStudio.Api');
+  const apiRoot = resolve(repoRoot, 'backend', 'QualityStudio.Api');
   const settings = JSON.parse(await readFile(join(apiRoot, 'appsettings.json'), 'utf8'));
   const configuredRoot = resolve(apiRoot, settings.QualityStudio.RepositoryRoot);
   assert.equal(configuredRoot, resolve(repoRoot));
@@ -189,7 +189,7 @@ const server = http.createServer((request, response) => {
     body = json({ level: 'file', kinds: { code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] }, security: { kind: 'security', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] }, performance: { kind: 'performance', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] } } });
   } else if (url.pathname === '/api/file') {
     statusCode = 200;
-    body = json({ path: url.searchParams.get('path') ?? 'backend/src/QualityStudio.Api/Program.cs', content: 'console.log("hello");', metaDocuments: [{ reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Live data.' }, summary: 'Live file.', findings: [] }] });
+    body = json({ path: url.searchParams.get('path') ?? 'backend/QualityStudio.Api/Program.cs', content: 'console.log("hello");', metaDocuments: [{ reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Live data.' }, summary: 'Live file.', findings: [] }] });
   } else if (url.pathname === '/api/handover') {
     statusCode = 200;
     body = json({ targetConfigured: false, dryRun: true });

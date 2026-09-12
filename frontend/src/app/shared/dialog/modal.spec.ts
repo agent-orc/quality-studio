@@ -69,6 +69,26 @@ describe('Modal behaviour', () => {
     expect(document.activeElement).toBe(last);
   });
 
+  it('includes a native explanation summary when wrapping Tab and Shift+Tab', () => {
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = 'Explanation';
+    const hiddenLink = document.createElement('a');
+    hiddenLink.href = '#implementation';
+    hiddenLink.textContent = 'Implementation';
+    details.append(summary, hiddenLink);
+    dialog().append(details);
+    const first = dialog().querySelector('.first') as HTMLElement;
+
+    summary.focus();
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    summary.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBeTrue();
+    expect(document.activeElement).toBe(first);
+    first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(summary);
+  });
+
   it('pulls focus back when a pointer drops it outside', () => {
     const outside = opener();
     outside.focus();

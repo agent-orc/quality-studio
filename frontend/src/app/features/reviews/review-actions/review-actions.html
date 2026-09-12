@@ -71,7 +71,7 @@
   }
   <label class="force-review"><input class="studio-check" type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
   <button class="studio-button studio-button-primary start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
-    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') + ' for ' + activeKind() + ' quality' }}
+    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + (node()?.level === 'file' ? '1 file' : 'selected scope') + ' for ' + activeKind() + ' quality' }}
   </button>
 </div>
 @if (preflight(); as sheet) {

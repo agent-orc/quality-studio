@@ -11,7 +11,7 @@ public sealed class QualityTaxonomyTests
     public void CoreCatalogueValidatesAgainstItsPublishedSchema()
     {
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepositoryTestContext.FindRepositoryRoot(),
-            "backend", "src", "AgentOrchestrator.CodeQuality", "catalogues", "quality-taxonomy-core.v1.json")));
+            "backend", "AgentOrchestrator.CodeQuality", "catalogues", "quality-taxonomy-core.v1.json")));
 
         var result = TaxonomySchema.Value.Evaluate(json.RootElement, SchemaAssert.Options);
 

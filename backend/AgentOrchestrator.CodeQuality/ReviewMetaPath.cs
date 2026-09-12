@@ -18,21 +18,28 @@ public static class ReviewMetaPath
     /// <summary>The folder below a project's data root that holds every review sidecar.</summary>
     public const string LaneRoot = "reviews";
 
-    public static string For(string repositoryRoot, string subjectFile, string relativePath, ReviewLevel level, string kind)
+    public static string For(string repositoryRoot, string subjectFile, string relativePath, ReviewLevel level, string kind,
+        bool directoryScope = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(subjectFile);
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         var root = Path.GetFullPath(repositoryRoot);
-        var subjectDirectory = level switch
-        {
-            ReviewLevel.Project => root,
-            ReviewLevel.Module when File.Exists(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))
-                => Path.GetDirectoryName(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))!,
-            _ => Path.GetDirectoryName(Path.GetFullPath(subjectFile))!,
-        };
-        var lane = level switch
+        if (directoryScope && level != ReviewLevel.Namespace)
+            throw new ArgumentException("A directory scope uses the namespace aggregate review level.", nameof(level));
+        // Directory identities outlive changes to the first member. Keep their sidecars anchored
+        // to the directory itself and separate from canonical namespaces at the same source path.
+        var subjectDirectory = directoryScope
+            ? Path.GetFullPath(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))
+            : level switch
+            {
+                ReviewLevel.Project => root,
+                ReviewLevel.Module when File.Exists(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))
+                    => Path.GetDirectoryName(Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar)))!,
+                _ => Path.GetDirectoryName(Path.GetFullPath(subjectFile))!,
+            };
+        var lane = directoryScope ? "directories" : level switch
         {
             ReviewLevel.File => "files",
             ReviewLevel.Namespace => "namespaces",

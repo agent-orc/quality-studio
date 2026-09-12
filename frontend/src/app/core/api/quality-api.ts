@@ -28,6 +28,12 @@ const TRANSITION_HOLD_MS = 250;
 const TREE_PAGE_LIMIT = 500;
 /** Upper bound on the server-side filter answer, so a filter stays a small response. */
 const TREE_SEARCH_LIMIT = 200;
+/** The explorer follows repository folders rather than the review-unit hierarchy. */
+const TREE_VIEW = 'files';
+
+function treeSnapshotKey(repositoryId: string, path = ''): string {
+  return `${repositoryId}\0${TREE_VIEW}\0${path}`;
+}
 
 /** A loaded hierarchy plus which contract and route produced it. */
 interface LoadedTree {
@@ -161,7 +167,7 @@ export class QualityApi {
     this.findingsApi.clearFile();
     this.attackCoverage.set(null);
     this.treeSearchResults.set([]);
-    const treeSnapshot = this.treeSnapshots.get(`${id}\0`)?.[0];
+    const treeSnapshot = this.treeSnapshots.get(treeSnapshotKey(id))?.[0];
     const projectSnapshot = this.projectSnapshots.get(id)?.[0];
     this.tree.set(treeSnapshot ?? []);
     this.project.set(projectSnapshot ?? null);
@@ -187,7 +193,7 @@ export class QualityApi {
 
   async loadTree(repositoryId = this.selectedRepositoryId(), waitForDetails = true, path = ''): Promise<void> {
     const base = this.context.repositoryApiBase(repositoryId);
-    const snapshotKey = `${repositoryId}\0${path}`;
+    const snapshotKey = treeSnapshotKey(repositoryId, path);
     const retained = this.treeSnapshots.get(snapshotKey);
     const detailsLoading = waitForDetails ? this.loadRepositoryDetails(repositoryId) : null;
     try {
@@ -224,14 +230,17 @@ export class QualityApi {
    */
   async loadTreeChildren(node: TreeNode, repositoryId = this.selectedRepositoryId()): Promise<void> {
     if (!(node.hasChildren ?? node.children.length > 0) || node.childrenLoaded || node.children.length > 0) return;
-    const key = `${repositoryId}\0${node.id}`;
+    const snapshotKey = treeSnapshotKey(repositoryId);
+    const requestedSnapshot = this.treeSnapshotEtags.get(snapshotKey);
+    const key = `${snapshotKey}\0${requestedSnapshot ?? ''}\0${node.id}`;
     const existing = this.treeChildrenRequests.get(key);
     if (existing) return existing;
     this.treeChildrenLoading.update(current => new Set([...current, node.id]));
     const request = (async () => {
       try {
         const level = await this.loadTreeLevel(this.context.repositoryApiBase(repositoryId), node.id, repositoryId);
-        const snapshotKey = `${repositoryId}\0`;
+        // A refresh may have installed a newer tree while these children loaded.
+        if (requestedSnapshot !== this.treeSnapshotEtags.get(snapshotKey)) return;
         const retained = this.treeSnapshots.get(snapshotKey);
         const current = repositoryId === this.selectedRepositoryId() ? this.tree() : retained?.[0] ?? [];
         const updated = this.replaceTreeChildren(current, node.id, level.nodes);
@@ -249,12 +258,14 @@ export class QualityApi {
       } catch (error) {
         console.warn(JSON.stringify({ event: 'qs.data.tree-children-failed', parentId: node.id, reason: this.errorMessage(error) }));
       } finally {
-        this.treeChildrenLoading.update(current => {
-          const next = new Set(current);
-          next.delete(node.id);
-          return next;
-        });
         this.treeChildrenRequests.delete(key);
+        if (![...this.treeChildrenRequests.keys()].some(pending => pending.endsWith(`\0${node.id}`))) {
+          this.treeChildrenLoading.update(current => {
+            const next = new Set(current);
+            next.delete(node.id);
+            return next;
+          });
+        }
       }
     })();
     this.treeChildrenRequests.set(key, request);
@@ -275,7 +286,7 @@ export class QualityApi {
     try {
       const page = await firstValueFrom(this.http.get<TreeLevelResponse>(
         `${this.context.repositoryApiBase(repositoryId)}/tree/v2/search`,
-        { params: { query: normalized, limit: String(TREE_SEARCH_LIMIT) } }));
+        { params: { query: normalized, limit: String(TREE_SEARCH_LIMIT), view: TREE_VIEW } }));
       if (sequence !== this.treeSearchSequence || repositoryId !== this.selectedRepositoryId()) return;
       this.treeSearchResults.set(page.nodes.map(node => this.normalizeTreeNode(node, false)));
     } catch (error) {
@@ -293,7 +304,7 @@ export class QualityApi {
     try {
       const page = await firstValueFrom(this.http.get<TreeLevelResponse>(
         this.context.repositoryApiBase(repositoryId) + '/tree/v2/search',
-        { params: { query: path, limit: String(TREE_SEARCH_LIMIT) } }));
+        { params: { query: path, limit: String(TREE_SEARCH_LIMIT), view: TREE_VIEW } }));
       if (repositoryId !== this.selectedRepositoryId()) return undefined;
       const match = flattenTree(page.nodes.map(node => this.normalizeTreeNode(node, false)), NO_EXPANSION, true)
         .find(node => node.path === path);
@@ -521,7 +532,7 @@ export class QualityApi {
   private async loadRecursiveTree(base: string, path: string, conditionalEtag: string | null): Promise<LoadedTree> {
     const response = await firstValueFrom(this.http.get<{ nodes: TreeNode[] }>(
       `${base}/tree?path=${encodeURIComponent(path)}`,
-      { observe: 'response', headers: conditionalEtag ? { 'If-None-Match': conditionalEtag } : undefined }));
+      { params: { view: TREE_VIEW }, observe: 'response', headers: conditionalEtag ? { 'If-None-Match': conditionalEtag } : undefined }));
     return { nodes: response.body!.nodes, etag: response.headers.get('ETag'), schemaVersion: 1, source: 'api' };
   }
 
@@ -538,11 +549,14 @@ export class QualityApi {
     const nodes: TreeNode[] = [];
     let cursor: string | null = null;
     let etag: string | null = null;
+    const snapshotKey = treeSnapshotKey(repositoryId);
+    // A refresh must ask for the latest root. Only children and subsequent pages
+    // reuse its immutable snapshot, otherwise a refresh can retain an old layout.
+    let snapshotEtag = parentId ? this.treeSnapshotEtags.get(snapshotKey) : undefined;
     do {
-      const params: Record<string, string> = { limit: String(TREE_PAGE_LIMIT) };
+      const params: Record<string, string> = { limit: String(TREE_PAGE_LIMIT), view: TREE_VIEW };
       if (parentId) params['parentId'] = parentId;
       // Every page of a level is cut from the same immutable snapshot as its root.
-      const snapshotEtag = this.treeSnapshotEtags.get(repositoryId);
       if (snapshotEtag) params['snapshot'] = snapshotEtag;
       if (cursor) params['cursor'] = cursor;
       // Annotated because `cursor` is assigned from the response it is also a parameter of.
@@ -554,7 +568,11 @@ export class QualityApi {
         }));
       const page: TreeLevelResponse = response.body!;
       if (page.schemaVersion !== 2 || !Array.isArray(page.nodes)) throw new Error('Unsupported tree response.');
-      if (page.snapshotEtag) this.treeSnapshotEtags.set(repositoryId, page.snapshotEtag);
+      if (page.snapshotEtag) {
+        snapshotEtag = page.snapshotEtag;
+        // A late child response must not replace a newer root's snapshot.
+        if (parentId === null) this.treeSnapshotEtags.set(snapshotKey, page.snapshotEtag);
+      }
       if (cursor === null) etag = response.headers.get('ETag');
       nodes.push(...page.nodes.map(node => this.normalizeTreeNode(node, false)));
       cursor = page.nextCursor;

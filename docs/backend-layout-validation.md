@@ -4,7 +4,7 @@ Validated on Windows on 12 September 2026.
 
 ## Scope
 
-The three .NET production projects now live in `backend/src/`; their two test
+The three .NET production projects now live in `backend/`; their two test
 projects and shared fixtures live in `backend/tests/`. The root solution and shared
 build properties remain the entry point. Angular retains `frontend/src/` and its
 browser tests in `frontend/tests/`; root `tests/` owns cross-repository tooling.
