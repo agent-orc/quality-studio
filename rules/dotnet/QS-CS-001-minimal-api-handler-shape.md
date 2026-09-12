@@ -22,7 +22,7 @@ binding, and returns a typed `IResult` (`Results.Ok`, `Results.Created`, `Result
 
 ## Rationale
 
-`src/QualityStudio.Api/Program.cs` already establishes this shape consistently (`Guidelines`,
+`backend/src/QualityStudio.Api/Program.cs` already establishes this shape consistently (`Guidelines`,
 `InstallGuideline`, `CreateGuideline`, ...): the handler is independently testable without
 spinning up the HTTP pipeline, dependencies are explicit in the signature instead of pulled from
 an ambient service locator, and every route returns the same small set of typed results the
@@ -59,4 +59,4 @@ app.MapPost("/api/widgets", async (HttpContext context) =>
 
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the handler-function convention used throughout
-  `src/QualityStudio.Api/Program.cs`.
+  `backend/src/QualityStudio.Api/Program.cs`.

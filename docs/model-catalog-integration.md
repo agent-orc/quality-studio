@@ -16,7 +16,7 @@ Until a package containing the routing knowledge base is released, Quality Studi
 the defined snapshot path:
 
 - `token-economy-model-routing-policy.json` and `token-economy-model-prices.json` under
-  `src/AgentOrchestrator.CodeQuality/catalogues/` are exact Token Economy files;
+  `backend/src/AgentOrchestrator.CodeQuality/catalogues/` are exact Token Economy files;
 - `token-economy-model-catalog.snapshot.json` records the upstream repository, commit,
   policy version, and SHA-256 for both files;
 - `ReviewModelCatalog` reads only these embedded files and joins routing facts with price

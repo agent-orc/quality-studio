@@ -1,61 +1,63 @@
 ---
 id: QS-NG-003
-version: 1.1.0
-title: One focused standalone component per feature folder
+version: 1.2.0
+title: Focus components and respect declared feature boundaries
 technology: angular
 kinds: [code]
 category: component-structure
-severity: low
+severity: medium
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [quality-architecture/layer-imports]
 relatedGuideline: angular-typescript
 since: 1.0.0
 ---
 
 ## Statement
 
-Keep each feature as one standalone component with its own folder holding exactly its
-`.ts`, `.html`, `.css`, and `.spec.ts` (the pattern already used by `review-panel/`,
-`explorer/`, `attack-coverage/`, etc.). Do not fold unrelated feature concerns into an
-existing component or split a single feature's template across multiple ad-hoc components
-without a clear ownership boundary.
+Group Angular code by declared ownership: infrastructure and contracts in core, reusable
+presentation and pure utilities in shared, product behavior in features, and application
+composition in shell. Follow the repository's own architecture contract when it declares a
+different layout. Keep components focused and colocate their implementation, template,
+styles and tests. Extract smaller components through explicit inputs/outputs when a feature
+becomes complex; one feature may contain several collaborating components.
 
 ## Rationale
 
-The one-feature-one-folder convention is what makes the app navigable: a reviewer can find
-`review-panel.ts`/`.html`/`.css`/`.spec.ts` together and reason about the whole feature. Mixing
-concerns into a component that already has a name and a job (or splintering one feature across
-several loosely related components) erodes that mapping and makes change detection, testing,
-and template hygiene reviews harder because no single file is "the" source of truth anymore.
+Flat component folders and broad app components obscure ownership. Feature services leaking
+into shared presentation or lower layers importing feature components produce dependency
+cycles and make otherwise reusable controls depend on the entire application. Component
+composition should make ownership clearer instead of forcing one large component per feature.
 
 ## Detection
 
-Check whether the file sits in a folder named after its component and whether that folder holds the matching `.ts`, `.html`, `.css`, and `.spec.ts`. Flag a component that owns state or markup for a feature it is not named after, and a feature split across sibling components with no declared inputs/outputs boundary between them.
+Compare ownership and import direction against the declared architecture. Quality Studio's
+`frontend/lint/architecture.config.mjs` permits core to use core and pure shared utilities;
+shared uses shared and core models; features use core, shared and their own feature;
+shell composes features. Flag reverse dependencies, undeclared cross-feature imports and
+unrelated concerns accumulated in a component. Do not flag a documented alternative layout
+or a focused child component simply because a feature contains multiple components.
 
 ## Good example
 
-```
-frontend/src/app/review-panel/
-  review-panel.ts
-  review-panel.html
-  review-panel.css
-  review-panel.spec.ts
+```text
+frontend/src/app/
+  core/api/quality-api.ts
+  shared/ui/empty-state/empty-state.ts
+  features/code/editor/editor.ts
+  features/code/container-view/container-view.ts
+  shell/workbench/workbench.ts
 ```
 
 ## Bad example
 
-```
-frontend/src/app/review-panel/
-  review-panel.ts        // now also renders the project dashboard's summary cards
-  review-panel.html
-  review-panel.css
-  dashboard-bits.ts       // half of a second, unrelated feature bolted on here
+```ts
+// shared/ui/status.ts: reusable presentation now owns a product feature dependency.
+import { Editor } from '../../features/code/editor/editor';
 ```
 
 ## Change history
 
+- 1.2.0 (2026-09-12): Added declared layer boundaries, deterministic ESLint mapping and explicit permission for focused child component composition.
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
-- 1.0.0 (2026-08-27): Initial rule, grounded in the existing `frontend/src/app/*` feature-folder
-  layout (`review-panel`, `explorer`, `attack-coverage`, `usage-history`, `editor`,
-  `project-dashboard`, `review-actions`).
+- 1.0.0 (2026-08-27): Initial feature-folder rule.

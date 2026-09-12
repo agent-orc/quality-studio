@@ -119,6 +119,61 @@
           }
         }
       }
+    },
+    "style-reference": {
+      "projectType": "application",
+      "root": "style-reference",
+      "sourceRoot": "style-reference",
+      "prefix": "qs",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "style-reference/main.ts",
+            "index": "style-reference/index.html",
+            "polyfills": [
+              "zone.js"
+            ],
+            "tsConfig": "tsconfig.reference.json",
+            "styles": [
+              "src/styles.css"
+            ],
+            "outputPath": "dist/style-reference",
+            "assets": []
+          },
+          "configurations": {
+            "production": {
+              "optimization": true,
+              "outputHashing": "all",
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumError": "300kB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumError": "16kB"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true,
+              "extractLicenses": false
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "development": {
+              "buildTarget": "style-reference:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
     }
   }
 }

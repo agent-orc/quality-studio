@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const repositoryRoot = resolve(new URL('..', import.meta.url).pathname);
 const targetRoot = resolve(process.env.QS_PERF_REPOSITORY ?? '/home/agent/runner-work/PROJ-002/repo');
 const resultsRoot = resolve(process.env.JOB_RESULTS_DIR ?? resolve(repositoryRoot, 'results'));
-const apiDll = resolve(repositoryRoot, 'src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
+const apiDll = resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
 const samples = Number(process.env.QS_PERF_SAMPLES ?? 10);
 let child;
 let tempRoot;

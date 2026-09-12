@@ -7,14 +7,14 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
-const catalogueRelativePath = join('src', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-catalogue.v1.json');
+const catalogueRelativePath = join('backend', 'src', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-catalogue.v1.json');
 
 /** A sandbox holding only what the generator reads and writes, so tests never touch the checkout. */
 async function sandbox() {
   const root = await mkdtemp(join(tmpdir(), 'qs-rule-catalogue-'));
   await mkdir(join(root, 'scripts'), { recursive: true });
   await mkdir(join(root, 'schemas'), { recursive: true });
-  await mkdir(join(root, 'src', 'AgentOrchestrator.CodeQuality', 'catalogues'), { recursive: true });
+  await mkdir(join(root, 'backend', 'src', 'AgentOrchestrator.CodeQuality', 'catalogues'), { recursive: true });
   await cp(join(repoRoot, 'scripts', 'sync-rule-catalogue.mjs'), join(root, 'scripts', 'sync-rule-catalogue.mjs'));
   await cp(join(repoRoot, 'schemas', 'rule-catalogue.v1.schema.json'),
     join(root, 'schemas', 'rule-catalogue.v1.schema.json'));

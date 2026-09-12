@@ -1,0 +1,35 @@
+{
+  "$schema": "./schemas/architecture-contract.v1.schema.json",
+  "schemaVersion": 1,
+  "requiredDirectories": [
+    "backend/src",
+    "backend/tests",
+    "frontend/src/app/core",
+    "frontend/src/app/shared",
+    "frontend/src/app/features",
+    "frontend/src/app/shell"
+  ],
+  "forbiddenSourcePaths": ["src"],
+  "directoryRules": [
+    {
+      "path": "frontend/src/app",
+      "allowedDirectories": ["core", "shared", "features", "shell"],
+      "allowedFiles": ["app.config.ts"]
+    },
+    {
+      "path": "frontend/src/app/core",
+      "allowedDirectories": ["api", "models", "navigation"],
+      "allowedFiles": []
+    },
+    {
+      "path": "frontend/src/app/shared",
+      "allowedDirectories": ["dialog", "ui", "utils", "styles"],
+      "allowedFiles": []
+    },
+    {
+      "path": "frontend/src/app/features",
+      "allowedDirectories": ["code", "dashboard", "repositories", "reviews", "security", "settings"],
+      "allowedFiles": []
+    }
+  ]
+}

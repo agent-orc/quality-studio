@@ -4,7 +4,7 @@ Standalone Angular 20 shell for browsing repository quality data. It provides a 
 
 ## Development
 
-```powershell
+```sh
 npm install
 npm start
 ```
@@ -13,8 +13,8 @@ For the full product from the repository root, use `npm start`. That command
 boots the API and frontend together with the repository-owned launcher, while
 the standalone frontend development server still runs at
 `http://localhost:4200` and proxies `/api` to the QS API at
-`http://127.0.0.1:5127` by default. If the API is unavailable, the shell shows
-clearly labeled preview data so the workspace remains inspectable.
+`http://127.0.0.1:5127` by default. If the API is unavailable, the shell blocks the workspace with a clear connection
+error and retry action. Reconnecting reloads the repository and selected item.
 
 Run `npm run build` for the production bundle and `npm run perf` against a running server for the interaction-budget harness. See [PERF.md](./PERF.md) for the acceptance numbers and Chrome tracing procedure, and [DESIGN-KINSHIP.md](./DESIGN-KINSHIP.md) for the Agent Studio token mapping.
 
@@ -25,6 +25,9 @@ Run `npm run build` for the production bundle and `npm run perf` against a runni
 | `npm test` | Unit and component specs in headless Chrome. |
 | `npm run lint` | ESLint at each rule's own severity. A violation fails the command. |
 | `npm run build` | Production bundle, including the size budgets in `angular.json`. |
+| `npm run test:architecture` | Import-boundary and CSS readability rule tests. |
+| `npm run reference` | Standalone shared-style reference at `http://127.0.0.1:4226`; no API required. |
+| `npm run build:reference` | Build the reference surface separately from the product. |
 | `npm run perf` | Interaction-budget harness against a running server. |
 
 ### Screenshot helpers
@@ -43,6 +46,16 @@ hosted API expects a bearer token: open **API access** from the repository menu,
 and every request carries it in the `Authorization` header. The token is kept in `localStorage`
 under `qs-api-token`, is never logged, and is never sent anywhere else. A rejected request (HTTP
 401) opens the same dialog with the reason.
+
+## Source ownership
+
+`src/app/shell` composes the application and owns navigation orchestration.
+`core` contains API transport, contracts, and navigation utilities. `features`
+contains code browsing, dashboard, reviews, repositories, settings, and security.
+`shared` owns dialogs, reusable UI, utilities, and the global style foundation.
+Import boundaries and minimum readable typography are enforced by ESLint.
+See [the delivered refactoring](../docs/frontend-style-refactoring.md) and
+[architecture checks](../docs/architecture-checks.md).
 
 ## Workspace layout
 

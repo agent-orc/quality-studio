@@ -287,11 +287,11 @@
         <li><a href="../../../frontend/src/app/editor/editor.ts">frontend/src/app/editor/editor.ts:58-65, 77-98</a> and <a href="../../../frontend/src/app/editor/editor.html">editor.html:147-159</a>: ranges become line membership; syntax tokens and markers remain separate.</li>
         <li><a href="../../../frontend/src/app/review-panel/review-panel.html">frontend/src/app/review-panel/review-panel.html:49-51</a>: current card and detail fields.</li>
         <li><a href="../../../schemas/review-meta.v2.schema.json">schemas/review-meta.v2.schema.json:633-744</a>: ranges, optional evidence string, and deterministic-only source union.</li>
-        <li><a href="../../../src/AgentOrchestrator.CodeQuality/FindingIdentity.cs">FindingIdentity.cs:16-68</a>: server-validated span and stable fingerprint.</li>
-        <li><a href="../../../src/AgentOrchestrator.CodeQuality/FindingStateStore.cs">FindingStateStore.cs:49-126</a> and <a href="../../finding-lifecycle.md">docs/finding-lifecycle.md</a>: repository-owned lifecycle projection.</li>
-        <li><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs:75-210</a>, <a href="../../review-runs.md">docs/review-runs.md</a>, and <a href="../../../.gitignore">.gitignore:11, 20-24</a>: restart-safe but ignored orchestration versus committed usage history.</li>
-        <li><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs:295-407</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/ReviewAgent.cs">ReviewAgent.cs:65-116</a>: effective model and CLI usage capture, without thinking level.</li>
-        <li><a href="../../../src/AgentOrchestrator.CodeQuality/AttackCoverageModels.cs">AttackCoverageModels.cs:76-150</a> and <a href="../../attack-coverage.md">docs/attack-coverage.md:41-67</a>: existing immutable evidence/provenance pattern.</li>
+        <li><a href="../../../backend/src/AgentOrchestrator.CodeQuality/FindingIdentity.cs">FindingIdentity.cs:16-68</a>: server-validated span and stable fingerprint.</li>
+        <li><a href="../../../backend/src/AgentOrchestrator.CodeQuality/FindingStateStore.cs">FindingStateStore.cs:49-126</a> and <a href="../../finding-lifecycle.md">docs/finding-lifecycle.md</a>: repository-owned lifecycle projection.</li>
+        <li><a href="../../../backend/src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs:75-210</a>, <a href="../../review-runs.md">docs/review-runs.md</a>, and <a href="../../../.gitignore">.gitignore:11, 20-24</a>: restart-safe but ignored orchestration versus committed usage history.</li>
+        <li><a href="../../../backend/src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs:295-407</a> and <a href="../../../backend/src/AgentOrchestrator.CodeQuality/ReviewAgent.cs">ReviewAgent.cs:65-116</a>: effective model and CLI usage capture, without thinking level.</li>
+        <li><a href="../../../backend/src/AgentOrchestrator.CodeQuality/AttackCoverageModels.cs">AttackCoverageModels.cs:76-150</a> and <a href="../../attack-coverage.md">docs/attack-coverage.md:41-67</a>: existing immutable evidence/provenance pattern.</li>
       </ul>
     </div>
   </section>
@@ -406,7 +406,7 @@
         <tr><td><code>unknown</code></td><td>No usable reproduction contract was supplied.</td><td>Visibly incomplete; never silently treated as not applicable.</td></tr>
       </tbody>
     </table>
-    <p class="source">Current prompt constraint: <a href="../../../src/AgentOrchestrator.CodeQuality/prompts/file-code-review.v1.md">file-code-review.v1.md:3</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/prompts/file-security-review.v1.md">file-security-review.v1.md:3</a>, and <a href="../../../src/AgentOrchestrator.CodeQuality/prompts/file-performance-review.v1.md">file-performance-review.v1.md:3</a> all say not to use tools or run commands.</p>
+    <p class="source">Current prompt constraint: <a href="../../../backend/src/AgentOrchestrator.CodeQuality/prompts/file-code-review.v1.md">file-code-review.v1.md:3</a>, <a href="../../../backend/src/AgentOrchestrator.CodeQuality/prompts/file-security-review.v1.md">file-security-review.v1.md:3</a>, and <a href="../../../backend/src/AgentOrchestrator.CodeQuality/prompts/file-performance-review.v1.md">file-performance-review.v1.md:3</a> all say not to use tools or run commands.</p>
   </section>
 
   <section id="presentation">

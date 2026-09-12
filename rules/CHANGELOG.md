@@ -3,6 +3,12 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.3.0 (2026-09-12)
+
+- Added repository-owned architecture contracts and deterministic structure findings (QS-GN-003).
+- Angular component structure now reflects declared layers and focused child component composition (QS-NG-003).
+- Typography minimum violations map to the parser-based ESLint/SARIF check (QS-NG-001).
+
 ## 1.2.0 (2026-09-06)
 
 The library covers three review kinds and three technologies. Eighteen rules added; no existing

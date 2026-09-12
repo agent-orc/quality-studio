@@ -11,7 +11,7 @@ import { chromium } from '../frontend/node_modules/playwright-core/index.mjs';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const frontendRoot = resolve(repositoryRoot, 'frontend');
 const apiDll = process.env.QS_API_DLL ||
-  resolve(repositoryRoot, 'src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
+  resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
 const agentStudioRoot = process.env.QS_AGENT_STUDIO_REPOSITORY || '/home/agent/runner-work/PROJ-002/repo';
 const resultsRoot = process.env.JOB_RESULTS_DIR || resolve(repositoryRoot, 'results');
 const browserPath = process.env.CHROME_BIN || chromium.executablePath();

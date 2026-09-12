@@ -204,7 +204,7 @@
       <tr>
         <td>Unfiltered Release <code>dotnet test</code></td>
         <td><span class="pill open">Exit 1</span><br>354 ms vs 150 ms</td>
-        <td><a href="../../../tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs">ProjectDashboardTests</a> correctly carries <code>MachineBound</code>, but <a href="../../../.github/workflows/build.yml">build.yml</a> does not exclude that category.</td>
+        <td><a href="../../../backend/tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs">ProjectDashboardTests</a> correctly carries <code>MachineBound</code>, but <a href="../../../.github/workflows/build.yml">build.yml</a> does not exclude that category.</td>
         <td><b>Gate composition defect</b></td>
       </tr>
       <tr>
@@ -316,7 +316,7 @@
       <tr>
         <td><b>API, registry, auth, review runs</b></td>
         <td>41 portable tests exercise in-process HTTP, tenancy and auth, rate limits, repository import, reports, sensors, usage, quotas, finding state, and review-run recovery.</td>
-        <td>No direct HTTP test references repository update/delete, risk, guideline update/delete/catalog/impact, review estimate, pause, cancel, handover configuration, or thread mutation routes declared in <a href="../../../src/QualityStudio.Api/Program.cs">Program.cs</a>.</td>
+        <td>No direct HTTP test references repository update/delete, risk, guideline update/delete/catalog/impact, review estimate, pause, cancel, handover configuration, or thread mutation routes declared in <a href="../../../backend/src/QualityStudio.Api/Program.cs">Program.cs</a>.</td>
         <td><span class="pill open">High</span></td>
       </tr>
       <tr>
@@ -532,14 +532,14 @@
     <tbody>
       <tr><td>CI covers only .NET and the security scan.</td><td><a href="../../../.github/workflows/build.yml"><code>.github/workflows/build.yml</code></a></td></tr>
       <tr><td>Production build budget is 480 kB; production run measured 494.94 kB and exited 1.</td><td><a href="../../../frontend/angular.json"><code>frontend/angular.json</code></a>; local QS-66 reproduction at <code>3e0b655</code>, 2026-08-11</td></tr>
-      <tr><td>Dashboard timing is explicitly machine-bound but mixed into current CI.</td><td><a href="../../../tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs"><code>ProjectDashboardTests.cs</code></a>; local run measured 354 ms</td></tr>
-      <tr><td>Only two .NET tests carry <code>MachineBound</code>.</td><td><a href="../../../tests/AgentOrchestrator.CodeQuality.Tests/RepositoryHierarchyBuilderTests.cs"><code>RepositoryHierarchyBuilderTests.cs</code></a> and <a href="../../../tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs"><code>ProjectDashboardTests.cs</code></a></td></tr>
+      <tr><td>Dashboard timing is explicitly machine-bound but mixed into current CI.</td><td><a href="../../../backend/tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs"><code>ProjectDashboardTests.cs</code></a>; local run measured 354 ms</td></tr>
+      <tr><td>Only two .NET tests carry <code>MachineBound</code>.</td><td><a href="../../../backend/tests/AgentOrchestrator.CodeQuality.Tests/RepositoryHierarchyBuilderTests.cs"><code>RepositoryHierarchyBuilderTests.cs</code></a> and <a href="../../../backend/tests/QualityStudio.Api.Tests/ProjectDashboardTests.cs"><code>ProjectDashboardTests.cs</code></a></td></tr>
       <tr><td>Root launcher fixture is Windows-specific and fails on Linux.</td><td><a href="../../../tests/dev-stack.test.mjs"><code>tests/dev-stack.test.mjs</code></a>; reproduced <code>EACCES</code> from <code>npm.cmd</code></td></tr>
       <tr><td>Angular test discovery depends on system paths or <code>CHROME_BIN</code>.</td><td><a href="../../../frontend/tests/run-tests.mjs"><code>frontend/tests/run-tests.mjs</code></a>; 17 cases passed with explicit Playwright Chromium</td></tr>
       <tr><td>Coverage ingestion exists, but repository coverage generation does not.</td><td><a href="../../../frontend/karma.conf.cjs"><code>frontend/karma.conf.cjs</code></a>, both xUnit project files, and <a href="../../../docs/coverage-and-risk.md"><code>docs/coverage-and-risk.md</code></a></td></tr>
       <tr><td>Angular test generation is disabled by default.</td><td><a href="../../../frontend/angular.json"><code>frontend/angular.json</code></a>, <code>schematics.*.skipTests</code></td></tr>
       <tr><td>QS-57 supplied prepared-run evidence but no repository diff.</td><td><code>/home/agent/runner-work/tasks/QS-57/results/</code>: 34 files; clean QS-57 worktree at <code>3e0b655</code></td></tr>
-      <tr><td>Security scanner is pinned but can download on a cold host.</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs"><code>GitleaksBinaryResolver.cs</code></a>; standalone scan passed with 8.24.2</td></tr>
+      <tr><td>Security scanner is pinned but can download on a cold host.</td><td><a href="../../../backend/src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs"><code>GitleaksBinaryResolver.cs</code></a>; standalone scan passed with 8.24.2</td></tr>
     </tbody>
   </table>
 

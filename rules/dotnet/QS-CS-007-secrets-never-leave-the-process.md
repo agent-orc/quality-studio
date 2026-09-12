@@ -39,7 +39,7 @@ deleted on every path. Logging the same detail through the logger is the intende
 ## Good example
 
 ```csharp
-// src/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs
+// backend/src/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs
 process.StartInfo.ArgumentList.Add("--redact=100");
 // ParseJsonFinding reads RuleID, File, the range, Description and Fingerprint —
 // never the Secret or Match fields the report also carries.

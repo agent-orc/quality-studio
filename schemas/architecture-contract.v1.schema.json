@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/architecture-contract.v1.schema.json",
+  "title": "Repository-owned architecture contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requiredDirectories", "forbiddenSourcePaths", "directoryRules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "requiredDirectories": { "type": "array", "maxItems": 100, "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+    "forbiddenSourcePaths": { "type": "array", "maxItems": 100, "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+    "directoryRules": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "allowedDirectories", "allowedFiles"],
+        "properties": {
+          "path": { "$ref": "#/$defs/path" },
+          "allowedDirectories": { "$ref": "#/$defs/children" },
+          "allowedFiles": { "$ref": "#/$defs/children" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "path": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\:]+$" },
+    "children": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "pattern": "^(?!\\.\\.?$)[^/\\\\:]+$" }
+    }
+  }
+}

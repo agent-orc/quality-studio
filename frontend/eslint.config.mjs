@@ -2,6 +2,10 @@ import eslint from '@eslint/js';
 import angular from 'angular-eslint';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import architecture from './lint/architecture.mjs';
+import { angularArchitecture } from './lint/architecture.config.mjs';
+import { typographyProcessor } from './lint/typography.mjs';
+import { typographyContract } from './lint/typography.config.mjs';
 
 // Every rule keeps the severity its own configuration defines. `npm run lint` is a gate:
 // a violation fails the command rather than scrolling past as a warning.
@@ -17,7 +21,7 @@ export default tseslint.config(
     ],
   },
   {
-    files: ['frontend/src/**/*.ts', 'src/**/*.ts'],
+    files: ['frontend/src/**/*.ts', 'src/**/*.ts', 'frontend/style-reference/**/*.ts', 'style-reference/**/*.ts'],
     extends: [
       eslint.configs.recommended,
       ...tseslint.configs.recommended,
@@ -27,9 +31,17 @@ export default tseslint.config(
       globals: globals.browser,
     },
     processor: angular.processInlineTemplates,
+    plugins: { 'quality-architecture': architecture },
+    rules: { 'quality-architecture/layer-imports': ['error', angularArchitecture] },
   },
   {
-    files: ['frontend/src/**/*.html', 'src/**/*.html'],
+    files: ['frontend/src/**/*.css', 'src/**/*.css'],
+    plugins: { 'quality-architecture': architecture },
+    rules: { 'quality-architecture/minimum-font-size': 'error' },
+    processor: typographyProcessor(typographyContract),
+  },
+  {
+    files: ['frontend/src/**/*.html', 'src/**/*.html', 'frontend/style-reference/**/*.html', 'style-reference/**/*.html'],
     extends: [
       ...angular.configs.templateRecommended,
       ...angular.configs.templateAccessibility,
@@ -38,6 +50,7 @@ export default tseslint.config(
   {
     files: [
       'frontend/**/*.{js,mjs,cjs}',
+      'lint/**/*.mjs',
       'tests/**/*.{js,mjs,cjs}',
       'scripts/**/*.mjs',
       '../scripts/**/*.mjs',

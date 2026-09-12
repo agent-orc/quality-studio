@@ -140,7 +140,7 @@ function buildApiCommand(parsedArgs, repoRoot, apiPort) {
     'dotnet',
     'run',
     '--project',
-    resolve(repoRoot, 'src/QualityStudio.Api/QualityStudio.Api.csproj'),
+    resolve(repoRoot, 'backend/src/QualityStudio.Api/QualityStudio.Api.csproj'),
     '--urls',
     `http://127.0.0.1:${apiPort}`,
     '--no-launch-profile',

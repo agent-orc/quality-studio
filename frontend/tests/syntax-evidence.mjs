@@ -38,7 +38,7 @@ const meta = {
     title: 'Finding overlay evidence',
     description: 'The finding gutter remains visible beside highlighted multiline source.',
     recommendation: 'Keep the overlay independent from token spans.',
-    locations: [{ path: 'src/QualityStudio.Api/Program.cs', range: { start: { line: 9, column: 5 }, end: { line: 12, column: 7 } } }],
+    locations: [{ path: 'backend/src/QualityStudio.Api/Program.cs', range: { start: { line: 9, column: 5 }, end: { line: 12, column: 7 } } }],
   }],
 };
 
@@ -48,7 +48,7 @@ for (const theme of ['dark', 'light']) {
   await page.route(/\/api\/(?:repos\/[^/]+\/)?file(?:\?|$)/, route => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({
-      path: 'src/QualityStudio.Api/Program.cs',
+      path: 'backend/src/QualityStudio.Api/Program.cs',
       content: source,
       metaDocuments: [meta],
       sizeBytes: Buffer.byteLength(source),

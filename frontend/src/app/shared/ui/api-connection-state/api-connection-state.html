@@ -1,0 +1,20 @@
+<section class="api-unavailable" [class.connecting]="state() === 'connecting'" [attr.role]="state() === 'connecting' ? 'status' : 'alert'" aria-live="polite" aria-labelledby="api-status-title">
+      <div class="api-status-content">
+        <span class="api-status-icon" aria-hidden="true">{{ state() === 'connecting' ? '…' : '!' }}</span>
+        <h1 id="api-status-title">{{ state() === 'connecting' ? 'Connecting to API' : 'API unavailable' }}</h1>
+        <p>Quality Studio needs its API to load projects and run reviews.</p>
+        @if (state() !== 'connecting') {
+          <p><strong>Start the API to continue.</strong> The workspace will reopen when the connection is restored.</p>
+          @if (error()) {
+            <p class="api-status-detail">{{ error() }}</p>
+          }
+        }
+        <div class="api-status-actions">
+          <button class="studio-button studio-button-primary secondary-button api-retry" type="button" data-action="retry-api" (click)="retry.emit()" [disabled]="state() === 'connecting' || retrying()">
+            {{ state() === 'connecting' || retrying() ? 'Connecting…' : 'Retry connection' }}
+          </button>
+          <button class="studio-button secondary-button" type="button" (click)="configure.emit()">API access</button>
+        </div>
+        <p class="api-status-recovery">{{ state() === 'connecting' ? 'Waiting for the API to respond.' : 'Reconnecting automatically every few seconds.' }}</p>
+      </div>
+    </section>

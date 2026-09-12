@@ -39,7 +39,7 @@ list is not.
 ## Good example
 
 ```csharp
-// src/QualityStudio.Api/ProjectDashboard.cs
+// backend/src/QualityStudio.Api/ProjectDashboard.cs
 var key = root + "\0" + snapshot.GitState;   // derived from content, so a stale hit cannot happen
 if (cache.TryGetValue(key, out var cached)) return cached;
 ```

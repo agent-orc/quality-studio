@@ -11,7 +11,7 @@ import { chromium } from 'playwright-core';
 const testsRoot = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testsRoot, '..');
 const repositoryRoot = resolve(frontendRoot, '..');
-const apiDll = process.env.QS_API_DLL || resolve(repositoryRoot, 'src/QualityStudio.Api/bin/Debug/net10.0/QualityStudio.Api.dll');
+const apiDll = process.env.QS_API_DLL || resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Debug/net10.0/QualityStudio.Api.dll');
 const resultsRoot = process.env.JOB_RESULTS_DIR || resolve(frontendRoot, 'evidence');
 const executablePath = process.env.CHROME_BIN || chromium.executablePath();
 const transitionBudgetMs = 100;
@@ -48,7 +48,7 @@ try {
   await waitForHttp(`http://127.0.0.1:${apiPort}/health`, 30_000);
 
   const ngCli = resolve(frontendRoot, 'node_modules/@angular/cli/bin/ng.js');
-  start('web', process.execPath, [ngCli, 'serve', '--host', '127.0.0.1', '--port', String(webPort), '--proxy-config', proxyPath], frontendRoot, {}, []);
+  start('web', process.execPath, [ngCli, 'serve', 'frontend', '--host', '127.0.0.1', '--port', String(webPort), '--proxy-config', proxyPath], frontendRoot, {}, []);
   await waitForHttp(`http://127.0.0.1:${webPort}`, 60_000);
   await waitFor(() => apiLines.some(line => line.includes('"event":"qs.repository.prewarm"') && line.includes('"repositoryId":"realistic"')), 60_000,
     'realistic repository prewarm event');

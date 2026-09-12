@@ -96,7 +96,7 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 | `QualityStudio__Security__Clients__N__CredentialSha256` | — | SHA-256 of the bearer token. The token itself never reaches the host configuration. |
 | `QualityStudio__Security__Clients__N__Repositories__M` | — | Repository ids this client may reach, or `*`. |
 | `QualityStudio__Security__Clients__N__CanRegisterRepositories` | `false` | Allow `POST /api/repos`, the Agent Studio import, and `PUT`/`DELETE /api/repos/{id}`. Requires `*`. |
-| `QualityStudio__RepositoryRoot` | `../..` (`/repositories` in the image) | Seeds the `default` registration on first start. |
+| `QualityStudio__RepositoryRoot` | `../../..` (`/repositories` in the image) | Seeds the `default` registration on first start. |
 | `QualityStudio__AllowedRoots__N` | the repository root | Directories registrations may point inside. Everything else is refused. |
 | `QualityStudio__AllowedOrigins__N` | `http://localhost:4200` | CORS origins for the development frontend. |
 | `QualityStudio__Ui__RootPath` | `wwwroot` next to the API | The built browser bundle. Absent means an API-only host. |

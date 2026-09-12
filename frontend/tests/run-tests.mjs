@@ -45,7 +45,7 @@ const ngCli = join(frontendRoot, 'node_modules', '@angular', 'cli', 'bin', 'ng.j
 const browser = process.env.CHROME_NO_SANDBOX === '1'
   ? 'ChromeHeadlessNoSandbox'
   : 'ChromeHeadless';
-const testArguments = [ngCli, 'test', '--watch=false', `--browsers=${browser}`];
+const testArguments = [ngCli, 'test', 'frontend', '--watch=false', `--browsers=${browser}`];
 if (process.argv.includes('--coverage')) {
   testArguments.push('--code-coverage');
 }

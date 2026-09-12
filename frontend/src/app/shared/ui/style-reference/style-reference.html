@@ -1,0 +1,79 @@
+<main class="reference">
+  <header class="reference-heading">
+    <div>
+      <span class="eyebrow">Quality Studio · Development reference</span>
+      <h1>Shared typography and controls</h1>
+      <p>Native controls use one type scale, theme palette and interaction contract.</p>
+    </div>
+    <button class="studio-button" type="button" (click)="toggleTheme()">
+      Switch to {{ theme() === 'light' ? 'dark' : 'light' }} theme
+    </button>
+  </header>
+
+  <section class="reference-card" aria-labelledby="typography-title">
+    <h2 id="typography-title">Typography</h2>
+    <div class="type-scale">
+      <div><span class="eyebrow">Metadata · 11 px</span><small>Reviewed 12 September · source: backend/QualityStudio.Api</small></div>
+      <div><span class="eyebrow">Controls and rows · 12 px</span><span class="control-sample">Repositories · Test coverage · Performance</span></div>
+      <div><span class="eyebrow">Reading and code · 13 px</span><p>A review explains the finding and gives a concrete next step.</p><code>const review = await qualityApi.review(selectedRepository);</code></div>
+      <div><span class="eyebrow">Pane title · 14 px</span><strong class="title-sample">Review findings</strong></div>
+      <div><span class="eyebrow">Section heading · 16 px</span><h2>Project quality</h2></div>
+    </div>
+  </section>
+
+  <div class="reference-grid">
+    <section class="reference-card" aria-labelledby="controls-title">
+      <h2 id="controls-title">Actions and states</h2>
+      <div class="control-row">
+        <button class="studio-button studio-button-primary" type="button" (click)="feedback.set('Primary action activated.')">Start review</button>
+        <button class="studio-button" type="button" (click)="feedback.set('Secondary action activated.')">Cancel</button>
+        <button class="studio-button studio-button-danger" type="button" (click)="feedback.set('Danger action activated in reference only.')">Remove</button>
+        <button class="studio-icon-button" type="button" aria-label="Refresh reference" (click)="feedback.set('Reference refreshed.')">↻</button>
+      </div>
+      <div class="control-row">
+        <button class="studio-button" type="button" disabled>Disabled action</button>
+        <button class="studio-button studio-button-primary" type="button" disabled aria-busy="true">Loading</button>
+      </div>
+      <p class="feedback" role="status">{{ feedback() }}</p>
+      <p class="supporting">Use Tab to inspect focus rings. Disabled actions remain outside the tab order.</p>
+    </section>
+
+    <section class="reference-card" aria-labelledby="fields-title">
+      <h2 id="fields-title">Fields</h2>
+      <div class="fields">
+        <label>Repository name<input class="studio-field" value="Quality Studio" autocomplete="off"></label>
+        <label>Review aspect<select class="studio-field"><option>Test coverage and performance</option><option>Code quality</option></select></label>
+        <label>Unavailable model<input class="studio-field" value="Runner unavailable" disabled></label>
+        <label>Review budget<input class="studio-field" aria-invalid="true" aria-describedby="budget-error" value="-1"><small id="budget-error" class="field-error">Enter a positive budget.</small></label>
+        <label class="wide">Review note<textarea class="studio-field" placeholder="Describe what this review should cover."></textarea></label>
+        <label class="check-row"><input class="studio-check" type="checkbox" checked> Include already reviewed files</label>
+      </div>
+    </section>
+  </div>
+
+  <section class="reference-card" aria-labelledby="table-title">
+    <h2 id="table-title">Pane and sortable table</h2>
+    <div class="pane">
+      <div class="pane-header"><div><span class="eyebrow">Namespace</span><strong>frontend/src/app/features/reviews</strong></div><button class="studio-icon-button" type="button" aria-label="More table actions">⋯</button></div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th><button class="studio-table-head" type="button" (click)="toggleSort()">Name {{ ascending() ? '↑' : '↓' }}</button></th><th><button class="studio-table-head" type="button">Coverage</button></th><th><button class="studio-table-head" type="button">Review status</button></th><th><button class="studio-table-head" type="button">Reviewed</button></th></tr></thead>
+          <tbody>
+            <tr><td><strong>review-panel.ts</strong><small>frontend/src/app/features/reviews/review-panel</small></td><td>87.4%</td><td><span class="studio-badge" data-tone="positive"><i class="status fresh"></i>Current</span></td><td>12 September 2026</td></tr>
+            <tr><td><strong>coverage-comparison-with-an-intentionally-long-file-name.ts</strong><small>backend/QualityStudio.Api/Repositories/Comparisons</small></td><td>Unknown</td><td><span class="studio-badge" data-tone="warning"><i class="status stale"></i>Out of date</span></td><td>Yesterday</td></tr>
+            <tr><td><strong>repository.ts</strong><small>frontend/src/app/core/api</small></td><td>73.1%</td><td><span class="studio-badge" data-tone="critical">Needs review</span></td><td>10 September 2026</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="reference-card" aria-labelledby="messages-title">
+    <h2 id="messages-title">Loading, empty and error messages</h2>
+    <div class="reference-grid">
+      <p class="studio-state" data-state="loading" role="status">Loading repository information…</p>
+      <p class="studio-empty-state">No findings match the selected filters.</p>
+      <p class="studio-state" data-state="error" role="alert">The API could not be reached. Check the connection and try again.</p>
+    </div>
+  </section>
+</main>

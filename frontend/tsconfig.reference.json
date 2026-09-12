@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/reference"
+  },
+  "files": [
+    "style-reference/main.ts"
+  ],
+  "include": [
+    "src/**/*.d.ts"
+  ]
+}

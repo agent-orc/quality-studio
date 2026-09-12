@@ -68,4 +68,4 @@ public void Test1() // name describes nothing; shares a hard-coded path with oth
 
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the fixture-isolation and naming conventions
-  already used in `tests/AgentOrchestrator.CodeQuality.Tests/InputResolverTests.cs`.
+  already used in `backend/tests/AgentOrchestrator.CodeQuality.Tests/InputResolverTests.cs`.

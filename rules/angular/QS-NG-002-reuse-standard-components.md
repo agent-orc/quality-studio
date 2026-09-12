@@ -1,6 +1,6 @@
 ---
 id: QS-NG-002
-version: 1.1.0
+version: 1.2.0
 title: Reuse standard components and shared primitives
 technology: angular
 kinds: [code]
@@ -15,14 +15,14 @@ since: 1.0.0
 
 ## Statement
 
-Before adding a new badge, panel, or control markup pattern, check `frontend/src/styles.css`
-and sibling feature folders for an existing shared primitive (e.g. `.severity`, `.pane`,
+Before adding a new badge, panel, or control markup pattern, check `frontend/src/app/shared/styles/primitives.css`
+and `frontend/src/app/shared/ui/` for an existing shared primitive (e.g. `.severity`, `.pane`,
 `.pane-header`) or a reusable standalone component. Extend or reuse it instead of writing a
 parallel one-off implementation with its own markup and styling.
 
 ## Rationale
 
-`frontend/src/styles.css` already documents this as an explicit convention: "Shared workbench
+`frontend/src/app/shared/styles/primitives.css` already documents this as an explicit convention: "Shared workbench
 primitives reused across shell panes (Explorer, Editor, ReviewPanel)." Duplicated one-off
 primitives drift from each other over time (spacing, states, accessibility), double the
 maintenance surface, and are exactly the failure mode design tokens alone cannot prevent — a
@@ -30,12 +30,12 @@ component can use tokens correctly and still reinvent a pattern that already exi
 
 ## Detection
 
-Compare the component's markup and class names against the shared primitives declared in `frontend/src/styles.css` (`.severity`, `.pane`, `.pane-header`) and against sibling feature folders. A new element whose class list and structure duplicate an existing primitive under a different name is a violation; a genuinely new visual pattern is not.
+Compare the component's markup and class names against the shared primitives declared in `frontend/src/app/shared/styles/primitives.css` (`.studio-button`, `.studio-field`, `.studio-table-head`, `.studio-badge`, `.pane`) and the shared UI components. A new element whose class list and structure duplicate an existing primitive under a different name is a violation; a genuinely new visual pattern is not.
 
 ## Good example
 
 ```html
-<!-- frontend/src/app/review-panel/review-panel.html: reuses the shared .severity primitive -->
+<!-- frontend/src/app/features/reviews/review-panel/review-panel.html: reuses the shared .severity primitive -->
 <span class="severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span>
 ```
 
@@ -49,6 +49,8 @@ Compare the component's markup and class names against the shared primitives dec
 ```
 
 ## Change history
+
+- 1.2.0 (2026-09-12): Pointed detection at the extracted shared styles and UI component library.
 
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule. Directly covers the operator-observed defect class

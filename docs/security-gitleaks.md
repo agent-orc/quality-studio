@@ -6,7 +6,7 @@ Quality Studio treats Gitleaks as a deterministic secret-detection sensor, not a
 
 - The pinned upstream version is `v8.24.2`.
 - Binaries are fetched only from the official Gitleaks GitHub release archive and verified against the
-  SHA-256 tracked in [`gitleaks-binaries.json`](../src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json).
+  SHA-256 tracked in [`gitleaks-binaries.json`](../backend/src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json).
   That file is the authority: the release checksum asset is fetched as well and must agree with it, but
   a checksum served from the same release as the archive proves only that the two match each other.
 - A platform with no tracked digest is refused rather than installed. Provide the binary yourself and
@@ -24,8 +24,8 @@ also the way to run scans on an air-gapped host or on a platform without a track
 
 ## Update process
 
-1. Bump `GitleaksBinaryResolver.PinnedVersion` in [`src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs`](../src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs).
-2. Replace the digests in [`gitleaks-binaries.json`](../src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json)
+1. Bump `GitleaksBinaryResolver.PinnedVersion` in [`backend/src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs`](../backend/src/AgentOrchestrator.CodeQuality/GitleaksBinaryResolver.cs).
+2. Replace the digests in [`gitleaks-binaries.json`](../backend/src/AgentOrchestrator.CodeQuality/gitleaks-binaries.json)
    from the new release's `gitleaks_<version>_checksums.txt`, and set its `version` to match. A mismatch
    between the two fails the host at first use instead of silently installing an unreviewed binary.
 3. Update `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the [`Dockerfile`](../Dockerfile).

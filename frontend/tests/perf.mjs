@@ -26,7 +26,7 @@ await page.route(/\/api\/(?:repos\/[^/]+\/)?file(?:\?|$)/, route => {
   resolveInitialFile();
   return route.fulfill({
   contentType: 'application/json',
-  body: JSON.stringify({ path: 'src/QualityStudio.Api/ApiContracts.cs', content: payload, metaDocuments: [meta('code'), meta('performance')] }),
+  body: JSON.stringify({ path: 'backend/src/QualityStudio.Api/ApiContracts.cs', content: payload, metaDocuments: [meta('code'), meta('performance')] }),
   });
 });
 // The hierarchy is part of the fixture now: the shell no longer carries a built-in demonstration
@@ -35,10 +35,10 @@ const kindState = state => ({ direct: state, descendants: state, overall: state,
 const kinds = state => ({ code: kindState(state), security: kindState(state), performance: kindState(state) });
 const tree = [{
   id: 'quality-studio', name: 'Quality Studio', level: 'repository', path: '.', kinds: kinds('fresh'), children: [{
-    id: 'src', name: 'src', level: 'folder', path: 'src', kinds: kinds('fresh'), children: [{
-      id: 'api', name: 'QualityStudio.Api', level: 'project', path: 'src/QualityStudio.Api', kinds: kinds('fresh'), children: [
-        { id: 'program', name: 'Program.cs', level: 'file', path: 'src/QualityStudio.Api/Program.cs', kinds: kinds('fresh'), sizeBytes: 333782, lineCount: 6000, children: [] },
-        { id: 'contracts', name: 'ApiContracts.cs', level: 'file', path: 'src/QualityStudio.Api/ApiContracts.cs', kinds: kinds('stale'), sizeBytes: 4200, lineCount: 120, children: [] },
+    id: 'backend', name: 'backend', level: 'folder', path: 'backend', kinds: kinds('fresh'), children: [{
+      id: 'api', name: 'QualityStudio.Api', level: 'project', path: 'backend/src/QualityStudio.Api', kinds: kinds('fresh'), children: [
+        { id: 'program', name: 'Program.cs', level: 'file', path: 'backend/src/QualityStudio.Api/Program.cs', kinds: kinds('fresh'), sizeBytes: 333782, lineCount: 6000, children: [] },
+        { id: 'contracts', name: 'ApiContracts.cs', level: 'file', path: 'backend/src/QualityStudio.Api/ApiContracts.cs', kinds: kinds('stale'), sizeBytes: 4200, lineCount: 120, children: [] },
       ],
     }],
   }],
@@ -67,14 +67,14 @@ await page.route(/\/api\/(?:repos\/[^/]+\/)?tree\/v2\/search\?/, route => {
 
 const project = {
   generatedAt: '2026-07-25T10:00:00Z',
-  grades: ['code', 'security', 'performance'].map(kind => ({ kind, state: 'fresh', score: 90, band: 'A', path: 'src/QualityStudio.Api/Program.cs' })),
-  findings: { open: 3, bySeverity: { critical: 0, high: 1, medium: 1, low: 1, info: 0 }, byReviewState: { fresh: 3, stale: 0 }, path: 'src/QualityStudio.Api/Program.cs' },
-  staleness: { fresh: 4000, stale: 500, missing: 500, total: 5000, path: 'src/QualityStudio.Api/Program.cs' },
-  reviewCoverage: { reviewedFiles: 4500, totalFiles: 5000, percent: 90, path: 'src/QualityStudio.Api/Program.cs' },
-  testCoverage: { status: 'reported', linePercent: 82, coveredLines: 8200, totalLines: 10000, source: 'coverage.xml', path: 'src/QualityStudio.Api/Program.cs' },
+  grades: ['code', 'security', 'performance'].map(kind => ({ kind, state: 'fresh', score: 90, band: 'A', path: 'backend/src/QualityStudio.Api/Program.cs' })),
+  findings: { open: 3, bySeverity: { critical: 0, high: 1, medium: 1, low: 1, info: 0 }, byReviewState: { fresh: 3, stale: 0 }, path: 'backend/src/QualityStudio.Api/Program.cs' },
+  staleness: { fresh: 4000, stale: 500, missing: 500, total: 5000, path: 'backend/src/QualityStudio.Api/Program.cs' },
+  reviewCoverage: { reviewedFiles: 4500, totalFiles: 5000, percent: 90, path: 'backend/src/QualityStudio.Api/Program.cs' },
+  testCoverage: { status: 'reported', linePercent: 82, coveredLines: 8200, totalLines: 10000, source: 'coverage.xml', path: 'backend/src/QualityStudio.Api/Program.cs' },
   metrics: {
     fileCount: 5000, folderCount: 420, bytes: 25000000, lines: 300000,
-    languages: [{ language: 'C#', files: 5000, lines: 300000, bytes: 25000000, path: 'src/QualityStudio.Api/Program.cs' }],
+    languages: [{ language: 'C#', files: 5000, lines: 300000, bytes: 25000000, path: 'backend/src/QualityStudio.Api/Program.cs' }],
     fileSizeDistribution: [{ label: '< 1 KB', count: 1000 }, { label: '1–10 KB', count: 3000 }, { label: '10–100 KB', count: 1000 }],
     folderSizeDistribution: [{ label: '< 1 KB', count: 20 }, { label: '1–10 KB', count: 300 }, { label: '10–100 KB', count: 100 }],
     duplicationCandidates: [], dependencyEdges: [],
@@ -85,7 +85,7 @@ await page.route(/\/api\/(?:repos\/[^/]+\/)?project(?:\?|$)/, route => route.ful
   contentType: 'application/json',
   body: JSON.stringify(project),
 }));
-await page.goto(process.env.QS_URL ?? 'http://127.0.0.1:4200/?theme=dark&path=src%2FQualityStudio.Api%2FProgram.cs');
+await page.goto(process.env.QS_URL ?? 'http://127.0.0.1:4200/?theme=dark&path=backend%2Fsrc%2FQualityStudio.Api%2FProgram.cs');
 await initialFileRequested;
 await page.locator('.tree-row').first().click();
 await page.locator('.tree-row').first().click();

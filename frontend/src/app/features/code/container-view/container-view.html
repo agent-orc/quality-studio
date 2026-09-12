@@ -1,0 +1,113 @@
+<header class="folder-header">
+  <div>
+    <span class="eyebrow">{{ node()?.level }}</span>
+    <h2>{{ node()?.name }}</h2>
+    <p>{{ node()?.children?.length ?? 0 }} direct children</p>
+  </div>
+  <div class="rollups" aria-label="Rolled-up review states">
+    @for (kind of reviewKinds; track kind) {
+      <span>
+        <i class="status" [class]="'status ' + (node()?.kinds?.[kind]?.descendants ?? 'missing')"></i>
+        <b>{{ kind }}</b>
+        <small>{{ node()?.kinds?.[kind]?.band ?? '-' }} @if ((node()?.kinds?.[kind]?.score ?? null) !== null) { &middot; {{ node()?.kinds?.[kind]?.score }} }</small>
+      </span>
+    }
+  </div>
+</header>
+
+@if ((node()?.excluded?.length ?? 0) > 0) {
+  <section class="scope-diagnostics" aria-label="Review scope exclusions">
+    <header><b>Excluded from review scope</b><span>{{ node()?.excluded?.length }} item(s)</span></header>
+    @for (exclusion of node()?.excluded ?? []; track exclusion.path + ':' + exclusion.reason) {
+      <div><code>{{ exclusion.path }}</code><span>{{ exclusion.reason }}</span></div>
+    }
+  </section>
+}
+
+<details class="risk-view">
+  <summary>
+    <span><b>Risk view</b> · grade × coverage × Git churn over {{ api.risk().days }} days</span>
+    <small>{{ riskRows().length }} files</small>
+  </summary>
+  <div class="risk-matrix" aria-label="Compact risk matrix">
+    @for (cell of api.risk().matrix; track cell.grade + ':' + cell.coverage) {
+      <span [class.hot]="cell.changes > 0 && (cell.grade === 'weak' || cell.grade === 'mediocre') && cell.coverage === 'low'"
+        [title]="cell.changes + ' changes'">
+        <small>{{ cell.grade }} · {{ cell.coverage }}</small><b>{{ cell.files }}</b>
+      </span>
+    } @empty {
+      <span class="unknown"><small>grade · coverage</small><b>Unknown</b></span>
+    }
+  </div>
+  <div class="risk-table" role="table" aria-label="Files sorted by combined quality risk">
+    <div class="risk-columns" role="row">
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('path')">File{{ riskSortIndicator('path') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('grade')">Grade{{ riskSortIndicator('grade') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('coverage')">Coverage{{ riskSortIndicator('coverage') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('changes')">Changes{{ riskSortIndicator('changes') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('risk')">Risk{{ riskSortIndicator('risk') }}</button>
+    </div>
+    @for (row of riskRows().slice(0, 100); track row.path) {
+      <button class="studio-row-button risk-row" type="button" role="row" (click)="nodeOpen.emit(row.path)">
+        <span role="cell">{{ row.path }}</span>
+        <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore !== null) { · {{ row.gradeScore }} }</span>
+        <span role="cell" [class.stale-coverage]="row.coverage.state === 'stale'" [title]="coverageTitle(row.coverage)">{{ coverageLabel(row.coverage) }}</span>
+        <span role="cell">{{ row.changes }}</span>
+        <b role="cell">{{ riskLabel(row) }}</b>
+      </button>
+    } @empty {
+      <div class="studio-empty-state empty-folder">No files are available for this risk scope.</div>
+    }
+  </div>
+</details>
+
+<div class="folder-table" role="table" aria-label="Direct children of selected container">
+  <div class="folder-viewport" (scroll)="folderScrollTop.set($any($event.target).scrollTop)">
+    <div class="folder-columns" role="row">
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('name')">Name{{ sortIndicator('name') }}</button>
+      @for (kind of reviewKinds; track kind) {
+        <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy(kind)">{{ kind }}{{ sortIndicator(kind) }}</button>
+      }
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('coverage')">Coverage{{ sortIndicator('coverage') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('state')">Review{{ sortIndicator('state') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('findings')">Findings{{ sortIndicator('findings') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('reviewedAt')">Reviewed{{ sortIndicator('reviewedAt') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('size')">Size{{ sortIndicator('size') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortBy('lines')">Lines{{ sortIndicator('lines') }}</button>
+    </div>
+
+    <div class="folder-space" [style.height.px]="folderRows().length * folderRowHeight">
+      @for (item of visibleFolderRows(); track item.node.id) {
+        <button class="studio-row-button folder-row" type="button" role="row" [style.top.px]="item.top" (click)="nodeOpen.emit(item.node.path)">
+          <span class="name-cell" role="cell">
+            <i>{{ item.node.level === 'file' ? 'F' : 'D' }}</i>
+            <span>
+              <b>{{ item.node.name }}</b>
+              <small>{{ item.node.level }}</small>
+            </span>
+          </span>
+          @for (kind of reviewKinds; track kind) {
+            <span class="grade-cell" role="cell">
+              <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
+              <b>{{ item.node.kinds[kind]?.band ?? '-' }}</b>
+              <small>{{ item.node.kinds[kind]?.score ?? '-' }}</small>
+            </span>
+          }
+          <span class="coverage-cell" role="cell" [class.stale-coverage]="item.node.coverage?.state === 'stale'"
+            [title]="coverageTitle(item.node.coverage)">{{ coverageLabel(item.node.coverage) }}</span>
+          <span class="state-cell" role="cell" aria-label="Review states">
+            @for (kind of reviewKinds; track kind) {
+              <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')" [title]="kind + ': ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
+            }
+          </span>
+          <span role="cell" [title]="'Open · Accepted · Waived · False positive'">{{ findingCountsLabel(item.node) }}</span>
+          <span class="reviewed-cell" role="cell">{{ reviewedOrDash(item.node.reviewedAt) }}</span>
+          <span role="cell">{{ formatBytes(item.node.sizeBytes) }}</span>
+          <span role="cell">{{ item.node.lineCount ?? '-' }}</span>
+        </button>
+      } @empty {
+        <div class="studio-empty-state empty-folder">This container has no direct children.</div>
+      }
+    </div>
+  </div>
+</div>

@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const apiDll = process.env.QS_API_DLL ||
-  resolve(repositoryRoot, 'src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
+  resolve(repositoryRoot, 'backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll');
 const targetRepository = process.env.QS_AGENT_STUDIO_REPOSITORY || '/home/agent/runner-work/PROJ-002/repo';
 const resultsRoot = process.env.JOB_RESULTS_DIR || resolve(repositoryRoot, 'results');
 const restoredStartupSamples = Number(process.env.QS_RESTORED_STARTUP_SAMPLES || 5);

@@ -1,0 +1,102 @@
+@if (displayRun(); as run) {
+  <section class="active-run-strip" [attr.data-state]="run.state" aria-live="polite">
+    <header><span class="status" [class.fresh]="run.state === 'done'" [class.stale]="['queued', 'running', 'paused', 'capped'].includes(run.state)" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></span><div><strong>{{ run.kind }} review · {{ run.state }}</strong><span>{{ currentRunPath() }}</span></div><b>{{ run.completedFiles }} / {{ run.totalFiles }}</b></header>
+    <div class="active-run-progress" role="progressbar" [attr.aria-valuenow]="run.completedFiles" [attr.aria-valuemax]="run.totalFiles"><span [style.width.%]="runProgress(run)"></span></div>
+    <div class="active-run-meta"><span>{{ run.failedFiles }} failed · {{ run.skippedFiles }} skipped</span><span>{{ run.cliType }} · {{ run.model ?? 'Runner default' }} <i class="studio-badge model-source">{{ formatModelSource(run.modelSource) }}</i> · {{ run.thinkingLevel ?? 'model default' }}</span><span class="run-cost" [class.unpriced]="run.costSpent === null">{{ runCostLabel(run) }}</span>@if (run.stopReason) { <span>{{ run.stopReason }}</span> }</div>
+    <div class="active-run-actions">@if (run.state === 'queued' || run.state === 'running') { <button class="studio-button" type="button" (click)="api.pauseReview(run.id)">Pause</button><button class="studio-button" type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'paused') { <button class="studio-button" type="button" (click)="api.resumeReview(run.id)">Resume</button><button class="studio-button" type="button" (click)="api.cancelReview(run.id)">Cancel</button> } @else if (run.state === 'capped') { <button class="studio-button" type="button" (click)="resumingRun.set(run)">Raise cap and resume</button> } @else { <button class="studio-button" type="button" (click)="beginNewReview()">Review again</button> }</div>
+    @if (runFiles(run, ['done']).length) { <details><summary>{{ runFiles(run, ['done']).length }} completed units</summary>@for (file of runFiles(run, ['done']); track file.path) { <span>{{ file.path }}</span> }</details> }
+    @if (runFiles(run, ['failed']).length) { <details><summary>{{ runFiles(run, ['failed']).length }} failed units</summary>@for (file of runFiles(run, ['failed']); track file.path) { <span>{{ file.path }} · {{ file.error }}</span> }</details> }
+    @if (runFiles(run, ['skipped', 'skipped-fresh']).length) { <details><summary>{{ runFiles(run, ['skipped', 'skipped-fresh']).length }} skipped units</summary>@for (file of runFiles(run, ['skipped', 'skipped-fresh']); track file.path) { <span>{{ file.path }} · {{ file.state }}</span> }</details> }
+  </section>
+} @else {
+<div class="review-actions" [class.compact]="compact()" aria-label="Start review">
+  <select class="studio-field" aria-label="Review kind" [ngModel]="activeKind()" (ngModelChange)="kindSelect.emit($event)">
+    @for (kind of reviewKinds; track kind) { <option [value]="kind">{{ kind }}</option> }
+  </select>
+  <select class="studio-field" aria-label="Review CLI" [ngModel]="cliType()" (ngModelChange)="selectCli($event)">
+    @for (cli of cliTypes; track cli) { <option [value]="cli">{{ cli }}</option> }
+  </select>
+  <div class="model-combobox">
+    <input class="studio-field"
+      role="combobox"
+      aria-label="Review model"
+      aria-autocomplete="list"
+      [attr.aria-controls]="modelOptionsId"
+      [attr.aria-expanded]="modelPickerOpen()"
+      [attr.aria-activedescendant]="activeModelIndex() >= 0 ? optionId(activeModelIndex()) : null"
+      placeholder="Runner default model"
+      autocomplete="off"
+      [ngModel]="model()"
+      (focus)="openModelPicker()"
+      (ngModelChange)="onModelInput($event)"
+      (keydown)="modelKeydown($event)" />
+    <button class="studio-icon-button picker-toggle" type="button" aria-label="Open model picker" [attr.aria-expanded]="modelPickerOpen()" (click)="modelPickerOpen() ? modelPickerOpen.set(false) : openModelPicker()">⌄</button>
+    @if (modelPickerOpen()) {
+      <div [id]="modelOptionsId" class="model-options" role="listbox" aria-label="Available review models">
+        <button class="studio-row-button" type="button" role="option" [id]="optionId(0)" [attr.aria-selected]="!model()" [class.active-option]="activeModelIndex() === 0" (click)="selectModel(null)">
+          <span class="model-option-title"><b>Runner default model</b><i class="studio-badge capability default">default</i></span>
+          <small>No model or thinking override; preserve Runner behavior.</small>
+        </button>
+        @for (candidate of filteredModels(); track candidate.modelId; let index = $index) {
+          <button class="studio-button" type="button" role="option" [id]="optionId(index + 1)" [attr.aria-selected]="selectedModel()?.modelId === candidate.modelId" [class.active-option]="activeModelIndex() === index + 1" (click)="selectModel(candidate)">
+            <span class="model-option-title">
+              <b>{{ candidate.modelId }}</b>
+              <i class="studio-badge capability" [class]="'capability ' + candidate.capabilityTier">{{ candidate.capabilityTier }}</i>
+              @if (candidate.routingStatus === 'fallbackOnly') { <i class="studio-badge route-status">fallback only</i> }
+            </span>
+            <small>{{ candidate.suitability }}</small>
+            <span class="model-evidence">{{ candidate.supportedThinkingLevels.join(' · ') }} · {{ candidate.priceAvailable ? 'priced' : 'price unavailable' }}@if (candidate.provisional) { · provisional }</span>
+          </button>
+        } @empty {
+          <div class="custom-model-hint">No qualified {{ cliType() }} model matches. Keep typing to use a new compatible model id.</div>
+        }
+        <footer>Token Economy policy {{ api.modelCatalog().policyVersion || 'unavailable' }} · free text remains available</footer>
+      </div>
+    }
+  </div>
+  <select class="studio-field" aria-label="Review thinking level" [disabled]="!model().trim()" [ngModel]="thinkingLevel()" (ngModelChange)="setThinkingLevel($event)">
+    <option value="">model default thinking</option>
+    @for (level of thinkingOptions(); track level) { <option [value]="level">{{ level }}</option> }
+  </select>
+  <select class="studio-field" aria-label="Review cap type" [ngModel]="capKind()" (ngModelChange)="setCapKind($event)">
+    <option value="repository">repo cap</option><option value="tokens">tokens</option><option value="cost">cost</option>
+  </select>
+  @if (capKind() === 'tokens') {
+    <span class="cap-field">
+      <input class="studio-field cap-value" aria-label="Review token cap" type="text" inputmode="decimal" autocomplete="off" placeholder="100k" [ngModel]="tokenCapText()" (ngModelChange)="setTokenCapValue($event)" (blur)="normalizeTokenCap()" [attr.aria-invalid]="tokenCapError() ? 'true' : null" />
+      <small [class.invalid]="tokenCapError()">{{ tokenCapError() || 'tokens · k/M' }}</small>
+    </span>
+  } @else if (capKind() === 'cost') {
+    <input class="studio-field cap-value" aria-label="Review cost cap in USD" type="number" min="0.0001" step="0.01" placeholder="USD" [ngModel]="capValue()" (ngModelChange)="setCapValue($event)" />
+  }
+  <label class="force-review"><input class="studio-check" type="checkbox" [ngModel]="force()" (ngModelChange)="setForce($event)" /> Force re-review</label>
+  <button class="studio-button studio-button-primary start-review review-intent" type="button" (click)="prepare()" [disabled]="!node() || !api.connected() || starting() || activeOnNode()">
+    {{ activeOnNode() ? 'Review running' : starting() ? 'Estimating…' : 'Review ' + fileCount() + ' file' + (fileCount() === 1 ? '' : 's') + ' for ' + activeKind() + ' quality' }}
+  </button>
+</div>
+@if (preflight(); as sheet) {
+  <section class="preflight-sheet" aria-label="Review preflight">
+    <header><div><span class="eyebrow">Ready to review</span><strong>{{ api.selectedRepository()?.displayName ?? sheet.repositoryId }}</strong></div><button type="button" class="studio-icon-button preflight-close" aria-label="Close review preflight" (click)="clearPreflight()">×</button></header>
+    <dl class="preflight-facts">
+      <div><dt>Scope</dt><dd><b>{{ sheet.path }}</b><span>{{ sheet.level }} · {{ sheet.kind }}</span></dd></div>
+      <div><dt>Work</dt><dd><b>{{ sheet.estimate.files }} files · {{ sheet.estimate.operations }} operations</b><span>{{ sheet.estimate.expectedFreshSkips }} expected fresh skips</span></dd></div>
+      <div><dt>Route</dt><dd><b>{{ sheet.cliType }} · {{ sheet.model ?? 'Runner default' }} <i class="studio-badge model-source">{{ modelSourceLabel(sheet) }}</i> · {{ sheet.thinkingLevel ?? 'model default' }}</b><span>Recommended: {{ sheet.recommendation.recommendedModel }} / {{ sheet.recommendation.recommendedThinkingLevel }} · {{ sheet.recommendation.capabilityTier }}</span></dd></div>
+      <div><dt>Estimate</dt><dd><b>{{ formatNumber(sheet.estimate.inputTokens) }} input + {{ formatNumber(sheet.estimate.outputTokens) }} output</b><span>{{ costLabel(sheet) }}</span></dd></div>
+      <div><dt>Cap</dt><dd><b>{{ capLabel(sheet) }}</b><span>Applied by the server before work continues</span></dd></div>
+      <div><dt>Method</dt><dd><b>{{ sheet.estimate.historySamples }} history samples</b><span>{{ sheet.estimate.method }}</span></dd></div>
+    </dl>
+    <p class="route-reason"><b>Policy {{ sheet.recommendation.policyVersion }} · score {{ sheet.recommendation.score }} · floor {{ sheet.recommendation.correctnessFloor }}</b><span>{{ sheet.recommendation.reason }}</span></p>
+    <p class="estimate-uncertainty">Estimate only: tokenizer behavior, context, and response length can change actual usage.</p>
+    @if (sheet.overrideBelowFloor) {
+      <div class="floor-warning" role="alert"><b>Below the correctness floor</b><span>This explicit route is weaker than {{ sheet.recommendation.correctnessFloor }}. Starting records an explicit override; quota and cost did not lower the floor.</span></div>
+    }
+    <footer>
+      <button type="button" class="studio-button use-recommendation" (click)="useRecommendation()">Use recommendation</button>
+      <button type="button" class="studio-button studio-button-primary start-review" (click)="start()" [disabled]="starting()">{{ starting() ? 'Queuing…' : sheet.overrideBelowFloor ? 'Confirm override and start' : 'Start review' }}</button>
+    </footer>
+  </section>
+}
+}
+@if (resumingRun(); as capped) {
+  <qs-resume-cap-dialog [run]="capped" (submitted)="applyResumeCap($event)" (cancelled)="resumingRun.set(null)" />
+}

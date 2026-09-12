@@ -1,11 +1,11 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
-    <Project Path="src/quality-cli/quality-cli.csproj" />
-    <Project Path="src/QualityStudio.Api/QualityStudio.Api.csproj" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj" />
+    <Project Path="backend/src/quality-cli/quality-cli.csproj" />
+    <Project Path="backend/src/QualityStudio.Api/QualityStudio.Api.csproj" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj" />
-    <Project Path="tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj" />
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj" />
+    <Project Path="backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj" />
   </Folder>
 </Solution>

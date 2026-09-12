@@ -1,0 +1,590 @@
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+
+import { QualityApi } from './quality-api';
+import { ProjectDashboard, ResolvedInputs, ReviewRun, TreeNode } from '../models/contracts';
+
+describe('QualityApi', () => {
+  let api: QualityApi;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    localStorage.removeItem('qs-last-repository');
+    TestBed.configureTestingModule({
+      providers: [QualityApi, provideHttpClient(), provideHttpClientTesting()],
+    });
+    api = TestBed.inject(QualityApi);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('resolves exact file links without replacing the explorer filter and retains them after it clears', async () => {
+    const filterRows = [{ id: 'filter', name: 'Filter match', level: 'file', path: 'other.cs', kinds: {}, children: [] }] satisfies TreeNode[];
+    api.treeSearchResults.set(filterRows);
+    const resolving = api.resolveNode('deep/Coverage.cs');
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200').flush({ nodes: [
+      { id: 'partial', name: 'Partial match', level: 'file', path: 'deep/Coverage.cs.meta.json', kinds: {}, children: [] },
+      { id: 'target', name: 'Coverage.cs', level: 'file', path: 'deep/Coverage.cs', kinds: {}, children: [] },
+    ] });
+    expect((await resolving)?.id).toBe('target');
+    expect(api.treeSearchResults()).toBe(filterRows);
+    await api.searchTree('');
+    expect((await api.resolveNode('deep/Coverage.cs'))?.id).toBe('target');
+    http.expectNone(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200');
+  });
+
+  it('fills a namespace reached only through startup search with its direct children', async () => {
+    const path = 'frontend/src/app/features/code/editor';
+    const searching = api.searchTree(path);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search').flush({ nodes: [
+      { id: 'editor-folder', name: path, path, level: 'namespace', kinds: {},
+        hasChildren: true, childCount: 1, children: [] },
+    ] });
+    await searching;
+    expect(api.tree()).toEqual([]);
+    const loading = api.loadTreeChildren(api.nodeAt(path)!);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2' && request.params.get('parentId') === 'editor-folder')
+      .flush({ schemaVersion: 2, parentId: 'editor-folder', path, offset: 0, limit: 500, nextCursor: null,
+        nodes: [{ id: 'editor-file', name: 'editor.ts', path: path + '/editor.ts', level: 'file', kinds: {},
+          hasChildren: false, childCount: 0, children: [] }] });
+    await loading;
+
+    expect(api.nodeAt(path)?.childrenLoaded).toBeTrue();
+    expect(api.nodeAt(path)?.children.map(child => child.path)).toEqual([path + '/editor.ts']);
+    expect(api.treeSearchResults()[0].children[0].id).toBe('editor-file');
+    await api.loadTreeChildren(api.nodeAt(path)!);
+    http.expectNone(request => request.url === '/api/repos/default/tree/v2');
+  });
+
+  it('ignores a navigation target that resolves after the selected repository changed', async () => {
+    const resolving = api.resolveNode('deep/Coverage.cs');
+    api.selectedRepositoryId.set('other');
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search' && request.params.get('query') === 'deep/Coverage.cs' && request.params.get('limit') === '200').flush({ nodes: [
+      { id: 'target', name: 'Coverage.cs', level: 'file', path: 'deep/Coverage.cs', kinds: {}, children: [] },
+    ] });
+    expect(await resolving).toBeUndefined();
+    expect(api.nodesByPath().has('deep/Coverage.cs')).toBeFalse();
+  });
+
+  it('reuses a retained tree snapshot on 304 and completes the live transition', async () => {
+    const retainedNodes = [{ id: 'old', name: 'Old tree', level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[];
+    const initial = api.loadTree('default', false, 'src/app');
+    const initialRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
+    initialRequest.flush({ nodes: retainedNodes }, { headers: { ETag: '"tree-v1"' } });
+    await initial;
+
+    api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
+    api.connectionState.set('connecting');
+    const revalidation = api.loadTree('default', false, 'src/app');
+    const conditionalRequest = http.expectOne('/api/repos/default/tree?path=src%2Fapp');
+    expect(conditionalRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    conditionalRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"tree-v1"' } });
+    await revalidation;
+
+    expect(api.tree()).toBe(retainedNodes);
+    expect(api.connectionState()).toBe('live');
+    expect(api.repositoryTransition()).toBeNull();
+  });
+
+  it('keys retained tree ETags by both repository and requested path', async () => {
+    const first = api.loadTree('default', false, 'src/first');
+    http.expectOne('/api/repos/default/tree?path=src%2Ffirst')
+      .flush({ nodes: [] }, { headers: { ETag: '"first-path"' } });
+    await first;
+
+    const otherPath = api.loadTree('default', false, 'src/second');
+    const otherPathRequest = http.expectOne('/api/repos/default/tree?path=src%2Fsecond');
+    expect(otherPathRequest.request.headers.has('If-None-Match')).toBeFalse();
+    otherPathRequest.flush({ nodes: [] }, { headers: { ETag: '"second-path"' } });
+    await otherPath;
+
+    const firstAgain = api.loadTree('default', false, 'src/first');
+    const firstAgainRequest = http.expectOne('/api/repos/default/tree?path=src%2Ffirst');
+    expect(firstAgainRequest.request.headers.get('If-None-Match')).toBe('"first-path"');
+    firstAgainRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await firstAgain;
+  });
+
+  it('revalidates the root level conditionally, replacing it only on a changed response', async () => {
+    const level = (id: string) => ({
+      schemaVersion: 2, parentId: null, path: '.', offset: 0, limit: 500, nextCursor: null,
+      nodes: [{ id, name: id, level: 'project', path: '.', kinds: {}, children: [] }] satisfies TreeNode[],
+    });
+    const initial = api.loadTree('default', false);
+    const initialRequest = http.expectOne('/api/repos/default/tree/v2?limit=500');
+    expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
+    initialRequest.flush(level('old'), { headers: { ETag: '"tree-v1"' } });
+    await initial;
+    expect(api.tree().map(node => node.id)).toEqual(['old']);
+
+    const changed = api.loadTree('default', false);
+    const changedRequest = http.expectOne('/api/repos/default/tree/v2?limit=500');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"tree-v1"');
+    changedRequest.flush(level('fresh'), { headers: { ETag: '"tree-v2"' } });
+    await changed;
+    expect(api.tree().map(node => node.id)).toEqual(['fresh']);
+
+    const verifyTag = api.loadTree('default', false);
+    const verifyRequest = http.expectOne('/api/repos/default/tree/v2?limit=500');
+    expect(verifyRequest.request.headers.get('If-None-Match')).toBe('"tree-v2"');
+    verifyRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await verifyTag;
+    expect(api.tree().map(node => node.id)).toEqual(['fresh']);
+  });
+
+  it('falls back to the recursive route when a server does not know the versioned contract', async () => {
+    const loading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500')
+      .flush({ detail: 'Not found.' }, { status: 404, statusText: 'Not Found' });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/default/tree?path=').flush({
+      nodes: [{ id: 'project', name: 'Project', level: 'project', path: '.', kinds: {},
+        children: [{ id: 'child', name: 'Child', level: 'module', path: 'child', kinds: {}, children: [] }] }],
+    });
+    await loading;
+
+    expect(api.tree()[0].childrenLoaded).toBeTrue();
+    expect(api.tree()[0].children[0].childrenLoaded).toBeTrue();
+    expect(api.connectionState()).toBe('live');
+  });
+
+  it('conditionally revalidates dashboards, retaining 304 snapshots and replacing changed 200 responses', async () => {
+    const retained = { generatedAt: '2026-08-11T10:00:00Z', metrics: { fileCount: 5_116 } } as ProjectDashboard;
+    const fresh = { generatedAt: '2026-08-11T10:05:00Z', metrics: { fileCount: 5_117 } } as ProjectDashboard;
+    const initial = api.loadProjectDashboard('default');
+    const initialRequest = http.expectOne('/api/repos/default/project');
+    expect(initialRequest.request.headers.has('If-None-Match')).toBeFalse();
+    initialRequest.flush(retained, { headers: { ETag: '"project-v1"' } });
+    await initial;
+
+    api.repositoryTransition.set({ repositoryId: 'default', hasSnapshot: true });
+    api.connectionState.set('connecting');
+    const unchanged = api.loadProjectDashboard('default');
+    const unchangedRequest = http.expectOne('/api/repos/default/project');
+    expect(unchangedRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    unchangedRequest.flush(null, { status: 304, statusText: 'Not Modified', headers: { ETag: '"project-v1"' } });
+    await unchanged;
+    expect(api.project()).toBe(retained);
+    expect(api.connectionState()).toBe('live');
+    expect(api.repositoryTransition()).toBeNull();
+
+    const changed = api.loadProjectDashboard('default');
+    const changedRequest = http.expectOne('/api/repos/default/project');
+    expect(changedRequest.request.headers.get('If-None-Match')).toBe('"project-v1"');
+    changedRequest.flush(fresh, { headers: { ETag: '"project-v2"' } });
+    await changed;
+    expect(api.project()).toBe(fresh);
+
+    const verifyTag = api.loadProjectDashboard('default');
+    const verifyRequest = http.expectOne('/api/repos/default/project');
+    expect(verifyRequest.request.headers.get('If-None-Match')).toBe('"project-v2"');
+    verifyRequest.flush(null, { status: 304, statusText: 'Not Modified' });
+    await verifyTag;
+  });
+
+  it('selects the preferred repository restored by the application session', async () => {
+    const loading = api.loadRepositories('agent-studio');
+    http.expectOne('/api/repos').flush({
+      repositories: [
+        { id: 'default', displayName: 'Quality Studio', rootPath: '/work/quality-studio', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null },
+        { id: 'agent-studio', displayName: 'Agent Studio', rootPath: 'C:\\Projects\\agent-taskboard-devspace\\agent-taskboard', globalInputsDirectory: null, inputBudgetCharacters: 12000, enabledReviewKinds: ['code'], archived: false, defaultReviewTokenCap: 100000, defaultReviewCostCap: null },
+      ],
+      defaultRepositoryId: 'default',
+    });
+    await loading;
+
+    expect(api.selectedRepositoryId()).toBe('agent-studio');
+    expect(api.selectedRepository()?.displayName).toBe('Agent Studio');
+  });
+
+  it('keeps the API unavailable when only the tree recovers but the registry is still missing', async () => {
+    const repositories = api.loadRepositories();
+    http.expectOne('/api/repos').error(new ProgressEvent('error'));
+    await repositories;
+
+    expect(api.connectionState()).toBe('offline');
+
+    const retry = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
+    await retry;
+
+    expect(api.connectionState()).toBe('offline');
+    expect(api.repositories()).toEqual([]);
+  });
+
+  it('reloads the repository registry, dashboard, and supporting data on reconnect', async () => {
+    const initial = api.loadRepositories();
+    http.expectOne('/api/repos').error(new ProgressEvent('error'));
+    await initial;
+
+    const retry = api.retryConnection();
+    expect(api.retryingConnection()).toBeTrue();
+    expect(api.connectionState()).toBe('offline');
+    expect(api.retryConnection()).withContext('one shared reconnect request').toBe(retry);
+    http.expectOne('/api/repos').flush({ repositories: [
+      { id: 'restored', displayName: 'Restored repository', rootPath: '/work/restored' },
+    ], defaultRepositoryId: 'restored' });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/restored/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null,
+      nodes: [{ id: 'project', name: 'Restored project', path: '.', level: 'project', kinds: {}, children: [] }] });
+    http.expectOne('/api/repos/restored/project').flush({ generatedAt: '2026-09-12T10:00:00Z', metrics: { fileCount: 12 } });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/restored/scan').flush({ files: [] });
+    http.expectOne('/api/repos/restored/inputs').flush({ kinds: {} });
+    http.expectOne('/api/repos/restored/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+    http.expectOne('/api/repos/restored/risk?days=90').flush({ rows: [], matrix: [] });
+    http.expectOne('/api/repos/restored/findings/suppressions').flush({ schemaVersion: 1, revision: 0, rules: [] });
+    http.expectOne('/api/models').flush({ models: [], thinkingLevels: [] });
+    http.expectOne('/api/repos/restored/review/runs').flush({ runs: [] });
+    http.expectOne('/api/repos/restored/usage').flush({ runs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
+    http.expectOne('/api/quotas').flush({ providers: [] });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/restored/handover').flush({ targetConfigured: false, dryRun: true });
+    await retry;
+
+    expect(api.connectionState()).toBe('live');
+    expect(api.connectionError()).toBe('');
+    expect(api.retryingConnection()).toBeFalse();
+    expect(api.selectedRepository()?.displayName).toBe('Restored repository');
+    expect(api.tree()[0].name).toBe('Restored project');
+    expect(api.project()?.metrics.fileCount).toBe(12);
+  });
+
+  it('keeps the offline state when retry cannot reload the registry', async () => {
+    api.connectionState.set('offline');
+    const retry = api.retryConnection();
+    http.expectOne('/api/repos').flush(null, { status: 503, statusText: 'Unavailable' });
+    await retry;
+    expect(api.connectionState()).toBe('offline');
+    expect(api.retryingConnection()).toBeFalse();
+    http.expectNone('/api/repos/default/tree/v2?limit=500');
+  });
+
+  it('loads resolved review inputs with the repository data', async () => {
+    const input: ResolvedInputs = {
+      kind: 'code',
+      level: 'file',
+      budgetCharacters: 12000,
+      includedCharacters: 18,
+      complete: true,
+      inputs: [{
+        id: 'code-style',
+        source: '/global/code-style.md',
+        scope: 'global',
+        priority: 10,
+        includedContent: 'Prefer clear names.',
+        content: 'Prefer clear names.',
+        truncated: false,
+      }],
+      omissions: [],
+    };
+
+    const loading = api.loadTree();
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+      path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
+    http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+    http.expectOne('/api/repos/default/inputs').flush({ kinds: { code: input } });
+    http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+    http.expectOne('/api/repos/default/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+    http.expectOne('/api/repos/default/findings/suppressions').flush({ schemaVersion: 1, revision: 0, rules: [] });
+
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
+    await loading;
+
+    expect(api.connected()).toBeTrue();
+    expect(api.connectionState()).toBe('live');
+    expect(api.connectionLabel()).toBe('Repository connected');
+    expect(api.inputs().code).toEqual(input);
+    expect(api.inputs().code?.inputs[0].id).toBe('code-style');
+  });
+
+  it('renders a status-aware error instead of foreign content when a file lookup fails', async () => {
+    await connect(api, http);
+
+    const notFound = api.loadFile('missing.cs');
+    http.expectOne('/api/repos/default/file?path=missing.cs')
+      .flush({ detail: 'No review unit for missing.cs.' }, { status: 404, statusText: 'Not Found' });
+    await notFound;
+
+    expect(api.file()).toBeNull();
+    expect(api.fileError()?.kind).toBe('out-of-scope');
+    expect(api.fileError()?.status).toBe(404);
+    expect(api.fileError()?.detail).toBe('No review unit for missing.cs.');
+    expect(api.fileError()?.retryable).toBeFalse();
+    expect(api.connectionState()).toBe('live');
+    expect(api.preview()).toBeFalse();
+  });
+
+  it('separates denied access, oversized documents, and retryable server failures', async () => {
+    await connect(api, http);
+
+    for (const [status, kind, retryable] of [[401, 'unauthorized', false], [403, 'forbidden', false],
+      [413, 'too-large', false], [503, 'unavailable', true]] as const) {
+      const loading = api.loadFile(`case-${status}.cs`);
+      http.expectOne(`/api/repos/default/file?path=case-${status}.cs`)
+        .flush('failed', { status, statusText: 'Failed' });
+      await loading;
+      expect(api.file()).withContext(`status ${status}`).toBeNull();
+      expect(api.fileError()?.kind).withContext(`status ${status}`).toBe(kind);
+      expect(api.fileError()?.retryable).withContext(`status ${status}`).toBe(retryable);
+    }
+  });
+
+  it('clears the error state when a later file request succeeds', async () => {
+    await connect(api, http);
+
+    const failing = api.loadFile('missing.cs');
+    http.expectOne('/api/repos/default/file?path=missing.cs').flush('missing', { status: 404, statusText: 'Not Found' });
+    await failing;
+    expect(api.fileError()).not.toBeNull();
+
+    const succeeding = api.loadFile('src/Program.cs');
+    http.expectOne('/api/repos/default/file?path=src/Program.cs').flush({
+      path: 'src/Program.cs', content: 'var app = 1;', metaDocuments: [], sizeBytes: 12, lineEnding: 'lf', encoding: 'utf-8',
+    });
+    await succeeding;
+
+    expect(api.fileError()).toBeNull();
+    expect(api.file()?.content).toBe('var app = 1;');
+  });
+
+  it('shows API unavailability without inventing tree or source data', async () => {
+    const treeLoading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await treeLoading;
+
+    expect(api.connectionState()).toBe('offline');
+    expect(api.preview()).toBeFalse();
+    expect(api.tree()).toEqual([]);
+
+    const fileLoading = api.loadFile('src/QualityStudio.Api/Program.cs');
+    http.expectOne('/api/repos/default/file?path=src/QualityStudio.Api/Program.cs')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await fileLoading;
+
+    expect(api.fileError()?.kind).toBe('unavailable');
+    expect(api.file()).toBeNull();
+    expect(api.connectionLabel()).toBe('API offline');
+  });
+
+  it('keeps the tree empty and names the reason when a reachable API rejects it', async () => {
+    const treeLoading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500')
+      .flush({ detail: 'Repository root is not readable.' }, { status: 500, statusText: 'Server Error' });
+    await treeLoading;
+
+    expect(api.tree()).toEqual([]);
+    expect(api.connectionState()).toBe('offline');
+    expect(api.preview()).toBeFalse();
+    expect(api.connectionError()).toBe('Repository root is not readable.');
+  });
+
+  it('keeps polling review runs while the connection is down and resumes when it returns', async () => {
+    api.connectionState.set('preview');
+    api.reviewRuns.set([{ id: 'run-1', state: 'running' } as ReviewRun]);
+
+    const failing = api.loadReviewRuns();
+    http.expectOne('/api/repos/default/review/runs')
+      .error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    await failing;
+
+    expect(api.reviewError()).toBe('The API is not reachable. Check that the Quality Studio API is running.');
+
+    // The poll no longer refuses to run because the connection state is not live.
+    const retrying = api.loadReviewRuns();
+    http.expectOne('/api/repos/default/review/runs').flush({ runs: [{ id: 'run-1', state: 'running', totalFiles: 4, completedFiles: 2 }] });
+    await retrying;
+
+    expect(api.reviewRuns()[0].completedFiles).toBe(2);
+  });
+
+  it('loads usage without waiting for the connection state to be live', async () => {
+    api.connectionState.set('preview');
+
+    const loading = api.loadUsage();
+    http.expectOne(request => request.url === '/api/repos/default/usage').flush({
+      generatedAt: '2026-09-06T10:00:00Z', runs: 1, inputTokens: 7, outputTokens: 3,
+      cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 10,
+      byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [],
+    });
+    await loading;
+
+    expect(api.usage().inputTokens).toBe(7);
+  });
+
+  it('loads and merges paged children only when a lazy container expands', async () => {
+    const root: TreeNode = {
+      id: 'project', name: 'Project', level: 'project', path: 'Project.slnx', kinds: {},
+      hasChildren: true, childCount: 2, childrenLoaded: false, children: [],
+    };
+    api.tree.set([root]);
+
+    const loading = api.loadTreeChildren(root);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('limit') === '500'
+      && request.params.get('parentId') === 'project'
+      && request.params.get('cursor') === null).flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 0, limit: 500,
+      nextCursor: 'tree-v2:1', nodes: [{ id: 'one', parentId: 'project', name: 'One', level: 'module',
+          path: 'one', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('cursor') === 'tree-v2:1').flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', offset: 1, limit: 500,
+        nextCursor: null, nodes: [{ id: 'two', parentId: 'project', name: 'Two', level: 'module',
+          path: 'two', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await loading;
+
+    expect(api.tree()[0].childrenLoaded).toBeTrue();
+    expect(api.tree()[0].children.map(child => child.id)).toEqual(['one', 'two']);
+    expect(api.treeChildrenLoading().size).toBe(0);
+  });
+
+  it('pins lazy children to the immutable root snapshot', async () => {
+    const root: TreeNode = {
+      id: 'project', name: 'Project', level: 'project', path: 'Project.slnx', kinds: {},
+      hasChildren: true, childCount: 1, childrenLoaded: false, children: [],
+    };
+    const rootLoading = api.loadTree('default', false);
+    http.expectOne('/api/repos/default/tree/v2?limit=500').flush({
+      schemaVersion: 2, parentId: null, path: '.', snapshotEtag: '"snapshot-1"',
+      offset: 0, limit: 500, nextCursor: null, nodes: [root],
+    });
+    await rootLoading;
+
+    const childLoading = api.loadTreeChildren(api.tree()[0]);
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2'
+      && request.params.get('parentId') === 'project'
+      && request.params.get('snapshot') === '"snapshot-1"').flush({
+        schemaVersion: 2, parentId: 'project', path: 'Project.slnx', snapshotEtag: '"snapshot-1"',
+        offset: 0, limit: 500, nextCursor: null, nodes: [{ id: 'child', parentId: 'project',
+          name: 'Child', level: 'module', path: 'child', kinds: {}, hasChildren: false,
+          childCount: 0, children: [] }],
+      });
+    await childLoading;
+
+    expect(api.tree()[0].children.map(child => child.id)).toEqual(['child']);
+  });
+
+  it('searches unloaded tree nodes through the bounded v2 search route', async () => {
+    const searching = api.searchTree('Program.cs');
+    http.expectOne(request => request.url === '/api/repos/default/tree/v2/search'
+      && request.params.get('query') === 'Program.cs'
+      && request.params.get('limit') === '200').flush({
+        schemaVersion: 2, parentId: null, path: 'search:Program.cs', offset: 0, limit: 200,
+        nextCursor: null, nodes: [{ id: 'program', parentId: 'api', name: 'Program.cs', level: 'file',
+          path: 'src/QualityStudio.Api/Program.cs', kinds: {}, hasChildren: false, childCount: 0, children: [] }],
+      });
+    await searching;
+
+    expect(api.treeSearchResults().map(node => node.path)).toEqual(['src/QualityStudio.Api/Program.cs']);
+  });
+
+  it('imports repositories from Agent Studio and refreshes the registry', async () => {
+    const importing = api.importFromAgentStudio();
+    http.expectOne('/api/repos/import-from-agent-studio').flush({
+      results: [
+        { projectId: 'PROJ-002', displayName: 'Agent Studio', repositoryPath: 'C:\\Projects\\agent-taskboard-dev', status: 'imported', repositoryId: 'agent-studio', reason: null },
+        { projectId: 'PROJ-016', displayName: 'Quality Studio', repositoryPath: 'C:\\Projects\\quality-studio', status: 'skipped', repositoryId: null, reason: 'Already registered.' },
+      ],
+      imported: 1,
+      skipped: 1,
+      failed: 0,
+    });
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/repos').flush({ repositories: [], defaultRepositoryId: 'default' });
+
+    const result = await importing;
+
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.results[0].status).toBe('imported');
+    expect(result.results[1].reason).toBe('Already registered.');
+  });
+
+  it('loads repository usage and global provider quotas', async () => {
+    api.connectionState.set('live');
+    const usageLoading = api.loadUsage(undefined, 'code');
+    http.expectOne(request => request.url === '/api/repos/default/usage' && request.params.get('kind') === 'code').flush({
+      generatedAt: '2026-07-21T10:00:00Z', runs: 1, inputTokens: 100, outputTokens: 20,
+      cachedInputTokens: 50, reasoningOutputTokens: 5, durationMs: 900,
+      byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [],
+    });
+    await usageLoading;
+
+    const quotaLoading = api.loadQuotas();
+    http.expectOne('/api/quotas').flush({ at: '2026-07-21T10:00:00Z', ttlSeconds: 600, providers: [{
+      provider: 'codex', plan: 'pro', fetchedAt: '2026-07-21T10:00:00Z', source: 'session-log', error: null,
+      windows: [{ label: '5-hour', usedPct: 25, remainingPct: 75, used: null, limit: null, unit: '%', resetAt: null, resetLabel: 'in 2h' }],
+    }] });
+    await quotaLoading;
+
+    expect(api.usage().inputTokens).toBe(100);
+    expect(api.quotas().providers[0].windows[0].remainingPct).toBe(75);
+  });
+
+  it('loads the governed model catalog for review pickers', async () => {
+    const loading = api.loadModelCatalog();
+    http.expectOne('/api/models').flush({
+      schemaVersion: 1,
+      policyVersion: '2026-07-24',
+      evidenceAsOfDate: '2026-07-24',
+      sourceRepository: 'agent-orc/token-economy',
+      sourceCommit: 'abc',
+      thinkingLevels: ['medium', 'high'],
+      models: [{
+        modelId: 'gpt-5.6-sol', aliases: ['sol'], cliType: 'codex', capabilityTier: 'frontier',
+        suitability: 'Demanding reviews.', routingStatus: 'selectable', supportedThinkingLevels: ['medium', 'high'],
+        provisional: false, evidenceStatus: 'observational', note: 'Evidence note.', priceAvailable: false,
+        availableForNewRuns: true,
+      }],
+    });
+    await loading;
+
+    expect(api.modelCatalog().policyVersion).toBe('2026-07-24');
+    expect(api.modelCatalog().models[0].capabilityTier).toBe('frontier');
+  });
+
+  it('loads canonical run reports and same-scope trend pages from repository routes', async () => {
+    const reportLoading = api.loadRunReport('run / 1');
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/run%20%2F%201/report'
+      && request.params.get('format') === 'json').flush({ run: { id: 'run / 1' } });
+    expect((await reportLoading).run.id).toBe('run / 1');
+
+    const trendLoading = api.loadRunTrend('security', 'scope:src/A.cs', 'file', '30');
+    http.expectOne(request => request.url === '/api/repos/default/review/runs/trend'
+      && request.params.get('kind') === 'security'
+      && request.params.get('scopeUnitId') === 'scope:src/A.cs'
+      && request.params.get('level') === 'file'
+      && request.params.get('cursor') === '30'
+      && request.params.get('limit') === '30').flush({ points: [], nextCursor: null });
+    expect((await trendLoading).points).toEqual([]);
+
+    expect(api.runReportUrl('run / 1', 'sarif')).toBe('/api/repos/default/review/runs/run%20%2F%201/report?format=sarif');
+    expect(api.runReportFileName('run-1', 'markdown')).toBe('quality-run-run-1.md');
+  });
+});
+
+/** Brings the service to a live connection so file-level behaviour can be asserted on its own. */
+async function connect(api: QualityApi, http: HttpTestingController): Promise<void> {
+  const loading = api.loadTree();
+  http.expectOne('/api/repos/default/tree/v2?limit=500').flush({ schemaVersion: 2, parentId: null,
+    path: '.', offset: 0, limit: 500, nextCursor: null, nodes: [] satisfies TreeNode[] });
+  http.expectOne('/api/repos/default/scan').flush({ files: [], freshCount: 0, staleCount: 0, policyDriftCount: 0, missingCount: 0 });
+  http.expectOne('/api/repos/default/inputs').flush({ kinds: {} });
+  http.expectOne('/api/repos/default/guidelines').flush({ guidelines: [], catalogue: [], traces: [] });
+  http.expectOne('/api/repos/default/risk?days=90').flush({ days: 90, currentCommit: null, rows: [], matrix: [] });
+  http.expectOne('/api/repos/default/findings/suppressions').flush({ schemaVersion: 1, revision: 0, rules: [] });
+  await new Promise(resolve => setTimeout(resolve));
+  http.expectOne('/api/repos/default/handover').flush({ targetConfigured: false, dryRun: true });
+  await loading;
+}

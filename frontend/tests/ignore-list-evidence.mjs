@@ -14,7 +14,7 @@ const stage = process.env.QS_EVIDENCE_STAGE ?? 'after';
 if (stage !== 'before' && stage !== 'after') throw new Error(`QS_EVIDENCE_STAGE must be 'before' or 'after'; got '${stage}'.`);
 const executablePath = process.env.CHROME_BIN || chromium.executablePath();
 
-const path = 'src/QualityStudio.Api/Program.cs';
+const path = 'backend/src/QualityStudio.Api/Program.cs';
 const source = [
   'using System;',
   '',

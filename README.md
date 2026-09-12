@@ -142,8 +142,8 @@ or `QUALITY_STUDIO_DATA_ROOT` to place it elsewhere. Nothing the studio generate
 A checkout written by an earlier version is migrated once:
 
 ```shell
-dotnet run --project src/quality-cli -- migrate-data . --dry-run
-dotnet run --project src/quality-cli -- migrate-data .
+dotnet run --project backend/src/quality-cli -- migrate-data . --dry-run
+dotnet run --project backend/src/quality-cli -- migrate-data .
 ```
 
 See [`docs/data-root.md`](docs/data-root.md) for the contract, the identity rule, what stays in the
@@ -167,7 +167,7 @@ metadata. It respects `.gitignore`, hashes content only when a matching sidecar
 exists, and returns exit code `1` when any review is stale (`2` for scan errors).
 
 ```shell
-dotnet run --project src/quality-cli -- scan . --include "**/*.cs"
+dotnet run --project backend/src/quality-cli -- scan . --include "**/*.cs"
 ```
 
 The default globs cover common programming and web source extensions. Repeat
@@ -180,7 +180,7 @@ Derive the repository's externally callable, host, browser, process, filesystem,
 and caller-influenced outbound surfaces and run the standard mechanical checks:
 
 ```shell
-dotnet run --project src/quality-cli -- boundaries scan .
+dotnet run --project backend/src/quality-cli -- boundaries scan .
 ```
 
 The stable result is written to `boundaries/inventory.json` in the project's data
@@ -194,8 +194,8 @@ Review one merge range, or backfill an integration trajectory, without sweeping
 untouched units:
 
 ```shell
-dotnet run --project src/quality-cli -- diff . --base <base> --head <head> --fail-on-regression
-dotnet run --project src/quality-cli -- diff . --last 20
+dotnet run --project backend/src/quality-cli -- diff . --base <base> --head <head> --fail-on-regression
+dotnet run --project backend/src/quality-cli -- diff . --last 20
 ```
 
 Change truth is written under `changes/` in the project's data root. See
@@ -209,7 +209,7 @@ Run the deterministic Gitleaks sensor to produce structured security findings an
 repository-owned security review sidecars:
 
 ```shell
-dotnet run --project src/quality-cli -- security scan .
+dotnet run --project backend/src/quality-cli -- security scan .
 ```
 
 Use `--mode range --range main..HEAD` for a commit range or `--mode staged` for
@@ -256,8 +256,8 @@ Export the project scorecard, Git-backed score trend, findings, coverage, sensor
 posture, and registry comparison as Markdown, HTML, JSON, or SARIF:
 
 ```shell
-dotnet run --project src/quality-cli -- report . --format sarif --output quality-report.sarif
-dotnet run --project src/quality-cli -- report . --run <run-id> --format html --output quality-run.html
+dotnet run --project backend/src/quality-cli -- report . --format sarif --output quality-report.sarif
+dotnet run --project backend/src/quality-cli -- report . --run <run-id> --format html --output quality-run.html
 ```
 
 Run-scoped exports render the exact terminal snapshot captured under `reports/runs/`
@@ -273,10 +273,10 @@ pipeline steps, the CLI, and CI hosts that already own a repository checkout.
 Run the real CLI proof without starting the API or UI:
 
 ```shell
-dotnet run --project src/quality-cli -- analyze . --analysis boundaries
+dotnet run --project backend/src/quality-cli -- analyze . --analysis boundaries
 ```
 
-See the [package README](src/AgentOrchestrator.CodeQuality/README.md) for the
+See the [package README](backend/src/AgentOrchestrator.CodeQuality/README.md) for the
 programmatic surface and the
 [analysis-core dossier](docs/operations/analysis-core-package/index.html) for
 the dependency inventory, standalone consumers, and repository-extraction
@@ -284,12 +284,38 @@ criteria.
 
 ## Repository layout
 
-- `src/AgentOrchestrator.CodeQuality/` contains the publishable in-process analysis package.
-- [`rules/`](rules/README.md) holds the authored named-rule library and its change history.
-- `tests/AgentOrchestrator.CodeQuality.Tests/` contains its xUnit test suite.
-- [`docs/operations/style-guide/`](docs/operations/style-guide/index.html) is the living visual standard for Quality Studio controls and applied admin surfaces.
-- `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
-- `Dockerfile`, `.dockerignore` and `docker-compose.yml` build and run the single-container host.
+Backend and frontend each own their source code and tests. Repository-wide contracts,
+documentation, rule content and development tooling stay at the root:
+
+```text
+backend/
+  src/
+    AgentOrchestrator.CodeQuality/  # publishable .NET analysis package
+    QualityStudio.Api/             # ASP.NET Core host
+    quality-cli/                   # command-line host
+  tests/                          # .NET test projects and shared fixtures
+frontend/
+  src/                            # Angular application and unit tests
+  tests/                          # browser integration and performance checks
+tests/                            # repository tooling tests and coverage baseline
+scripts/                          # launcher, catalogue synchronization and measurements
+rules/                            # authored review rules
+schemas/                          # shared versioned data contracts
+samples/                          # contract examples
+docs/                             # architecture, API, operations and visual standards
+QualityStudio.slnx                # root entry point for every .NET project
+Directory.Build.props             # shared .NET build settings
+```
+
+Run `dotnet build QualityStudio.slnx` and `dotnet test QualityStudio.slnx` from the
+repository root. Run Angular commands from `frontend/`; `npm start` at the root starts
+the complete development stack. Generated `bin/`, `obj/` and local server state remain
+ignored and are never part of the source layout.
+
+See the [frontend architecture](frontend/README.md), [review-rule library](rules/README.md),
+and [visual standard](docs/operations/style-guide/index.html) for their conventions.
+`.github/workflows/build.yml` validates the full repository; `Dockerfile`,
+`.dockerignore` and `docker-compose.yml` build and run the single-container host.
 
 ## Minimal API
 

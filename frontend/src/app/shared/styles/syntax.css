@@ -1,0 +1,66 @@
+/* Worker-produced code spans share the editor syntax palette. */
+.tok-comment {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.tok-string,.tok-regex {
+  color: var(--syntax-string);
+}
+
+.tok-keyword {
+  color: var(--syntax-keyword);
+}
+
+.tok-number,.tok-boolean {
+  color: var(--syntax-number);
+}
+
+.tok-operator {
+  color: var(--syntax-operator);
+}
+
+.tok-punctuation {
+  color: var(--syntax-punctuation);
+}
+
+.tok-function {
+  color: var(--syntax-function);
+}
+
+.tok-type,.tok-tag {
+  color: var(--syntax-type);
+}
+
+.tok-property,.tok-attribute,.tok-selector {
+  color: var(--syntax-property);
+}
+
+.tok-variable {
+  color: var(--syntax-variable);
+}
+
+.tok-heading {
+  color: var(--syntax-heading);
+  font-weight: 700;
+}
+
+.tok-strong {
+  color: var(--syntax-strong);
+  font-weight: 700;
+}
+
+.tok-emphasis {
+  color: var(--syntax-emphasis);
+  font-style: italic;
+}
+
+.tok-selected {
+  background: color-mix(in srgb,var(--finding-span-selected) 32%,transparent);
+  box-shadow: inset 0 -2px var(--finding-span-selected);
+}
+
+.tok-overlap {
+  background: color-mix(in srgb,var(--finding-span-overlap) 26%,transparent);
+  box-shadow: inset 0 -2px var(--finding-span-overlap);
+}

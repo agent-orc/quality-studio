@@ -14,7 +14,7 @@ git history and can be reviewed like any other change.
 | Authoring | `rules/<technology>/<id>-<slug>.md`, this tree |
 | Generation | [`scripts/sync-rule-catalogue.mjs`](../scripts/sync-rule-catalogue.mjs) (`npm run rules:sync`) |
 | Contract | [`schemas/rule-catalogue.v1.schema.json`](../schemas/rule-catalogue.v1.schema.json) |
-| Generated catalogue | `src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json`, committed |
+| Generated catalogue | `backend/src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json`, committed |
 | Load | embedded resource in the analysis-core assembly, read once per process by `RuleCatalogueResolver` |
 | Injection | `InputResolver` renders the effective rules as built-in review inputs |
 | Inspection | `GET /api/rules`, `GET /api/repos/{repoId}/rules` |
@@ -128,7 +128,7 @@ disabling one rule and softening another's severity:
 
 ## Review integration
 
-`RuleCatalogueResolver` (`src/AgentOrchestrator.CodeQuality/RuleLibrary.cs`) resolves the
+`RuleCatalogueResolver` (`backend/src/AgentOrchestrator.CodeQuality/RuleLibrary.cs`) resolves the
 effective rule set (built-in + overrides). `InputResolver` renders each enabled, applicable rule
 as a built-in-scope review input with its own `## QS-NG-001`-style heading, and the existing
 prompt-budget machinery carries it into the review prompt unchanged — no prompt template knows
@@ -167,7 +167,7 @@ versus agent-review-only.
 - Regenerate the JSON catalogue in the same commit as the rule change:
 
   ```sh
-  npm run rules:sync     # writes src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json
+  npm run rules:sync     # writes backend/src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json
   npm run rules:check    # exits 1 if the catalogue and the rule tree disagree; runs in CI
   ```
 

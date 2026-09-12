@@ -1,0 +1,35 @@
+<div class="dialog-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
+  <section class="repository-dialog api-access-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="api-access-title">
+    <header>
+      <div>
+        <span class="eyebrow">Connection</span>
+        <h2 id="api-access-title">API access</h2>
+      </div>
+      <button class="studio-icon-button icon-button" type="button" aria-label="Close API access" (click)="closed.emit()">&times;</button>
+    </header>
+    <div class="dialog-body api-access-body">
+      @if (rejected()) {
+        <div class="form-error" role="alert">The API rejected the last request as unauthenticated. Enter a token that this deployment accepts.</div>
+      }
+      <p class="api-access-intro">A local API accepts requests without a token and needs nothing here. A hosted API expects a bearer token; it is stored in this browser under <code>qs-api-token</code> and sent only in the Authorization header.</p>
+      <label class="form-field">
+        <span class="field-label">API token</span>
+        <input class="studio-field" name="apiToken" [type]="revealed() ? 'text' : 'password'" autocomplete="off" spellcheck="false"
+          placeholder="Paste the token issued for this deployment" aria-describedby="api-token-helper"
+          data-modal-autofocus [value]="draft()" (input)="setDraft($any($event.target).value)">
+        <small id="api-token-helper" class="field-helper">{{ configured() ? 'A token is configured for this browser.' : 'No token configured: requests are sent anonymously.' }}</small>
+      </label>
+      <label class="reveal-field">
+        <input class="studio-check" type="checkbox" [checked]="revealed()" (change)="revealed.set($any($event.target).checked)">
+        <span>Show token</span>
+      </label>
+      @if (saved()) { <p class="api-access-saved" role="status">Saved. The next request carries this token.</p> }
+      <footer>
+        @if (configured()) { <button class="studio-button studio-button-danger danger-button" type="button" (click)="clear()">Remove token</button> }
+        <span class="footer-spacer"></span>
+        <button class="studio-button secondary-button" type="button" (click)="closed.emit()">Close</button>
+        <button class="studio-button studio-button-primary primary-button" type="button" (click)="save()">Save token</button>
+      </footer>
+    </div>
+  </section>
+</div>

@@ -24,7 +24,7 @@ constructor parameters instead.
 
 ## Rationale
 
-`src/QualityStudio.Api/Program.cs` registers `GuidelineStore` as `Singleton` (stateless,
+`backend/src/QualityStudio.Api/Program.cs` registers `GuidelineStore` as `Singleton` (stateless,
 delegates to the filesystem per call) but `GuidelineImpactAnalyzer` as `Transient` (does
 per-analysis work); mismatching this — e.g. making a per-request analyzer a singleton — risks
 leaking state across unrelated requests. Constructor injection keeps a class's true
@@ -64,4 +64,4 @@ public sealed class ReviewExecutorFactory : IReviewExecutorFactory
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `Singleton`/`Transient` split for
   `GuidelineStore`/`GuidelineImpactAnalyzer` and the primary-constructor DI pattern used by
-  `ReviewExecutorFactory` in `src/QualityStudio.Api/Program.cs` and `ReviewJobs.cs`.
+  `ReviewExecutorFactory` in `backend/src/QualityStudio.Api/Program.cs` and `ReviewJobs.cs`.

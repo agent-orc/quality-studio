@@ -1,6 +1,6 @@
 ---
 id: QS-NG-001
-version: 1.1.0
+version: 1.2.0
 title: Use design tokens, not raw values
 technology: angular
 kinds: [code]
@@ -8,7 +8,7 @@ category: design-tokens
 severity: medium
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [quality-architecture/minimum-font-size]
 relatedGuideline: angular-typescript
 since: 1.0.0
 ---
@@ -16,7 +16,7 @@ since: 1.0.0
 ## Statement
 
 Component styles must reference the central design-token custom properties (`--studio-*`,
-`--space-*`, `--font-*`, `--syntax-*`, etc., defined once in `frontend/src/styles.css`) for
+`--space-*`, `--font-*`, `--syntax-*`, etc., defined once in `frontend/src/app/shared/styles/tokens.css`) for
 color, spacing, radius, and typography. Do not hard-code hex colors, raw pixel values, or
 one-off font sizes in a component's own `.css` file.
 
@@ -28,12 +28,14 @@ invents is a value the token system and future theme changes cannot see or move 
 
 ## Detection
 
-Read the component's `.css` for literal colors (`#rrggbb`, `rgb(`, named colors), raw `px`/`rem` lengths on padding, margin, gap, `border-radius`, and `font-size`, and for shadows written out by hand. A value is a violation when an equivalent `--studio-*`, `--space-*`, or `--font-*` token exists in `frontend/src/styles.css`; `0`, `1px` hairlines, and percentage/`fr` layout values are not.
+The local PostCSS typography check reports literal font sizes and `--studio-font-size-*` tokens below the declared 11px minimum. Relative sizes require a rendered review.
+
+Read the component's `.css` for literal colors (`#rrggbb`, `rgb(`, named colors), raw `px`/`rem` lengths on padding, margin, gap, `border-radius`, and `font-size`, and for shadows written out by hand. A value is a violation when an equivalent `--studio-*`, `--space-*`, or `--font-*` token exists in `frontend/src/app/shared/styles/tokens.css`; `0`, `1px` hairlines, and percentage/`fr` layout values are not.
 
 ## Good example
 
 ```css
-/* frontend/src/app/review-panel/review-panel.css */
+/* frontend/src/app/features/reviews/review-panel/review-panel.css */
 .severity {
   padding: var(--studio-space-1) var(--studio-space-2);
   border-radius: var(--studio-radius-badge);
@@ -58,6 +60,8 @@ Read the component's `.css` for literal colors (`#rrggbb`, `rgb(`, named colors)
 
 ## Change history
 
+- 1.2.0 (2026-09-12): Linked parser-based minimum typography findings to the design-token rule.
+
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `--studio-*` token scale already defined in
-  `frontend/src/styles.css` and consumed by `review-panel.css`.
+  `frontend/src/app/shared/styles/tokens.css` and consumed by `review-panel.css`.

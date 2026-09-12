@@ -8,7 +8,7 @@ const executablePath = process.env.CHROME_BIN || chromium.executablePath();
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox'] });
 
-const path = 'src/QualityStudio.Api/Program.cs';
+const path = 'backend/src/QualityStudio.Api/Program.cs';
 const hash = value => `sha256:${value.repeat(64).slice(0, 64)}`;
 const runFields = {
   repositoryId: 'default', path, level: 'file', kind: 'code', cliType: 'codex', totalFiles: 1, completedFiles: 1,

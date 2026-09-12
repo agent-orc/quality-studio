@@ -1,7 +1,7 @@
 // Generates the built-in named-rule catalogue from the authored Markdown rule tree.
 //
 // Source of truth: rules/<technology>/<id>-<slug>.md plus rules/CHANGELOG.md for the
-// library version. Target: src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json,
+// library version. Target: backend/src/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json,
 // embedded into the analysis core assembly and read by RuleCatalogueResolver.
 //
 // The output is a pure function of the rule tree: entries are sorted by id, object keys are
@@ -21,7 +21,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const rulesDirectory = join(repositoryRoot, 'rules');
 const schemaPath = join(repositoryRoot, 'schemas', 'rule-catalogue.v1.schema.json');
 const targetPath = join(
-  repositoryRoot, 'src', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-catalogue.v1.json');
+  repositoryRoot, 'backend', 'src', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-catalogue.v1.json');
 const schemaId = 'https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json';
 
 const technologies = new Map([['angular', 'QS-NG'], ['dotnet', 'QS-CS'], ['generic', 'QS-GN']]);

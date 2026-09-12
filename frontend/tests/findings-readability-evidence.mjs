@@ -26,7 +26,7 @@ for (const theme of ['light', 'dark']) {
     }));
   });
   await page.route('**/api/**', route => route.abort());
-  const path = encodeURIComponent('src/QualityStudio.Api/Program.cs');
+  const path = encodeURIComponent('backend/src/QualityStudio.Api/Program.cs');
   await page.goto(`${baseUrl}/?theme=${theme}&path=${path}&kind=code`);
 
   const findingCard = page.locator('.finding-card').first();

@@ -61,7 +61,7 @@ false positive is never removed merely to improve the scan result.
 ## Fixture proof
 
 `FlowReviewRunnerTests` copies the fixture service under
-`tests/AgentOrchestrator.CodeQuality.Tests/Fixtures/flow-review/` to a temporary
+`backend/tests/AgentOrchestrator.CodeQuality.Tests/Fixtures/flow-review/` to a temporary
 repository. It proves complete paths for a planted session-fixation weakness, a
 horizontal ownership failure, and a replayable payment mutation. It also proves
 that external identity-provider policy produces `undetermined`, per-flow token

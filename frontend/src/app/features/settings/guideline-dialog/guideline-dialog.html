@@ -1,0 +1,42 @@
+<div class="dialog-backdrop" qsModalBackdrop (dismiss)="closed.emit()">
+  <section class="repository-dialog guideline-dialog" qsModal (dismiss)="closed.emit()" role="dialog" aria-modal="true" aria-labelledby="guideline-dialog-title">
+    <header><div><span class="eyebrow">Repository policy</span><h2 id="guideline-dialog-title">Guidelines</h2></div><button class="studio-icon-button icon-button" type="button" aria-label="Close guidelines" data-modal-autofocus (click)="closed.emit()">×</button></header>
+    <div class="dialog-body guideline-body">
+      <nav class="repository-list guideline-list" aria-label="Repository guidelines">
+        <button class="studio-button add-repository" type="button" (click)="newRequested.emit()">+ New guideline</button>
+        @for (guideline of guidelines(); track guideline.id) {
+          <button class="studio-row-button" type="button" [class.active]="guideline.id === editingGuidelineId()" (click)="editRequested.emit(guideline)">
+            <span><strong>{{ guideline.id }}</strong><small>{{ guideline.enabled ? 'enabled' : 'disabled' }} · {{ trace(guideline.id)?.findingsCount ?? 0 }} findings</small></span>
+          </button>
+        }
+        <div class="menu-heading">Starter catalogue</div>
+        @for (entry of catalogue(); track entry.id) {
+          <article class="catalogue-card"><strong>{{ entry.title }}</strong><small>{{ entry.technology }} · {{ entry.description }}</small><button class="studio-button" type="button" [disabled]="installed(entry.id)" (click)="installRequested.emit(entry.id)">{{ installed(entry.id) ? 'Installed' : 'Install editable copy' }}</button></article>
+        }
+      </nav>
+      <form class="repository-form guideline-form" (ngSubmit)="saveRequested.emit()">
+        <div class="guideline-fields">
+          <label><span>Rule id</span><input class="studio-field" name="guidelineId" [(ngModel)]="form().id" required pattern="[a-z0-9][a-z0-9._-]+" maxlength="128"></label>
+          <label><span>Priority</span><input class="studio-field" name="guidelinePriority" [(ngModel)]="form().priority" type="number" min="-100000" max="100000" required></label>
+          <label><span>Review kinds <small>comma-separated</small></span><input class="studio-field" name="guidelineKinds" [(ngModel)]="form().kinds" required placeholder="code, security"></label>
+          <label><span>Levels <small>comma-separated</small></span><input class="studio-field" name="guidelineLevels" [(ngModel)]="form().levels" required placeholder="file"></label>
+        </div>
+        <label class="enabled-field"><input class="studio-check" name="guidelineEnabled" [(ngModel)]="form().enabled" type="checkbox"><span>Enabled for the next review</span></label>
+        <label class="content-field"><span>Guideline content</span><textarea class="studio-field" name="guidelineContent" [(ngModel)]="form().content" required maxlength="100000" placeholder="Describe a concrete, reviewable engineering rule…"></textarea></label>
+        @if (editingGuidelineId(); as id) {
+          <section class="trace-panel"><span class="eyebrow">Finding trace</span><strong>{{ trace(id)?.findingsCount ?? 0 }} findings produced</strong>
+            @for (finding of trace(id)?.findings ?? []; track finding.metaPath + ':' + finding.id) { <button class="studio-row-button" type="button" (click)="traceRequested.emit(finding.unitPath)"><span class="studio-badge severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><span><b>{{ finding.title }}</b><small>{{ finding.kind }} · {{ finding.unitPath }}</small></span></button> }
+          </section>
+        }
+        @if (impact(); as impact) { <section class="impact-result" [class.changed]="impact.changed"><b>{{ impact.changed ? 'Dry-run found a diff' : 'No finding diff in sample' }}</b><span>{{ impact.addedCount }} added · {{ impact.removedCount }} removed across {{ impact.files.length }} file(s)</span>@for (file of impact.files; track file.path) { @for (finding of file.added; track finding.id) { <small>+ {{ finding.severity }} · {{ finding.title }} · {{ file.path }}</small> } @for (finding of file.removed; track finding.id) { <small>− {{ finding.severity }} · {{ finding.title }} · {{ file.path }}</small> } }</section> }
+        @if (error()) { <div class="form-error" role="alert">{{ error() }}</div> }
+        <footer>
+          @if (editingGuidelineId()) { <button class="studio-button studio-button-danger danger-button" type="button" (click)="deleteRequested.emit()">Delete file</button> }
+          <span class="footer-spacer"></span>
+          <button class="studio-button secondary-button" type="button" (click)="dryRunRequested.emit()" [disabled]="dryRunning() || !form().id || !form().content">{{ dryRunning() ? 'Running sample…' : 'Dry-run sample' }}</button>
+          <button class="studio-button studio-button-primary primary-button" type="submit" [disabled]="saving() || !form().id || !form().content">{{ saving() ? 'Writing…' : editingGuidelineId() ? 'Save file' : 'Create file' }}</button>
+        </footer>
+      </form>
+    </div>
+  </section>
+</div>

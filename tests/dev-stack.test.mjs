@@ -10,6 +10,16 @@ import http from 'node:http';
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const launcher = resolve(repoRoot, 'scripts', 'dev-stack.mjs');
 
+test('the relocated API defaults to the complete repository and permits its root', async () => {
+  const apiRoot = resolve(repoRoot, 'backend', 'src', 'QualityStudio.Api');
+  const settings = JSON.parse(await readFile(join(apiRoot, 'appsettings.json'), 'utf8'));
+  const configuredRoot = resolve(apiRoot, settings.QualityStudio.RepositoryRoot);
+  assert.equal(configuredRoot, resolve(repoRoot));
+  assert.ok(settings.QualityStudio.AllowedRoots.some(root => resolve(apiRoot, root) === configuredRoot));
+  await readFile(join(configuredRoot, 'QualityStudio.slnx'), 'utf8');
+  await readFile(join(configuredRoot, 'frontend', 'angular.json'), 'utf8');
+});
+
 test('launcher bootstraps a clean checkout, starts both services, and can restart cleanly', async () => {
   const sandbox = await mkdtemp(join(tmpdir(), 'qs-dev-stack-'));
   const repoRoot = join(sandbox, 'repo');
@@ -172,7 +182,7 @@ const server = http.createServer((request, response) => {
     body = json({ level: 'file', kinds: { code: { kind: 'code', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] }, security: { kind: 'security', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] }, performance: { kind: 'performance', level: 'file', budgetCharacters: 12000, includedCharacters: 0, complete: true, inputs: [], omissions: [] } } });
   } else if (url.pathname === '/api/file') {
     statusCode = 200;
-    body = json({ path: url.searchParams.get('path') ?? 'src/QualityStudio.Api/Program.cs', content: 'console.log("hello");', metaDocuments: [{ reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Live data.' }, summary: 'Live file.', findings: [] }] });
+    body = json({ path: url.searchParams.get('path') ?? 'backend/src/QualityStudio.Api/Program.cs', content: 'console.log("hello");', metaDocuments: [{ reviewedAt: '2026-07-11T16:20:00.000Z', kind: 'code', reviewer: { agent: 'quality-reviewer', model: 'gpt-5' }, grade: { score: 91, band: 'A', rationale: 'Live data.' }, summary: 'Live file.', findings: [] }] });
   } else if (url.pathname === '/api/handover') {
     statusCode = 200;
     body = json({ targetConfigured: false, dryRun: true });

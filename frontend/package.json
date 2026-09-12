@@ -3,13 +3,13 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
+    "start": "ng serve frontend",
+    "build": "ng build frontend",
+    "watch": "ng build frontend --watch --configuration development",
     "test": "node ./tests/run-tests.mjs",
     "test:coverage": "node ./tests/run-tests.mjs --coverage",
-    "lint": "eslint src tests --config eslint.config.mjs",
-    "lint:sarif": "eslint src tests --config eslint.config.mjs --format node_modules/@microsoft/eslint-formatter-sarif/sarif.js",
+    "lint": "eslint src style-reference tests lint --config eslint.config.mjs",
+    "lint:sarif": "eslint src style-reference tests lint --config eslint.config.mjs --format node_modules/@microsoft/eslint-formatter-sarif/sarif.js",
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "browser:install": "node node_modules/playwright-core/cli.js install chromium",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
@@ -20,7 +20,10 @@
     "evidence:run-compare": "node tests/run-compare-evidence.mjs",
     "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs",
     "evidence:ignore-list": "node tests/ignore-list-evidence.mjs",
-    "shots:run-report": "node tests/shots/run-report-evidence.mjs"
+    "shots:run-report": "node tests/shots/run-report-evidence.mjs",
+    "test:architecture": "node --test tests/architecture.test.mjs tests/typography.test.mjs",
+    "reference": "ng serve style-reference --host 127.0.0.1 --port 4226",
+    "build:reference": "ng build style-reference"
   },
   "prettier": {
     "printWidth": 100,
@@ -65,6 +68,7 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "playwright-core": "^1.61.1",
     "typescript": "~5.9.2",
-    "typescript-eslint": "8.67.0"
+    "typescript-eslint": "8.67.0",
+    "postcss": "8.5.26"
   }
 }

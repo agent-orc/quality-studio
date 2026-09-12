@@ -59,12 +59,12 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/validate_coverage.py \
             --format cobertura \
-            --report "tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml" \
+            --report "backend/tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml" \
             --baseline tests/coverage-baseline.json \
             --baseline-key AgentOrchestrator.CodeQuality.Tests
           python3 .github/scripts/validate_coverage.py \
             --format cobertura \
-            --report "tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml" \
+            --report "backend/tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml" \
             --baseline tests/coverage-baseline.json \
             --baseline-key QualityStudio.Api.Tests
 
@@ -73,7 +73,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-coverage-agent-orchestrator-code-quality
-          path: tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml
+          path: backend/tests/AgentOrchestrator.CodeQuality.Tests/TestResults/**/coverage.cobertura.xml
           if-no-files-found: error
 
       - name: Upload QualityStudio.Api coverage
@@ -81,13 +81,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-coverage-quality-studio-api
-          path: tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml
+          path: backend/tests/QualityStudio.Api.Tests/TestResults/**/coverage.cobertura.xml
           if-no-files-found: error
 
       - name: Pack analysis core
         if: matrix.os == 'ubuntu-latest'
         run: >-
-          dotnet pack src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj
+          dotnet pack backend/src/AgentOrchestrator.CodeQuality/AgentOrchestrator.CodeQuality.csproj
           --configuration Release
           --no-build
           --output artifacts/nuget
@@ -117,7 +117,7 @@ jobs:
         run: dotnet restore QualityStudio.slnx --locked-mode
 
       - name: Security scan
-        run: dotnet run --project src/quality-cli -- security scan .
+        run: dotnet run --project backend/src/quality-cli -- security scan .
 
       - name: NuGet vulnerable package check (solution)
         run: |
@@ -191,9 +191,17 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      - name: Architecture and typography rule tests
+        working-directory: frontend
+        run: npm run test:architecture
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+      - name: Build shared-style reference
+        working-directory: frontend
+        run: npm run build:reference
 
       - name: Frontend unit tests with coverage
         working-directory: frontend
@@ -283,7 +291,7 @@ jobs:
         working-directory: frontend
         env:
           JOB_RESULTS_DIR: ${{ github.workspace }}/.perf-results/browser
-          QS_API_DLL: ${{ github.workspace }}/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll
+          QS_API_DLL: ${{ github.workspace }}/backend/src/QualityStudio.Api/bin/Release/net10.0/QualityStudio.Api.dll
         run: npm run perf
 
       - name: Stop the product stack

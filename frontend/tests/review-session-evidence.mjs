@@ -29,7 +29,7 @@ for (const theme of ['dark', 'light']) {
   await page.route(/\/api\/repos\/[^/]+\/(?:tree|file)(?:\?|$)/, route => route.abort());
   const url = new URL(baseUrl);
   url.searchParams.set('theme', theme);
-  url.searchParams.set('path', 'src/QualityStudio.Api/Program.cs');
+  url.searchParams.set('path', 'backend/src/QualityStudio.Api/Program.cs');
   url.searchParams.set('kind', 'code');
   await page.goto(url.toString());
   const cards = page.locator('.finding-card');

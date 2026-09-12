@@ -238,9 +238,9 @@
   <thead><tr><th>Boundary</th><th>Observed behavior</th><th>Evidence</th></tr></thead>
   <tbody>
     <tr><td>Close and reopen the browser against the same API</td><td><span class="pill done">survives</span> Initialization reloads runs from the API. The panel is not the owner.</td><td><a href="../../../frontend/src/app/app.ts">frontend/src/app/app.ts</a>, lines 134-144</td></tr>
-    <tr><td>Restart the API in the same checkout</td><td><span class="pill done">survives</span> Startup scans registered repositories, restores progress, and requeues non-terminal work.</td><td><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, lines 355-411 and 694-705</td></tr>
+    <tr><td>Restart the API in the same checkout</td><td><span class="pill done">survives</span> Startup scans registered repositories, restores progress, and requeues non-terminal work.</td><td><a href="../../../backend/src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, lines 355-411 and 694-705</td></tr>
     <tr><td>Lose <code>.quality/runs/</code>, clean the worktree, clone again, or move to another checkout</td><td><span class="pill open">lost</span> The complete orchestration folder is ignored by Git.</td><td><a href="../../../.gitignore">.gitignore</a>, lines 9-24; <a href="../../../docs/review-runs.md">review-runs.md</a>, lines 27-37</td></tr>
-    <tr><td>Open older terminal history</td><td><span class="pill part">bounded</span> The API lists only in-memory/recovered runs, defaults to 30, and the panel renders eight.</td><td><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, lines 102-108 and 318-320; <a href="../../../frontend/src/app/review-panel/review-panel.html">review-panel.html</a>, lines 5-18</td></tr>
+    <tr><td>Open older terminal history</td><td><span class="pill part">bounded</span> The API lists only in-memory/recovered runs, defaults to 30, and the panel renders eight.</td><td><a href="../../../backend/src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.cs</a>, lines 102-108 and 318-320; <a href="../../../frontend/src/app/review-panel/review-panel.html">review-panel.html</a>, lines 5-18</td></tr>
   </tbody>
 </table>
 
@@ -249,22 +249,22 @@
   <div class="building-block">
     <h4>Create-only plan</h4>
     <p><code>manifest.json</code> records node, kind, model, CLI, targets and enqueue-time subject hashes. It is written with <code>FileMode.CreateNew</code> and flushed to disk.</p>
-    <p class="evidence-link"><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 23-38 and 92-107</p>
+    <p class="evidence-link"><a href="../../../backend/src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 23-38 and 92-107</p>
   </div>
   <div class="building-block">
     <h4>Append-only transitions</h4>
     <p><code>progress.jsonl</code> writes queued/running/done/failed/skipped transitions through a write-through stream. A malformed line does not hide readable records.</p>
-    <p class="evidence-link"><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 109-129 and 190-211</p>
+    <p class="evidence-link"><a href="../../../backend/src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 109-129 and 190-211</p>
   </div>
   <div class="building-block">
     <h4>Atomic current status</h4>
     <p><code>status.json</code> is replaced from a same-directory temporary file and carries counters, caps, usage totals, costs, timestamps and stop reason.</p>
-    <p class="evidence-link"><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 48-68 and 131-153</p>
+    <p class="evidence-link"><a href="../../../backend/src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.cs</a>, lines 48-68 and 131-153</p>
   </div>
   <div class="building-block">
     <h4>Crash behavior is tested</h4>
     <p>Tests cover non-terminal restart, in-flight file requeue, paused recovery, terminal no-resume, incomplete JSONL, and atomic status replacement.</p>
-    <p class="evidence-link"><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">ReviewRunStoreTests.cs</a>, lines 127-378</p>
+    <p class="evidence-link"><a href="../../../backend/tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">ReviewRunStoreTests.cs</a>, lines 127-378</p>
   </div>
 </div>
 
@@ -523,15 +523,15 @@ record, not a description of the code.</p>
 <table>
   <thead><tr><th>Claim</th><th>Repository source</th></tr></thead>
   <tbody>
-    <tr><td>Run plan/progress/status files and flush behavior</td><td><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">src/QualityStudio.Api/ReviewRunStore.cs</a></td></tr>
-    <tr><td>Recovery, caps, usage aggregation, terminal states and list bound</td><td><a href="../../../src/QualityStudio.Api/ReviewJobs.cs">src/QualityStudio.Api/ReviewJobs.cs</a></td></tr>
+    <tr><td>Run plan/progress/status files and flush behavior</td><td><a href="../../../backend/src/QualityStudio.Api/ReviewRunStore.cs">src/QualityStudio.Api/ReviewRunStore.cs</a></td></tr>
+    <tr><td>Recovery, caps, usage aggregation, terminal states and list bound</td><td><a href="../../../backend/src/QualityStudio.Api/ReviewJobs.cs">src/QualityStudio.Api/ReviewJobs.cs</a></td></tr>
     <tr><td>Run folder intentionally ignored</td><td><a href="../../../.gitignore">.gitignore</a> and <a href="../../../docs/review-runs.md">docs/review-runs.md</a></td></tr>
-    <tr><td>Usage v2 groups operations by review run and remains append-only</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs">UsageTelemetry.cs</a>, <a href="../../../schemas/usage-ledger.v2.schema.json">usage-ledger.v2.schema.json</a>, and <a href="../../../docs/usage-telemetry.md">usage-telemetry.md</a></td></tr>
-    <tr><td>Sidecar replacement and finding lifecycle merge</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs</a>, lines 146-191; <a href="../../../src/AgentOrchestrator.CodeQuality/FindingStateStore.cs">FindingStateStore.cs</a></td></tr>
-    <tr><td>Stable finding/grade diff precedent</td><td><a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs">ChangeSetReviewService.cs</a> and <a href="../../../src/AgentOrchestrator.CodeQuality/ChangeSetModels.cs">ChangeSetModels.cs</a></td></tr>
+    <tr><td>Usage v2 groups operations by review run and remains append-only</td><td><a href="../../../backend/src/AgentOrchestrator.CodeQuality/UsageTelemetry.cs">UsageTelemetry.cs</a>, <a href="../../../schemas/usage-ledger.v2.schema.json">usage-ledger.v2.schema.json</a>, and <a href="../../../docs/usage-telemetry.md">usage-telemetry.md</a></td></tr>
+    <tr><td>Sidecar replacement and finding lifecycle merge</td><td><a href="../../../backend/src/AgentOrchestrator.CodeQuality/ReviewRunner.cs">ReviewRunner.cs</a>, lines 146-191; <a href="../../../backend/src/AgentOrchestrator.CodeQuality/FindingStateStore.cs">FindingStateStore.cs</a></td></tr>
+    <tr><td>Stable finding/grade diff precedent</td><td><a href="../../../backend/src/AgentOrchestrator.CodeQuality/ChangeSetReviewService.cs">ChangeSetReviewService.cs</a> and <a href="../../../backend/src/AgentOrchestrator.CodeQuality/ChangeSetModels.cs">ChangeSetModels.cs</a></td></tr>
     <tr><td>Git-backed trend requires committed sidecars</td><td><a href="../../../docs/quality-reports.md">docs/quality-reports.md</a>, Git-backed trend section</td></tr>
-    <tr><td>Restart and atomicity coverage</td><td><a href="../../../tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
-    <tr><td>Journal retention and non-resurrecting recovery (2026-09-06)</td><td><a href="../../../src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.Prune</a>, <a href="../../../src/AgentOrchestrator.CodeQuality/QualityRunReport.cs">QualityRunReportStore.RetentionFloor</a>, <a href="../../../src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.RecoverRuns</a>; <a href="../../../tests/QualityStudio.Api.Tests/ReviewRunRetentionTests.cs">ReviewRunRetentionTests</a></td></tr>
+    <tr><td>Restart and atomicity coverage</td><td><a href="../../../backend/tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs">tests/QualityStudio.Api.Tests/ReviewRunStoreTests.cs</a></td></tr>
+    <tr><td>Journal retention and non-resurrecting recovery (2026-09-06)</td><td><a href="../../../backend/src/QualityStudio.Api/ReviewRunStore.cs">ReviewRunStore.Prune</a>, <a href="../../../backend/src/AgentOrchestrator.CodeQuality/QualityRunReport.cs">QualityRunReportStore.RetentionFloor</a>, <a href="../../../backend/src/QualityStudio.Api/ReviewJobs.cs">ReviewJobs.RecoverRuns</a>; <a href="../../../backend/tests/QualityStudio.Api.Tests/ReviewRunRetentionTests.cs">ReviewRunRetentionTests</a></td></tr>
   </tbody>
 </table>
 

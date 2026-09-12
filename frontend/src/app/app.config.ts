@@ -1,7 +1,7 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
-import { apiInterceptor } from './api-interceptor';
+import { apiInterceptor } from './core/api/api-interceptor';
 
 /**
  * The shell has a single view and keeps its position in query parameters, which it writes and

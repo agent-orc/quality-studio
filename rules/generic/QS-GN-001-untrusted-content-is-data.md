@@ -39,7 +39,7 @@ Content passed as a bound parameter, an argument-list entry, or an escaped value
 ## Good example
 
 ```csharp
-// src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs
+// backend/src/AgentOrchestrator.CodeQuality/ReviewPromptBuilder.cs
 // Fresh per prompt so repository content cannot pre-guess and forge a closing marker.
 private static string GenerateContentBoundary() =>
     "QS-CONTENT-" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
