@@ -4,7 +4,7 @@
   "title": "Quality Studio derived boundary inventory",
   "type": "object",
   "additionalProperties": false,
-  "required": [ "$schema", "schemaVersion", "sensor", "sensorVersion", "entries", "findings" ],
+  "required": [ "$schema", "schemaVersion", "sensor", "sensorVersion", "entries", "findings", "complete", "omissions" ],
   "properties": {
     "$schema": {
       "enum": [
@@ -22,9 +22,26 @@
     "findings": {
       "type": "array",
       "items": { "type": "object" }
+    },
+    "complete": {
+      "type": "boolean",
+      "description": "False when the scan stopped before covering every source file because it hit its time budget or a single file's regex analysis timed out. See omissions for which files and why."
+    },
+    "omissions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/omission" }
     }
   },
   "$defs": {
+    "omission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [ "path", "reason" ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
     "location": {
       "type": "object",
       "additionalProperties": false,
