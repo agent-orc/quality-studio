@@ -18,15 +18,17 @@ public sealed class ProcessStartGuardTests
     public void Every_process_start_info_disables_shell_execute_and_console_window()
     {
         var root = RepositoryTestContext.FindRepositoryRoot();
-        var sourceRoot = Path.Combine(root, "backend", "src");
-        Assert.True(Directory.Exists(sourceRoot), $"backend/src not found under {root}");
+        var backendRoot = Path.Combine(root, "backend");
+        Assert.True(Directory.Exists(backendRoot), $"backend not found under {root}");
 
         var sites = 0;
         var violations = new List<string>();
-        foreach (var file in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(backendRoot, "*.cs", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-            if (relative.Contains("/obj/", StringComparison.Ordinal) || relative.Contains("/bin/", StringComparison.Ordinal))
+            if (relative.Contains("/obj/", StringComparison.Ordinal)
+                || relative.Contains("/bin/", StringComparison.Ordinal)
+                || relative.StartsWith("backend/tests/", StringComparison.Ordinal))
             {
                 continue;
             }
