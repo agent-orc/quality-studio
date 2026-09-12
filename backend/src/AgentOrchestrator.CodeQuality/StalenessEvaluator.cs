@@ -222,6 +222,7 @@ public sealed class StalenessEvaluator
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
+                CreateNoWindow = true,
             },
         };
         process.StartInfo.ArgumentList.Add("ls-files");

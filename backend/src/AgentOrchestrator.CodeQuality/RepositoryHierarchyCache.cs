@@ -275,6 +275,7 @@ public sealed class RepositoryHierarchyCache
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
+                CreateNoWindow = true,
             },
         };
         foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
