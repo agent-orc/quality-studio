@@ -19,6 +19,7 @@
     "evidence:repository-modal": "node tests/repository-modal-evidence.mjs",
     "evidence:run-compare": "node tests/run-compare-evidence.mjs",
     "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs",
+    "evidence:ignore-list": "node tests/ignore-list-evidence.mjs",
     "shots:run-report": "node tests/shots/run-report-evidence.mjs"
   },
   "prettier": {
