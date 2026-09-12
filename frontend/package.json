@@ -10,6 +10,7 @@
     "test:coverage": "node ./tests/run-tests.mjs --coverage",
     "lint": "eslint src tests --config eslint.config.mjs",
     "lint:sarif": "eslint src tests --config eslint.config.mjs --format node_modules/@microsoft/eslint-formatter-sarif/sarif.js",
+    "test:browser-resolver": "node --test ./tests/browser-binary.test.mjs",
     "perf": "node tests/perf.mjs && node tests/project-switch-perf.mjs",
     "browser:install": "node node_modules/playwright-core/cli.js install chromium",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",

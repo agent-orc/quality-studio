@@ -14,6 +14,7 @@ namespace QualityStudio.Api.Tests;
 /// unavailable with its reason, every other registration keeps working, and repairing it by PUT brings
 /// it back without a restart.
 /// </summary>
+[Trait("Category", "ToolBound")]
 public sealed class RepositoryRegistryBootTests : IAsyncLifetime
 {
     private readonly string testRoot = Path.Combine(Path.GetTempPath(), "quality-studio-boot-tests",
@@ -132,7 +133,7 @@ public sealed class RepositoryRegistryBootTests : IAsyncLifetime
         {
             Directory.CreateDirectory(root);
             await File.WriteAllTextAsync(Path.Combine(root, "Sample.cs"), "public class Sample { }");
-            await RunGitAsync(root);
+            await GitTestRepository.InitializeAsync(root);
         }
         await File.WriteAllTextAsync(Path.Combine(OutsideRoot, "Outside.cs"), "public class Outside { }");
 
@@ -157,18 +158,6 @@ public sealed class RepositoryRegistryBootTests : IAsyncLifetime
         try { TemporaryDirectory.Delete(testRoot); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
-    }
-
-    private static async Task RunGitAsync(string directory)
-    {
-        using var process = System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-            {
-                WorkingDirectory = directory,
-                UseShellExecute = false,
-            })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class BootApplication(string allowedRoot, string contentRoot) : WebApplicationFactory<Program>

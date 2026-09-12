@@ -12,6 +12,7 @@ using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed class ApiSecurityTests : IAsyncLifetime
 {
     private const string AliceToken = "alice-test-credential";
@@ -332,9 +333,9 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         await File.WriteAllTextAsync(Path.Combine(RepositoryRoot, "Sample.cs"), "namespace Sample; public sealed class Subject;");
         await File.WriteAllTextAsync(Path.Combine(ForeignRepositoryRoot, "Foreign.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         await File.WriteAllTextAsync(Path.Combine(ForeignRepositoryRoot, "Foreign.cs"), "namespace Foreign; public sealed class Secret;");
-        await RunGitAsync(RepositoryRoot);
-        await RunGitAsync(ForeignRepositoryRoot);
-        await RunGitAsync(OutsideRoot);
+        await GitTestRepository.InitializeAsync(RepositoryRoot);
+        await GitTestRepository.InitializeAsync(ForeignRepositoryRoot);
+        await GitTestRepository.InitializeAsync(OutsideRoot);
         WriteRegistry(HostRoot);
         application = new HostedApplication(RepositoryRoot, ForeignRepositoryRoot, HostRoot, spendRequestsPerMinute: 100);
     }
@@ -402,17 +403,6 @@ public sealed class ApiSecurityTests : IAsyncLifetime
         };
         File.WriteAllText(path, JsonSerializer.Serialize(entries,
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
-    }
-
-    private static async Task RunGitAsync(string directory)
-    {
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git", "init --quiet")
-        {
-            WorkingDirectory = directory,
-            UseShellExecute = false,
-        })!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
     }
 
     private sealed class HostedApplication(string root, string foreignRoot, string contentRoot, int spendRequestsPerMinute)

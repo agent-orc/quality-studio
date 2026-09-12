@@ -33,5 +33,6 @@
   <ItemGroup>
     <Compile Include="../TemporaryDirectory.cs" Link="TemporaryDirectory.cs" />
     <Compile Include="../QualityDataRootFixture.cs" Link="QualityDataRootFixture.cs" />
+    <Compile Include="../TestSupport/GitTestRepository.cs" Link="TestSupport/GitTestRepository.cs" />
   </ItemGroup>
 </Project>

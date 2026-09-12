@@ -180,6 +180,7 @@
     <li><a href="#slices">Implementation slices</a></li>
     <li><a href="#green">Definition of green</a></li>
     <li><a href="#evidence">Evidence ledger</a></li>
+    <li><a href="#implementation">Implementation</a></li>
   </ul>
 
   <h2 id="decision"><span class="no">01</span>Decision requested</h2>
@@ -558,6 +559,11 @@
         <td>1 September 2026</td>
         <td><b>QS-75</b></td>
         <td>Coverage generation + artifact publication landed; ratchet deferred. The required PR gate now generates and validates Cobertura for both .NET test assemblies and lcov for Angular, then publishes all three reports as distinct build artifacts.</td>
+      </tr>
+      <tr>
+        <td>12 September 2026</td>
+        <td><b>QS-89</b></td>
+        <td>Keep-green mechanics landed. One tested lane definition (<code>scripts/test-lanes.mjs</code>) splits portable, controlled tool-bound, machine-bound, and external-live xUnit selections; <code>scripts/run-dotnet-lane.mjs</code> inventories every expected project and fails an empty selection instead of reporting a silent pass. The live review check is classified <code>ExternalLive</code> and left to the canary, so the required gate no longer runs it. Real Git and Node process setup moved into <code>tests/TestSupport/</code>, consumers declare class-level <code>ToolBound</code>, the dev-stack launcher tests use ephemeral ports, and <code>npm run test:pre-review</code> gives a scoped fast signal. <code>tests/test-lanes.test.mjs</code> enforces the lane selections, fixture ownership, and the no-skip rule; <a href="keep-green.md"><code>keep-green.md</code></a> documents how the gate stays honest.</td>
       </tr>
     </tbody>
   </table>

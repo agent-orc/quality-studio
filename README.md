@@ -291,6 +291,45 @@ criteria.
 - `.github/workflows/build.yml` builds and tests the solution for pushes and pull requests to `main`.
 - `Dockerfile`, `.dockerignore` and `docker-compose.yml` build and run the single-container host.
 
+## Required test baseline
+
+The required gate runs the .NET tests as named lanes instead of one undifferentiated
+selection. `scripts/test-lanes.mjs` defines every filter once;
+`scripts/run-dotnet-lane.mjs` inventories each expected test project before it runs and
+fails when a selection is empty, so a filter typo cannot pass as a green run. The
+equivalent local commands are:
+
+```shell
+dotnet restore QualityStudio.slnx --locked-mode
+dotnet build QualityStudio.slnx --configuration Release --no-restore
+npm run test:repository-contracts
+node scripts/run-dotnet-lane.mjs portable --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs tool-bound --configuration Release --no-build
+node scripts/run-dotnet-lane.mjs non-machine --configuration Release --no-build --coverage
+npm run test:dev-stack
+cd frontend
+npm ci
+npm run test:browser-resolver
+npm run build
+npm run test:coverage
+```
+
+Uncategorized xUnit tests are portable. Tests carrying `Category=ToolBound`
+intentionally exercise Git, .NET, a browser, or a pinned native tool on a provisioned
+PR host. Tests carrying `Category=MachineBound` contain host timing or performance
+assertions and run only in the labeled release canary. `Category=ExternalLive` is
+selected only by explicit canary approval; without its opt-in environment it fails
+rather than skipping, so `--filter "Category!=MachineBound"` on its own is not the
+required selection.
+
+Before requesting review, `npm run test:pre-review` gives a quick deterministic signal:
+repository contracts, one Release build, both portable .NET project selections, and
+browser prerequisite resolution. It does not claim gate equivalence - the required gate
+still owns tool-bound, host-integration, production Angular, coverage, and security
+evidence. See
+[`docs/operations/test-baseline/keep-green.md`](docs/operations/test-baseline/keep-green.md)
+for fixture ownership, lane-change rules, and the honesty contract.
+
 ## Minimal API
 
 The ASP.NET Core host provides repository tree, file/meta overlay, staleness scan,
@@ -314,7 +353,9 @@ ports are API `5127` and product `4200`, and both can be overridden with
 `--api-port` / `--web-port` or `QUALITY_STUDIO_API_PORT` /
 `QUALITY_STUDIO_PRODUCT_PORT` when the launcher is invoked from another host.
 For alternate checkout layouts and automation, the launcher also accepts
-`--repo-root`, `--frontend-root`, and `QUALITY_STUDIO_NPM_COMMAND`.
+`--repo-root`, `--frontend-root`, and `QUALITY_STUDIO_NPM_COMMAND`. Test harnesses
+that invoke npm through a platform-neutral Node stub can provide its leading
+arguments as a JSON string array in `QUALITY_STUDIO_NPM_COMMAND_ARGUMENTS`.
 
 The shell distinguishes `Repository connected`, `API offline · preview data`,
 and `API offline` states so embedded review flows do not pretend the API is live
