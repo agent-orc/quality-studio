@@ -37,3 +37,13 @@ pattern is still valid, so it is an edit within each version rather than a new o
 `quality-report.v1` and `quality-run-report.v1` carry `aggregateScore` and
 `aggregateBand`. The older `score` and `grade` properties hold the same values and
 are marked deprecated; see [`../docs/quality-reports.md`](../docs/quality-reports.md).
+
+## Quality domains reference
+
+[`quality-domains.v1.schema.json`](quality-domains.v1.schema.json) describes the
+central bilingual [`../rules/quality-domains.json`](../rules/quality-domains.json)
+reference catalogue. It distinguishes existing metrics, review rules and planned
+checks without duplicating rule content or formulas. Property selectors are
+documentation only: missing properties remain unknown and never inherit from a
+project into its components. `npm run domains:check` also verifies cross-catalogue
+IDs and generated Angular data; it is included in `npm run rules:check`.

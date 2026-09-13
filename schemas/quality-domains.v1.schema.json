@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/quality-domains.v1.schema.json",
+  "title": "Quality domain reference catalogue v1",
+  "description": "Authored bilingual reference data. scripts/sync-quality-domains.mjs additionally validates unique IDs, cross-catalogue references, the exact property vocabulary and the six existing metric methods. Applicability declarations do not activate rules or run a YAML reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "version",
+    "applicability",
+    "sources",
+    "domains"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "properties",
+        "missing",
+        "inheritance",
+        "mode"
+      ],
+      "properties": {
+        "properties": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/property"
+          },
+          "minItems": 10,
+          "uniqueItems": true
+        },
+        "missing": {
+          "const": "unknown"
+        },
+        "inheritance": {
+          "const": "none"
+        },
+        "mode": {
+          "const": "documentation-only"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/source"
+      },
+      "minItems": 1
+    },
+    "domains": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/domain"
+      },
+      "minItems": 13
+    }
+  },
+  "$defs": {
+    "localized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "en",
+        "de"
+      ],
+      "properties": {
+        "en": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000,
+          "pattern": "\\S"
+        },
+        "de": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "property": {
+      "type": "string",
+      "enum": [
+        "public-facing",
+        "html-ui",
+        "seo-relevant",
+        "payment-api",
+        "personal-data",
+        "authenticated",
+        "persistent-data",
+        "realtime",
+        "localized",
+        "deployable"
+      ]
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectScope",
+        "allOf",
+        "anyOf",
+        "noneOf"
+      ],
+      "properties": {
+        "subjectScope": {
+          "enum": [
+            "project",
+            "component"
+          ]
+        },
+        "allOf": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/property"
+          },
+          "uniqueItems": true
+        },
+        "anyOf": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/property"
+          },
+          "uniqueItems": true
+        },
+        "noneOf": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/property"
+          },
+          "uniqueItems": true
+        }
+      },
+      "description": "Documentation only. Properties belong to the selected subject; no inheritance. Missing values remain unknown, including under noneOf. Empty groups impose no restriction."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "url"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/localized"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://[^/@\\s]+(?:/|$)"
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "status",
+        "method",
+        "ruleIds",
+        "metricIds",
+        "rationale",
+        "evidence",
+        "interpretation",
+        "limits",
+        "sourceIds",
+        "applicability"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/localized"
+        },
+        "status": {
+          "enum": [
+            "implemented-metric",
+            "review-rule",
+            "planned"
+          ]
+        },
+        "method": {
+          "enum": [
+            "measurement",
+            "heuristic",
+            "review"
+          ]
+        },
+        "ruleIds": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "pattern": "^QS-[A-Z]{2}-[0-9]{3}$"
+          },
+          "uniqueItems": true
+        },
+        "metricIds": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "uniqueItems": true
+        },
+        "rationale": {
+          "$ref": "#/$defs/localized"
+        },
+        "evidence": {
+          "$ref": "#/$defs/localized"
+        },
+        "interpretation": {
+          "$ref": "#/$defs/localized"
+        },
+        "limits": {
+          "$ref": "#/$defs/localized"
+        },
+        "sourceIds": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "applicability": {
+          "$ref": "#/$defs/selector"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "implemented-metric"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "metricIds": {
+                "minItems": 1,
+                "maxItems": 1,
+                "type": "array"
+              },
+              "ruleIds": {
+                "maxItems": 0,
+                "type": "array"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "review-rule"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "method": {
+                "const": "review"
+              },
+              "ruleIds": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "metricIds": {
+                "maxItems": 0,
+                "type": "array"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "planned"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ruleIds": {
+                "maxItems": 0,
+                "type": "array"
+              },
+              "metricIds": {
+                "maxItems": 0,
+                "type": "array"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "why",
+        "evidence",
+        "limits",
+        "checks"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "title": {
+          "$ref": "#/$defs/localized"
+        },
+        "why": {
+          "$ref": "#/$defs/localized"
+        },
+        "evidence": {
+          "$ref": "#/$defs/localized"
+        },
+        "limits": {
+          "$ref": "#/$defs/localized"
+        },
+        "checks": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/check"
+          },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

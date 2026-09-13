@@ -3,6 +3,12 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.5.0 (2026-09-13)
+
+- Added four opt-in SEO review rules (QS-GN-005 through QS-GN-008): indexability, canonical/language consistency, descriptive metadata, and crawlable discovery.
+- SEO rules require an intended public HTML scope and evidence; private applications do not acquire SEO obligations by default.
+- Added a shared quality-domain catalogue with availability, evidence, applicability and limits. Project-property selection remains a versioned cross-product plan, not an active YAML filter.
+
 ## 1.4.0 (2026-09-12)
 
 - Added evidence-first finding guidance (QS-GN-004) for all review kinds.

@@ -1,0 +1,1320 @@
+// Generated from rules/quality-domains.json; run npm run domains:sync.
+export const QUALITY_DOMAINS = {
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "applicability": {
+    "properties": [
+      "public-facing",
+      "html-ui",
+      "seo-relevant",
+      "payment-api",
+      "personal-data",
+      "authenticated",
+      "persistent-data",
+      "realtime",
+      "localized",
+      "deployable"
+    ],
+    "missing": "unknown",
+    "inheritance": "none",
+    "mode": "documentation-only"
+  },
+  "sources": [
+    {
+      "id": "google-review",
+      "title": {
+        "en": "Google code review guidance",
+        "de": "Google-Leitfaden für Code-Reviews"
+      },
+      "url": "https://google.github.io/eng-practices/review/reviewer/looking-for.html"
+    },
+    {
+      "id": "angular-style",
+      "title": {
+        "en": "Angular style guide",
+        "de": "Angular-Stilleitfaden"
+      },
+      "url": "https://angular.dev/style-guide"
+    },
+    {
+      "id": "dotnet-architecture",
+      "title": {
+        "en": "Microsoft application architecture",
+        "de": "Microsoft-Anwendungsarchitektur"
+      },
+      "url": "https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures"
+    },
+    {
+      "id": "owasp-asvs",
+      "title": {
+        "en": "OWASP Application Security Verification Standard",
+        "de": "OWASP-Standard zur Prüfung der Anwendungssicherheit"
+      },
+      "url": "https://owasp.org/www-project-application-security-verification-standard/"
+    },
+    {
+      "id": "w3c-privacy",
+      "title": {
+        "en": "W3C Privacy Principles",
+        "de": "W3C-Datenschutzprinzipien"
+      },
+      "url": "https://www.w3.org/TR/privacy-principles/"
+    },
+    {
+      "id": "stripe-idempotency",
+      "title": {
+        "en": "Stripe idempotent requests",
+        "de": "Idempotente Anfragen bei Stripe"
+      },
+      "url": "https://docs.stripe.com/api/idempotent_requests"
+    },
+    {
+      "id": "google-sre",
+      "title": {
+        "en": "Google SRE: monitoring distributed systems",
+        "de": "Google SRE: Verteilte Systeme überwachen"
+      },
+      "url": "https://sre.google/sre-book/monitoring-distributed-systems/"
+    },
+    {
+      "id": "web-vitals",
+      "title": {
+        "en": "Google Web Vitals",
+        "de": "Google Web Vitals"
+      },
+      "url": "https://web.dev/articles/vitals"
+    },
+    {
+      "id": "wcag",
+      "title": {
+        "en": "W3C WCAG 2.2 quick reference",
+        "de": "W3C-Kurzreferenz zu WCAG 2.2"
+      },
+      "url": "https://www.w3.org/WAI/WCAG22/quickref/"
+    },
+    {
+      "id": "google-seo",
+      "title": {
+        "en": "Google Search Central SEO starter guide",
+        "de": "SEO-Einstiegsleitfaden von Google Search Central"
+      },
+      "url": "https://developers.google.com/search/docs/fundamentals/seo-starter-guide"
+    },
+    {
+      "id": "w3c-i18n",
+      "title": {
+        "en": "W3C internationalization quick tips",
+        "de": "W3C-Kurztipps zur Internationalisierung"
+      },
+      "url": "https://www.w3.org/International/quicktips/"
+    },
+    {
+      "id": "kubernetes-probes",
+      "title": {
+        "en": "Kubernetes liveness, readiness and startup probes",
+        "de": "Kubernetes-Prüfungen für Lebensfähigkeit, Bereitschaft und Start"
+      },
+      "url": "https://kubernetes.io/docs/concepts/workloads/pods/probes/"
+    },
+    {
+      "id": "web-vitals-thresholds",
+      "title": {
+        "en": "Google: defining Core Web Vitals thresholds",
+        "de": "Google: Schwellenwerte für Core Web Vitals"
+      },
+      "url": "https://web.dev/articles/defining-core-web-vitals-thresholds"
+    },
+    {
+      "id": "stripe-webhooks",
+      "title": {
+        "en": "Stripe webhook event handling",
+        "de": "Verarbeitung von Stripe-Webhook-Ereignissen"
+      },
+      "url": "https://docs.stripe.com/webhooks"
+    }
+  ],
+  "domains": [
+    {
+      "id": "architecture",
+      "title": {
+        "en": "Architecture",
+        "de": "Architektur"
+      },
+      "why": {
+        "en": "Clear ownership makes change impact easier to understand.",
+        "de": "Klare Zuständigkeiten machen Änderungsfolgen verständlicher."
+      },
+      "evidence": {
+        "en": "Repository architecture contract, source layout and dependency direction.",
+        "de": "Architekturvertrag des Repositorys, Quellcodeaufbau und Abhängigkeitsrichtung."
+      },
+      "limits": {
+        "en": "Directory checks do not establish component cohesion.",
+        "de": "Verzeichnisprüfungen belegen keinen inhaltlichen Zusammenhalt von Komponenten."
+      },
+      "checks": [
+        {
+          "id": "architecture-boundaries",
+          "title": {
+            "en": "Declared boundaries and ownership",
+            "de": "Festgelegte Grenzen und Zuständigkeiten"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-GN-003",
+            "QS-NG-003",
+            "QS-CS-002"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Changes should fit the declared architecture.",
+            "de": "Änderungen sollen zur festgelegten Architektur passen."
+          },
+          "evidence": {
+            "en": "Read the contract beside changed paths, imports and service registrations.",
+            "de": "Vertrag gemeinsam mit geänderten Pfaden, Imports und Dienstregistrierungen lesen."
+          },
+          "interpretation": {
+            "en": "Existing rules support concrete contract and dependency findings.",
+            "de": "Vorhandene Regeln unterstützen konkrete Findings zu Verträgen und Abhängigkeiten."
+          },
+          "limits": {
+            "en": "A different documented layout is not itself a defect. No architecture score is calculated.",
+            "de": "Ein abweichender dokumentierter Aufbau ist allein kein Fehler. Es wird kein Architekturpunktwert berechnet."
+          },
+          "sourceIds": [
+            "angular-style",
+            "dotnet-architecture"
+          ],
+          "applicability": {
+            "subjectScope": "project",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "correctness",
+      "title": {
+        "en": "Correctness",
+        "de": "Korrektheit"
+      },
+      "why": {
+        "en": "A review should explain observable failures.",
+        "de": "Ein Review soll beobachtbare Fehler erklären."
+      },
+      "evidence": {
+        "en": "Triggers, state transitions, source locations and reproduced behavior.",
+        "de": "Auslöser, Zustandsübergänge, Fundstellen und reproduziertes Verhalten."
+      },
+      "limits": {
+        "en": "A review grade is judgment, not proof of correctness.",
+        "de": "Eine Review-Bewertung ist ein Urteil, kein Korrektheitsbeweis."
+      },
+      "checks": [
+        {
+          "id": "correctness-behavior",
+          "title": {
+            "en": "Behavior and concurrent state changes",
+            "de": "Verhalten und gleichzeitige Zustandsänderungen"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-GN-004",
+            "QS-CS-003"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Failures need a plausible trigger and a concrete consequence.",
+            "de": "Fehler benötigen einen plausiblen Auslöser und eine konkrete Folge."
+          },
+          "evidence": {
+            "en": "Trace callers, cancellation, stale responses and relevant regression cases.",
+            "de": "Aufrufer, Abbruch, veraltete Antworten und passende Regressionsfälle nachvollziehen."
+          },
+          "interpretation": {
+            "en": "The linked rules guide source-grounded findings.",
+            "de": "Die verlinkten Regeln leiten zu quellcodegestützten Findings an."
+          },
+          "limits": {
+            "en": "Unverified assumptions remain uncertainty; no automatic correctness verdict is produced.",
+            "de": "Ungeprüfte Annahmen bleiben unsicher; es entsteht kein automatisches Korrektheitsurteil."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "correctness-grade",
+          "title": {
+            "en": "Recorded and effective review grade",
+            "de": "Gespeicherte und effektive Review-Bewertung"
+          },
+          "status": "implemented-metric",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [
+            "grade"
+          ],
+          "rationale": {
+            "en": "The displayed grade needs its review and triage context.",
+            "de": "Die angezeigte Bewertung benötigt ihren Review- und Einstufungskontext."
+          },
+          "evidence": {
+            "en": "Stored review score, finding states and security verdict.",
+            "de": "Gespeicherter Review-Punktwert, Finding-Zustände und Sicherheitsurteil."
+          },
+          "interpretation": {
+            "en": "Use the existing grade definition for weights, caps and rounding.",
+            "de": "Die bestehende Bewertungsdefinition beschreibt Gewichte, Obergrenzen und Rundung."
+          },
+          "limits": {
+            "en": "Triage can change this value without a code change. It is not a measured probability.",
+            "de": "Die Einstufung kann den Wert ohne Codeänderung verändern. Er ist keine gemessene Wahrscheinlichkeit."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "project",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "title": {
+        "en": "Testing",
+        "de": "Tests"
+      },
+      "why": {
+        "en": "Tests and recorded reviews provide different kinds of evidence.",
+        "de": "Tests und gespeicherte Reviews liefern unterschiedliche Nachweise."
+      },
+      "evidence": {
+        "en": "Behavior assertions, coverage reports and review documents.",
+        "de": "Verhaltensprüfungen, Abdeckungsberichte und Review-Dokumente."
+      },
+      "limits": {
+        "en": "Counts do not show whether important behavior was asserted.",
+        "de": "Anzahlen zeigen nicht, ob wichtiges Verhalten durch Assertions geprüft wurde."
+      },
+      "checks": [
+        {
+          "id": "testing-behavior",
+          "title": {
+            "en": "Independent behavior tests",
+            "de": "Unabhängige Verhaltenstests"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-CS-004",
+            "QS-GN-004"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "A regression test should fail for the demonstrated problem.",
+            "de": "Ein Regressionstest soll beim nachgewiesenen Problem fehlschlagen."
+          },
+          "evidence": {
+            "en": "Test inputs, isolated fixtures and outcome assertions.",
+            "de": "Testeinstellungen, isolierte Testumgebungen und Ergebnisprüfungen."
+          },
+          "interpretation": {
+            "en": "Existing rules assess test intent and independence.",
+            "de": "Vorhandene Regeln beurteilen Testabsicht und Unabhängigkeit."
+          },
+          "limits": {
+            "en": "A higher test count alone is not stronger evidence.",
+            "de": "Eine höhere Testanzahl allein ist kein stärkerer Nachweis."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "testing-line-coverage",
+          "title": {
+            "en": "Reported test line coverage",
+            "de": "Gemeldete Test-Zeilenabdeckung"
+          },
+          "status": "implemented-metric",
+          "method": "measurement",
+          "ruleIds": [],
+          "metricIds": [
+            "test-coverage"
+          ],
+          "rationale": {
+            "en": "Executed lines identify gaps worth investigating.",
+            "de": "Ausgeführte Zeilen helfen, prüfenswerte Lücken zu erkennen."
+          },
+          "evidence": {
+            "en": "Supported coverage reports and their source scope.",
+            "de": "Unterstützte Abdeckungsberichte und ihr Quellumfang."
+          },
+          "interpretation": {
+            "en": "The existing metric reports executable lines reached by tests.",
+            "de": "Die bestehende Metrik meldet durch Tests erreichte ausführbare Zeilen."
+          },
+          "limits": {
+            "en": "Missing reports are unavailable. Line execution does not prove assertions or branch coverage.",
+            "de": "Fehlende Berichte sind nicht verfügbar. Zeilenausführung belegt weder Assertions noch Zweigabdeckung."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "testing-review-coverage",
+          "title": {
+            "en": "Recorded review coverage",
+            "de": "Gespeicherte Review-Abdeckung"
+          },
+          "status": "implemented-metric",
+          "method": "measurement",
+          "ruleIds": [],
+          "metricIds": [
+            "review-coverage"
+          ],
+          "rationale": {
+            "en": "Review evidence should expose its coverage.",
+            "de": "Review-Nachweise sollen ihren Abdeckungsumfang sichtbar machen."
+          },
+          "evidence": {
+            "en": "Reviewable file inventory and attached review documents.",
+            "de": "Inventar reviewfähiger Dateien und zugeordnete Review-Dokumente."
+          },
+          "interpretation": {
+            "en": "The existing metric counts files with a document of any review kind.",
+            "de": "Die bestehende Metrik zählt Dateien mit einem Dokument beliebiger Review-Art."
+          },
+          "limits": {
+            "en": "Stale documents still count; this does not measure test coverage or freshness.",
+            "de": "Veraltete Dokumente zählen mit; dies misst weder Testabdeckung noch Aktualität."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "project",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": {
+        "en": "Security",
+        "de": "Sicherheit"
+      },
+      "why": {
+        "en": "Inputs and process capabilities cross trust boundaries.",
+        "de": "Eingaben und Prozessfähigkeiten überschreiten Vertrauensgrenzen."
+      },
+      "evidence": {
+        "en": "Input validation, path confinement, process arguments and rendering sinks.",
+        "de": "Eingabevalidierung, Pfadbegrenzung, Prozessargumente und Ausgabestellen."
+      },
+      "limits": {
+        "en": "These rules are not an ASVS audit or a complete security assessment.",
+        "de": "Diese Regeln ersetzen weder eine ASVS-Prüfung noch eine vollständige Sicherheitsbewertung."
+      },
+      "checks": [
+        {
+          "id": "security-trust-boundaries",
+          "title": {
+            "en": "Input and execution boundaries",
+            "de": "Eingabe- und Ausführungsgrenzen"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-GN-001",
+            "QS-CS-005",
+            "QS-CS-006",
+            "QS-CS-008",
+            "QS-NG-007"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Untrusted data must not gain execution or filesystem authority.",
+            "de": "Nicht vertrauenswürdige Daten dürfen keine Ausführungs- oder Dateisystemrechte erhalten."
+          },
+          "evidence": {
+            "en": "Trace request and repository data to parsing, filesystem, process and DOM operations.",
+            "de": "Anfrage- und Repository-Daten bis zu Parsing-, Dateisystem-, Prozess- und DOM-Operationen verfolgen."
+          },
+          "interpretation": {
+            "en": "Existing code and security review rules cover these specific patterns.",
+            "de": "Vorhandene Code- und Sicherheitsregeln decken diese konkreten Muster ab."
+          },
+          "limits": {
+            "en": "Authorization design and deployment exposure still require contextual review.",
+            "de": "Berechtigungsdesign und Erreichbarkeit im Betrieb benötigen weiterhin eine kontextbezogene Prüfung."
+          },
+          "sourceIds": [
+            "owasp-asvs"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": {
+        "en": "Privacy",
+        "de": "Datenschutz"
+      },
+      "why": {
+        "en": "Personal data should have explicit purposes and controlled handling.",
+        "de": "Personenbezogene Daten benötigen klare Zwecke und kontrollierte Verarbeitung."
+      },
+      "evidence": {
+        "en": "Data flows, browser storage, logs and retention decisions.",
+        "de": "Datenflüsse, Browserspeicher, Logs und Aufbewahrungsentscheidungen."
+      },
+      "limits": {
+        "en": "Secret-handling rules cover only part of privacy. No compliance score is produced.",
+        "de": "Regeln zum Umgang mit Geheimnissen decken nur einen Teil des Datenschutzes ab. Es entsteht kein Compliance-Punktwert."
+      },
+      "checks": [
+        {
+          "id": "privacy-disclosure",
+          "title": {
+            "en": "Secret and client-state disclosure",
+            "de": "Offenlegung durch Geheimnisse und Clientzustand"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-CS-007",
+            "QS-NG-008"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Persisted output and browser state can expose sensitive values.",
+            "de": "Gespeicherte Ausgaben und Browserzustand können sensible Werte offenlegen."
+          },
+          "evidence": {
+            "en": "Follow values into logs, responses, documents and client storage.",
+            "de": "Werte bis in Logs, Antworten, Dokumente und Clientspeicher verfolgen."
+          },
+          "interpretation": {
+            "en": "The linked rules address secrets and credential storage specifically.",
+            "de": "Die verlinkten Regeln behandeln gezielt Geheimnisse und Zugangsdaten im Speicher."
+          },
+          "limits": {
+            "en": "They do not establish purpose limitation, deletion coverage or legal compliance.",
+            "de": "Sie belegen weder Zweckbindung noch vollständige Löschung oder Rechtskonformität."
+          },
+          "sourceIds": [
+            "w3c-privacy"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [
+              "personal-data",
+              "authenticated"
+            ],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "privacy-lifecycle",
+          "title": {
+            "en": "Personal-data lifecycle review",
+            "de": "Lebenszyklus personenbezogener Daten prüfen"
+          },
+          "status": "planned",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "Collection, retention and deletion need an end-to-end account.",
+            "de": "Erhebung, Aufbewahrung und Löschung benötigen eine durchgängige Beschreibung."
+          },
+          "evidence": {
+            "en": "Planned evidence: data inventory, purpose, retention and deletion-path tests.",
+            "de": "Geplante Nachweise: Dateninventar, Zweck, Aufbewahrung und Tests der Löschpfade."
+          },
+          "interpretation": {
+            "en": "This catalogue records a future check; no dedicated implementation is linked.",
+            "de": "Dieser Katalog beschreibt eine künftige Prüfung; es ist keine eigene Implementierung verknüpft."
+          },
+          "limits": {
+            "en": "No automated privacy metric or completeness claim exists.",
+            "de": "Es gibt keine automatische Datenschutzmetrik oder Vollständigkeitsbehauptung."
+          },
+          "sourceIds": [
+            "w3c-privacy"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "personal-data"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "payments",
+      "title": {
+        "en": "Payments",
+        "de": "Zahlungen"
+      },
+      "why": {
+        "en": "Retries and partial failures must not duplicate financial effects.",
+        "de": "Wiederholungen und Teilausfälle dürfen finanzielle Wirkungen nicht verdoppeln."
+      },
+      "evidence": {
+        "en": "Payment state transitions, idempotency records and reconciliation cases.",
+        "de": "Zahlungszustände, Idempotenznachweise und Abgleichfälle."
+      },
+      "limits": {
+        "en": "There is no dedicated implemented payment check or payment score.",
+        "de": "Es gibt keine eigene implementierte Zahlungsprüfung oder Zahlungsbewertung."
+      },
+      "checks": [
+        {
+          "id": "payments-effects",
+          "title": {
+            "en": "Payment effects and retry integrity",
+            "de": "Zahlungswirkungen und sichere Wiederholung"
+          },
+          "status": "planned",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "A repeated request needs a defined relationship to the original payment.",
+            "de": "Eine wiederholte Anfrage benötigt eine definierte Beziehung zur ursprünglichen Zahlung."
+          },
+          "evidence": {
+            "en": "Planned evidence: provider contract, idempotency keys, amounts, currencies and duplicate-delivery tests.",
+            "de": "Geplante Nachweise: Providervertrag, Idempotenzschlüssel, Beträge, Währungen und Tests doppelter Zustellung."
+          },
+          "interpretation": {
+            "en": "Provider-specific semantics must be reviewed before a check can be implemented.",
+            "de": "Providerspezifische Semantik muss vor der Implementierung einer Prüfung bewertet werden."
+          },
+          "limits": {
+            "en": "The Stripe reference illustrates one provider contract, not a universal payment guarantee.",
+            "de": "Die Stripe-Quelle veranschaulicht einen Providervertrag, keine allgemeine Zahlungsgarantie."
+          },
+          "sourceIds": [
+            "stripe-idempotency"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "payment-api"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "payments-webhook-delivery",
+          "title": {
+            "en": "Webhook authenticity and delivery order",
+            "de": "Webhook-Authentizität und Zustellreihenfolge"
+          },
+          "status": "planned",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "A callback must be authenticated before duplicate or late delivery changes payment state.",
+            "de": "Ein Callback muss authentifiziert sein, bevor doppelte oder verspätete Zustellung den Zahlungszustand verändert."
+          },
+          "evidence": {
+            "en": "Planned evidence: signature verification against the original payload, secret rotation handling, event identity, duplicate deliveries and out-of-order transition tests.",
+            "de": "Geplante Nachweise: Signaturprüfung am ursprünglichen Inhalt, Umgang mit Schlüsselrotation, Ereignisidentität, doppelte Zustellung und Tests vertauschter Zustandsübergänge."
+          },
+          "interpretation": {
+            "en": "Review the selected provider’s signing, retry and ordering contract; test repeated events without repeating effects and late events without regressing state.",
+            "de": "Den Signatur-, Wiederholungs- und Reihenfolgevertrag des gewählten Providers prüfen; wiederholte Ereignisse ohne doppelte Wirkung und verspätete Ereignisse ohne Zustandsrückschritt testen."
+          },
+          "limits": {
+            "en": "The Stripe contract is an example, not a universal webhook protocol. No provider integration test, live payment or authenticity scanner is implemented by this entry.",
+            "de": "Der Stripe-Vertrag ist ein Beispiel und kein universelles Webhook-Protokoll. Dieser Eintrag implementiert weder Providerintegrationstests noch Live-Zahlungen oder einen Authentizitätsscanner."
+          },
+          "sourceIds": [
+            "stripe-webhooks"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "payment-api"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "reliability",
+      "title": {
+        "en": "Reliability",
+        "de": "Zuverlässigkeit"
+      },
+      "why": {
+        "en": "Work should remain bounded when dependencies fail.",
+        "de": "Arbeit soll bei ausfallenden Abhängigkeiten begrenzt bleiben."
+      },
+      "evidence": {
+        "en": "Cancellation, timeouts, cache keys, failure recovery and operational observations.",
+        "de": "Abbruch, Zeitlimits, Cache-Schlüssel, Fehlerbehebung und Betriebsbeobachtungen."
+      },
+      "limits": {
+        "en": "Code review does not measure production availability.",
+        "de": "Ein Code-Review misst keine Verfügbarkeit im Produktivbetrieb."
+      },
+      "checks": [
+        {
+          "id": "reliability-bounded-work",
+          "title": {
+            "en": "Bounded waits and resource use",
+            "de": "Begrenzte Wartezeiten und Ressourcennutzung"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-GN-002",
+            "QS-CS-003",
+            "QS-CS-010",
+            "QS-CS-012"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "One stalled operation should not stop unrelated work indefinitely.",
+            "de": "Eine hängende Operation soll unabhängige Arbeit nicht unbegrenzt aufhalten."
+          },
+          "evidence": {
+            "en": "Inspect cancellation, timeout ownership, cache bounds and queue behavior.",
+            "de": "Abbruch, Zuständigkeit für Zeitlimits, Cache-Grenzen und Warteschlangenverhalten prüfen."
+          },
+          "interpretation": {
+            "en": "Existing rules support findings about these source-level behaviors.",
+            "de": "Vorhandene Regeln unterstützen Findings zu diesem Verhalten im Quellcode."
+          },
+          "limits": {
+            "en": "A passing test or bounded call does not establish a service-level objective.",
+            "de": "Ein erfolgreicher Test oder begrenzter Aufruf belegt kein Service-Level-Ziel."
+          },
+          "sourceIds": [
+            "google-sre"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "reliability-service-observations",
+          "title": {
+            "en": "Service-level observations",
+            "de": "Beobachtungen zu Service-Level-Zielen"
+          },
+          "status": "planned",
+          "method": "measurement",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "Operational reliability requires observations over a defined window.",
+            "de": "Betriebliche Zuverlässigkeit benötigt Beobachtungen über ein definiertes Zeitfenster."
+          },
+          "evidence": {
+            "en": "Planned evidence: request outcomes, latency distributions and documented observation windows.",
+            "de": "Geplante Nachweise: Anfrageergebnisse, Latenzverteilungen und dokumentierte Beobachtungszeiträume."
+          },
+          "interpretation": {
+            "en": "No operational availability or latency metric is currently supplied by this catalogue.",
+            "de": "Dieser Katalog liefert derzeit keine Metrik zu betrieblicher Verfügbarkeit oder Latenz."
+          },
+          "limits": {
+            "en": "A future measurement needs workload and aggregation definitions.",
+            "de": "Eine künftige Messung benötigt Definitionen für Arbeitslast und Aggregation."
+          },
+          "sourceIds": [
+            "google-sre"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [
+              "persistent-data",
+              "realtime"
+            ],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "title": {
+        "en": "Performance",
+        "de": "Performance"
+      },
+      "why": {
+        "en": "Interactive work should have a workload and resource budget.",
+        "de": "Interaktive Arbeit benötigt eine definierte Arbeitslast und Ressourcengrenze."
+      },
+      "evidence": {
+        "en": "Rendered scenarios, trace data, bundle output and field observations.",
+        "de": "Gerenderte Szenarien, Ablaufdaten, Bundle-Ausgaben und Feldbeobachtungen."
+      },
+      "limits": {
+        "en": "Source patterns and laboratory runs do not establish the experience of production users.",
+        "de": "Quellcodemuster und Laborläufe belegen nicht das Erlebnis von Nutzern im Produktivbetrieb."
+      },
+      "checks": [
+        {
+          "id": "performance-bounded-rendering",
+          "title": {
+            "en": "Bounded rendering and main-thread work",
+            "de": "Begrenzte Darstellung und Hauptthread-Arbeit"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-NG-010",
+            "QS-NG-011",
+            "QS-NG-012",
+            "QS-NG-013",
+            "QS-CS-009",
+            "QS-CS-011"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Repository-sized work should not multiply per rendered row or request.",
+            "de": "Arbeit über Repository-Daten soll sich nicht pro dargestellter Zeile oder Anfrage vervielfachen."
+          },
+          "evidence": {
+            "en": "Inspect rendering windows, computed state, worker cancellation and repeated scans.",
+            "de": "Darstellungsfenster, abgeleiteten Zustand, Worker-Abbruch und wiederholte Scans prüfen."
+          },
+          "interpretation": {
+            "en": "Linked rules describe source patterns; realistic traces establish observed behavior.",
+            "de": "Verlinkte Regeln beschreiben Quellcodemuster; realistische Ablaufmessungen belegen beobachtetes Verhalten."
+          },
+          "limits": {
+            "en": "These checks do not implement Web Vitals collection.",
+            "de": "Diese Prüfungen implementieren keine Erfassung von Web Vitals."
+          },
+          "sourceIds": [
+            "web-vitals"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "performance-field-web-vitals",
+          "title": {
+            "en": "Field Core Web Vitals",
+            "de": "Core Web Vitals im Feld"
+          },
+          "status": "planned",
+          "method": "measurement",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "Field observations show loading, interaction and visual stability for actual visits.",
+            "de": "Feldbeobachtungen zeigen Laden, Interaktion und visuelle Stabilität bei tatsächlichen Besuchen."
+          },
+          "evidence": {
+            "en": "Planned evidence: LCP, INP and CLS observations at the 75th percentile, with device category, collection window and available sample coverage.",
+            "de": "Geplante Nachweise: LCP-, INP- und CLS-Beobachtungen am 75. Perzentil mit Gerätekategorie, Erhebungszeitraum und verfügbarer Stichprobenabdeckung."
+          },
+          "interpretation": {
+            "en": "The referenced good thresholds are LCP ≤ 2500 ms, INP ≤ 200 ms and CLS ≤ 0.1. Compare each metric separately for its declared device category and period. No collection is implemented here.",
+            "de": "Die referenzierten guten Schwellenwerte sind LCP ≤ 2500 ms, INP ≤ 200 ms und CLS ≤ 0,1. Jede Metrik getrennt für ihre angegebene Gerätekategorie und ihren Zeitraum vergleichen. Hier ist keine Erfassung implementiert."
+          },
+          "limits": {
+            "en": "Missing field data is unavailable, never zero or passing. Laboratory results cannot silently replace field observations; no combined Quality Studio performance score is defined.",
+            "de": "Fehlende Felddaten sind nicht verfügbar, niemals null oder bestanden. Laborergebnisse dürfen Feldbeobachtungen nicht stillschweigend ersetzen; es wird kein kombinierter Quality-Studio-Performancepunktwert definiert."
+          },
+          "sourceIds": [
+            "web-vitals-thresholds"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "html-ui"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "review-prioritization",
+      "title": {
+        "en": "Review prioritization",
+        "de": "Review-Priorisierung"
+      },
+      "why": {
+        "en": "Recorded evidence can help choose where to investigate next.",
+        "de": "Gespeicherte Nachweise helfen bei der Auswahl der nächsten Untersuchung."
+      },
+      "evidence": {
+        "en": "Recorded grades, findings, coverage and change history.",
+        "de": "Gespeicherte Bewertungen, Findings, Abdeckung und Änderungshistorie."
+      },
+      "limits": {
+        "en": "These metrics do not measure runtime performance or predict failures.",
+        "de": "Diese Metriken messen keine Laufzeitperformance und sagen keine Ausfälle voraus."
+      },
+      "checks": [
+        {
+          "id": "prioritization-risk-priority",
+          "title": {
+            "en": "Risk view priority",
+            "de": "Priorität der Risikoansicht"
+          },
+          "status": "implemented-metric",
+          "method": "heuristic",
+          "ruleIds": [],
+          "metricIds": [
+            "risk-view"
+          ],
+          "rationale": {
+            "en": "Review effort can start with the existing risk ranking.",
+            "de": "Review-Aufwand kann an der bestehenden Risikorangfolge ausgerichtet werden."
+          },
+          "evidence": {
+            "en": "Recorded code grade, line coverage and change history.",
+            "de": "Gespeicherte Code-Bewertung, Zeilenabdeckung und Änderungshistorie."
+          },
+          "interpretation": {
+            "en": "Read weights and missing-data behavior in the existing metric definition.",
+            "de": "Gewichte und Verhalten bei fehlenden Daten stehen in der bestehenden Metrikdefinition."
+          },
+          "limits": {
+            "en": "This is not a failure probability or measured response time.",
+            "de": "Dies ist weder eine Ausfallwahrscheinlichkeit noch eine gemessene Antwortzeit."
+          },
+          "sourceIds": [
+            "google-sre"
+          ],
+          "applicability": {
+            "subjectScope": "project",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "prioritization-finding-density",
+          "title": {
+            "en": "Recorded finding density",
+            "de": "Gespeicherte Finding-Dichte"
+          },
+          "status": "implemented-metric",
+          "method": "measurement",
+          "ruleIds": [],
+          "metricIds": [
+            "finding-density"
+          ],
+          "rationale": {
+            "en": "File size gives finding counts a stated denominator.",
+            "de": "Die Dateigröße gibt Finding-Anzahlen einen definierten Bezugswert."
+          },
+          "evidence": {
+            "en": "Unresolved recorded findings and file line counts.",
+            "de": "Ungelöste gespeicherte Findings und Zeilenanzahlen der Dateien."
+          },
+          "interpretation": {
+            "en": "The existing KLOC metric reports density across stored review kinds.",
+            "de": "Die bestehende KLOC-Metrik meldet die Dichte über gespeicherte Review-Arten hinweg."
+          },
+          "limits": {
+            "en": "Density depends on review scope and recency; it is not execution cost.",
+            "de": "Die Dichte hängt von Review-Umfang und Aktualität ab; sie ist kein Ausführungsaufwand."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "project",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "prioritization-hotspot-priority",
+          "title": {
+            "en": "Dashboard hotspot priority",
+            "de": "Hotspot-Priorität des Dashboards"
+          },
+          "status": "implemented-metric",
+          "method": "heuristic",
+          "ruleIds": [],
+          "metricIds": [
+            "hotspot"
+          ],
+          "rationale": {
+            "en": "Change history can help order review candidates.",
+            "de": "Die Änderungshistorie kann Review-Kandidaten ordnen helfen."
+          },
+          "evidence": {
+            "en": "Change counts, finding density and recorded code grade.",
+            "de": "Änderungsanzahlen, Finding-Dichte und gespeicherte Code-Bewertung."
+          },
+          "interpretation": {
+            "en": "Use the existing hotspot definition and its explicit missing-grade assumption.",
+            "de": "Die bestehende Hotspot-Definition und ihre explizite Annahme bei fehlender Bewertung verwenden."
+          },
+          "limits": {
+            "en": "A low ranking does not imply safety, freshness or fast execution.",
+            "de": "Ein niedriger Rang bedeutet weder Sicherheit noch Aktualität oder schnelle Ausführung."
+          },
+          "sourceIds": [
+            "google-review"
+          ],
+          "applicability": {
+            "subjectScope": "project",
+            "allOf": [],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "accessibility",
+      "title": {
+        "en": "Accessibility",
+        "de": "Barrierefreiheit"
+      },
+      "why": {
+        "en": "People need usable controls across input and assistive technologies.",
+        "de": "Menschen benötigen bedienbare Elemente für unterschiedliche Eingaben und Hilfstechnologien."
+      },
+      "evidence": {
+        "en": "Keyboard paths, focus behavior, semantics, names and rendered contrast.",
+        "de": "Tastaturwege, Fokusverhalten, Semantik, Beschriftungen und gerenderter Kontrast."
+      },
+      "limits": {
+        "en": "There is no complete accessibility audit or WCAG score in this catalogue.",
+        "de": "Dieser Katalog enthält keine vollständige Barrierefreiheitsprüfung oder WCAG-Bewertung."
+      },
+      "checks": [
+        {
+          "id": "accessibility-interaction",
+          "title": {
+            "en": "Keyboard and semantic interaction audit",
+            "de": "Tastatur- und Semantikprüfung"
+          },
+          "status": "planned",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "Visible interaction must also expose useful keyboard and semantic behavior.",
+            "de": "Sichtbare Interaktion benötigt auch sinnvolles Tastaturverhalten und Semantik."
+          },
+          "evidence": {
+            "en": "Planned evidence: focus order, names, expanded states, contrast and assistive-technology scenarios.",
+            "de": "Geplante Nachweise: Fokusreihenfolge, Namen, Aufklappzustände, Kontrast und Szenarien mit Hilfstechnologien."
+          },
+          "interpretation": {
+            "en": "The WCAG reference guides a future dedicated check; existing UI tests remain separate evidence.",
+            "de": "Die WCAG-Referenz leitet eine künftige eigene Prüfung an; vorhandene UI-Tests bleiben separate Nachweise."
+          },
+          "limits": {
+            "en": "Native elements and a font-size floor alone do not establish accessibility conformance.",
+            "de": "Native Elemente und eine Schriftgrößenuntergrenze allein belegen keine Barrierefreiheitskonformität."
+          },
+          "sourceIds": [
+            "wcag"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "html-ui"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "seo",
+      "title": {
+        "en": "Search discoverability",
+        "de": "Auffindbarkeit in Suchmaschinen"
+      },
+      "why": {
+        "en": "Public pages need deliberate crawl and indexing signals.",
+        "de": "Öffentliche Seiten benötigen bewusst gesetzte Crawling- und Indexierungssignale."
+      },
+      "evidence": {
+        "en": "Rendered pages, response headers, canonical and locale links, titles, links and sitemap.",
+        "de": "Gerenderte Seiten, Antwortheader, Canonical- und Sprachlinks, Titel, Links und Sitemap."
+      },
+      "limits": {
+        "en": "Opt-in review rules do not predict rankings or calculate an SEO score.",
+        "de": "Opt-in-Review-Regeln sagen keine Rankings voraus und berechnen keinen SEO-Punktwert."
+      },
+      "checks": [
+        {
+          "id": "seo-page-contract",
+          "title": {
+            "en": "Public-page search signals",
+            "de": "Suchsignale öffentlicher Seiten"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-GN-005",
+            "QS-GN-006",
+            "QS-GN-007",
+            "QS-GN-008"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Search-facing pages need consistent declared identities and discoverable links.",
+            "de": "Für Suchmaschinen bestimmte Seiten benötigen konsistente Identitäten und auffindbare Links."
+          },
+          "evidence": {
+            "en": "Inspect rendered HTML and HTTP evidence using the four linked opt-in rules.",
+            "de": "Gerendertes HTML und HTTP-Nachweise mit den vier verlinkten Opt-in-Regeln prüfen."
+          },
+          "interpretation": {
+            "en": "Rule enablement remains in the rule catalogue and repository overrides.",
+            "de": "Die Regelaktivierung bleibt im Regelkatalog und in den Repository-Überschreibungen."
+          },
+          "limits": {
+            "en": "This selector is documentation only. No automatic crawl, indexing verdict or SEO measurement is implemented here.",
+            "de": "Dieser Selektor dient nur der Dokumentation. Hier sind weder automatisches Crawling noch Indexierungsurteil oder SEO-Messung implementiert."
+          },
+          "sourceIds": [
+            "google-seo"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "public-facing",
+              "html-ui",
+              "seo-relevant"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "localization",
+      "title": {
+        "en": "Localization",
+        "de": "Lokalisierung"
+      },
+      "why": {
+        "en": "Language changes should preserve meaning and navigation.",
+        "de": "Sprachwechsel sollen Bedeutung und Navigation erhalten."
+      },
+      "evidence": {
+        "en": "Translated content, document language, locale routes and browser preferences.",
+        "de": "Übersetzte Inhalte, Dokumentsprache, Sprachrouten und Browserpräferenzen."
+      },
+      "limits": {
+        "en": "Language metadata does not prove translation quality or complete locale coverage.",
+        "de": "Sprachmetadaten belegen weder Übersetzungsqualität noch vollständige Sprachabdeckung."
+      },
+      "checks": [
+        {
+          "id": "localization-ui-coverage",
+          "title": {
+            "en": "Locale content and interaction parity",
+            "de": "Gleichwertige Inhalte und Bedienung je Sprache"
+          },
+          "status": "planned",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "Supported locales should expose the intended content and controls.",
+            "de": "Unterstützte Sprachen sollen die vorgesehenen Inhalte und Bedienelemente anbieten."
+          },
+          "evidence": {
+            "en": "Planned evidence: key inventories, locale switching, text expansion and formatting cases.",
+            "de": "Geplante Nachweise: Schlüsselinventare, Sprachwechsel, Textausdehnung und Formatierungsfälle."
+          },
+          "interpretation": {
+            "en": "No dedicated localization rule or coverage metric is implemented by this entry.",
+            "de": "Dieser Eintrag implementiert keine eigene Lokalisierungsregel oder Abdeckungsmetrik."
+          },
+          "limits": {
+            "en": "A matching key count does not establish semantic translation equivalence.",
+            "de": "Gleiche Schlüsselanzahlen belegen keine inhaltliche Gleichwertigkeit der Übersetzungen."
+          },
+          "sourceIds": [
+            "w3c-i18n"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "localized"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        },
+        {
+          "id": "localization-search-alternates",
+          "title": {
+            "en": "Public locale and canonical links",
+            "de": "Öffentliche Sprach- und Canonical-Links"
+          },
+          "status": "review-rule",
+          "method": "review",
+          "ruleIds": [
+            "QS-GN-006"
+          ],
+          "metricIds": [],
+          "rationale": {
+            "en": "Search-facing locale variants need a coherent page identity.",
+            "de": "Sprachvarianten für Suchmaschinen benötigen eine konsistente Seitenidentität."
+          },
+          "evidence": {
+            "en": "Canonical and language-alternate declarations for corresponding pages.",
+            "de": "Canonical- und Sprachalternativangaben für zusammengehörige Seiten."
+          },
+          "interpretation": {
+            "en": "The linked opt-in SEO rule covers this narrow localization concern.",
+            "de": "Die verlinkte Opt-in-SEO-Regel deckt diesen begrenzten Lokalisierungsaspekt ab."
+          },
+          "limits": {
+            "en": "It does not test application translations, number formats or user preferences.",
+            "de": "Sie prüft keine Anwendungsübersetzungen, Zahlenformate oder Nutzerpräferenzen."
+          },
+          "sourceIds": [
+            "google-seo",
+            "w3c-i18n"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "public-facing",
+              "html-ui",
+              "seo-relevant",
+              "localized"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "operations",
+      "title": {
+        "en": "Operations",
+        "de": "Betrieb"
+      },
+      "why": {
+        "en": "A deployable component needs explicit start and recovery expectations.",
+        "de": "Eine bereitstellbare Komponente benötigt klare Erwartungen an Start und Wiederherstellung."
+      },
+      "evidence": {
+        "en": "Launch definitions, readiness evidence, deployment records and recovery exercises.",
+        "de": "Startdefinitionen, Bereitschaftsnachweise, Bereitstellungsprotokolle und Wiederherstellungsübungen."
+      },
+      "limits": {
+        "en": "Project declarations do not authorize execution or prove operational readiness.",
+        "de": "Projektdeklarationen autorisieren keine Ausführung und belegen keine Betriebsbereitschaft."
+      },
+      "checks": [
+        {
+          "id": "operations-lifecycle",
+          "title": {
+            "en": "Startup, readiness and recovery evidence",
+            "de": "Nachweise zu Start, Bereitschaft und Wiederherstellung"
+          },
+          "status": "planned",
+          "method": "review",
+          "ruleIds": [],
+          "metricIds": [],
+          "rationale": {
+            "en": "A running process and a service ready for users are different observations.",
+            "de": "Ein laufender Prozess und ein für Nutzer bereiter Dienst sind unterschiedliche Beobachtungen."
+          },
+          "evidence": {
+            "en": "Planned evidence: versioned launch contract, health target, bounded start, stop ownership and recovery records.",
+            "de": "Geplante Nachweise: versionierter Startvertrag, Health-Ziel, begrenzter Start, Zuständigkeit für Stop und Wiederherstellungsprotokolle."
+          },
+          "interpretation": {
+            "en": "This entry records future review guidance; it does not start services or read YAML.",
+            "de": "Dieser Eintrag hält künftige Review-Leitlinien fest; er startet keine Dienste und liest kein YAML."
+          },
+          "limits": {
+            "en": "Kubernetes probes illustrate lifecycle distinctions; they are not a requirement to use Kubernetes.",
+            "de": "Kubernetes-Prüfungen veranschaulichen Lebenszyklusunterschiede; sie verlangen keine Nutzung von Kubernetes."
+          },
+          "sourceIds": [
+            "kubernetes-probes"
+          ],
+          "applicability": {
+            "subjectScope": "component",
+            "allOf": [
+              "deployable"
+            ],
+            "anyOf": [],
+            "noneOf": []
+          }
+        }
+      ]
+    }
+  ]
+} as const;

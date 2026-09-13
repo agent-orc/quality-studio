@@ -232,12 +232,14 @@ Global and repository-owned Markdown guidelines can be resolved into review prom
 
 Named, versioned coding-standard rules for code, security, and performance reviews ship with the
 product. They are authored as Markdown in [`rules/`](rules/README.md), generated into an embedded
-JSON catalogue by `npm run rules:sync`, and resolved into every review that matches their kind and
-technology — no per-repository install step. A repository disables or re-weights individual rules
+JSON catalogue by `npm run rules:sync`. Enabled rules enter reviews matching their kind and
+technology. The default-on core needs no per-repository install step; contextual rules such as SEO require explicit opt-in. A repository disables or re-weights individual rules
 in `.quality/rules/overrides.json`, and `GET /api/rules` returns the resolved catalogue with a
 trace per rule.
 
 The workbench's **Review policy** explains effective rules, included prompt inputs, and metric formulas with their limits. The [public review-policy guide](https://agent-orchestrator.dev/quality/#review-policy) uses the same versioned sources, including [`rules/review-methodology.json`](rules/review-methodology.json). The live DE/EN website is maintained in the separate website repository; see the [publication guide](website/DEPLOY.md) for its sync and release path.
+
+The [quality-domain catalogue and project properties guide](docs/quality-domains-and-project-properties.md) explains thirteen assessment domains, the first four opt-in SEO rules, and the shared AGT/Quality Studio/Voice Studio YAML v2 plan. The catalogue distinguishes implemented metrics, review rules and planned checks; YAML property selection is not yet a runtime feature.
 
 ## Review usage telemetry
 

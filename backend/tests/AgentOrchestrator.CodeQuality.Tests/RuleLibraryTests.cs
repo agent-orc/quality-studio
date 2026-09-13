@@ -129,6 +129,52 @@ public sealed class RuleLibraryTests : IDisposable
     }
 
     [Fact]
+    public void Seo_rules_are_visible_but_do_not_enter_reviews_without_project_opt_in()
+    {
+        var catalogue = new RuleCatalogueResolver().Resolve(root);
+
+        var seo = catalogue.Rules.Where(rule => rule.Rule.Category == "seo").ToArray();
+        Assert.Equal(4, seo.Length);
+        Assert.All(seo, rule => Assert.False(rule.EffectiveEnabled));
+        foreach (var kind in new[] { "code", "security", "performance" })
+        {
+            var inputs = RuleCatalogueResolver.RenderAsReviewInputs(catalogue, kind);
+            Assert.DoesNotContain(inputs, input => seo.Any(rule => rule.Rule.Id == input.Id));
+        }
+    }
+
+    [Theory]
+    [InlineData("dotnet")]
+    [InlineData("angular")]
+    [InlineData("generic")]
+    public void Seo_opt_in_reaches_code_reviews_with_scope_guidance_and_traceable_rule_ids(string adapter)
+    {
+        File.WriteAllText(OverridePath(), """
+            { "schemaVersion": 1, "overrides": [
+                { "id": "QS-GN-005", "enabled": true, "reason": "Public product website requires search discovery." },
+                { "id": "QS-GN-006", "enabled": true, "reason": "Public product website has German and English routes." },
+                { "id": "QS-GN-007", "enabled": true, "reason": "Public product pages need accurate titles." },
+                { "id": "QS-GN-008", "enabled": true, "reason": "Public product pages publish navigation and a sitemap." }
+            ] }
+            """);
+        var catalogue = new RuleCatalogueResolver().Resolve(root);
+        var inputs = RuleCatalogueResolver.RenderAsReviewInputs(catalogue, "code", adapter);
+
+        foreach (var rule in catalogue.Rules.Where(rule => rule.Rule.Category == "seo"))
+        {
+            Assert.True(rule.EffectiveEnabled);
+            Assert.Equal(OverridePath(), rule.Scope);
+            var input = Assert.Single(inputs, input => input.Id == rule.Rule.Id);
+            Assert.Equal("1.0.0", input.Version);
+            Assert.Contains(rule.Rule.Detection, input.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain(RuleCatalogueResolver.RenderAsReviewInputs(catalogue, "security", adapter),
+                input => input.Id == rule.Rule.Id);
+            Assert.DoesNotContain(RuleCatalogueResolver.RenderAsReviewInputs(catalogue, "performance", adapter),
+                input => input.Id == rule.Rule.Id);
+        }
+    }
+
+    [Fact]
     public void AppliesTo_matches_the_rules_own_technology_and_the_language_independent_ones()
     {
         Assert.True(RuleCatalogueResolver.AppliesTo("dotnet", "dotnet"));

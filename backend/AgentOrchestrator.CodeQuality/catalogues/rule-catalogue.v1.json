@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json",
   "schemaVersion": 1,
-  "catalogueVersion": "1.4.0",
+  "catalogueVersion": "1.5.0",
   "entries": [
     {
       "id": "QS-CS-001",
@@ -493,6 +493,122 @@
           "version": "1.0.0",
           "date": "2026-09-12",
           "change": "Added evidence, impact and uncertainty guidance, informed by Google's code review guidance and Quality Studio's stale-response and architecture regressions."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-005",
+      "version": "1.0.0",
+      "title": "Keep intended public pages indexable",
+      "technology": "generic",
+      "category": "seo",
+      "kinds": [
+        "code"
+      ],
+      "statement": "For HTML pages explicitly intended for search discovery, keep the delivered response and crawler directives consistent with that intent. Preserve deliberate exclusions for private, preview and non-search pages.",
+      "rationale": "A public product page cannot explain the product in search when its deployment accidentally retains a preview noindex directive. Crawl access and index permission are separate: robots.txt is neither access control nor a reliable way to remove a URL from search. Primary references: [Google block indexing](https://developers.google.com/search/docs/crawling-indexing/block-indexing) and [robots.txt location and scope](https://developers.google.com/crawling/docs/robots-txt/create-robots-txt).",
+      "detection": "Establish the intended audience and route before reporting a defect; public-facing alone does not imply SEO relevance. Cite a conflicting production response, robots meta tag, X-Robots-Tag, authentication redirect or applicable host-root robots.txt directive. A robots.txt inside /quality/ does not govern the host. A crawler blocked by robots.txt cannot read that page's noindex directive. Do not recommend removing authentication, deliberate noindex or privacy controls. Missing robots.txt is not itself a defect. Without deployment/header evidence, report only the source-level conflict you can establish; do not claim a live indexing failure or ranking loss.",
+      "goodExample": "<!-- Public product overview intended for search; no preview exclusion. -->\n<!doctype html>\n<html lang=\"de\">\n<head><title>Quality Studio: nachvollziehbare Code-Reviews</title></head>\n<body><main><h1>Code-Reviews mit nachvollziehbaren Findings</h1></main></body>\n</html>",
+      "badExample": "<!-- Production overview still inherits the preview-only directive. -->\n<meta name=\"robots\" content=\"noindex\">\n<h1>Discover Quality Studio</h1>",
+      "severity": "high",
+      "defaultOn": false,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.5.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-13",
+          "change": "Added an opt-in SEO review rule with explicit audience, evidence and scope limits."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-006",
+      "version": "1.0.0",
+      "title": "Keep canonical and language URLs consistent",
+      "technology": "generic",
+      "category": "seo",
+      "kinds": [
+        "code"
+      ],
+      "statement": "For search-relevant HTML, keep declared canonical URLs, redirects and language alternates consistent with the actual pages. Give separately targeted language versions stable URLs and reciprocal alternate references when hreflang is used.",
+      "rationale": "A language switch on a single URL cannot describe several independently addressable language pages. Conflicting canonical and alternate declarations can obscure which page a visitor should reach. Canonical declarations are signals; they do not guarantee the search engine's selected URL. Primary references: [Google canonicalization](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls) and [localized versions](https://developers.google.com/search/docs/specialty/international/localized-versions).",
+      "detection": "Compare the reviewed page's delivered language, canonical, redirects and declared alternate targets. Report conflicting canonicals, nonexistent locale URLs or missing return links in an existing hreflang set, with exact source or response evidence. Keep each language's canonical in that language where an equivalent exists; do not canonicalize every locale to the German home page. Inspect rendered output when templates generate href values. Absence of canonical or hreflang alone is not a universal defect; establish duplicates or a declared localization requirement. Do not infer that a JavaScript application cannot be indexed, or that an unvisited target is broken.",
+      "goodExample": "<!-- /quality/en/criteria/; the German page links back to this URL. -->\n<html lang=\"en\">\n<head>\n  <link rel=\"canonical\" href=\"https://agent-orchestrator.dev/quality/en/criteria/\">\n  <link rel=\"alternate\" hreflang=\"en\" href=\"https://agent-orchestrator.dev/quality/en/criteria/\">\n  <link rel=\"alternate\" hreflang=\"de\" href=\"https://agent-orchestrator.dev/quality/criteria/\">\n</head>\n</html>",
+      "badExample": "<!-- English criteria content points to an unrelated German overview. -->\n<link rel=\"canonical\" href=\"https://agent-orchestrator.dev/quality/\">\n<link rel=\"alternate\" hreflang=\"en\" href=\"https://agent-orchestrator.dev/quality/#english\">",
+      "severity": "medium",
+      "defaultOn": false,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.5.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-13",
+          "change": "Added an opt-in SEO review rule with explicit audience, evidence and scope limits."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-007",
+      "version": "1.0.0",
+      "title": "Describe each public page in its own title and metadata",
+      "technology": "generic",
+      "category": "seo",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Give search-relevant HTML pages descriptive titles that match their visible purpose and language. Where descriptions are supplied, make them accurate summaries of the corresponding page.",
+      "rationale": "Distinct titles help people choose between reviews, criteria and model information. Copied or misleading metadata promises the wrong content. Search engines can generate different title links and snippets; authoring metadata does not control their exact display. Primary references: [Google title links](https://developers.google.com/search/docs/appearance/title-link) and [search snippets](https://developers.google.com/search/docs/appearance/snippet).",
+      "detection": "Inspect delivered or rendered metadata together with the page's main content. Cite an absent or empty title, demonstrably misleading language/purpose, or identical boilerplate across materially different reviewed pages. Treat a missing description as an improvement opportunity unless an explicit project requirement makes it a defect. Do not flag every repeated brand name, impose arbitrary character counts or keyword density, or promise a ranking increase. A source template without a title is insufficient evidence if a known build or render stage supplies it. Private dashboards and JSON API responses are outside this rule.",
+      "goodExample": "<!-- Criteria page; main content explains rule evidence and limits. -->\n<title>Review-Kriterien und Qualitätsmetriken | Quality Studio</title>\n<meta name=\"description\" content=\"Wie Quality Studio Regeln, Messwerte und Review-Evidenz erklärt und welche Grenzen die Ergebnisse haben.\">\n<h1>Qualität nachvollziehbar prüfen</h1>",
+      "badExample": "<!-- Every generated page receives this unrelated template metadata. -->\n<title>Home</title>\n<meta name=\"description\" content=\"Buy shoes at the best price.\">\n<h1>Code review models and token costs</h1>",
+      "severity": "medium",
+      "defaultOn": false,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.5.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-13",
+          "change": "Added an opt-in SEO review rule with explicit audience, evidence and scope limits."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-008",
+      "version": "1.0.0",
+      "title": "Make intended public pages discoverable through real links",
+      "technology": "generic",
+      "category": "seo",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Connect search-relevant pages with meaningful links that resolve to their intended destinations. When the project publishes a sitemap, keep its entries aligned with the canonical public routes.",
+      "rationale": "A crawler and a visitor need a route to the content. Real link destinations also support opening a new tab and navigation without custom click code. A sitemap can aid discovery, but neither replaces usable navigation nor guarantees indexing. Primary references: [Google crawlable links](https://developers.google.com/search/docs/crawling-indexing/links-crawlable) and [sitemap purpose](https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview).",
+      "detection": "For intended public HTML, check rendered anchors for usable href destinations and describe an evidenced broken or inaccessible navigation path. A framework's source router directive may generate a valid href, so inspect its output before flagging it. For an existing sitemap, compare declared entries with known canonical routes and explicit indexability intent; identify the concrete stale, private or nonexistent entry. Missing sitemap is not a universal violation, especially on a small well-linked site. Buttons that perform actions rather than navigation are valid. Do not demand a fixed link count or claim unseen pages are orphaned from a partial file review.",
+      "goodExample": "<nav aria-label=\"Quality Studio\">\n  <a href=\"/quality/reviews/\">Reviews verstehen</a>\n  <a href=\"/quality/criteria/\">Kriterien und Metriken</a>\n  <a href=\"/quality/models/\">Modelle vergleichen</a>\n</nav>",
+      "badExample": "<!-- The only route to the criteria page exists inside a click handler. -->\n<span onclick=\"location.href='/quality/criteria/'\">Click here</span>",
+      "severity": "medium",
+      "defaultOn": false,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.5.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-13",
+          "change": "Added an opt-in SEO review rule with explicit audience, evidence and scope limits."
         }
       ],
       "enabled": true

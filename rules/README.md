@@ -198,3 +198,16 @@ checks both generated surfaces for drift. `npm run test:review-reference` checks
 references, source-file links and safe HTML rendering. Formulas link to the implementing code;
 update the formula explanation when that calculation changes. Coverage, grading and ranking
 heuristics retain their distinct meanings and do not establish that a program is correct.
+
+## Quality domains and contextual SEO
+
+[`quality-domains.json`](quality-domains.json) groups checks by application concern and explains
+their rationale, required evidence, interpretation, limits and availability. It references this
+rule library and `review-methodology.json`; it does not redefine their rule text or formulas.
+Both the tool and the public website expose this catalogue.
+
+QS-GN-005 through QS-GN-008 are opt-in SEO rules for intended public HTML. They use the existing
+Code review pipeline and `.quality/rules/overrides.json`; they are not new review kinds or live
+SEO measurements. Their detection text establishes scope and guards intentional exclusions.
+See the [activation example and project-properties guide](../docs/quality-domains-and-project-properties.md)
+for the current behavior and the coordinated, inactive AGT/Quality Studio/Voice Studio YAML v2 plan.

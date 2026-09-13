@@ -4,10 +4,13 @@
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'rules'" (click)="section.set('rules')">Rules & rationale</button>
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'prompt'" (click)="section.set('prompt')">Prompt input preview</button>
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'metrics'" (click)="section.set('metrics')">Metrics & formulas</button>
+    <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'domains'" (click)="section.set('domains')">Quality domains</button>
   </nav>
-  @if (section() === 'metrics') {
+  @if (section() === 'domains') {
+    <qs-quality-domains (openMetric)="showMetric($event)" (openRule)="showRule($event)" />
+  } @else if (section() === 'metrics') {
     @for (metric of methodology.metrics; track metric.id) {
-      <details class="reference-card"><summary>{{ metric.title }}</summary><p>{{ metric.why }}</p><code class="formula">{{ metric.formula }}</code><p>{{ metric.interpretation }}</p><p><strong>Limits:</strong> {{ metric.limits }}</p><a [href]="'https://github.com/agent-orc/quality-studio/blob/main/' + metric.implementation" target="_blank" rel="noopener noreferrer">Implementation ↗</a></details>
+      <details class="reference-card" [attr.data-metric-id]="metric.id" [open]="metric.id === selectedMetric()"><summary>{{ metric.title }}</summary><p>{{ metric.why }}</p><code class="formula">{{ metric.formula }}</code><p>{{ metric.interpretation }}</p><p><strong>Limits:</strong> {{ metric.limits }}</p><a [href]="'https://github.com/agent-orc/quality-studio/blob/main/' + metric.implementation" target="_blank" rel="noopener noreferrer">Implementation ↗</a></details>
     }
   } @else {
     <div class="criteria-filters">
@@ -27,7 +30,7 @@
       @if (policy.catalogue(); as catalogue) {
         <p class="muted">{{ ruleRows().length }} rules · Library {{ catalogue.catalogueVersion }}. Enablement and severity below include repository overrides. Enabled rules still depend on review kind, technology and prompt budget.</p>
         @for (row of ruleRows(); track row.rule.id) {
-          <details class="reference-card rule-card"><summary><span><code>{{ row.rule.id }}</code> {{ row.rule.title }}</span><small>{{ row.rule.enabled ? 'Enabled' : 'Disabled' }} · {{ row.rule.severity }} · {{ row.rule.technology }} · {{ row.trace?.source ?? 'built-in' }}</small></summary>
+          <details class="reference-card rule-card" [attr.data-rule-id]="row.rule.id" [open]="row.rule.id === selectedRule()"><summary><span><code>{{ row.rule.id }}</code> {{ row.rule.title }}</span><small>{{ row.rule.enabled ? 'Enabled' : 'Disabled' }} · {{ row.rule.severity }} · {{ row.rule.technology }} · {{ row.trace?.source ?? 'built-in' }}</small></summary>
             <p>{{ row.rule.statement }}</p><h4>Why</h4><p>{{ row.rule.rationale }}</p><h4>How to detect it</h4><p>{{ row.rule.detection }}</p>
             @if (row.trace?.reason) { <p class="override"><strong>Override reason:</strong> {{ row.trace?.reason }}</p> }
             <p><strong>Deterministic mappings:</strong> {{ row.rule.deterministicRuleIds.join(', ') || 'Reviewer judgment; no deterministic rule mapping.' }}</p>

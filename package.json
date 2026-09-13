@@ -11,9 +11,12 @@
     "test:pre-review": "node scripts/run-pre-review.mjs",
     "catalog:check": "node scripts/sync-token-economy-model-catalog.mjs --check",
     "catalog:sync": "node scripts/sync-token-economy-model-catalog.mjs",
-    "rules:check": "node scripts/sync-rule-catalogue.mjs --check && node scripts/sync-review-reference.mjs --check",
-    "rules:sync": "node scripts/sync-rule-catalogue.mjs && node scripts/sync-review-reference.mjs",
+    "rules:check": "node scripts/sync-rule-catalogue.mjs --check && node scripts/sync-review-reference.mjs --check && npm run domains:check",
+    "rules:sync": "node scripts/sync-rule-catalogue.mjs && node scripts/sync-review-reference.mjs && npm run domains:sync",
     "test:rule-catalogue": "node --test tests/rule-catalogue.test.mjs",
-    "test:review-reference": "node --test tests/review-reference.test.mjs"
+    "test:review-reference": "node --test tests/review-reference.test.mjs",
+    "domains:check": "node scripts/sync-quality-domains.mjs --check",
+    "domains:sync": "node scripts/sync-quality-domains.mjs",
+    "test:quality-domains": "node --test tests/quality-domains.test.mjs"
   }
 }

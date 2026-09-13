@@ -48,6 +48,27 @@ describe('ReviewCriteria', () => {
     expect(fixture.nativeElement.querySelector('pre').textContent).toBe('first');
   });
 
+  it('opens canonical metric and effective rule definitions from domain references', async () => {
+    fixture.componentInstance.section.set('domains');
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[data-metric-id="grade"]').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.section()).toBe('metrics');
+    expect(fixture.nativeElement.querySelector('[data-metric-id="grade"]').open).toBeTrue();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('[data-metric-id="grade"] > summary'));
+    fixture.componentInstance.section.set('domains');
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[data-rule-id="QS-GN-003"]').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.section()).toBe('rules');
+    expect(fixture.nativeElement.querySelectorAll('.rule-card').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('.rule-card').textContent).toContain('Disabled · low');
+    expect(fixture.nativeElement.querySelector('.rule-card').open).toBeTrue();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('.rule-card > summary'));
+  });
+
   it('explains the separate hotspot and coverage-based risk formulas', () => {
     fixture.componentInstance.section.set('metrics');
     fixture.detectChanges();
