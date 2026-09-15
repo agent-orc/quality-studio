@@ -3,7 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { QualityApi } from '../../../core/api/quality-api';
 import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../../../core/models/contracts';
 import { ResumeCap, ResumeCapDialog } from '../../../shared/dialog/resume-cap-dialog';
-import { formatCost, formatModelSource, formatPriceStatus, formatTokenCount, parseTokenCount } from '../../../shared/utils/format';
+import {
+  formatCost, formatModelSource, formatPriceStatus, formatTokenCount, parseTokenCount, runStateTone,
+} from '../../../shared/utils/format';
 
 let reviewActionsInstance = 0;
 
@@ -274,6 +276,8 @@ export class ReviewActions {
   modelSourceLabel(preflight: ReviewPreflight): string { return formatModelSource(preflight.modelSource); }
 
   formatModelSource(source: string | null | undefined): string { return formatModelSource(source); }
+
+  stateTone(state: string): 'positive' | 'warning' | 'critical' | null { return runStateTone(state); }
 
   /** What the running review has spent so far, with its cost cap when one applies. */
   runCostLabel(run: ReviewRun): string {

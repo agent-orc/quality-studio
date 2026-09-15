@@ -155,12 +155,13 @@ describe('ReviewActions', () => {
     const expected = new Map([
       ['queued', 'Pause'], ['running', 'Pause'], ['paused', 'Resume'], ['capped', 'Raise cap and resume'],
       ['failed', 'Review again'], ['cancelled', 'Review again'], ['done', 'Review again'],
+      ['partial', 'Review again'],
     ]);
     for (const [state, action] of expected) {
       api.reviewRuns.set([{
         id: `run-${state}`, repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code',
         model: null, thinkingLevel: null, cliType: 'codex', state, totalFiles: 2, completedFiles: state === 'done' ? 2 : 1,
-        failedFiles: state === 'failed' ? 1 : 0, skippedFiles: state === 'capped' ? 1 : 0, aggregateState: null,
+        failedFiles: state === 'failed' || state === 'partial' ? 1 : 0, skippedFiles: state === 'capped' ? 1 : 0, aggregateState: null,
         files: [{ path: 'Sample.cs', state: state === 'done' ? 'done' : 'running', error: null }], stopReason: null,
       }]);
       component.showLauncher.set(false);
@@ -169,6 +170,25 @@ describe('ReviewActions', () => {
       expect(strip.textContent).toContain(`review · ${state}`);
       expect(strip.textContent).toContain(action);
       expect(fixture.nativeElement.querySelectorAll('.review-intent').length).toBe(0);
+    }
+  });
+
+  it('never shows a failed run as plain "done" and gives done, partial, and failed distinct tones', () => {
+    const cases: [string, number, 'positive' | 'warning' | 'critical'][] = [
+      ['done', 0, 'positive'], ['partial', 1, 'warning'], ['failed', 2, 'critical'],
+    ];
+    for (const [state, failedFiles, tone] of cases) {
+      api.reviewRuns.set([{
+        id: `run-${state}`, repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code',
+        model: null, thinkingLevel: null, cliType: 'codex', state, totalFiles: 2, completedFiles: 2,
+        failedFiles, skippedFiles: 0, aggregateState: null,
+        files: [{ path: 'Sample.cs', state: 'done', error: null }], stopReason: null,
+      }]);
+      fixture.detectChanges();
+      const badge = fixture.nativeElement.querySelector('.active-run-strip .studio-badge') as HTMLElement;
+      expect(badge.textContent).toBe(state);
+      expect(badge.getAttribute('data-tone')).toBe(tone);
+      if (failedFiles > 0) expect(badge.textContent).not.toBe('done');
     }
   });
 

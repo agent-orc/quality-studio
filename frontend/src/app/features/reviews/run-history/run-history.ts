@@ -4,11 +4,13 @@ import {
   QualityRunReport, QualityRunTrendPoint, ReviewKind, ReviewRun, ReviewRunCompareResult, RunReportFormat,
 } from '../../../core/models/contracts';
 import { ResumeCap, ResumeCapDialog } from '../../../shared/dialog/resume-cap-dialog';
-import { formatCost, formatDateTime, formatModelSource, formatPriceStatus, formatTokenCount } from '../../../shared/utils/format';
+import {
+  formatCost, formatDateTime, formatModelSource, formatPriceStatus, formatTokenCount, runStateTone,
+} from '../../../shared/utils/format';
 import { QualityApi } from '../../../core/api/quality-api';
 import { FlatNode } from '../../../shared/utils/tree-utils';
 
-const TERMINAL_STATES = ['done', 'failed', 'cancelled', 'capped'];
+const TERMINAL_STATES = ['done', 'partial', 'failed', 'cancelled', 'capped'];
 
 /**
  * Run history for the selected scope: what each run cost and routed through, the canonical
@@ -191,6 +193,8 @@ export class RunHistory {
   }
 
   modelLabel(run: ReviewRun): string { return run.model ?? 'runner default model'; }
+
+  stateTone(state: string): 'positive' | 'warning' | 'critical' | null { return runStateTone(state); }
 
   modelSourceLabel(run: ReviewRun): string { return formatModelSource(run.modelSource); }
 }

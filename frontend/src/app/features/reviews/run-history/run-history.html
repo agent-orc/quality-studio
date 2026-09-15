@@ -7,7 +7,7 @@
       @for (run of scopeRuns(); track run.id) {
         <article class="run-row" [class.selected]="selectedRunId() === run.id">
           <button class="studio-row-button run-open" type="button" (click)="openRun(run)" [attr.aria-expanded]="selectedRunId() === run.id">
-            <span class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></span>
+            <span class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped' || run.state === 'partial'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span class="studio-badge" [attr.data-tone]="stateTone(run.state)">{{ run.state }}</span></span>
             <span class="run-route">{{ run.cliType }} · {{ modelLabel(run) }} <i class="studio-badge model-source">{{ modelSourceLabel(run) }}</i> · {{ run.thinkingLevel ?? 'model default thinking' }}</span>
             <span class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></span>
             <span class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span><span>Details →</span></span>
@@ -83,7 +83,7 @@
     }
     @if (selectedRun(); as selectedRun) {
       <section class="run-detail-surface" aria-label="Selected run detail">
-        <header><div><span class="eyebrow">Run detail</span><b>{{ selectedRun.state }} · {{ selectedRun.id }}</b></div><button class="studio-button" type="button" aria-label="Close run detail" (click)="closeRun()">×</button></header>
+        <header><div><span class="eyebrow">Run detail</span><b><span class="studio-badge" [attr.data-tone]="stateTone(selectedRun.state)">{{ selectedRun.state }}</span> · {{ selectedRun.id }}</b></div><button class="studio-button" type="button" aria-label="Close run detail" (click)="closeRun()">×</button></header>
         @if (runDetailLoading()) { <p class="run-detail-message" role="status">Loading canonical run snapshot…</p> }
         @if (runDetailError()) { <p class="run-error" role="alert">{{ runDetailError() }}</p> }
         @if (runReport(); as report) {

@@ -1059,7 +1059,11 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 if (state != "running") return false;
-                state = "done";
+                // A run that reaches its end with any file failed is not honestly "done": the
+                // caller asked for every file to be reviewed and some were not. "partial" keeps
+                // that distinct from "done" without conflating it with "failed", which is reserved
+                // for the run itself erroring out (see Fail()) rather than individual file failures.
+                state = FailedFiles > 0 ? "partial" : "done";
                 if (aggregateState == "running") aggregateState = "done";
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();

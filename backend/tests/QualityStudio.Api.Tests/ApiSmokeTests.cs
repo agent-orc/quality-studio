@@ -1058,10 +1058,12 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         {
             await Task.Delay(20, TestContext.Current.CancellationToken);
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{id}", TestContext.Current.CancellationToken);
-            if (run.GetProperty("state").GetString() == "done") break;
+            if (run.GetProperty("state").GetString() == "partial") break;
         }
 
-        Assert.Equal("done", run.GetProperty("state").GetString());
+        // The only file in this run failed, so the run must not report the plain "done" a
+        // reader would take as a clean review; "partial" keeps that honest.
+        Assert.Equal("partial", run.GetProperty("state").GetString());
         Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
         Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
         using (var result = JsonDocument.Parse(await File.ReadAllTextAsync(

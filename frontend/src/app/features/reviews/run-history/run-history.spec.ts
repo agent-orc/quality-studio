@@ -167,6 +167,28 @@ describe('RunHistory drawer', () => {
     expect(text).toContain('Cost 0.42 EUR');
   });
 
+  it('never labels a run with failures plain "done", and gives done/partial/failed distinct badge tones', () => {
+    const cases: [string, number, 'positive' | 'warning' | 'critical'][] = [
+      ['done', 0, 'positive'], ['partial', 1, 'warning'], ['failed', 2, 'critical'],
+    ];
+    for (const [state, failedFiles, tone] of cases) {
+      api.reviewRuns.set([{
+        id: `run-${state}`, path: 'src/A.cs', kind: 'code', state, cliType: 'codex',
+        model: 'gpt-test', thinkingLevel: 'high', totalFiles: 2, completedFiles: 2, failedFiles, skippedFiles: 0,
+        usageOperations: 1, usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 100 },
+        costSpent: null, currency: null, priceStatus: 'unavailable', stopReason: null, deviation: null, errors: [],
+        createdAt: '2026-08-11T08:00:00Z',
+      }] as unknown as ReviewRun[]);
+      component.runDrawerOpen.set(true);
+      fixture.detectChanges();
+
+      const badge = fixture.nativeElement.querySelector('.run-row .run-heading .studio-badge') as HTMLElement;
+      expect(badge.textContent).toBe(state);
+      expect(badge.getAttribute('data-tone')).toBe(tone);
+      if (failedFiles > 0) expect(badge.textContent).not.toBe('done');
+    }
+  });
+
   it('states an unpriced run as unpriced with the reason', () => {
     api.reviewRuns.set([{
       id: 'matching', path: 'src/A.cs', kind: 'code', state: 'done', cliType: 'claude',

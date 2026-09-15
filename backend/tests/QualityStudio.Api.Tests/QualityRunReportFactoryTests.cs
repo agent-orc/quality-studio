@@ -103,6 +103,27 @@ public sealed class QualityRunReportFactoryTests
         Assert.Null(finding.Reproduction);
     }
 
+    [Fact]
+    public void Partial_run_reports_the_failed_unit_count_instead_of_a_generic_state_message()
+    {
+        var manifest = new ReviewRunManifest("review-partial", "default",
+            new("unit-file", "App.cs", "src/App.cs"), "file", "code", "claude-fable-5-1", "claude",
+            Timestamp, [new("unit-file", "App.cs", "src/App.cs", Fingerprint)], null,
+            ThinkingLevel: "high");
+        var status = new ReviewRunStatus(manifest.RunId, "partial", 1, 1, 1, 1,
+            Timestamp, Timestamp, Timestamp.AddSeconds(2), [], 0, new(0, 0, 0, 0, 0));
+        var progress = new ReviewRunFileTransition("src/App.cs", "failed", Timestamp,
+            Timestamp.AddSeconds(2), manifest.RunId, "The reviewer process exited non-zero.");
+
+        var report = QualityRunReportFactory.Build(manifest, status, [progress],
+            new Dictionary<string, ReviewObservationSnapshot>(), Path.GetTempPath(), "Synthetic fixture", 1, []);
+
+        Assert.Equal("partial", report.Run.State);
+        Assert.Equal("partial", report.Run.Completeness);
+        Assert.Equal("1 unit(s) failed.", report.Summary.PartialReason);
+        Assert.Equal("failed", Assert.Single(report.Observations).Outcome);
+    }
+
     private static QualityRunReportDocument Build(JsonObject metadata)
     {
         var manifest = new ReviewRunManifest("review-native", "default",

@@ -64,3 +64,16 @@ export function formatModelSource(source: string | null | undefined): string {
   if (source === 'runner-default') return 'runner default';
   return 'source unrecorded';
 }
+
+/**
+ * Maps a run's terminal state to a `.studio-badge` tone so a run with failed files never reads as
+ * plain "done": "partial" (completed, but some files failed) gets the same warning tone as a stale
+ * badge, and "failed"/"cancelled" get the critical tone. Non-terminal states carry no tone, which
+ * renders the badge's default muted color.
+ */
+export function runStateTone(state: string): 'positive' | 'warning' | 'critical' | null {
+  if (state === 'done') return 'positive';
+  if (state === 'partial') return 'warning';
+  if (state === 'failed' || state === 'cancelled') return 'critical';
+  return null;
+}
