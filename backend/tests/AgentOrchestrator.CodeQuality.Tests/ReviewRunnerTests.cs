@@ -121,6 +121,21 @@ public sealed class ReviewResponseParserTests
     }
 
     [Fact]
+    public void Parse_SynthesizesAFindingIdWhenTheAgentOmitsIt()
+    {
+        // The runner always overwrites `id` with a deterministic identity (FindingIdentity.Assign),
+        // so an agent that reads the prompt's "the runner replaces `id`" note literally and leaves
+        // the field out entirely must not fail parsing over a value nothing downstream trusts.
+        var findingWithoutId = ValidFinding.Replace("\"id\":\"correctness-1\",", string.Empty, StringComparison.Ordinal);
+        var response = ValidResponse.Replace(
+            "\"findings\": []", "\"findings\": [" + findingWithoutId + "]", StringComparison.Ordinal);
+
+        var finding = new ReviewResponseParser().Parse(response)["findings"]!.AsArray()[0]!.AsObject();
+
+        Assert.False(string.IsNullOrWhiteSpace(finding["id"]?.GetValue<string>()));
+    }
+
+    [Fact]
     public void Parse_RejectsFindingWithoutRuleId()
     {
         var response = ValidResponse.Replace(
@@ -485,6 +500,31 @@ public sealed class ReviewRunnerTests
             Assert.All(standards.Where(entry => entry.GetProperty("scope").GetString() == "built-in"),
                 entry => Assert.StartsWith("QS-GN-", entry.GetProperty("id").GetString(), StringComparison.Ordinal));
             Assert.Equal(root, agent.WorkingDirectory);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewAsync_PersistsASidecarWhenTheAgentOmitsTheFindingId()
+    {
+        // Reproduces the cliType=claude failure: an agent that reads "the runner replaces
+        // agent-provided `id`" and omits the field entirely must still get a persisted sidecar,
+        // not a parse failure, since the runner assigns the finding's real id itself.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var findingWithoutId = ReviewResponseParserTests.ValidFinding.Replace(
+                "\"id\":\"correctness-1\",", string.Empty, StringComparison.Ordinal);
+            var agent = new FakeAgent(response: ReviewResponseParserTests.ValidResponse.Replace(
+                "\"findings\": []", "\"findings\": [" + findingWithoutId + "]", StringComparison.Ordinal));
+
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root), cancellationToken);
+
+            Assert.True(File.Exists(result.MetaPath));
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken));
+            Assert.StartsWith("finding-",
+                document.RootElement.GetProperty("findings")[0].GetProperty("id").GetString(),
+                StringComparison.Ordinal);
         });
     }
 

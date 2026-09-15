@@ -99,7 +99,13 @@ public sealed partial class ReviewResponseParser
                 throw new ReviewResponseException(
                     "Agent-authored findings cannot claim deterministic source provenance.");
             }
-            foreach (var property in new[] { "id", "ruleId", "aspect", "severity", "title", "description", "recommendation" })
+            // The runner always overwrites `id` with a verified deterministic identity
+            // (see FindingIdentity.Assign), so a value here is never trusted. An agent that
+            // takes the prompt's "the runner replaces `id`" note literally and omits the
+            // field entirely should not fail parsing over a value nothing downstream reads.
+            finding["id"] = OptionalString(finding, "id") ?? "agent-" + Guid.NewGuid().ToString("N");
+
+            foreach (var property in new[] { "ruleId", "aspect", "severity", "title", "description", "recommendation" })
             {
                 RequireString(finding, property);
             }
@@ -269,6 +275,11 @@ public sealed partial class ReviewResponseParser
 
         return text;
     }
+
+    private static string? OptionalString(JsonObject value, string name) =>
+        value[name] is JsonValue node && node.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text)
+            ? text
+            : null;
 
     private static ReviewResponseException Invalid(string property) =>
         new($"Review response property '{property}' is missing or invalid.");
