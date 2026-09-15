@@ -27,6 +27,11 @@ files on 2026-09-06 unblocked nine deliveries but was a workaround, not the rule
 
 ### Added
 
+- `.agent-studio/project.yml` and `.agent-studio/prepare` (QS-103): the repository-owned Agent
+  Studio M1 execution definition — stack, tool version manifests, prepare/build/test/lint commands,
+  named test suites with expected durations, cache paths, capabilities, environment, and the
+  development-server lifecycle — validated against `project-execution.schema.json`. See the
+  [README](README.md#agent-studio-repository-preparation) for the local commands.
 - `quality migrate-data [path] [--dry-run]` moves an existing checkout's generated `.quality` data
   to its data root. Idempotent, refuses to overwrite what the data root already holds, and leaves
   inputs alone.

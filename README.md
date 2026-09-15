@@ -322,6 +322,26 @@ and [visual standard](docs/operations/style-guide/index.html) for their conventi
 `.github/workflows/build.yml` validates the full repository; `Dockerfile`,
 `.dockerignore` and `docker-compose.yml` build and run the single-container host.
 
+## Agent Studio repository preparation
+
+[`.agent-studio/project.yml`](.agent-studio/project.yml) is the repository-owned execution
+definition Agent Studio reads at the subject commit for coding runs and the build-test gate:
+stack, tool version manifests (`.nvmrc`, `global.json`), prepare/build/test/lint commands, the
+named test-suite inventory with expected durations, cache paths, capabilities, non-secret
+environment, and the development-server lifecycle. [`.agent-studio/prepare`](.agent-studio/prepare)
+composes the product building blocks (`dotnet restore`, `npm ci`) and does not implement its own
+cache manager. Run the same commands locally:
+
+```shell
+.agent-studio/prepare
+dotnet build QualityStudio.slnx --no-restore
+npm --prefix frontend run build
+dotnet test QualityStudio.slnx --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
+npm --prefix frontend run test
+dotnet format QualityStudio.slnx --verify-no-changes --no-restore
+npm --prefix frontend run lint
+```
+
 ## Required test baseline
 
 The required gate runs the .NET tests as named lanes instead of one undifferentiated

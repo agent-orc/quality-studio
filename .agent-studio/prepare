@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+dotnet restore QualityStudio.slnx --locked-mode
+npm --prefix frontend ci --prefer-offline
