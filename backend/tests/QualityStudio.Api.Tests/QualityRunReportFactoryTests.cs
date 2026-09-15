@@ -85,8 +85,7 @@ public sealed class QualityRunReportFactoryTests
             ["reviewer"] = new JsonObject { ["agent"] = "claude", ["model"] = "claude-opus-5" },
             ["findings"] = new JsonArray(new JsonObject
             {
-                ["id"] = "finding-legacy",
-                ["fingerprint"] = Fingerprint,
+                ["id"] = "finding-legacy", ["fingerprint"] = Fingerprint,
                 ["evidence"] = "An unverified old claim.",
             }),
         };

@@ -86,16 +86,8 @@ revisions must preserve the original run identity instead of being counted as ne
 runs. This change preserves richer native evidence for that work; it does not claim
 that the bridge or an adjudication workflow has shipped.
 
-The [governed model catalog](model-catalog-integration.md) is refreshed from
-Token Economy commit `98ddcc91fba414919231e242de01dc022aed74dd`. Its retained manifest
-records the source and hashes. Astra and Fable 5.1 are selectable with supported
-effort levels and provisional evidence status; all 22 catalog models have sourced
-API price history. Existing routing defaults and correctness floors remain in place.
-The price-weighted usage estimate is an API-equivalent consumption metric; it is
-not a subscription charge or a provider quota calculation.
-
-Published review benchmark records remain in Token Economy's separate benchmark
-catalog. A host can read the dedicated review category through the source API or a
-package release that includes it, then retain its source and protocol when
-presenting a candidate. The synchronized routing snapshot does not turn those
-external studies into local qualification.
+The governed routing/price snapshot remains the existing [model catalog integration](model-catalog-integration.md).
+Public benchmark support in Token Economy does not silently refresh that snapshot
+or promote a Quality Studio default. A host can read the dedicated review category
+through the source API or a package release that includes it, then retain its source
+and protocol when presenting a candidate.
