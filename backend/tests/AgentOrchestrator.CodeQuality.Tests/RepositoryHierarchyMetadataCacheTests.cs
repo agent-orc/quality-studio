@@ -74,6 +74,27 @@ public sealed class RepositoryHierarchyMetadataCacheTests : IDisposable
         Assert.Empty(Files(scopeChanged.Snapshot));
     }
 
+    [Fact]
+    public void A_locked_dirty_file_does_not_fail_git_state_or_the_hierarchy()
+    {
+        var lockedPath = Path.Combine(root, "locked.err");
+        File.WriteAllText(lockedPath, "held open by a running dev process\n");
+        GitTestRepository.Run(root, "add", "locked.err");
+        GitTestRepository.Run(root, "commit", "--quiet", "-m", "Add file that will be locked");
+        File.AppendAllText(lockedPath, "more output\n");
+
+        using var handle = new FileStream(
+            lockedPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var cache = new RepositoryHierarchyCache(TimeSpan.Zero);
+        var measurement = Record.Exception(() => cache.GetMeasured(root));
+
+        Assert.Null(measurement);
+        var snapshot = cache.GetMeasured(root).Snapshot;
+        Assert.Equal(RepositoryGitState.OkStatus, snapshot.GitStateStatus);
+        Assert.NotEmpty(snapshot.Roots);
+    }
+
     private static HierarchyNode[] Files(RepositoryHierarchySnapshot snapshot) =>
         snapshot.Roots.SelectMany(project => project.Children)
             .SelectMany(module => module.Children).SelectMany(ns => ns.Children)
