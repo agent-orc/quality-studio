@@ -8,7 +8,7 @@ import { formatCost, formatDateTime, formatModelSource, formatPriceStatus, forma
 import { QualityApi } from '../../../core/api/quality-api';
 import { FlatNode } from '../../../shared/utils/tree-utils';
 
-const TERMINAL_STATES = ['done', 'failed', 'cancelled', 'capped'];
+const TERMINAL_STATES = ['done', 'partial', 'failed', 'cancelled', 'capped'];
 
 /**
  * Run history for the selected scope: what each run cost and routed through, the canonical

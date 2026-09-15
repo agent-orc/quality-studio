@@ -484,8 +484,9 @@ public sealed class ReviewRunStoreTests
 
             await using var application = fixture.CreateApplication();
             using var client = application.CreateClient();
-            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "failed", cancellationToken);
 
+            Assert.Equal("failed", run.GetProperty("state").GetString());
             Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
             var transitions = fixture.Store.LoadAll().Single().Progress.Select(progress => progress.State).ToArray();
             Assert.Equal(["queued", "running", "queued", "running", "failed"], transitions);
@@ -582,6 +583,7 @@ public sealed class ReviewRunStoreTests
     }
 
     [Theory]
+    [InlineData("partial")]
     [InlineData("failed")]
     [InlineData("cancelled")]
     [InlineData("capped")]
@@ -613,6 +615,66 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Sweep_with_some_files_failed_and_some_succeeded_ends_partial_not_done()
+    {
+        // QS-100: a run whose files partly failed used to reach "done" like a clean sweep, because
+        // Complete() never looked at FailedFiles. A mixed outcome must land on its own honest
+        // terminal state instead of being indistinguishable from success.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateMultiFileRun("mixed", ["Sample.cs", "Second.cs"]);
+            var executor = new MixedOutcomeExecutorFactory("Sample.cs");
+
+            await using var application = fixture.CreateApplication(executor);
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "partial", cancellationToken);
+
+            Assert.Equal("partial", run.GetProperty("state").GetString());
+            Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
+            Assert.Equal(2, run.GetProperty("completedFiles").GetInt32());
+            var files = run.GetProperty("files").EnumerateArray()
+                .ToDictionary(file => file.GetProperty("path").GetString()!, file => file.GetProperty("state").GetString());
+            Assert.Equal("failed", files["Sample.cs"]);
+            Assert.Equal("done", files["Second.cs"]);
+
+            var report = new QualityRunReportStore(fixture.RepositoryRoot).Load(stored.Manifest.RunId);
+            Assert.Equal("partial", report.Run.State);
+            Assert.Equal("partial", report.Run.Completeness);
+            Assert.Equal("1 unit(s) failed.", report.Summary.PartialReason);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Sweep_where_every_file_fails_ends_failed_not_done()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        try
+        {
+            var stored = fixture.CreateMultiFileRun("all-failed", ["Sample.cs", "Second.cs"]);
+            var executor = new MixedOutcomeExecutorFactory("Sample.cs", "Second.cs");
+
+            await using var application = fixture.CreateApplication(executor);
+            using var client = application.CreateClient();
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "failed", cancellationToken);
+
+            Assert.Equal("failed", run.GetProperty("state").GetString());
+            Assert.Equal(2, run.GetProperty("failedFiles").GetInt32());
+            Assert.Equal(2, run.GetProperty("completedFiles").GetInt32());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Paused_run_waits_for_an_explicit_resume()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -635,7 +697,8 @@ public sealed class ReviewRunStoreTests
             using var response = await client.PostAsJsonAsync(
                 $"/api/review/runs/{stored.Manifest.RunId}/resume", new { }, cancellationToken);
             response.EnsureSuccessStatusCode();
-            var resumed = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+            var resumed = await WaitForStateAsync(client, stored.Manifest.RunId, "failed", cancellationToken);
+            Assert.Equal("failed", resumed.GetProperty("state").GetString());
             Assert.Equal("failed", Assert.Single(resumed.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
         }
         finally
@@ -857,6 +920,33 @@ public sealed class ReviewRunStoreTests
             return new StoredReviewRun(manifest, status, Store.LoadAll().Single().Progress);
         }
 
+        /// <summary>A queued run over several real files, for exercising mixed per-file outcomes.</summary>
+        public StoredReviewRun CreateMultiFileRun(string suffix, IReadOnlyList<string> paths)
+        {
+            var runId = $"review-{suffix}-{Guid.NewGuid():N}";
+            var createdAt = DateTimeOffset.UtcNow;
+            var targets = paths.Select(path => new ReviewRunPlanTarget(
+                $"file-{path}", path, path,
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")).ToArray();
+            var manifest = new ReviewRunManifest(
+                runId,
+                RepositoryRegistry.DefaultRepositoryId,
+                new ReviewRunPlanNode("multi-sample", "Multiple files", "."),
+                "file",
+                "code",
+                null,
+                "test-agent",
+                createdAt,
+                targets,
+                null);
+            var status = new ReviewRunStatus(
+                runId, "queued", targets.Length, 0, 0, 0, createdAt, null, null,
+                [], 0, new TokenUsage(null, null, null, null, 0));
+            Store.Create(manifest, status);
+            return new StoredReviewRun(manifest, status,
+                Store.LoadAll().Single(run => run.Manifest.RunId == runId).Progress);
+        }
+
         public string ProgressPath(string runId) => Path.Combine(Store.RunsPath, runId, "progress.jsonl");
 
         public TestApplication CreateApplication(
@@ -1054,6 +1144,27 @@ public sealed class ReviewRunStoreTests
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);
                 return CapturedExecution(request, skippedFresh: false, operation);
+            }
+        }
+    }
+
+    /// <summary>Fails the named files and succeeds every other, to exercise a mixed-outcome sweep.</summary>
+    private sealed class MixedOutcomeExecutorFactory(params string[] failingPaths) : IReviewExecutorFactory
+    {
+        private readonly HashSet<string> failingPaths = new(failingPaths, StringComparer.Ordinal);
+
+        public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel,
+            Action<string, CliRunEvent> eventObserver, Action<ReviewUsageEntry> usageRecorded) =>
+            new MixedOutcomeExecutor(failingPaths);
+
+        private sealed class MixedOutcomeExecutor(HashSet<string> failingPaths) : IReviewExecutor
+        {
+            public Task<ReviewExecutionResult> ReviewIfNeededAsync(
+                ReviewRequest request, bool force, CancellationToken cancellationToken)
+            {
+                if (failingPaths.Contains(request.FilePath))
+                    throw new InvalidOperationException($"Simulated failure for {request.FilePath}.");
+                return Task.FromResult(CapturedExecution(request, skippedFresh: false));
             }
         }
     }

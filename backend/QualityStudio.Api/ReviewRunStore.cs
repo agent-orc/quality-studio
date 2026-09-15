@@ -308,7 +308,7 @@ public sealed class ReviewRunStore
         return new ReviewRunPruneResult(removed, loaded.Count - removed);
     }
 
-    public static bool IsTerminal(string state) => state is "done" or "failed" or "cancelled" or "capped";
+    public static bool IsTerminal(string state) => state is "done" or "partial" or "failed" or "cancelled" or "capped";
 
     private IReadOnlyList<ReviewRunFileTransition> ReadProgress(string directory, string runId)
     {

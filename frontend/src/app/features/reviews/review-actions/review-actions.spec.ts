@@ -155,6 +155,7 @@ describe('ReviewActions', () => {
     const expected = new Map([
       ['queued', 'Pause'], ['running', 'Pause'], ['paused', 'Resume'], ['capped', 'Raise cap and resume'],
       ['failed', 'Review again'], ['cancelled', 'Review again'], ['done', 'Review again'],
+      ['partial', 'Review again'],
     ]);
     for (const [state, action] of expected) {
       api.reviewRuns.set([{

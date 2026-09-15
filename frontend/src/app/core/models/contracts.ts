@@ -209,7 +209,7 @@ export interface AgentStudioImportResult {
   reason: string | null;
 }
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
-export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped';
+export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'partial' | 'failed' | 'cancelled' | 'capped';
 export type ReviewUnitState = ReviewRunState | 'skipped' | 'skipped-fresh';
 export type ModelCapabilityTier = 'light' | 'balanced' | 'frontier';
 export type ModelRoutingStatus = 'selectable' | 'fallbackOnly' | 'unsupported' | 'restricted' | 'deprecated';

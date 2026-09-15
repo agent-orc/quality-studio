@@ -78,9 +78,9 @@ Every terminal UI review run writes a strict canonical document to
 `reports/runs/<runId>.json` in the data root. The snapshot contains its
 immutable subject manifest, routing provenance, usage and cap outcome, one
 explicit outcome per planned unit, the exact sidecar bytes captured by the run,
-finding lifecycle state, and a comparable-fingerprint delta. `done`, `failed`, `cancelled`, and
-`capped` runs are all reportable. Incomplete outcomes are visibly marked
-`partial` and do not invent an aggregate score or baseline state.
+finding lifecycle state, and a comparable-fingerprint delta. `done`, `partial`, `failed`,
+`cancelled`, and `capped` runs are all reportable. Incomplete outcomes are visibly marked
+`partial` in the run's `completeness` and do not invent an aggregate score or baseline state.
 
 A fresh skip is represented as `skipped-fresh` with `producedByRun: false`; it is
 counted as reused evidence, not as a model operation. A capped run writes its

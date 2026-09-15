@@ -342,6 +342,11 @@ textarea.studio-field {
   transform: rotate(45deg);
 }
 
+.status.partial {
+  background: var(--status-policy);
+  color: var(--status-policy);
+}
+
 .status.missing {
   background: var(--status-missing);
   color: var(--status-missing);

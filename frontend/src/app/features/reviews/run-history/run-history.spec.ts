@@ -184,4 +184,22 @@ describe('RunHistory drawer', () => {
     expect(text).toContain('Cost unpriced (unknown model)');
     expect(text).not.toContain('Cost 0.00');
   });
+
+  it('gives a partial run its own status, distinct from done or failed, and still treats it as terminal', () => {
+    api.reviewRuns.set([{
+      id: 'matching', path: 'src/A.cs', kind: 'code', state: 'partial', cliType: 'codex',
+      model: null, modelSource: 'runner-default', thinkingLevel: null,
+      totalFiles: 2, completedFiles: 2, failedFiles: 1, skippedFiles: 0, usageOperations: 2,
+      usage: { inputTokens: 20, outputTokens: 4, cachedInputTokens: 0, reasoningOutputTokens: 0, durationMs: 20 },
+      tokenCap: null, costCap: null, costSpent: null, currency: null, priceStatus: 'unknownModel', errors: [],
+    }] as unknown as ReviewRun[]);
+    component.runDrawerOpen.set(true);
+    fixture.detectChanges();
+
+    const status = fixture.nativeElement.querySelector('.run-row .status') as HTMLElement;
+    expect(status.classList).toContain('partial');
+    expect(status.classList).not.toContain('fresh');
+    expect(status.classList).not.toContain('missing');
+    expect(component.comparableRuns().map(run => run.id)).toEqual(['matching']);
+  });
 });

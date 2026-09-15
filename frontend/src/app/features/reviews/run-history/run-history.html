@@ -7,7 +7,7 @@
       @for (run of scopeRuns(); track run.id) {
         <article class="run-row" [class.selected]="selectedRunId() === run.id">
           <button class="studio-row-button run-open" type="button" (click)="openRun(run)" [attr.aria-expanded]="selectedRunId() === run.id">
-            <span class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></span>
+            <span class="run-heading"><i class="status" [class.fresh]="run.state === 'done'" [class.partial]="run.state === 'partial'" [class.stale]="run.state === 'running' || run.state === 'queued' || run.state === 'paused' || run.state === 'capped'" [class.missing]="run.state === 'failed' || run.state === 'cancelled'"></i><b>{{ run.kind }} · {{ run.path }}</b><span>{{ run.state }}</span></span>
             <span class="run-route">{{ run.cliType }} · {{ modelLabel(run) }} <i class="studio-badge model-source">{{ modelSourceLabel(run) }}</i> · {{ run.thinkingLevel ?? 'model default thinking' }}</span>
             <span class="run-progress"><span [style.width.%]="runProgress(run.completedFiles, run.totalFiles)"></span></span>
             <span class="run-detail"><span>{{ run.completedFiles }} / {{ run.totalFiles }} files @if (run.failedFiles) { · {{ run.failedFiles }} failed } @if (run.skippedFiles) { · {{ run.skippedFiles }} skipped }</span><span>Details →</span></span>

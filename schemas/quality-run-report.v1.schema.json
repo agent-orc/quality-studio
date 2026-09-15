@@ -38,7 +38,7 @@
         "scopeUnitId": { "type": "string", "minLength": 1, "maxLength": 2000 },
         "level": { "enum": ["project", "module", "namespace", "file"] },
         "path": { "$ref": "#/$defs/repoPath" },
-        "state": { "enum": ["done", "failed", "cancelled", "capped"] },
+        "state": { "enum": ["done", "partial", "failed", "cancelled", "capped"] },
         "completeness": { "enum": ["complete", "partial"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "startedAt": { "type": ["string", "null"], "format": "date-time" },

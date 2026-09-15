@@ -322,7 +322,7 @@ public static class QualityRunReportFactory
 
     private static string PartialReason(ReviewRunStatus status, IReadOnlyList<QualityRunObservation> observations)
     {
-        if (status.State != "done") return status.StopReason ?? $"Run ended in state {status.State}.";
+        if (status.State is "cancelled" or "capped") return status.StopReason ?? $"Run ended in state {status.State}.";
         var failed = observations.Count(observation => observation.Outcome == "failed");
         if (failed > 0) return $"{failed} unit(s) failed.";
         var missing = observations.Count(observation => observation.Outcome is "done" or "skipped-fresh" &&

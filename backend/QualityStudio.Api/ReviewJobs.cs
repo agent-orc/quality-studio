@@ -1059,8 +1059,10 @@ public sealed class ReviewJobService : BackgroundService
             lock (gate)
             {
                 if (state != "running") return false;
-                state = "done";
-                if (aggregateState == "running") aggregateState = "done";
+                var failed = progress.Values.Count(file => file.State == "failed");
+                var succeeded = progress.Values.Count(file => file.State is "done" or "skipped-fresh");
+                state = failed == 0 ? "done" : succeeded == 0 ? "failed" : "partial";
+                if (aggregateState == "running") aggregateState = state == "failed" ? "failed" : "done";
                 FinishedAt = DateTimeOffset.UtcNow;
                 PersistStatus();
                 PublishReport();

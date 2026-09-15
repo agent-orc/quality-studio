@@ -1058,10 +1058,12 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         {
             await Task.Delay(20, TestContext.Current.CancellationToken);
             run = await client.GetFromJsonAsync<JsonElement>($"/api/review/runs/{id}", TestContext.Current.CancellationToken);
-            if (run.GetProperty("state").GetString() == "done") break;
+            if (run.GetProperty("state").GetString() == "failed") break;
         }
 
-        Assert.Equal("done", run.GetProperty("state").GetString());
+        // Every file in this run failed, so the run itself is dishonest calling that "done":
+        // it must report a terminal state that says so, not the state of a clean sweep.
+        Assert.Equal("failed", run.GetProperty("state").GetString());
         Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
         Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
         using (var result = JsonDocument.Parse(await File.ReadAllTextAsync(
