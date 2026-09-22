@@ -1,0 +1,33 @@
+{
+  "reviewDate": "2026-09-19",
+  "component": "GitleaksSecurityScanner and GitleaksBinaryResolver",
+  "initialErrorMatrix": {
+    "passed": 1,
+    "failed": 5,
+    "log": "security-gitleaks-report-red.log"
+  },
+  "finalTargetedClasses": {
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 58,
+    "log": "security-gitleaks-green.log"
+  },
+  "limits": {
+    "stdoutCharacters": 1000000,
+    "stderrCharacters": 1000000,
+    "reportBytes": 8388608,
+    "scanCommandTimeoutSeconds": 300,
+    "versionCommandTimeoutSeconds": 30
+  },
+  "coverage": [
+    "Missing report for exit 0 and exit 1",
+    "Blank, malformed, invalid object, invalid finding and invalid SARIF run",
+    "Oversized report and stdout overflow",
+    "Scanner and version-probe stderr pressure",
+    "Git output-limit propagation for Repository, Range and Staged",
+    "Actual pinned binary invalid TOML configuration",
+    "Actual pinned binary planted secret"
+  ],
+  "compatibility": "Original public three-parameter scanner and two-parameter resolver constructor signatures retained; injection uses required-parameter overloads."
+}

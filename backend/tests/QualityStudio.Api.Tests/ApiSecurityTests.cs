@@ -7,13 +7,14 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using QualityStudio.Testing;
 using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
 [Trait("Category", "ToolBound")]
-public sealed class ApiSecurityTests : IAsyncLifetime
+public sealed partial class ApiSecurityTests : IAsyncLifetime
 {
     private const string AliceToken = "alice-test-credential";
     private const string BobToken = "bob-test-credential";
@@ -323,6 +324,174 @@ public sealed class ApiSecurityTests : IAsyncLifetime
             model = "not-in-catalogue",
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, mutation.StatusCode);
+    }
+
+
+    [Theory]
+    [InlineData("http://attacker.example", null)]
+    [InlineData("http://localhost", "https://attacker.example")]
+    [InlineData("http://localhost", "null")]
+    [InlineData("http://localhost", "http://localhost:4200.attacker.example")]
+    public async Task Local_mode_refuses_untrusted_hosts_and_browser_origins(string address, string? origin)
+    {
+        var localHost = Path.Combine(testRoot, "local-origin-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var client = local.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri(address),
+        });
+        if (origin is not null) client.DefaultRequestHeaders.Add("Origin", origin);
+
+        using var read = await client.GetAsync("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, read.StatusCode);
+        Assert.DoesNotContain("namespace Sample", await read.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("http://localhost")]
+    [InlineData("http://localhost:4200")]
+    [InlineData("http://127.0.0.1:4200")]
+    public async Task Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(string? origin)
+    {
+        var localHost = Path.Combine(testRoot, "local-trusted-origin-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var client = local.CreateClient();
+        if (origin is not null) client.DefaultRequestHeaders.Add("Origin", origin);
+
+        using var read = await client.GetAsync("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_mode_refuses_cross_site_browser_requests_without_an_origin()
+    {
+        var localHost = Path.Combine(testRoot, "local-fetch-metadata-host");
+        Directory.CreateDirectory(localHost);
+        await using var local = new LocalApplication(RepositoryRoot, localHost);
+        using var client = local.CreateClient();
+        client.DefaultRequestHeaders.Add("Sec-Fetch-Site", "cross-site");
+
+        using var read = await client.GetAsync("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, read.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Hosted_startup_rejects_framework_wide_automatic_forwarding(bool configureProxy)
+    {
+        await using var target = application!.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                var values = new Dictionary<string, string?>
+                {
+                    // ASPNETCORE_FORWARDEDHEADERS_ENABLED resolves to this framework key.
+                    ["ForwardedHeaders_Enabled"] = "true",
+                };
+                if (configureProxy)
+                    values["QualityStudio:Security:TrustedProxies:0"] = "10.20.30.40";
+                configuration.AddInMemoryCollection(values);
+            }));
+
+        var exception = Assert.Throws<InvalidOperationException>(() => target.CreateClient());
+
+        Assert.Contains("ASPNETCORE_FORWARDEDHEADERS_ENABLED", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("TrustedProxies", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("10.20.30.40", true, "https", HttpStatusCode.OK)]
+    [InlineData("::ffff:10.20.30.40", true, "https", HttpStatusCode.OK)]
+    [InlineData("10.20.30.41", true, "https", HttpStatusCode.BadRequest)]
+    [InlineData("127.0.0.1", false, "https", HttpStatusCode.BadRequest)]
+    [InlineData("10.20.30.40", true, "http", HttpStatusCode.BadRequest)]
+    public async Task Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(
+        string remoteAddress, bool configureProxy, string forwardedScheme, HttpStatusCode expected)
+    {
+        await using var proxyApplication = application!.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                if (configureProxy)
+                    configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["QualityStudio:Security:TrustedProxies:0"] = "10.20.30.40",
+                    });
+            }));
+
+        var response = await proxyApplication.Server.SendAsync(context =>
+        {
+            context.Request.Method = "GET";
+            context.Request.Scheme = "http";
+            context.Request.Host = new Microsoft.AspNetCore.Http.HostString("studio.example");
+            context.Request.Path = "/api/repos";
+            context.Connection.RemoteIpAddress = IPAddress.Parse(remoteAddress);
+            context.Request.Headers.Authorization = $"Bearer {AliceToken}";
+            context.Request.Headers["X-Forwarded-Proto"] = forwardedScheme;
+            context.Request.Headers["X-Forwarded-For"] = "192.0.2.100";
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal((int)expected, response.Response.StatusCode);
+        Assert.Equal("studio.example", response.Request.Host.Value);
+    }
+
+    [Theory]
+    [InlineData("/api/repos")]
+    [InlineData("/api/repos/")]
+    [InlineData("/API/REPOS/")]
+    public async Task Repository_scoped_identity_cannot_register_through_route_variants(string route)
+    {
+        var registryBefore = await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken);
+        using var alice = CreateClient("alice", AliceToken);
+        using var response = await alice.PostAsJsonAsync(route, new
+        {
+            id = "unauthorized",
+            displayName = "Unauthorized",
+            rootPath = ForeignRepositoryRoot,
+            enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(registryBefore,
+            await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData("/api/repos/import-from-agent-studio")]
+    [InlineData("/api/repos/import-from-agent-studio/")]
+    [InlineData("/API/REPOS/IMPORT-FROM-AGENT-STUDIO/")]
+    public async Task Repository_scoped_identity_cannot_import_through_route_variants(string route)
+    {
+        var outbound = new RejectUnexpectedOutboundRequest();
+        await using var target = application!.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services => services.AddSingleton(new HttpClient(outbound))));
+        using var alice = CreateClient(target, "alice", AliceToken);
+        using var response = await alice.PostAsync(route, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(0, outbound.Calls);
+    }
+
+    [Fact]
+    public async Task Foreign_only_client_can_read_the_trailing_slash_repository_collection()
+    {
+        using var bob = CreateClient("bob", BobToken);
+        var list = await bob.GetFromJsonAsync<JsonElement>("/api/repos/", TestContext.Current.CancellationToken);
+        Assert.Equal("foreign", Assert.Single(list.GetProperty("repositories").EnumerateArray())
+            .GetProperty("id").GetString());
+    }
+
+    private sealed class RejectUnexpectedOutboundRequest : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new InvalidOperationException("Authorization must reject the request before an outbound call.");
+        }
     }
 
     public async ValueTask InitializeAsync()

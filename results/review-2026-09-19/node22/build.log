@@ -1,0 +1,129 @@
+
+> frontend@0.0.0 build
+> ng build frontend
+
+> Building...
+√ Building...
+Initial chunk files   | Names               |  Raw size | Estimated transfer size
+chunk-R2I5QU67.js     | -                   | 147.80 kB |                43.81 kB
+main-WI2U6QYP.js      | main                |  66.46 kB |                15.94 kB
+polyfills-5CFQRCPP.js | polyfills           |  34.59 kB |                11.33 kB
+chunk-DM6FO62S.js     | -                   |  31.39 kB |                 6.65 kB
+chunk-H27WX56W.js     | -                   |  21.87 kB |                 6.58 kB
+styles-222DDUED.css   | styles              |  13.13 kB |                 2.63 kB
+chunk-2SNDKTJK.js     | -                   |   1.33 kB |               638 bytes
+chunk-2VMXMS7J.js     | -                   | 661 bytes |               661 bytes
+chunk-UBFLGJ43.js     | -                   | 611 bytes |               611 bytes
+chunk-FPPZ4BUR.js     | -                   | 229 bytes |               229 bytes
+chunk-OW3FDAYG.js     | -                   | 120 bytes |               120 bytes
+
+                      | Initial total       | 318.18 kB |                89.22 kB
+
+Lazy chunk files      | Names               |  Raw size | Estimated transfer size
+chunk-ZPS3WJAB.js     | guideline-dialog    |  79.94 kB |                20.52 kB
+chunk-DRJ264ES.js     | review-panel        |  60.21 kB |                11.54 kB
+chunk-CSCJGJII.js     | syntax-tokenizer    |  44.77 kB |                11.35 kB
+chunk-ADF76HDR.js     | -                   |  38.40 kB |                 7.94 kB
+chunk-HUPBHAUH.js     | editor              |  35.51 kB |                 9.17 kB
+chunk-F32Z2DIT.js     | review-actions      |  33.90 kB |                 7.57 kB
+chunk-ZJINFCD6.js     | run-history         |  31.25 kB |                 7.13 kB
+chunk-KRDMHQ5K.js     | project-dashboard   |  25.41 kB |                 5.43 kB
+chunk-27SCKPRP.js     | container-view      |  19.48 kB |                 4.69 kB
+chunk-GLVEI3EX.js     | attack-coverage     |  18.40 kB |                 4.41 kB
+chunk-CSAM6HUO.js     | usage-history       |  15.72 kB |                 3.68 kB
+chunk-6GTMYDRQ.js     | explorer            |  14.29 kB |                 4.29 kB
+chunk-CQ4YUCNK.js     | repository-dialog   |  14.28 kB |                 3.56 kB
+chunk-OGEQP7FA.js     | agent-studio-import |   8.54 kB |                 2.24 kB
+chunk-PT7M3SI2.js     | preview-fixtures    |   5.58 kB |                 1.80 kB
+...and 7 more lazy chunks files. Use "--verbose" to show all the files.
+
+Application bundle generation complete. [13.458 seconds] - 2026-09-19T21:16:53.569Z
+
+▲ [WARNING] NG8102: The left side of this nullish coalescing operation does not include 'null' or 'undefined' in its type, therefore the '??' operator can be safely removed. [plugin angular-compiler]
+
+    src/app/features/code/editor/editor.html:81:83:
+      81 │ ...-field" [value]="drafts()[row.thread.id] ?? ''" (input)="setDra...
+         ╵                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Warning occurs in the template of component Editor.
+
+    src/app/features/code/editor/editor.ts:25:15:
+      25 │   templateUrl: './editor.html',
+         ╵                ~~~~~~~~~~~~~~~
+
+
+▲ [WARNING] NG8102: The left side of this nullish coalescing operation does not include 'null' or 'undefined' in its type, therefore the '??' operator can be safely removed. [plugin angular-compiler]
+
+    src/app/features/code/editor/editor.html:87:106:
+      87 │ ...ield" [value]="drafts()['line:' + row.line] ?? ''" (input)="set...
+         ╵                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Warning occurs in the template of component Editor.
+
+    src/app/features/code/editor/editor.ts:25:15:
+      25 │   templateUrl: './editor.html',
+         ╵                ~~~~~~~~~~~~~~~
+
+
+▲ [WARNING] Module 'prismjs' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-markup' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-css' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-scss' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-clike' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-csharp' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-javascript' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-typescript' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-json' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+▲ [WARNING] Module 'prismjs/components/prism-markdown' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+
+  CommonJS or AMD dependencies can cause optimization bailouts.
+  For more information see: https://angular.dev/tools/cli/build#configuring-commonjs-dependencies
+
+
+Output location: C:\Projects\quality-studio\frontend\dist\frontend
+

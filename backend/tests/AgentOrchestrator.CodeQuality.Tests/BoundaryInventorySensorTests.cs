@@ -86,6 +86,140 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    public async Task Unknown_static_file_authentication_is_not_a_critical_unauthenticated_mutation()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-static-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), """
+                var app = WebApplication.Create();
+                app.UseStaticFiles();
+                app.Run();
+                """, TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            var entry = Assert.Single(inventory.Entries, entry => entry.Kind == "static-files");
+            Assert.Equal("unknown", entry.Authentication.Value);
+            Assert.Contains("filesystem-read", entry.SideEffects);
+            Assert.DoesNotContain(inventory.Findings, finding => finding.Severity == FindingSeverity.Critical);
+            Assert.DoesNotContain(inventory.Findings, finding => finding.RuleId == "boundary/unauthenticated-side-effect");
+            var unverified = Assert.Single(inventory.Findings,
+                finding => finding.RuleId == "boundary/unverified-side-effect-authorization");
+            Assert.Equal(FindingSeverity.Medium, unverified.Severity);
+            // The surface remains visible for confinement review; read-only does not mean safe.
+            Assert.Contains(inventory.Findings, finding => finding.RuleId == "boundary/request-to-system-sink");
+        }
+        finally { TemporaryDirectory.Delete(root); }
+    }
+
+    [Fact]
+    public async Task Missing_endpoint_authentication_evidence_remains_unknown_even_with_external_policy_configuration()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-auth-unknown-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), """
+                var builder = WebApplication.CreateBuilder(args);
+                builder.Services.AddAuthorization(options => options.FallbackPolicy =
+                    new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+                var app = builder.Build();
+                app.UseAuthorization();
+                app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+                app.MapPost("/run", () => Process.Start("worker"));
+                app.Run();
+                """, TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            var health = Assert.Single(inventory.Entries, entry => entry.Name == "GET /health");
+            Assert.Equal("unknown", health.Authentication.Value);
+            Assert.Equal("unknown", health.Authorization.Value);
+            var auth = Assert.Single(inventory.Findings, finding =>
+                finding.RuleId == "boundary/missing-authorization" && finding.Description.Contains("GET /health", StringComparison.Ordinal));
+            Assert.Equal(FindingSeverity.Medium, auth.Severity);
+            Assert.DoesNotContain(inventory.Findings, finding => finding.RuleId == "boundary/unauthenticated-side-effect");
+            var effect = Assert.Single(inventory.Findings,
+                finding => finding.RuleId == "boundary/unverified-side-effect-authorization");
+            Assert.Equal(FindingSeverity.High, effect.Severity);
+        }
+        finally { TemporaryDirectory.Delete(root); }
+    }
+
+    [Fact]
+    public async Task Explicit_anonymous_process_execution_still_receives_a_critical_finding()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-auth-none-").FullName;
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), """
+                var app = WebApplication.Create();
+                var group = app.MapGroup("/jobs").RequireAuthorization();
+                group.MapPost("/public", () => Process.Start("worker")).AllowAnonymous();
+                group.MapPost("/private", () => Process.Start("worker"));
+                app.Run();
+                """, TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            Assert.Equal("none", Assert.Single(inventory.Entries, entry => entry.Name == "POST /jobs/public").Authentication.Value);
+            Assert.Equal("required", Assert.Single(inventory.Entries, entry => entry.Name == "POST /jobs/private").Authentication.Value);
+            var finding = Assert.Single(inventory.Findings,
+                finding => finding.RuleId == "boundary/unauthenticated-side-effect");
+            Assert.Equal(FindingSeverity.Critical, finding.Severity);
+            Assert.Contains("POST /jobs/public", finding.Description, StringComparison.Ordinal);
+        }
+        finally { TemporaryDirectory.Delete(root); }
+    }
+
+    [Fact]
+    public async Task Delegated_sensor_commands_keep_process_boundaries_and_request_context()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-delegated-").FullName;
+        try
+        {
+            // This source-only fixture is parsed by the analyzer; no process is launched.
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "boundaries", "delegated-process.cs.txt"),
+                Path.Combine(root, "Runner.cs"));
+            await File.WriteAllTextAsync(Path.Combine(root, "GitleaksSecurityScanner.cs"), """
+                public class GitleaksSecurityScanner
+                {
+                    private readonly ISensorCommandRunner _commandRunner;
+                    public Task ScanAsync(string root, string gitleaksPath, string[] arguments, CancellationToken token)
+                    {
+                        return _commandRunner.RunAsync(gitleaksPath, arguments, root, token);
+                    }
+                    public Task OtherAsync(ReviewRunner reviewer)
+                    {
+                        return reviewer.RunAsync("not a subprocess", [], ".");
+                    }
+                }
+                """, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, "Program.cs"), """
+                var request = new SecurityScanRequest(root);
+                await scanner.ScanAsync(request);
+                """, TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            var processes = inventory.Entries.Where(entry => entry.Kind == "process").ToArray();
+            Assert.Equal(2, processes.Length);
+            Assert.Contains(processes, entry => entry.Location.Path == "Runner.cs");
+            var delegated = Assert.Single(processes, entry => entry.Location.Path == "GitleaksSecurityScanner.cs");
+            Assert.Contains("gitleaksPath", delegated.Name, StringComparison.Ordinal);
+            Assert.Contains(delegated.Inputs, input => input.Name == "workingDirectory" && input.Source == "request");
+            Assert.Contains(delegated.KnownConsumers, consumer => consumer.Path == "Program.cs");
+            Assert.Contains(inventory.Findings, finding => finding.RuleId == "boundary/request-to-system-sink" &&
+                finding.Locations.Any(location => location.Path == "GitleaksSecurityScanner.cs"));
+        }
+        finally { TemporaryDirectory.Delete(root); }
+    }
+
+    [Fact]
     public async Task Adding_an_endpoint_changes_the_repository_owned_inventory()
     {
         var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-diff-").FullName;
@@ -157,7 +291,8 @@ public sealed class BoundaryInventorySensorTests
             Assert.Contains(inventory.Entries, entry =>
                 entry.Kind == "process" && entry.Inputs.Any(input => input.Source == "request"));
             Assert.Contains(inventory.Findings, finding =>
-                finding.RuleId == "boundary/unauthenticated-side-effect" &&
+                finding.RuleId == "boundary/unverified-side-effect-authorization" &&
+                finding.Severity == FindingSeverity.High &&
                 finding.Description.Contains("POST /run", StringComparison.Ordinal));
             Assert.Contains(inventory.Entries, entry =>
                 entry.Kind == "browser-message" && entry.Direction == "inbound");

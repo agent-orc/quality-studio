@@ -735,7 +735,7 @@ public sealed class AttackCoverageService
                     CreateNoWindow = true,
                 },
             };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+            foreach (var argument in ReadOnlyGit.WithSafetyOptions(arguments)) process.StartInfo.ArgumentList.Add(argument);
             process.Start();
             var output = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
             await process.WaitForExitAsync().ConfigureAwait(false);

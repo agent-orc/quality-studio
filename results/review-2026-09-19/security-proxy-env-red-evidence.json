@@ -1,0 +1,29 @@
+{
+  "method": "Existing API integration theory executed unchanged in a child test process with ASPNETCORE_FORWARDEDHEADERS_ENABLED=true",
+  "source": "Observed tool transcript; summarized, not raw saved output",
+  "command": "ASPNETCORE_FORWARDEDHEADERS_ENABLED=true dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy --verbosity minimal",
+  "result": {
+    "failed": 2,
+    "passed": 3,
+    "skipped": 0
+  },
+  "failures": [
+    {
+      "remoteAddress": "127.0.0.1",
+      "configureProxy": false,
+      "forwardedScheme": "https",
+      "expectedStatus": 400,
+      "actualStatus": 200
+    },
+    {
+      "remoteAddress": "10.20.30.41",
+      "configureProxy": true,
+      "trustedProxy": "10.20.30.40",
+      "forwardedScheme": "https",
+      "expectedStatus": 400,
+      "actualStatus": 200
+    }
+  ],
+  "precondition": "Deployment enables the framework-wide automatic forwarding setting",
+  "finding": "Framework startup forwarding consumes headers before the explicit app middleware; unknown proxy and empty-allowlist restrictions are bypassed."
+}

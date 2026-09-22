@@ -1,0 +1,16 @@
+
+> frontend@0.0.0 test:browser-resolver
+> node --test ./tests/browser-binary.test.mjs
+
+✔ explicit CHROME_BIN takes precedence over Playwright and system browsers (1.0815ms)
+✔ Playwright Chromium is discovered before a system installation (0.3581ms)
+✔ resolver falls back to the platform browser list when Playwright is absent (0.3355ms)
+✔ resolver reports no browser when every declared source is absent (1.4356ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116.0999

@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { HttpErrorResponse, HttpEvent, HttpHandlerFn, HttpRequest } from '@angular/common/http';
 import { InjectionToken, inject } from '@angular/core';
 import { Observable, retry, tap, throwError, timeout, timer } from 'rxjs';
@@ -49,11 +50,26 @@ function budgetFor(url: string, policy: ApiRequestPolicy): number {
   return LONG_RUNNING.some(pattern => pattern.test(url)) ? policy.longRunningTimeoutMs : policy.timeoutMs;
 }
 
+/** Credentials and API-specific recovery belong only to this origin's API namespace. */
+function isApiRequest(url: string, origin: string | undefined): boolean {
+  if (!origin || url.startsWith('//') || url.includes('\\')) return false;
+  if (!url.startsWith('/') && !/^https?:\/\//i.test(url)) return false;
+  try {
+    const target = new URL(url, origin);
+    return target.origin === origin
+      && !target.username && !target.password
+      && (target.pathname === '/api' || target.pathname.startsWith('/api/'));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Every API request passes here, so no call can hang forever, a lost packet on a read does not
  * become a user-visible failure, and failures arrive as typed errors the shell can describe.
  */
 export function apiInterceptor(request: HttpRequest<unknown>, next: HttpHandlerFn): Observable<HttpEvent<unknown>> {
+  if (!isApiRequest(request.url, inject(DOCUMENT).location?.origin)) return next(request);
   const policy = inject(API_REQUEST_POLICY);
   const access = inject(ApiAccess);
   const context = inject(ApiContext);
@@ -68,7 +84,7 @@ export function apiInterceptor(request: HttpRequest<unknown>, next: HttpHandlerF
     timeout({ each: budget, with: () => throwError(() => new ApiTimeoutError(request.urlWithParams, budget)) }),
     // Report the first failed attempt, including failures from periodic background reads.
     // Recovery revalidates the registry and selected repository before declaring the app live.
-    tap({ error: error => { if (request.url.startsWith('/api/')) context.reportFailure(error); } }),
+    tap({ error: error => context.reportFailure(error) }),
     retry({
       count: policy.retries,
       delay: (error, attempt) => retryable(request, error)

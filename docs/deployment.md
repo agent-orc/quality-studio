@@ -31,6 +31,16 @@ Fix it by binding loopback, by switching to hosted mode, or — if you genuinely
 API on the network and understand that anyone who can reach it can register repositories and spend
 model budget — by setting `QualityStudio__Security__AllowNonLoopbackLocalMode=true`.
 
+Local API requests also validate their HTTP authority and browser origin. By default the
+request Host must be loopback, even if another hostname resolves to the loopback listener.
+A browser Origin must match the request origin or an exact entry in
+`QualityStudio__AllowedOrigins`; opaque `null` origins and malformed origins are refused.
+Cross-site Fetch Metadata without an Origin is refused. Headerless local CLI clients remain
+supported. These checks prevent browser-origin abuse; they do not authenticate local processes.
+The deliberate non-loopback override relaxes only the Host restriction, not the Origin check.
+The development launcher adds its exact frontend origin, including a custom frontend port. Explicit
+host Origin settings take precedence. Direct API startup defaults to localhost and 127.0.0.1 on port 4200.
+
 ## Hosted, in a container
 
 ```shell
@@ -72,10 +82,26 @@ back to "no authentication" would publish an unauthenticated registrar API on `0
 ### Behind a reverse proxy
 
 The image sets `QualityStudio__Security__RequireHttps=false` because the container itself speaks plain
-HTTP and the proxy terminates TLS. When the proxy forwards the original scheme, set
-`QualityStudio__Security__RequireHttps=true` so a request that arrives over plain HTTP is refused; the
-API also sends HSTS in that case. Publish the container port to loopback only and let the proxy own the
-public address.
+HTTP. For TLS termination at a reverse proxy, enable HTTPS enforcement and configure the proxy's
+actual connection IP as seen by the API:
+
+```text
+QualityStudio__Security__RequireHttps=true
+QualityStudio__Security__TrustedProxies__0=10.20.30.40
+```
+
+Replace the example address with the deployed proxy address. The allowlist is empty by default;
+without it, forwarded headers have no effect. Only explicit IP addresses are accepted, and proxy
+forwarding requires Hosted mode. Both `X-Forwarded-For` and `X-Forwarded-Proto` must be supplied by the
+proxy with matching value counts. Only one trusted hop is processed, before the HTTPS/authentication
+checks. `X-Forwarded-Host` is ignored. A direct client or unknown proxy cannot make plain HTTP pass
+the HTTPS requirement by supplying `X-Forwarded-Proto: https`.
+
+Configure the edge to replace untrusted incoming forwarding headers, restrict accepted hostnames,
+and keep the backend port private. The host refuses to start if automatic forwarding is enabled through
+`ASPNETCORE_FORWARDEDHEADERS_ENABLED`; use the explicit allowlist above. For multiple proxy hops,
+terminate the chain at the configured trusted edge instead of trusting arbitrary intermediaries.
+See [Microsoft's proxy guidance](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0).
 
 ## Environment variables
 
@@ -89,6 +115,7 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 | `QualityStudio__Security__Mode` | `Local` | `Local` (every request is a registrar) or `Hosted` (bearer token required). |
 | `QualityStudio__Security__AllowNonLoopbackLocalMode` | `false` | Deliberately publish an unauthenticated Local-mode host beyond loopback. |
 | `QualityStudio__Security__RequireHttps` | `true` | Refuse plain-HTTP `/api` requests and send HSTS. Hosted mode only. |
+| `QualityStudio__Security__TrustedProxies__N` | empty | Explicit proxy IPs allowed to forward scheme and client address in Hosted mode. One symmetric hop; forwarded Host is ignored. |
 | `QualityStudio__Security__MaxRequestBodyBytes` | `65536` | Largest accepted request body. |
 | `QualityStudio__Security__MaxConcurrentRequests` | `32` | Concurrent request limit; excess is `429`. |
 | `QualityStudio__Security__SpendRequestsPerMinute` | `5` | Per-client budget for routes that spend model tokens. |
@@ -98,7 +125,7 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 | `QualityStudio__Security__Clients__N__CanRegisterRepositories` | `false` | Allow `POST /api/repos`, the Agent Studio import, and `PUT`/`DELETE /api/repos/{id}`. Requires `*`. |
 | `QualityStudio__RepositoryRoot` | `../../..` (`/repositories` in the image) | Seeds the `default` registration on first start. |
 | `QualityStudio__AllowedRoots__N` | the repository root | Directories registrations may point inside. Everything else is refused. |
-| `QualityStudio__AllowedOrigins__N` | `http://localhost:4200` | CORS origins for the development frontend. |
+| `QualityStudio__AllowedOrigins__N` | localhost / 127.0.0.1 on port 4200 | Exact CORS and Local-mode browser origins. The dev launcher sets its frontend origin. |
 | `QualityStudio__Ui__RootPath` | `wwwroot` next to the API | The built browser bundle. Absent means an API-only host. |
 | `QualityStudio__AnalyzerProfiles__Path` | `analyzer-profiles.json` next to the API | Host-owned analyzer profiles; replaces the embedded defaults when present. |
 | `QualityStudio__AnalyzerProfiles__AllowInlineCommands` | `false` | Re-enables free-form `command` entries in repository sensor configuration. |

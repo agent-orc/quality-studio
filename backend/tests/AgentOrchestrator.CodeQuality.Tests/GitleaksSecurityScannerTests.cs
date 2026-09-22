@@ -48,6 +48,134 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
         return ValueTask.CompletedTask;
     }
 
+    [Theory]
+    [InlineData("missing-report-success")]
+    [InlineData("missing-report-findings")]
+    [InlineData("empty-report")]
+    [InlineData("invalid-report")]
+    [InlineData("invalid-report-object")]
+    [InlineData("invalid-report-sarif-run")]
+    [InlineData("invalid-report-null-finding")]
+    [InlineData("oversized-report")]
+    [InlineData("stdout-overflow")]
+    public async Task Failed_or_incomplete_scan_output_is_unavailable_not_clean(string scenario)
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-failure-").FullName;
+        try
+        {
+            await InitializeGitRepositoryAsync(root, TestContext.Current.CancellationToken);
+            SetScenario(scenario);
+
+            var result = await new GitleaksSecurityScanner().ScanAsync(
+                new SecurityScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            Assert.False(result.Report.Available);
+            Assert.Equal(SecurityVerdict.Unavailable, result.Report.Verdict);
+            Assert.NotEmpty(result.Report.UnavailableReason!);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            TryDelete(root);
+        }
+    }
+
+    [Theory]
+    [InlineData(SecurityScanMode.Repository)]
+    [InlineData(SecurityScanMode.Range)]
+    [InlineData(SecurityScanMode.Staged)]
+    public async Task Git_output_limit_during_counting_or_staging_makes_the_whole_scan_unavailable(SecurityScanMode mode)
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-git-limit-").FullName;
+        try
+        {
+            var runner = new RefuseGitOutputRunner();
+
+            var result = await new GitleaksSecurityScanner(null, null, null, runner).ScanAsync(
+                new SecurityScanRequest(root, mode, Range: mode == SecurityScanMode.Range ? "HEAD~1..HEAD" : null,
+                    PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            Assert.False(result.Report.Available);
+            Assert.Equal(SecurityVerdict.Unavailable, result.Report.Verdict);
+            Assert.Contains("output limit", result.Report.UnavailableReason, StringComparison.Ordinal);
+            Assert.Empty(result.Findings);
+            Assert.Equal(1, runner.Calls);
+        }
+        finally
+        {
+            TryDelete(root);
+        }
+    }
+
+    private sealed class RefuseGitOutputRunner : ISensorCommandRunner
+    {
+        public int Calls { get; private set; }
+
+        public Task<SensorCommandResult> RunAsync(string executable, IReadOnlyList<string> arguments,
+            string workingDirectory, CancellationToken cancellationToken = default)
+        {
+            Assert.Equal("git", executable);
+            Calls++;
+            throw new SecurityScannerUnavailableException("git exceeded the output limit.");
+        }
+    }
+
+    [Fact]
+    public async Task Scanner_drains_large_stderr_without_deadlocking()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-stderr-").FullName;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        cancellation.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            await InitializeGitRepositoryAsync(root, cancellation.Token);
+            SetScenario("stderr-pressure");
+
+            var result = await new GitleaksSecurityScanner().ScanAsync(
+                new SecurityScanRequest(root, PersistMetadata: false), cancellation.Token);
+
+            Assert.True(result.Report.Available, result.Report.UnavailableReason);
+            Assert.Equal(SecurityVerdict.Pass, result.Report.Verdict);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            KillRunningFixture();
+            TryDelete(root);
+        }
+    }
+
+    [Fact]
+    public async Task Version_probe_drains_large_stderr_without_deadlocking()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        cancellation.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            SetScenario("version-stderr-pressure");
+
+            var path = await new GitleaksBinaryResolver().ResolveAsync(_fakeGitleaksPath, cancellation.Token);
+
+            Assert.Equal(_fakeGitleaksPath, path);
+        }
+        finally
+        {
+            KillRunningFixture();
+        }
+    }
+
+    private void KillRunningFixture()
+    {
+        var pidFile = Path.Combine(_fakeGitleaksRoot!, "publish", "fixture.pid");
+        if (!File.Exists(pidFile) || !int.TryParse(File.ReadAllText(pidFile), out var processId)) return;
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+        }
+        catch (ArgumentException) { }
+    }
+
     [Fact]
     public async Task Security_provision_command_verifies_the_pinned_binary_before_the_scan_lane()
     {
@@ -247,6 +375,32 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ScanAsync_RealGitleaksBinary_RejectsInvalidConfiguration()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var previousGitleaksPath = Environment.GetEnvironmentVariable("QUALITY_GITLEAKS_PATH");
+        Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", null);
+        var root = Directory.CreateTempSubdirectory("quality-studio-gitleaks-invalid-config-").FullName;
+        try
+        {
+            await InitializeGitRepositoryAsync(root, cancellationToken);
+            await WriteRepoFixtureAsync(root, ".quality/security/gitleaks.toml", "invalid = [unclosed", cancellationToken);
+
+            var result = await new GitleaksSecurityScanner().ScanAsync(
+                new SecurityScanRequest(root, PersistMetadata: false), cancellationToken);
+
+            Assert.False(result.Report.Available);
+            Assert.Equal(SecurityVerdict.Unavailable, result.Report.Verdict);
+            Assert.Contains("report", result.Report.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("QUALITY_GITLEAKS_PATH", previousGitleaksPath);
+            TryDelete(root);
+        }
+    }
+
+    [Fact]
     public async Task ScanAsync_RealGitleaksBinary_DetectsPlantedSecret()
     {
         // The other tests in this file exercise a fake gitleaks binary that writes JSON straight to
@@ -331,8 +485,10 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
             var reportPathIndex = Array.IndexOf(args, "--report-path");
             var reportPath = reportPathIndex >= 0 && reportPathIndex + 1 < args.Length ? args[reportPathIndex + 1] : null;
 
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "fixture.pid"), Environment.ProcessId.ToString());
             if (command == "version")
             {
+                if (scenario == "version-stderr-pressure") Console.Error.Write(new string('e', 500_000));
                 Console.WriteLine(version);
                 return 0;
             }
@@ -351,6 +507,28 @@ public sealed class GitleaksSecurityScannerTests : IAsyncLifetime
 
             if (command == "dir")
             {
+                if (scenario == "missing-report-success") return 0;
+                if (scenario == "missing-report-findings") return 1;
+                if (scenario is "empty-report" or "invalid-report" or "invalid-report-object" or "invalid-report-null-finding" or "invalid-report-sarif-run" or "oversized-report")
+                {
+                    File.WriteAllText(reportPath!, scenario switch
+                    {
+                        "empty-report" => " ",
+                        "invalid-report" => "[",
+                        "invalid-report-object" => "{}",
+                        "invalid-report-sarif-run" => JsonSerializer.Serialize(new { version = "2.1.0", runs = new object[] { new { } } }),
+                        "invalid-report-null-finding" => "[null]",
+                        _ => "[" + new string(' ', 9 * 1024 * 1024) + "]",
+                    });
+                    return 0;
+                }
+                if (scenario is "stdout-overflow" or "stderr-pressure")
+                {
+                    if (scenario == "stdout-overflow") Console.Write(new string('o', 2_000_000));
+                    else Console.Error.Write(new string('e', 500_000));
+                    WriteReport(Array.Empty<object>());
+                    return 0;
+                }
                 WriteReport(scenario switch
                 {
                     "repository" => RepositoryFindings(),

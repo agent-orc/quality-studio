@@ -38,7 +38,10 @@ The analyzers currently recognize:
 - Express-style Node routes and listeners, message consumers, scheduled jobs,
   watched directories, browser `postMessage`, and common body/rate limiters.
 - Subprocess creation, outbound HTTP sinks, filesystem watchers, and literal or
-  configured host bindings across supported source/configuration files.
+  configured host bindings across supported source/configuration files. Typed C# calls to
+  `ISensorCommandRunner` / `ProcessSensorCommandRunner` preserve each delegated process
+  boundary, including executable/arguments/working-directory inputs and known API consumers;
+  the shared direct OS process sink remains a separate inventory entry.
 
 ## Mechanical findings
 
@@ -47,6 +50,40 @@ CORS, exception detail in error responses, missing rate or size limits,
 unauthenticated side effects, and request input reaching filesystem or process
 surfaces. They are returned as normal sensor findings so later security review
 stages consume the same deterministic evidence.
+
+### Authentication uncertainty and severity (sensor 1.1.0)
+
+Missing evidence for a control is not proof that the control is absent. Minimal API routes
+without a recognized requirement now retain `authentication: unknown` and
+`authorization: unknown`; a fallback policy, middleware in another file, or an upstream
+control may apply. An explicit `AllowAnonymous` removes a derived route/group authorization
+requirement, while a separately recognized custom authentication middleware still applies.
+
+The authentication-related findings distinguish that uncertainty:
+
+| Inventory evidence | Finding | Severity |
+| --- | --- | --- |
+| Inbound authentication unknown | `boundary/missing-authorization`, described as unverified | Medium |
+| Authentication unknown, filesystem reads only | `boundary/unverified-side-effect-authorization` | Medium |
+| Authentication unknown, process/write/mutation/quota/outbound effects | `boundary/unverified-side-effect-authorization` | High |
+| Authentication explicitly absent, filesystem reads only | `boundary/unauthenticated-side-effect` | High |
+| Authentication explicitly absent, process/write/mutation/quota/outbound effects | `boundary/unauthenticated-side-effect` | Critical |
+
+Read-only static asset delivery therefore does not become a critical unauthenticated mutation.
+It remains inventoried, and its access policy and file scope remain reviewable. Health routes
+receive the same evidence-based treatment as every other route; neither route names nor static
+file registration create a blanket exemption. A configured public endpoint can be intentional.
+
+These are source-derived review signals, not runtime exploitability proofs. In particular,
+`boundary/request-to-system-sink` identifies request inputs and a filesystem/process operation in
+the same recognized handler; it does not prove unsafe taint propagation or defeat of confinement.
+That independent signal remains unchanged by the authentication classification.
+
+ASP.NET can authorize otherwise unannotated endpoints through a
+[fallback policy](https://learn.microsoft.com/en-us/aspnet/core/security/authorization/secure-data?view=aspnetcore-10.0#require-authenticated-users);
+[static-file authorization](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/static-files?view=aspnetcore-10.0#static-file-authorization)
+depends on middleware ordering and configuration. The scanner preserves `unknown` when it cannot
+establish those effective controls.
 
 The inventory intentionally contains no generation timestamp. Re-running it
 against unchanged source produces byte-identical content, so adding, changing, or

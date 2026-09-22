@@ -3,7 +3,7 @@ using QualityStudio.Testing;
 
 namespace AgentOrchestrator.CodeQuality.Tests;
 
-public sealed class SarifSensorTests
+public sealed partial class SarifSensorTests
 {
     [Fact]
     public async Task RoslynFixture_MapsRuleMetadataAndDeduplicatesKnownWarning()

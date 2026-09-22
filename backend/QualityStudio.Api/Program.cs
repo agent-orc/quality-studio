@@ -121,6 +121,9 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+TrustedProxyConfiguration.ValidateHostingConfiguration(app.Configuration);
+app.UseForwardedHeaders(TrustedProxyConfiguration.Create(
+    app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>().Value.Security));
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
@@ -172,6 +175,13 @@ app.Use(async (context, next) =>
         return;
     }
 
+    if (!apiSecurity.IsLocalRequestTrusted(context))
+    {
+        await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+            title: "Local API request origin is not permitted").ExecuteAsync(context);
+        return;
+    }
+
     if (apiSecurity.RequireHttps && !context.Request.IsHttps)
     {
         await Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "HTTPS is required").ExecuteAsync(context);
@@ -206,13 +216,14 @@ app.Use(async (context, next) =>
         }
     }
 
-    var path = context.Request.Path.Value ?? string.Empty;
+    // Authorize the selected endpoint, not its URL spelling. ASP.NET also matches trailing
+    // slashes and casing variants, which must not bypass registrar or collection policies.
+    var route = (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText;
     var repositoryId = RouteRepositoryId(context);
-    var isRepositoryCollection = string.Equals(path, "/api/repos", StringComparison.OrdinalIgnoreCase);
-    var isReportCollection = string.Equals(path, "/api/report", StringComparison.OrdinalIgnoreCase);
-    var isImport = string.Equals(path, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
-    var isRepositoryItem = context.GetEndpoint() is Microsoft.AspNetCore.Routing.RouteEndpoint routeEndpoint &&
-        string.Equals(routeEndpoint.RoutePattern.RawText, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase);
+    var isReportCollection = string.Equals(route, "/api/report", StringComparison.OrdinalIgnoreCase);
+    var isImport = string.Equals(route, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryItem = string.Equals(route, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
     var isRepositoryMutation = isRepositoryItem &&
         (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
     if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutation)
@@ -230,7 +241,7 @@ app.Use(async (context, next) =>
         return;
     }
     else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
-             !string.Equals(path, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);

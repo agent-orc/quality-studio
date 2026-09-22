@@ -1,0 +1,14 @@
+{
+  "AgentOrchestrator.CodeQuality.Tests": {
+    "coveredLines": 15993,
+    "totalLines": 19099,
+    "linePercent": 83.74,
+    "report": "results\\review-2026-09-19\\coverage-complete\\core\\2e351541-b38c-4172-a9a9-bbaa44a855c1\\coverage.cobertura.xml"
+  },
+  "QualityStudio.Api.Tests": {
+    "coveredLines": 12264,
+    "totalLines": 23868,
+    "linePercent": 51.38,
+    "report": "results\\review-2026-09-19\\coverage-complete\\api\\2d35871f-00fb-49ec-87dc-983cd05a4664\\coverage.cobertura.xml"
+  }
+}

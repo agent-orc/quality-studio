@@ -8,7 +8,7 @@ namespace AgentOrchestrator.CodeQuality;
 /// <summary>Runs an optional repository-owned command and ingests its SARIF 2.1.0 report.</summary>
 public sealed class SarifSensor : IDeterministicEvidenceSensor
 {
-    public const string SensorVersion = "1.0.0";
+    public const string SensorVersion = "1.1.0";
     private readonly ISensorCommandRunner commandRunner;
     private readonly AnalyzerProfileCatalog profiles;
     private readonly string id;
@@ -154,6 +154,9 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         if (!sarif.TryGetProperty("runs", out var runs) || runs.ValueKind != JsonValueKind.Array)
             throw new InvalidDataException("SARIF 2.1.0 report must contain a runs array.");
 
+        if (runs.GetArrayLength() == 0)
+            throw new InvalidDataException("SARIF report contains no analysis runs.");
+
         var findings = new List<ReviewFinding>();
         var runIndex = 0;
         foreach (var run in runs.EnumerateArray())
@@ -165,23 +168,24 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             var producerVersion = String(driver, "semanticVersion") ??
                                   String(driver, "version") ??
                                   String(driver, "dottedQuadFileVersion");
+            var results = RequireAnalysisResults(run);
+            ValidateInvocations(run);
             var context = new RunContext(
                 root,
                 ReadRuleComponents(run, driver),
                 ReadArtifacts(run),
                 ReadUriBases(run));
-            if (run.TryGetProperty("results", out var results) && results.ValueKind == JsonValueKind.Array)
+            var resultIndex = 0;
+            foreach (var result in results.EnumerateArray())
             {
-                var resultIndex = 0;
-                foreach (var result in results.EnumerateArray())
+                if (result.ValueKind != JsonValueKind.Object)
+                    throw new InvalidDataException("SARIF results must contain result objects.");
+                if (String(result, "kind") is not ("pass" or "notApplicable"))
                 {
-                    if (String(result, "kind") is not ("pass" or "notApplicable"))
-                    {
-                        findings.Add(MapResult(
-                            result, context, sensorId, producer, producerVersion, runIndex, resultIndex));
-                    }
-                    resultIndex++;
+                    findings.Add(MapResult(
+                        result, context, sensorId, producer, producerVersion, runIndex, resultIndex));
                 }
+                resultIndex++;
             }
             runIndex++;
         }
@@ -192,6 +196,67 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             .ThenBy(finding => finding.Locations[0].Range?.Start.Line ?? 0)
             .ThenBy(finding => finding.RuleId, StringComparer.Ordinal)
             .ToArray();
+    }
+
+    // SARIF permits logs with no analysis (for example rule metadata or startup failure).
+    // They are valid interchange documents, but cannot establish a clean sensor result.
+    private static JsonElement RequireAnalysisResults(JsonElement run)
+    {
+        if (run.TryGetProperty("externalPropertyFileReferences", out var external))
+        {
+            if (external.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("SARIF externalPropertyFileReferences must be an object.");
+            foreach (var property in new[] { "results", "invocations" })
+            {
+                if (!external.TryGetProperty(property, out var references)) continue;
+                if (references.ValueKind != JsonValueKind.Array)
+                    throw new InvalidDataException($"SARIF external {property} references must be an array.");
+                if (references.GetArrayLength() > 0)
+                    throw new InvalidDataException($"SARIF external {property} are unsupported; provide an inline report.");
+            }
+        }
+        if (!run.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("SARIF analysis results must be present as an array; missing or null results do not prove a completed scan.");
+        return results;
+    }
+
+    private static void ValidateInvocations(JsonElement run)
+    {
+        if (!run.TryGetProperty("invocations", out var invocations)) return;
+        if (invocations.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("SARIF invocations must be an array.");
+        foreach (var invocation in invocations.EnumerateArray())
+        {
+            if (invocation.ValueKind != JsonValueKind.Object ||
+                !invocation.TryGetProperty("executionSuccessful", out var successful) ||
+                successful.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                throw new InvalidDataException("SARIF invocation must declare Boolean executionSuccessful.");
+            if (!successful.GetBoolean())
+                throw new InvalidDataException("SARIF analyzer execution did not complete successfully.");
+            // Exit codes are producer-specific: even nonzero codes can mean a successful
+            // analysis with diagnostics. executionSuccessful is the portable status signal.
+            if (invocation.TryGetProperty("exitCode", out var exitCode) &&
+                (exitCode.ValueKind != JsonValueKind.Number || !exitCode.TryGetInt64(out _)))
+                throw new InvalidDataException("SARIF invocation exitCode must be an integer.");
+            foreach (var property in new[] { "toolExecutionNotifications", "toolConfigurationNotifications" })
+            {
+                if (!invocation.TryGetProperty(property, out var notifications)) continue;
+                if (notifications.ValueKind != JsonValueKind.Array)
+                    throw new InvalidDataException($"SARIF {property} must be an array.");
+                foreach (var notification in notifications.EnumerateArray())
+                {
+                    if (notification.ValueKind != JsonValueKind.Object)
+                        throw new InvalidDataException($"SARIF {property} must contain notification objects.");
+                    if (notification.TryGetProperty("level", out var level))
+                    {
+                        if (level.ValueKind != JsonValueKind.String)
+                            throw new InvalidDataException("SARIF notification level must be a string.");
+                        if (level.GetString() == "error")
+                            throw new InvalidDataException("SARIF analyzer reported an execution or configuration error.");
+                    }
+                }
+            }
+        }
     }
 
     private static ReviewFinding MapResult(

@@ -1,0 +1,25 @@
+> dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --filter "Category!=MachineBound&Category!=ExternalLive" --verbosity quiet --no-build --list-tests
+> dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --filter "Category!=MachineBound&Category!=ExternalLive" --verbosity quiet --no-build --list-tests
+lane inventory: non-machine (coverage across the required portable and controlled tool-bound lanes); core=536, api=239
+> dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --filter "Category!=MachineBound&Category!=ExternalLive" --verbosity minimal --no-build "--collect:XPlat Code Coverage" --results-directory C:\Projects\quality-studio\results\review-2026-09-19\coverage-complete\core -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+Test run for C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.48]     AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Timeout_kills_the_process_tree_and_returns_promptly [SKIP]
+  Skipped AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Timeout_kills_the_process_tree_and_returns_promptly [1 ms]
+[xUnit.net 00:00:02.66]     AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Cancellation_kills_the_process_tree [SKIP]
+[xUnit.net 00:00:02.67]     AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Completed_command_returns_exit_code_and_redirected_output [SKIP]
+  Skipped AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Cancellation_kills_the_process_tree [1 ms]
+  Skipped AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Completed_command_returns_exit_code_and_redirected_output [1 ms]
+
+Passed!  - Failed:     0, Passed:   533, Skipped:     3, Total:   536, Duration: 1 m 6 s - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)
+
+Attachments:
+  C:\Projects\quality-studio\results\review-2026-09-19\coverage-complete\core\2e351541-b38c-4172-a9a9-bbaa44a855c1\coverage.cobertura.xml
+> dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --filter "Category!=MachineBound&Category!=ExternalLive" --verbosity minimal --no-build "--collect:XPlat Code Coverage" --results-directory C:\Projects\quality-studio\results\review-2026-09-19\coverage-complete\api -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+Test run for C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   239, Skipped:     0, Total:   239, Duration: 47 s - QualityStudio.Api.Tests.dll (net10.0)
+
+Attachments:
+  C:\Projects\quality-studio\results\review-2026-09-19\coverage-complete\api\2d35871f-00fb-49ec-87dc-983cd05a4664\coverage.cobertura.xml

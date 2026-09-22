@@ -1,0 +1,946 @@
+{
+  "repositoryPath": "C:\\Projects\\quality-studio",
+  "repositoryId": "quality-studio",
+  "startedAt": "2026-09-19T20:52:10.211475+00:00",
+  "completedAt": "2026-09-19T20:52:12.6690744+00:00",
+  "analyses": [
+    {
+      "name": "boundaries",
+      "version": "1.0.0",
+      "available": true,
+      "findingCount": 20,
+      "provenance": {
+        "sensorId": "boundaries",
+        "sensorVersion": "1.0.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-19T20:52:12.6340831\u002B00:00",
+        "toolVersions": {
+          "boundary-analyzer": "1.0.0"
+        }
+      }
+    }
+  ],
+  "findings": [
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/ca320fa11792737d62abf00a927402625d5545201b4dc92af926e935bc1b0fd7",
+        "path": "backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "4544669207829331b7cb8af1101af3d00062e090e3c8c9eea601e0721b97a85b"
+        }
+      },
+      "id": "boundary-2aa7ae2a6137",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "process gitleaksPath combines request input with process.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs",
+          "range": {
+            "start": {
+              "line": 414,
+              "column": 1
+            },
+            "end": {
+              "line": 414,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2aa7ae2a6137bef92b351fd8ff830c408337bf4fe33f6b4a89377853b9a87393",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022process:backend:agentorchestrator.codequality:gitleakssecurityscanner.cs:414\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022internal-callable\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs:414 constructs a process invocation\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022caller-dependent\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs:414 subprocess authentication is inherited from callers\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022caller-dependent\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs:414 subprocess authorization is inherited from callers\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs:414 does not prove invocation throttling\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/AgentOrchestrator.CodeQuality/GitleaksSecurityScanner.cs:414 does not prove output sizing\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022process\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-0894aa6003b6",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Inbound boundary has no derived authorization",
+      "description": "GET /health is externally callable, but the inventory could not derive an authentication and authorization requirement.",
+      "recommendation": "Apply an explicit authentication and authorization policy, or document and mechanically encode the narrow public exception.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 254,
+              "column": 1
+            },
+            "end": {
+              "line": 254,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0894aa6003b66a98e4c7b7a3f513724298cb77ceff90bc9975d02328dfa84f14",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/missing-authorization",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::health\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022loopback-only\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022All derived repository host bindings use loopback addresses\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022none\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs:254 has no applicable authorization requirement\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022none\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs contains no applicable authorization check\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: []\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-079e9339f805",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/security/attack-coverage combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 330,
+              "column": 1
+            },
+            "end": {
+              "line": 330,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:079e9339f80574b58fcb79d3547b1b9051bafa5bf1b4a520ffa20adbc6b4718b",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::api:security:attack-coverage\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-0bed611945e1",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/security/attack-coverage/judgements combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 332,
+              "column": 1
+            },
+            "end": {
+              "line": 332,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:0bed611945e1d15753c56942cf19bdf46c25c4687902b6922e5e43d8aa74e475",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:security:attack-coverage:judgements\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022policy\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-2a722b5e2bc2",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/repos/{repoId}/threads combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 390,
+              "column": 1
+            },
+            "end": {
+              "line": 390,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2a722b5e2bc2f17e692ce4e50eaa7cb170664e73ff428c75e9d0e6ecf3d809fe",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:threads\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022,\r\n    \u0022state-mutation\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-38d591886be2",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/tree combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 298,
+              "column": 1
+            },
+            "end": {
+              "line": 298,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:38d591886be2d8151c1df59f47623f818c678225bf9683430c2cd2615fbea168",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::api:tree\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-3da1fc951952",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/threads combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 389,
+              "column": 1
+            },
+            "end": {
+              "line": 389,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3da1fc951952c5376b18d08229c6ab5b2b637a364ff0f7e4289e3aafd9c7041b",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:threads\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022,\r\n    \u0022state-mutation\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-3f5fb10760ed",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/repos/{repoId}/security/attack-coverage combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 331,
+              "column": 1
+            },
+            "end": {
+              "line": 331,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:3f5fb10760ed42c4aec65d74c6cf5efb945c9e9eff22b8c88b517fd2761af286",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:security:attack-coverage\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-7657c524831d",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/findings/state combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 391,
+              "column": 1
+            },
+            "end": {
+              "line": 391,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7657c524831d67756e7c35b2a62edab5bc4a18f77a9cc2ec96b1a729e91a2209",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:findings:state\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022,\r\n    \u0022state-mutation\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-7ccf2ad2c7f7",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/repos/{repoId}/file combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 309,
+              "column": 1
+            },
+            "end": {
+              "line": 309,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:7ccf2ad2c7f7b0c9a7e62ff743405ba780170ec80aaf44b6961a35b44360db79",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:file\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-87c653ceb911",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/repos/{repoId}/tree combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 299,
+              "column": 1
+            },
+            "end": {
+              "line": 299,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:87c653ceb911a4f0a706c84a6f98716c8110e02bc9beeaf17479fa994bee1269",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::api:repos:{repoid}:tree\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-992a6f24e8eb",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/repos/{repoId}/handover combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 388,
+              "column": 1
+            },
+            "end": {
+              "line": 388,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:992a6f24e8eb3f52a9d25545f7eb9fdb87c392cfe39ddfcabde20028c5d7e5a4",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:handover\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022policy\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022,\r\n    \u0022third-party-call\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-bcddf7de26ae",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "GET /api/file combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 308,
+              "column": 1
+            },
+            "end": {
+              "line": 308,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:bcddf7de26ae0715152e3e061095e505c0c61c6a48becda447a22435a8c71f79",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:get::api:file\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-cd23e66e1509",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/repos/{repoId}/security/attack-coverage/judgements combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 333,
+              "column": 1
+            },
+            "end": {
+              "line": 333,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cd23e66e1509538c1b5bfc49a766b83c31c016962d6a131004f5ad26e8e29a95",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:security:attack-coverage:judgements\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022policy\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-d46243638a0b",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/repos/{repoId}/findings/suppressions combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 396,
+              "column": 1
+            },
+            "end": {
+              "line": 396,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:d46243638a0b4e3b74b2f20fcf47377b35cae635531989fb84be08549088845e",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:findings:suppressions\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-e2489f16f036",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/findings/suppressions combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 395,
+              "column": 1
+            },
+            "end": {
+              "line": 395,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e2489f16f036fc1f2c6e7add4ad8362a89c3d2b46fdab4533b7cc3e6b55c21ab",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:findings:suppressions\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-e2b38ded0835",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/repos/{repoId}/findings/state combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 392,
+              "column": 1
+            },
+            "end": {
+              "line": 392,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:e2b38ded08355c4e75121c45590973dc7bbddd0ff5bcd5036534c8417e69c066",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:repos:{repoid}:findings:state\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures GlobalLimiter and calls UseRateLimiter\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022,\r\n    \u0022state-mutation\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/e3117f6457b35b2b52c191efad7c99c2d569e18de7ab4f3bc19bebac43ae76ea",
+        "path": "backend/QualityStudio.Api/Program.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "3799463191331ec47b15a1d4a6de291dbbbaa5e432d04ddc5ae2cf45f32270d2"
+        }
+      },
+      "id": "boundary-f2bfd75d9312",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "POST /api/handover combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/Program.cs",
+          "range": {
+            "start": {
+              "line": 387,
+              "column": 1
+            },
+            "end": {
+              "line": 387,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:f2bfd75d9312b0d16e17ce6d9dcdf53a0c9e22681fe98347a59bb54b74d722a7",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022http:post::api:handover\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022authenticated\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022required\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs authenticates requests whose path starts with /api\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022repository-scoped\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs checks the authenticated identity\\u0027s repository access for /api routes\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022policy\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs applies rate-limit policy \\u0027spend\\u0027\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022global\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/Program.cs configures or enforces a maximum request body size\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022,\r\n    \u0022spends-money-or-quota\u0022,\r\n    \u0022third-party-call\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/8ebdb55454519980e1dd9c8aa83f97fdf3c96e9625b178ea01ca363c4939d623",
+        "path": "backend/QualityStudio.Api/StaticUiHosting.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "473d526e5e72f4151d93007c8ccb0e7f2b41321811002424ba3fa25eaeffd9a3"
+        }
+      },
+      "id": "boundary-cd056a5f8fc7",
+      "aspect": "boundaries",
+      "severity": "high",
+      "title": "Request-bound value reaches a filesystem or process surface",
+      "description": "UseStaticFiles combines request input with filesystem-read.",
+      "recommendation": "Keep path/process arguments on a confined allowlisted data flow and verify the confinement before the sink.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/StaticUiHosting.cs",
+          "range": {
+            "start": {
+              "line": 69,
+              "column": 1
+            },
+            "end": {
+              "line": 69,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:cd056a5f8fc7395ba45eb2aaf3e520da74f8589c4a10a144ebd1f4c0b79a0a24",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/request-to-system-sink",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022static-files:backend:qualitystudio.api:staticuihosting.cs:69\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 calls UseStaticFiles\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived authentication fact\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived authorization fact\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived rate-limit fact\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived size-limit fact\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/boundaries/8ebdb55454519980e1dd9c8aa83f97fdf3c96e9625b178ea01ca363c4939d623",
+        "path": "backend/QualityStudio.Api/StaticUiHosting.cs",
+        "kind": "code",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "473d526e5e72f4151d93007c8ccb0e7f2b41321811002424ba3fa25eaeffd9a3"
+        }
+      },
+      "id": "boundary-2fb2c693896a",
+      "aspect": "boundaries",
+      "severity": "critical",
+      "title": "Unauthenticated boundary has side effects",
+      "description": "UseStaticFiles has side effects (filesystem-read) without derived authentication.",
+      "recommendation": "Require authentication and least-privilege authorization before the side effect.",
+      "locations": [
+        {
+          "path": "backend/QualityStudio.Api/StaticUiHosting.cs",
+          "range": {
+            "start": {
+              "line": 69,
+              "column": 1
+            },
+            "end": {
+              "line": 69,
+              "column": 1
+            }
+          }
+        }
+      ],
+      "fingerprint": "sha256:2fb2c693896ae4da351b18c8c13ae5d8b8980d967ccb2c22835f2bafbe40f6c8",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "boundary/unauthenticated-side-effect",
+      "producer": {
+        "kind": "deterministic",
+        "id": "boundaries",
+        "version": "1.0.0"
+      },
+      "evidence": "{\r\n  \u0022boundaryId\u0022: \u0022static-files:backend:qualitystudio.api:staticuihosting.cs:69\u0022,\r\n  \u0022reachability\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 calls UseStaticFiles\u0022\r\n    ]\r\n  },\r\n  \u0022authentication\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived authentication fact\u0022\r\n    ]\r\n  },\r\n  \u0022authorization\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived authorization fact\u0022\r\n    ]\r\n  },\r\n  \u0022rateLimit\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived rate-limit fact\u0022\r\n    ]\r\n  },\r\n  \u0022sizeLimit\u0022: {\r\n    \u0022value\u0022: \u0022unknown\u0022,\r\n    \u0022derivedFrom\u0022: [\r\n      \u0022backend/QualityStudio.Api/StaticUiHosting.cs:69 has no derived size-limit fact\u0022\r\n    ]\r\n  },\r\n  \u0022sideEffects\u0022: [\r\n    \u0022filesystem-read\u0022\r\n  ]\r\n}"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+
+> frontend@0.0.0 test:architecture
+> node --test tests/architecture.test.mjs tests/typography.test.mjs
+
+▶ quality-architecture/layer-imports
+  ▶ valid
+    ✔ import { Model } from '../models/contracts'; (82.9604ms)
+    ✔ import { flattenTree } from '../../shared/utils/tree-utils'; (7.5787ms)
+    ✔ import type { Model } from '../../core/models/contracts'; (4.9218ms)
+    ✔ import { View } from '../container-view/container-view'; (3.8616ms)
+    ✔ import { Client } from '../../../core/api/client'; (4.4287ms)
+    ✔ import { Editor } from '../../features/code/editor/editor'; (3.9155ms)
+    ✔ import { Injectable } from '@angular/core'; (5.5232ms)
+    ✔ const text = "import X from '../../features/code/editor/editor'"; (5.8615ms)
+    ✔ // import X from '../../features/code/editor/editor'; (4.6547ms)
+    ✔ export type { Model } from '../../core/models/contracts'; (5.3605ms)
+  ✔ valid (131.4673ms)
+  ▶ invalid
+    ✔ import { Editor } from '../../features/code/editor/editor'; (5.6745ms)
+    ✔ import { Client } from '../api/client'; (3.1019ms)
+    ✔ import { Client } from '../../core/api/client'; (3.5408ms)
+    ✔ import { Badge } from '../ui/badge'; (3.9593ms)
+    ✔ import { History } from '../../reviews/run-history/run-history'; (2.7893ms)
+    ✔ export * from '../../reviews/run-history/run-history'; (2.6308ms)
+    ✔ export { Editor } from '../../features/code/editor/editor'; (2.4427ms)
+    ✔ const feature = import('../../features/code/editor/editor'); (4.3195ms)
+    ✔ type Editor = import('../../features/code/editor/editor').Editor; (4.8299ms)
+    ✔ import Editor = require('../../features/code/editor/editor'); (4.0077ms)
+    ✔ import { Client } from '@app/core/api/client'; (3.1825ms)
+    ✔ import { Sneaky } from '../../../features-unchecked'; (3.0901ms)
+    ✔ import { Sneaky } from '@app/../features-unchecked'; (2.3732ms)
+    ✔ import { Shadow } from '../../shared/utils-shadow/anything'; (2.0703ms)
+  ✔ invalid (48.8929ms)
+✔ quality-architecture/layer-imports (181.4612ms)
+✔ CSS parser detects font-size, shorthand and token drift at source locations (7.4398ms)
+✔ valid sizes, line-height, strings and relative values are not false positives (0.8811ms)
+✔ scientific and fractional literal px values and zero cannot bypass minimum (0.492ms)
+✔ decorative exception is exact and reasoned (0.8826ms)
+✔ invalid CSS makes the check fail visibly (1.3861ms)
+✔ ESLint exposes CSS typography diagnostics as native source-located SARIF findings (158.3311ms)
+ℹ tests 30
+ℹ suites 3
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2328.8248

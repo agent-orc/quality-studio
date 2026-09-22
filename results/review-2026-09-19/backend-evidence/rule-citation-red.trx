@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="bdf89e13-a971-4bd7-acd8-d7ef6852fce3" name="rmisc@TUFI2 2026-09-19 22:50:53" runUser="TUFI2\rmisc" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-19T22:50:53.0202379+02:00" queuing="2026-09-19T22:50:53.0202382+02:00" start="2026-09-19T22:50:48.9539531+02:00" finish="2026-09-19T22:50:53.0284096+02:00" />
+  <TestSettings name="default" id="ec9fe400-07df-48a7-a75f-2453d7754fb8">
+    <Deployment runDeploymentRoot="rmisc_TUFI2_2026-09-19_22_50_53" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="40e1c4ad-9cd2-423f-95d3-86d16d8974a8" testId="427efccd-e7e3-57a4-1f91-965354638728" testName="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt" computerName="TUFI2" duration="00:00:02.2421538" startTime="2026-09-19T22:50:50.5798952+02:00" endTime="2026-09-19T22:50:52.8563171+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="40e1c4ad-9cd2-423f-95d3-86d16d8974a8">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Strings differ&#xD;
+           ↓ (pos 0)&#xD;
+Expected: "built-in:code"&#xD;
+Actual:   "QS-GN-001"&#xD;
+           ↑ (pos 0)</Message>
+          <StackTrace>   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.&lt;&gt;c.&lt;&lt;ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt&gt;b__2_0&gt;d.MoveNext() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 424&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.WithReviewFileAsync(Func`3 test) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 1159&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 410&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="427efccd-e7e3-57a4-1f91-965354638728">
+      <Execution id="40e1c4ad-9cd2-423f-95d3-86d16d8974a8" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests" name="ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="427efccd-e7e3-57a4-1f91-965354638728" executionId="40e1c4ad-9cd2-423f-95d3-86d16d8974a8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="1" executed="1" passed="0" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.9)&#xD;
+[xUnit.net 00:00:00.26]   Discovering: AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:00.74]   Discovered:  AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.00]   Starting:    AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:03.36]       Assert.Equal() Failure: Strings differ&#xD;
+[xUnit.net 00:00:03.36]                  ↓ (pos 0)&#xD;
+[xUnit.net 00:00:03.36]       Expected: "built-in:code"&#xD;
+[xUnit.net 00:00:03.36]       Actual:   "QS-GN-001"&#xD;
+[xUnit.net 00:00:03.36]                  ↑ (pos 0)&#xD;
+[xUnit.net 00:00:03.36]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.37]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(424,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.&lt;&gt;c.&lt;&lt;ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt&gt;b__2_0&gt;d.MoveNext()&#xD;
+[xUnit.net 00:00:03.37]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:03.37]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(1159,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.WithReviewFileAsync(Func`3 test)&#xD;
+[xUnit.net 00:00:03.37]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(410,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt()&#xD;
+[xUnit.net 00:00:03.37]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:03.39]   Finished:    AgentOrchestrator.CodeQuality.Tests (ID = '8a53d804e00b4efa9f51a3eb276cfe4ed05fec6a1c98e718a1afbd857257950e')&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T22:50:52.8647424+02:00">
+        <Text>[xUnit.net 00:00:03.36]     AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

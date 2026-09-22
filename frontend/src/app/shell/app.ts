@@ -24,6 +24,16 @@ import { reportUrlPreviewNavigation } from '../core/navigation/url-preview-embed
 import { formatTokenCount } from '../shared/utils/format';
 import { RepositoryDialog } from '../features/repositories/repository-dialog/repository-dialog';
 
+// Browser storage can be denied in embedded/private contexts or run out of quota.
+// Preferences are optional: session state and workspace navigation must keep working.
+function readPreference(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function writePreference(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* Keep the current session usable. */ }
+}
+
 const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 /** Collapses a salvo of position changes into one history write. */
 const URL_SYNC_DEBOUNCE_MS = 120;
@@ -61,7 +71,7 @@ export class App implements OnDestroy {
   readonly explorer = viewChild<Explorer>('explorerPane');
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
-  readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (localStorage.getItem('qs-theme') as 'dark' | 'light') || 'dark');
+  readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (readPreference('qs-theme') as 'dark' | 'light') || 'dark');
   readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
@@ -177,11 +187,11 @@ export class App implements OnDestroy {
 
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo') ||
-      localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
+      readPreference(LAST_REPOSITORY_STORAGE_KEY);
     const preferredPath = this.selected();
     await this.api.loadRepositories(preferredRepository);
     if (this.api.connectionState() === 'offline') return;
-    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
+    writePreference(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
@@ -232,7 +242,7 @@ export class App implements OnDestroy {
     // The popped entry already exists, so the next sync must replace it rather than push again.
     this.historyPosition = { repository: repository ?? this.api.selectedRepositoryId(), path };
     if (repository && repository !== this.api.selectedRepositoryId()) {
-      void this.switchRepository(repository);
+      void this.switchRepository(repository, path);
       return;
     }
     this.open(path, false, true, true);
@@ -351,22 +361,31 @@ export class App implements OnDestroy {
 
   openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
 
-  async switchRepository(id: string): Promise<void> {
+  private repositorySwitchSequence = 0;
+
+  async switchRepository(id: string, restoredPath?: string): Promise<void> {
     if (id === this.api.selectedRepositoryId()) {
       this.repositoryMenuOpen.set(false);
       return;
     }
     const started = performance.now();
+    const sequence = ++this.repositorySwitchSequence;
+    const openSequence = this.openSequence;
+    const initialPath = restoredPath ?? '.';
     this.repositoryMenuOpen.set(false);
-    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
-    this.selected.set('.');
-    this.selectedFinding.set(null);
+    writePreference(LAST_REPOSITORY_STORAGE_KEY, id);
+    this.selected.set(initialPath);
+    if (restoredPath === undefined) this.clearFindingSelection();
+    else this.selectedFinding.set(null);
     const switching = this.api.selectRepository(id);
     requestAnimationFrame(() => this.measure('qs.repository.transition-visible', started, 100));
     await switching;
+    if (sequence !== this.repositorySwitchSequence || openSequence !== this.openSequence
+      || this.api.selectedRepositoryId() !== id || this.selected() !== initialPath) return;
     requestAnimationFrame(() => this.measure('qs.repository.switch.usable', started, 500));
-    const path = this.selectionPathOrFirst('');
-    if (path) this.open(path, false);
+    // A history destination may live below an unloaded tree level; open() resolves it.
+    const path = restoredPath ?? this.selectionPathOrFirst('');
+    if (path) await this.open(path, false, restoredPath !== undefined, restoredPath !== undefined);
   }
 
   async openAttackCoverage(): Promise<void> {
@@ -432,7 +451,7 @@ export class App implements OnDestroy {
       await this.api.archiveRepository(repository.id);
       if (wasSelected) {
         await this.api.selectRepository(this.api.selectedRepositoryId());
-        localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
+        writePreference(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
         const path = this.selectionPathOrFirst('');
         if (path) this.open(path, false);
         this.repositoryDialogOpen.set(false);
@@ -449,7 +468,7 @@ export class App implements OnDestroy {
   setTheme(): void {
     const next = this.theme() === 'dark' ? 'light' : 'dark';
     this.theme.set(next);
-    localStorage.setItem('qs-theme', next);
+    writePreference('qs-theme', next);
   }
 
   openApiAccess(): void {

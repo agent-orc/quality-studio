@@ -1,6 +1,6 @@
 # Quality Studio
 
-**The engineer room of the Agent Orchestrator universe: agent-driven, layered code reviews with quality truth persisted next to the code.**
+**The engineer room of the Agent Orchestrator universe: agent-driven, layered code reviews with project-scoped review evidence.**
 
 Part of the [Agent Orchestrator](https://agent-orchestrator.dev) universe — alongside
 Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
@@ -21,7 +21,7 @@ Agent Studio (the cockpit), Runner (executes), Coding Agent Chat
 
 This is **not static code analysis**. Coding agents read, judge, and grade the code —
 orchestrated across review kinds and abstraction levels — and their findings become
-versioned, repo-owned facts. You work *with* agents on quality; the tool orchestrates
+structured, project-owned evidence. You work *with* agents on quality; the tool orchestrates
 them and keeps the ledger honest.
 
 ## The concept
@@ -46,10 +46,10 @@ and assembly — separate prompts, sensors, runs, grades, and UI state — not a
 separate package or repository. Architecture is a project/module code-review
 aspect in v1, not a fourth kind.
 
-### 2. Review metadata lives next to the code (the heart)
+### 2. Review metadata follows the code identity
 
-Every reviewed unit gets a small structured JSON meta file **in the same feature
-folder** as the code it describes:
+Every reviewed unit gets a small structured JSON meta file in the project's external
+**data root**, attributed to the code it describes:
 
 - `reviewedAt` — when the last review ran
 - `kind` — code / security / performance
@@ -63,8 +63,10 @@ and the semantics of every v3 field are in
 in [`schemas/`](schemas/README.md).
 
 The hash makes staleness self-evident: if the code has moved on, the review visibly
-no longer applies. History comes for free via Git. The repository owns its quality
-truth — diffable, portable, reviewable like any other artifact.
+no longer applies. Author-owned review policy stays versioned in the repository; generated
+review evidence stays outside the checkout and can be exported deliberately. Run reports retain
+review snapshots. See [the data-root contract](docs/data-root.md) for storage identity and the
+limits of historical Git-based score trends.
 
 Relationship to task-time reviews in Agent Studio: a task review is a **snapshot of a
 diff**; Code Quality is the **standing truth of the codebase**.
@@ -206,7 +208,7 @@ codes.
 ## Security scan
 
 Run the deterministic Gitleaks sensor to produce structured security findings and
-repository-owned security review sidecars:
+security review evidence (diagnostic scans do not persist sidecars):
 
 ```shell
 dotnet run --project backend/quality-cli -- security scan .
@@ -216,6 +218,11 @@ Use `--mode range --range main..HEAD` for a commit range or `--mode staged` for
 the staged candidate snapshot. The scanner is pinned and verified; if it cannot
 be resolved, the command reports an explicit unavailable state instead of a
 false pass.
+
+The [security review and implementation plan from 19 September 2026](results/review-2026-09-19/security-review.md)
+records tested fixes, remaining process and generated-output boundaries, and release gates for
+isolated workers and shared hosting. The existing [security decision dossier](docs/operations/security/index.html)
+remains the architectural source of record.
 
 ## Deterministic analyzer evidence
 

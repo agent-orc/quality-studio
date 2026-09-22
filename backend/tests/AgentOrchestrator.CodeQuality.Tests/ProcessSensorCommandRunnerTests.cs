@@ -5,6 +5,85 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 [Trait("Category", "ToolBound")]
 public sealed class ProcessSensorCommandRunnerTests
 {
+
+    [Fact]
+    public async Task Default_output_limit_rejects_large_output_instead_of_returning_partial_evidence()
+    {
+        var runner = new ProcessSensorCommandRunner(TimeSpan.FromSeconds(10));
+
+        var exception = await Assert.ThrowsAsync<SecurityScannerUnavailableException>(() => runner.RunAsync(
+            "node", ["-e", "process.stdout.write('x'.repeat(2_000_000))"],
+            Directory.GetCurrentDirectory(), TestContext.Current.CancellationToken));
+
+        Assert.Contains("output limit", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("stdout")]
+    [InlineData("stderr")]
+    public async Task Output_beyond_either_pipe_limit_is_unavailable_even_when_command_exits_successfully(string stream)
+    {
+        var runner = new ProcessSensorCommandRunner(TimeSpan.FromSeconds(10), maximumOutputCharacters: 128);
+
+        var exception = await Assert.ThrowsAsync<SecurityScannerUnavailableException>(() => runner.RunAsync(
+            "node", ["-e", $"process.{stream}.write('x'.repeat(129))"],
+            Directory.GetCurrentDirectory(), TestContext.Current.CancellationToken));
+
+        Assert.Contains("output limit", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Output_exactly_at_each_pipe_limit_remains_complete()
+    {
+        var runner = new ProcessSensorCommandRunner(TimeSpan.FromSeconds(10), maximumOutputCharacters: 128);
+
+        var result = await runner.RunAsync("node",
+            ["-e", "process.stdout.write('o'.repeat(128)); process.stderr.write('e'.repeat(128))"],
+            Directory.GetCurrentDirectory(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(new string('o', 128), result.StandardOutput);
+        Assert.Equal(new string('e', 128), result.StandardError);
+    }
+
+    [Fact]
+    public async Task Output_limit_kills_the_process_tree_and_reports_overflow()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-process-output-").FullName;
+        IReadOnlyList<int> processIds = [];
+        try
+        {
+            var pidFile = Path.Combine(root, "pids.txt");
+            var runner = new ProcessSensorCommandRunner(TimeSpan.FromSeconds(10), maximumOutputCharacters: 128);
+            var script = "const fs = require('node:fs'); const {spawn} = require('node:child_process'); " +
+                         "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], " +
+                         "{stdio:'ignore', windowsHide:true}); " +
+                         "fs.writeFileSync(process.argv[1], process.pid + '\\n' + child.pid + '\\n'); " +
+                         "setInterval(() => process.stdout.write('x'.repeat(4096)), 20);";
+
+            var exception = await Assert.ThrowsAsync<SecurityScannerUnavailableException>(() => runner.RunAsync(
+                "node", ["-e", script, pidFile], root, TestContext.Current.CancellationToken));
+
+            processIds = await ReadProcessIdsAsync(pidFile, TestContext.Current.CancellationToken);
+            Assert.Contains("output limit", exception.Message, StringComparison.Ordinal);
+            await AssertProcessesExitedAsync(processIds, TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            // Also clean up a descendant when this regression runs against a broken implementation.
+            foreach (var processId in processIds)
+            {
+                try
+                {
+                    using var process = Process.GetProcessById(processId);
+                    if (!process.HasExited) process.Kill(entireProcessTree: true);
+                }
+                catch (ArgumentException) { }
+            }
+            Directory.Delete(root, true);
+        }
+    }
+
     [Fact]
     public async Task Completed_command_returns_exit_code_and_redirected_output()
     {

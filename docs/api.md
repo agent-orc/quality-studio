@@ -230,7 +230,7 @@ curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path
 # 201 and appends attacks/coverage-ledger.jsonl in the project's data root
 
 curl "http://127.0.0.1:5127/api/sensors"
-# 200 {"sensors":[{"id":"dependencies","version":"1.0.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
+# 200 {"sensors":[{"id":"dependencies","version":"1.1.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
 
 curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
 # 200 {"available":true,"unavailableReason":null,"findings":[...],"provenance":{...}}

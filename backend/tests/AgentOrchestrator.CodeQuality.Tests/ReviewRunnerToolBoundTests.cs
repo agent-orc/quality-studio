@@ -8,6 +8,40 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class ReviewRunnerToolBoundTests
 {
     [Fact]
+    public async Task Supplied_guidelines_preserve_scan_and_hierarchy_freshness_but_repository_policy_still_invalidates()
+    {
+        await ReviewRunnerTests.WithReviewFileAsync(async (root, _) =>
+        {
+            var token = TestContext.Current.CancellationToken;
+            await GitTestRepository.InitializeAsync(root, token);
+            var runner = new ReviewRunner(new ReviewRunnerTests.FakeAgent());
+            var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root,
+                GlobalGuidelines: "Host global instructions.", ProjectGuidelines: "Host project instructions.");
+            var result = await runner.ReviewAsync(request, token);
+            var metadata = ReviewMetaReader.Load(result.MetaPath).Document;
+            var node = new HierarchyNode(metadata.Unit.Id, "Small.cs", ReviewLevel.File, metadata.Unit.Path);
+
+            ReviewMetaDiscovery.AttachDiscovered(root, [node]);
+            Assert.Equal(ReviewState.Current, node.Documents[ReviewKind.Code].State);
+            var scanner = new StalenessEvaluator();
+            var options = new StalenessEvaluatorOptions { IncludeGlobs = ["**/*.cs"] };
+            Assert.Equal(StalenessState.Fresh, Assert.Single((await scanner.ScanAsync(root, options, token)).Files).State);
+
+            var inputDirectory = Path.Combine(root, ".quality", "inputs");
+            Directory.CreateDirectory(inputDirectory);
+            await File.WriteAllTextAsync(Path.Combine(inputDirectory, "code.md"),
+                "---\nid: changed-repository-rule\nkinds: [code]\nlevels: [file]\npriority: 50\n---\nNew repository policy.\n", token);
+
+            var changedNode = new HierarchyNode(metadata.Unit.Id, "Small.cs", ReviewLevel.File, metadata.Unit.Path);
+            ReviewMetaDiscovery.AttachDiscovered(root, [changedNode]);
+            Assert.Equal(ReviewState.PolicyDrift, changedNode.Documents[ReviewKind.Code].State);
+            Assert.Equal(StalenessState.PolicyDrift, Assert.Single((await scanner.ScanAsync(root, options, token)).Files).State);
+            Assert.False((await runner.ReviewIfNeededAsync(request, cancellationToken: token)).SkippedFresh);
+            Assert.Equal(StalenessState.Fresh, Assert.Single((await scanner.ScanAsync(root, options, token)).Files).State);
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_CapturesSourceSpanEvidenceAndExecutionProvenanceInV3Metadata()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

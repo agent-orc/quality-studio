@@ -1,0 +1,12 @@
+{
+  "observations": 16,
+  "expectedOutcomesPassed": 16,
+  "previousCasesCompared": 14,
+  "correctedAvailabilityCases": 7,
+  "unchangedBaselineCases": 7,
+  "additionalPositiveControls": 2,
+  "ambiguousResponses": 0,
+  "beforeCoreDllSha256": "1af6bb515a0a83f366339bff2c0fe0a0feb08f99e6021f95f16229b30f5eeda1",
+  "afterCoreDllSha256": "497cd5f6c81053763d8f06bdb73aa6a6386864b010def0978d1f446530ec2f40",
+  "cleanup": "Copied API process stopped; verified own temporary directory removed."
+}

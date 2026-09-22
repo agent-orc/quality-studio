@@ -83,7 +83,8 @@ public static class ReviewMetaDiscovery
         var adapter = document.Unit.Adapter.ToString().ToLowerInvariant();
         var resolved = inputResolver.Resolve(root, kind, level, globalInputsDirectory, inputBudgetCharacters, adapter);
         return StringComparer.Ordinal.Equals(
-            document.ReviewInputs.EffectiveHash.Value, resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind)))
+            document.ReviewInputs.EffectiveHash.Value, resolved.EffectiveHash(ReviewPromptBuilder.TemplateHash(level, kind),
+                RequestGuidelineInputs.FromStored(document.ReviewInputs)))
             ? ReviewState.Current
             : ReviewState.PolicyDrift;
     }

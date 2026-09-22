@@ -49,6 +49,10 @@ async function main() {
       QUALITY_STUDIO_API_PORT: String(apiPort),
       QUALITY_STUDIO_PRODUCT_PORT: String(webPort),
       QUALITY_STUDIO_HOST: host,
+      // Proxied mutations keep their frontend Origin while Host becomes the API address.
+      // Permit this exact frontend, including custom ports, rather than every loopback port.
+      QualityStudio__AllowedOrigins__0: process.env.QualityStudio__AllowedOrigins__0 ?? webBaseUrl,
+      QualityStudio__AllowedOrigins__1: process.env.QualityStudio__AllowedOrigins__1 ?? ('http://localhost:' + webPort),
     },
   });
   const web = await startChild('web', buildWebCommand(args, webPort, host, proxyConfig), {

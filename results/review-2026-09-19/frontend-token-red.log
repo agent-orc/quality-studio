@@ -1,0 +1,63 @@
+Edge 153.0.0.0 (Windows 10) API access token attaches the token only to same-origin API endpoints FAILED
+	https://external.example/api/repos: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	//localhost:9876/api/repos: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	http://localhost:9876/apiary/repos: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	/apiary/repos: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	/assets/help.json: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	/api/../assets/help.json: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	/api/%2e%2e/assets/help.json: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	http://localhost:9876@external.example/api/repos: Expected 'Bearer hosted-token' to be null. Tip: To check for deep equality, use .toEqual() instead of .toBe().
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:65:10
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+Edge 153.0.0.0 (Windows 10) API access token preserves other requests and ignores their authentication failures FAILED
+	Expected 'Bearer hosted-token' to be 'Bearer external-token'.
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:78:58
+	    at Generator.next (<anonymous>)
+	    at chunk-3FMBEB3S.js:57:61
+	    at new ZoneAwarePromise (node_modules/zone.js/fesm2015/zone.js:2701:25)
+	Expected 1 to be 0.
+	    at <Jasmine>
+	    at src/app/core/api/api-access.spec.ts:81:37
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+TOTAL: 2 FAILED, 7 SUCCESS

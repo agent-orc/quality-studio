@@ -1,0 +1,67 @@
+> node --test tests/dev-stack.test.mjs tests/release-canary-workflow.test.mjs tests/test-lanes.test.mjs tests/rule-catalogue.test.mjs tests/review-reference.test.mjs tests/quality-domains.test.mjs
+✔ the relocated API defaults to the complete repository and permits its root (17.4122ms)
+✔ launcher bootstraps a clean checkout, starts both services, and can restart cleanly (2672.67ms)
+✔ launcher gives the API the exact custom frontend origin (1026.1366ms)
+✔ default local frontend origins cover both loopback host spellings (1.6564ms)
+✔ launcher reinstalls when node_modules is present but incomplete (960.5421ms)
+✔ launcher fails if API never becomes ready (737.443ms)
+✔ launcher fails if frontend exits before ready (753.2109ms)
+✔ embedded shell loads in an iframe and shows the live connection badge (978.0753ms)
+quality domains: 13 domains, 23 checks, 6 existing metrics; verified.
+✔ the generated Angular catalogue matches all authored domains and existing metrics (19.1662ms)
+✔ status cannot turn planned work or reviewer judgment into a measured product capability (7.3641ms)
+✔ references reject missing rules, metrics, sources, duplicate IDs and unsafe links (6.2902ms)
+✔ property declarations remain local, explicit and documentation-only (5.6799ms)
+quality domains: 13 domains, 23 checks, 6 existing metrics; generated.
+quality domains: 13 domains, 23 checks, 6 existing metrics; verified.
+✔ drift checks tolerate checkout CRLF but still reject changed generated content (65.3527ms)
+✔ release canary retains every sample before enforcing its classified result (10.0253ms)
+review reference: 6 metrics, 33 rules, tool and website match.
+✔ the tool and website match the authored methodology and rule library (35.4273ms)
+✔ every method references existing rules and authoritative HTTPS sources (2.1102ms)
+✔ website reference escapes rule prose and worked examples instead of creating active HTML (2.8184ms)
+✔ every metric has a formula, interpretation, limitations and a real implementation (11.3007ms)
+✔ generation is deterministic and matches the committed catalogue (885.4888ms)
+✔ every authored rule reaches the catalogue with its routing fields (5.4029ms)
+✔ --check reports drift after a rule changes (896.1128ms)
+✔ a rule missing a required section fails before anything is written (245.803ms)
+✔ a rule whose id contradicts its directory fails validation (212.9611ms)
+✔ the generator writes nothing time- or checkout-dependent (2.2926ms)
+✔ lane filters are mutually explicit and keep live checks out of required runs (3.4435ms)
+✔ required and canary workflows select named lanes and retain all-lane evidence (10.8719ms)
+✔ real process fixtures are centralized and every consumer declares ToolBound (446.6194ms)
+✔ fixture classification recognizes attributed partial classes without accepting unclassified classes (0.8151ms)
+✔ dev-stack tests consume the shared platform-neutral process fixture (2.2397ms)
+✔ pre-review builds once and runs only the portable lane without rebuilding (20.8043ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7347.5329
+> npm.cmd run rules:check
+
+> rules:check
+> node scripts/sync-rule-catalogue.mjs --check && node scripts/sync-review-reference.mjs --check && npm run domains:check
+
+rules: catalogue 1.5.0 matches 33 authored rules.
+review reference: 6 metrics, 33 rules, tool and website match.
+
+> domains:check
+> node scripts/sync-quality-domains.mjs --check
+
+quality domains: 13 domains, 23 checks, 6 existing metrics; verified.
+> npm.cmd run catalog:check
+
+> catalog:check
+> node scripts/sync-token-economy-model-catalog.mjs --check
+
+Catalog snapshot integrity is valid at Token Economy 98ddcc91fba414919231e242de01dc022aed74dd; set TOKEN_ECONOMY_REPOSITORY for upstream drift comparison.
+> python .github/scripts/test_validate_coverage.py
+.................
+----------------------------------------------------------------------
+Ran 17 tests in 0.069s
+
+OK

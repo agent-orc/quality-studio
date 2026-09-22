@@ -29,9 +29,12 @@ describe('App shell URL state', () => {
   let replaced: string[];
   let pushSpy: jasmine.Spy;
   let replaceSpy: jasmine.Spy;
+  let storedRepository: string | null;
   const originalUrl = location.href;
 
   beforeEach(async () => {
+    storedRepository = localStorage.getItem('qs-last-repository');
+    localStorage.removeItem('qs-last-repository');
     history.replaceState(null, '', `${location.pathname}?path=src/A.cs&kind=code`);
     await TestBed.configureTestingModule({
       imports: [App],
@@ -57,6 +60,8 @@ describe('App shell URL state', () => {
     http.match(() => true).forEach(request => request.flush({}, { status: 503, statusText: 'Unavailable' }));
     replaceSpy.and.callThrough();
     history.replaceState(null, '', originalUrl);
+    if (storedRepository === null) localStorage.removeItem('qs-last-repository');
+    else localStorage.setItem('qs-last-repository', storedRepository);
   });
 
   it('replaces the workspace with an actionable API outage and restores it after reconnecting', () => {
@@ -138,6 +143,48 @@ describe('App shell URL state', () => {
 
     expect(pushed.length).toBe(0);
     expect(pushSpy).not.toHaveBeenCalled();
+  });
+
+  it('restores a file and finding when browser history crosses repository boundaries', async () => {
+    app.api.selectedRepositoryId.set('before');
+    replaceSpy.and.callThrough();
+    history.replaceState(null, '', `${location.pathname}?repo=other&path=src/Restored.cs&kind=security&finding=sha256%3Asaved&location=2`);
+    replaceSpy.and.callFake((_data: unknown, _title: string, url?: string | URL | null) => { replaced.push(String(url)); });
+    spyOn(app.api, 'selectRepository').and.callFake(async id => { app.api.selectedRepositoryId.set(id); });
+    const switched = spyOn(app, 'switchRepository').and.callThrough();
+    const open = spyOn(app, 'open').and.resolveTo();
+
+    app.onPopState();
+    await switched.calls.mostRecent().returnValue;
+    fixture.detectChanges();
+    await settle();
+
+    expect(app.api.selectedRepositoryId()).toBe('other');
+    expect(app.selected()).toBe('src/Restored.cs');
+    expect(app.activeKind()).toBe('security');
+    expect(app.selectedFindingFingerprint()).toBe('sha256:saved');
+    expect(app.selectedLocationIndex()).toBe(2);
+    expect(open).toHaveBeenCalledWith('src/Restored.cs', false, true, true);
+    expect(pushed).withContext('Back must not create a new entry').toEqual([]);
+    expect(replaced.at(-1)).toContain('path=src%2FRestored.cs');
+    expect(replaced.at(-1)).toContain('finding=sha256%3Asaved');
+  });
+
+  it('does not replace a newer selection when a repository switch finishes late', async () => {
+    let complete!: () => void;
+    spyOn(app.api, 'selectRepository').and.callFake(id => {
+      app.api.selectedRepositoryId.set(id);
+      return new Promise<void>(resolve => { complete = resolve; });
+    });
+    const switching = app.switchRepository('other');
+    app.selected.set('src/Newer.cs');
+    const open = spyOn(app, 'open').and.resolveTo();
+
+    complete();
+    await switching;
+
+    expect(app.selected()).toBe('src/Newer.cs');
+    expect(open).not.toHaveBeenCalled();
   });
 
   it('shares one tree flattening between the shell and its panes', () => {

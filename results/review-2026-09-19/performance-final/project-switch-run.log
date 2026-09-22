@@ -1,0 +1,67 @@
+{
+  "measuredAt": "2026-09-19T21:50:52.353Z",
+  "browser": "153.0.4234.32",
+  "fixtureFiles": 1600,
+  "backend": "real QualityStudio.Api (no Playwright response interception)",
+  "budgets": {
+    "transitionVisibleMs": 100,
+    "usableMs": 500
+  },
+  "transitionEvents": [
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 18.9,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 18,
+      "budgetMs": 100,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.transition-visible",
+      "durationMs": 14.5,
+      "budgetMs": 100,
+      "withinBudget": true
+    }
+  ],
+  "usableEvents": [
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 93.3,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 192.5,
+      "budgetMs": 500,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.repository.switch.usable",
+      "durationMs": 177.9,
+      "budgetMs": 500,
+      "withinBudget": true
+    }
+  ],
+  "projectEvents": [
+    {
+      "event": "qs.project.first-interactive",
+      "repositoryId": "default",
+      "durationMs": 59.9,
+      "budgetMs": 150,
+      "withinBudget": true
+    },
+    {
+      "event": "qs.project.first-interactive",
+      "repositoryId": "realistic",
+      "durationMs": 36.9,
+      "budgetMs": 150,
+      "withinBudget": true
+    }
+  ],
+  "prewarmEvent": "{\"event\":\"qs.repository.prewarm\",\"repositoryId\":\"realistic\",\"cache\":\"cold\",\"durationMs\":3263.15,\"phases\":{\"gitStatusMs\":111.63,\"scanMs\":959.27,\"reviewMetaDiscoveryMs\":1.39,\"projectionMs\":221.35,\"treeProjectionMs\":49,\"sensorStateMs\":123.22,\"sensorInitMs\":1634.79},\"fileCount\":1603}"
+}

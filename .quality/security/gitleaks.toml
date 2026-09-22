@@ -4,7 +4,7 @@ title = "Quality Studio Gitleaks configuration"
 useDefault = true
 
 [allowlist]
-description = "Generated build output is not scanned for secret findings. Persisted review output under .quality/reviews IS scanned: it can echo repository secrets into review metadata, so it must not be a blanket exclusion (dossier F-04)."
+description = "Generated build output is not scanned. Legacy in-checkout .quality/reviews remains eligible. Current review output lives in the external data root and is outside this repository scan; see docs/security-gitleaks.md and the 2026-09-19 security review."
 paths = [
   '''(^|/)bin(/|$)''',
   '''(^|/)obj(/|$)''',

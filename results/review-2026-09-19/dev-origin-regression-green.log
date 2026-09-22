@@ -1,0 +1,20 @@
+
+> test:dev-stack
+> node --test tests/dev-stack.test.mjs
+
+✔ the relocated API defaults to the complete repository and permits its root (7.7019ms)
+✔ launcher bootstraps a clean checkout, starts both services, and can restart cleanly (1885.1091ms)
+✔ launcher gives the API the exact custom frontend origin (928.8498ms)
+✔ default local frontend origins cover both loopback host spellings (0.8693ms)
+✔ launcher reinstalls when node_modules is present but incomplete (940.1032ms)
+✔ launcher fails if API never becomes ready (739.3993ms)
+✔ launcher fails if frontend exits before ready (744.0333ms)
+✔ embedded shell loads in an iframe and shows the live connection badge (999.855ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6360.91
