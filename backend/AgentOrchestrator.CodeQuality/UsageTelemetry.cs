@@ -144,8 +144,9 @@ public static class UsageLedger
 
     /// <summary>
     /// Reads every supported entry, normalized to the schema 4 token semantics and priced: entries
-    /// written before costs were recorded, and pre-schema-4 Claude entries whose stored cost
-    /// mispriced cache reads, are priced at read time; the latter carry <see cref="UnderPricedNote"/>.
+    /// written before costs were recorded, entries whose stored cost was unknownModel, and
+    /// pre-schema-4 Claude entries whose stored cost mispriced cache reads are priced at read
+    /// time; the latter carry <see cref="UnderPricedNote"/>.
     /// </summary>
     public static async Task<IReadOnlyList<ReviewUsageEntry>> ReadAsync(string repositoryRoot,
         DateTimeOffset? since = null, string? kind = null, CancellationToken cancellationToken = default)
@@ -204,7 +205,9 @@ public static class UsageLedger
                 AccountingNote = UnderPricedNote,
             };
         }
-        return entry.Cost is null ? entry with { Cost = EstimateCost(entry.Model, entry.Tokens, entry.Timestamp) } : entry;
+        return entry.Cost is null or { Status: "unknownModel" }
+            ? entry with { Cost = EstimateCost(entry.Model, entry.Tokens, entry.Timestamp) }
+            : entry;
     }
 
     /// <summary>

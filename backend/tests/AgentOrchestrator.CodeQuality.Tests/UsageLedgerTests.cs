@@ -128,6 +128,40 @@ public sealed class UsageLedgerTests
         Assert.Equal("noPriceForDate", beforeLaunch.Status);
     }
 
+    [Theory]
+    [InlineData("claude-opus-5-5", 800_000, "5.24")]
+    [InlineData("gpt-6-sol", 1_000_000, "2.64")]
+    [InlineData("gpt-6-luna", 1_000_000, "0.132")]
+    public async Task Query_reprices_v3_unknown_model_entries_on_read(
+        string modelId, long inputTokens, string expectedUsd)
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-reprice-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 9, 22, 0, 0, 0, TimeSpan.Zero);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "explicit-run", timestamp, modelId, modelId.StartsWith("claude", StringComparison.Ordinal) ? "claude" : "codex",
+                new TokenUsage(inputTokens, 100_000, 200_000, 0, 1000), "code", "file", "src/a.cs",
+                null, 3, ReviewModelSource.Explicit,
+                new UsageCost(null, null, "unknownModel")), TestContext.Current.CancellationToken);
+
+            var report = await UsageLedger.QueryAsync(root.FullName, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(0, report.UnpricedRuns);
+            Assert.Equal(decimal.Parse(expectedUsd, System.Globalization.CultureInfo.InvariantCulture), report.EstimatedCost);
+            var entry = Assert.Single(report.Recent);
+            Assert.Equal(ReviewModelSource.Explicit, entry.ModelSource);
+            Assert.Equal("resolved", entry.Cost!.Status);
+            Assert.Equal(report.EstimatedCost, entry.Cost.Total);
+            var line = Assert.Single(await File.ReadAllLinesAsync(
+                UsageLedger.GetLedgerPath(root.FullName, timestamp), TestContext.Current.CancellationToken));
+            Assert.Contains("\"status\":\"unknownModel\"", line);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
     [Fact]
     public async Task ClaudeCacheWritesAreRecordedValidatedAndPricedAtTheCacheWriteRate()
     {

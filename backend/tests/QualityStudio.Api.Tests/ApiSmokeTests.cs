@@ -284,13 +284,13 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
             path = "Sample.cs",
             kind = "code",
             cliType = "codex",
-            model = "gpt-5.6-sol",
+            model = "gpt-6-sol",
             thinkingLevel = "medium",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
         var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal("gpt-5.6-sol", preflight.GetProperty("model").GetString());
+        Assert.Equal("gpt-6-sol", preflight.GetProperty("model").GetString());
         Assert.Equal("explicit", preflight.GetProperty("modelSource").GetString());
     }
 
@@ -980,6 +980,27 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Usage_reprices_historical_unknown_gpt_6_sol_entry()
+    {
+        var timestamp = new DateTimeOffset(2026, 9, 22, 0, 0, 0, TimeSpan.Zero);
+        await UsageLedger.AppendAsync(repositoryRoot, new ReviewUsageEntry("usage-reprice-sol", timestamp,
+            "gpt-6-sol", "codex", new TokenUsage(1_000_000, 100_000, 200_000, 0, 1000),
+            "reprice-test", "file", "Sample.cs", null, UsageLedger.CurrentSchemaVersion,
+            ReviewModelSource.Explicit, new UsageCost(null, null, "unknownModel")),
+            TestContext.Current.CancellationToken);
+
+        using var client = application!.CreateClient();
+        using var response = await client.GetAsync("/api/usage?kind=reprice-test", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(0, json.GetProperty("unpricedRuns").GetInt32());
+        Assert.Equal(2.64m, json.GetProperty("estimatedCost").GetDecimal());
+        var entry = Assert.Single(json.GetProperty("recent").EnumerateArray());
+        Assert.Equal("explicit", entry.GetProperty("modelSource").GetString());
+        Assert.Equal("resolved", entry.GetProperty("cost").GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task Quotas_returns_a_clean_empty_report_when_no_provider_data_is_available()
     {
         using var client = application!.CreateClient();
@@ -999,10 +1020,10 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
 
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal("2026-09-12", json.GetProperty("policyVersion").GetString());
-        Assert.Equal("98ddcc91fba414919231e242de01dc022aed74dd", json.GetProperty("sourceCommit").GetString());
+        Assert.Equal("2026-09-24", json.GetProperty("policyVersion").GetString());
+        Assert.Equal("bf6f8a9db71b84a92b1dfaa474a6072737fddf54", json.GetProperty("sourceCommit").GetString());
         var models = json.GetProperty("models").EnumerateArray().ToArray();
-        Assert.Equal(22, models.Length);
+        Assert.Equal(25, models.Length);
         Assert.All(models, model => Assert.True(model.GetProperty("priceAvailable").GetBoolean()));
         foreach (var (id, cli) in new[] { ("gpt-6-astra", "codex"), ("claude-fable-5-1", "claude") })
         {
