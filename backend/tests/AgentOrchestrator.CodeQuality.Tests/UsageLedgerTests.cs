@@ -110,6 +110,9 @@ public sealed class UsageLedgerTests
     }
 
     [Theory]
+    [InlineData("claude-opus-5-5", 22, "5.24")]
+    [InlineData("gpt-6-sol", 22, "2.64")]
+    [InlineData("gpt-6-luna", 22, "0.132")]
     [InlineData("gpt-6-astra", 3, "13.2")]
     [InlineData("claude-fable-5-1", 1, "13.05")]
     public void Newly_supported_models_use_their_dated_input_cache_and_output_tariffs(
@@ -126,5 +129,35 @@ public sealed class UsageLedgerTests
         var beforeLaunch = UsageLedger.EstimateCost(modelId, tokens, launch.AddTicks(-1));
         Assert.Null(beforeLaunch.Total);
         Assert.Equal("noPriceForDate", beforeLaunch.Status);
+    }
+
+    [Theory]
+    [InlineData("claude-opus-5-5", "5.24")]
+    [InlineData("gpt-6-sol", "2.64")]
+    [InlineData("gpt-6-luna", "0.132")]
+    public async Task Query_reprices_v3_unknown_model_entries_on_read(string modelId, string expectedUsd)
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-reprice-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 9, 22, 0, 0, 0, TimeSpan.Zero);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "explicit-run", timestamp, modelId, modelId.StartsWith("claude", StringComparison.Ordinal) ? "claude" : "codex",
+                new TokenUsage(1_000_000, 100_000, 200_000, 0, 1000), "code", "file", "src/a.cs",
+                null, UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit,
+                new UsageCost(null, null, "unknownModel")), TestContext.Current.CancellationToken);
+
+            var report = await UsageLedger.QueryAsync(root.FullName, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(0, report.UnpricedRuns);
+            Assert.Equal(decimal.Parse(expectedUsd, System.Globalization.CultureInfo.InvariantCulture), report.EstimatedCost);
+            var entry = Assert.Single(report.Recent);
+            Assert.Equal(ReviewModelSource.Explicit, entry.ModelSource);
+            Assert.Equal("resolved", entry.Cost!.Status);
+            Assert.Equal(report.EstimatedCost, entry.Cost.Total);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
     }
 }

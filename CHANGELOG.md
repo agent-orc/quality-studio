@@ -4,6 +4,11 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Added — September 2026 model prices (QS-104)
+
+- Synchronized TokenEconomy 0.3.5 prices and routing for Claude Opus 5.5, GPT-6 Sol, and GPT-6 Luna, effective 2026-09-22. The model picker exposes them for explicit reviews. Claude Code 2.1.281 is the observed minimum for Opus 5.5; Codex CLI 0.155.0 is the observed minimum for Sol and the discovery minimum for Luna. Luna execution remains unverified.
+- Usage queries now reprice historical v3 ledger entries saved with `unknownModel` when a catalog price becomes available. The original ledger lines remain append-only.
+
 ### Added — metrics beyond grades: coverage producer and complexity (QS-115)
 
 - **Coverage producer.** The `coverage` sensor can run a host-owned, time-boxed profile before it
@@ -53,7 +58,6 @@ The review agent now hands Claude its prompt over stdin (`ClaudePromptTransport.
 as a command-line argument; Codex already used stdin. On Windows the 32,767-character command-line
 limit had stopped every folder-level review and files above about 20 KB from launching. Limits
 per OS and the regression test are described in [`docs/review-runs.md`](docs/review-runs.md#prompt-transport).
-
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working
