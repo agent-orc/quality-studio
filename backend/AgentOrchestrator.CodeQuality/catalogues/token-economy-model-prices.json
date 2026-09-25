@@ -1,5 +1,35 @@
 [
   {
+    "modelId": "claude-opus-5-5",
+    "releaseDate": "2026-09-22",
+    "releaseDateSource": "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+    "displayName": "Claude Opus 5.5",
+    "vendor": "anthropic",
+    "aliases": [
+      "claude-opus-5.5"
+    ],
+    "history": [
+      {
+        "validFrom": "2026-09-22T00:00:00Z",
+        "inputPerMTok": 4,
+        "cacheReadPerMTok": 0.20,
+        "cacheWritePerMTok": 5,
+        "outputPerMTok": 20,
+        "currency": "USD",
+        "source": "Anthropic official pricing, model, and release evidence; retrieved 2026-09-24. https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/opus-5-5/overview; https://platform.claude.com/docs/en/release-notes/overview#september-22-2026",
+        "sourceUrls": [
+          "https://platform.claude.com/docs/en/about-claude/pricing",
+          "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+          "https://platform.claude.com/docs/en/release-notes/overview#september-22-2026"
+        ],
+        "verifiedOn": "2026-09-24",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard global Claude API rates; cache writes use the 5-minute $5/MTok tariff and cache reads use the Opus 5.5-specific 0.05x multiplier. The same source lists the 1-hour cache write at $8/MTok, Batch at $2/$10, and Claude-API-only fast mode at $8/$40; those alternate processing modes are not represented by this standard-rate entry. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
+        "unconfirmed": false
+      }
+    ]
+  },
+  {
     "modelId": "claude-fable-5-1",
     "releaseDate": "2026-09-01",
     "releaseDateSource": "https://platform.claude.com/docs/en/models/fable-5-1/overview",
@@ -379,6 +409,60 @@
         "verifiedOn": "2026-09-12",
         "validFromBasis": "provider-announced-date",
         "note": "Standard short-context direct API tariff. Launch date confirmed by API changelog. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
+        "unconfirmed": false
+      }
+    ]
+  },
+  {
+    "modelId": "gpt-6-sol",
+    "releaseDate": "2026-09-22",
+    "releaseDateSource": "https://developers.openai.com/api/docs/changelog",
+    "displayName": "GPT-6 Sol",
+    "vendor": "openai",
+    "history": [
+      {
+        "validFrom": "2026-09-22T00:00:00Z",
+        "inputPerMTok": 2,
+        "cacheReadPerMTok": 0.20,
+        "cacheWritePerMTok": 2.5,
+        "outputPerMTok": 10,
+        "currency": "USD",
+        "source": "OpenAI official pricing, model, and dated changelog evidence; retrieved 2026-09-24. https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-sol",
+        "sourceUrls": [
+          "https://developers.openai.com/api/docs/changelog",
+          "https://developers.openai.com/api/docs/pricing",
+          "https://developers.openai.com/api/docs/models/gpt-6-sol"
+        ],
+        "verifiedOn": "2026-09-24",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard short-context direct API tariff; OpenAI cache writes use 1.25x input. Prompts over 272K input tokens use $4 input, $0.40 cached input, $5 cache write, and $15 output per MTok for the full request. Batch and Flex are 50% of Standard; Fast mode is 2x the applicable rate. Alternate processing modes are not represented by this standard-rate entry. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
+        "unconfirmed": false
+      }
+    ]
+  },
+  {
+    "modelId": "gpt-6-luna",
+    "releaseDate": "2026-09-22",
+    "releaseDateSource": "https://developers.openai.com/api/docs/changelog",
+    "displayName": "GPT-6 Luna",
+    "vendor": "openai",
+    "history": [
+      {
+        "validFrom": "2026-09-22T00:00:00Z",
+        "inputPerMTok": 0.10,
+        "cacheReadPerMTok": 0.01,
+        "cacheWritePerMTok": 0.125,
+        "outputPerMTok": 0.50,
+        "currency": "USD",
+        "source": "OpenAI official pricing, model, and dated changelog evidence; retrieved 2026-09-24. https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "sourceUrls": [
+          "https://developers.openai.com/api/docs/changelog",
+          "https://developers.openai.com/api/docs/pricing",
+          "https://developers.openai.com/api/docs/models/gpt-6-luna"
+        ],
+        "verifiedOn": "2026-09-24",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard short-context direct API tariff; OpenAI cache writes use 1.25x input. Prompts over 272K input tokens use $0.20 input, $0.02 cached input, $0.25 cache write, and $0.75 output per MTok for the full request. Batch and Flex are 50% of Standard; Fast mode is 2x the applicable rate. Alternate processing modes are not represented by this standard-rate entry. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
         "unconfirmed": false
       }
     ]
