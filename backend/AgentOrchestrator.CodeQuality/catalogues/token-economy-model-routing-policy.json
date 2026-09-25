@@ -1,14 +1,14 @@
 {
   "$schema": "model-routing-policy.schema.json",
   "schemaVersion": 1,
-  "policyVersion": "2026-09-12",
+  "policyVersion": "2026-09-24",
   "evidenceAsOfDate": "2026-07-24",
   "authority": {
     "repositoryPath": "docs/system/domains/model-routing-policy.md",
     "upstreamRepository": "agent-orc/agent-studio",
     "upstreamPath": "docs/system/domains/model-routing-policy.md",
-    "contentSha256": "bd89457335211d510df1ffe219c79980adc896ecffa22ee68bbf4b38594ca6d1",
-    "synchronization": "The core ladder derives from the 2026-07-24 Agent Studio document. The 2026-09-12 Token Economy revision adds local Astra and Fable 5.1 support without changing that ladder or its evidence date; it does not claim an upstream update. Policy changes require a new policyVersion, refreshed hash, updated machine data, regenerated public view, and passing drift tests in one change."
+    "contentSha256": "99a7e3182aadb6e70a9c671699753dbf9a80d1aec1a57d04cbe049c60cbe9507",
+    "synchronization": "The core ladder derives from the 2026-07-24 Agent Studio document. The 2026-09-24 Token Economy revision adds local Claude Opus 5.5, GPT-6 Sol, and GPT-6 Luna support alongside Astra and Fable 5.1 without changing that ladder or its evidence date; it does not claim an upstream update. Policy changes require a new policyVersion, refreshed hash, updated machine data, regenerated public view, and passing drift tests in one change."
   },
   "providers": [
     { "id": "openai", "cliId": "codex", "cliLabel": "Codex CLI", "evidenceStatus": "observed" },
@@ -89,6 +89,38 @@
       "note": "Supported for explicit evaluation, compatibility comparison, and operator-pinned core tasks. External benchmarks and dated prices are retained; no comparable local completion or review cohort is available. Provisional support does not add a default core tier, declare fallback equivalence, or lower a correctness floor."
     },
     {
+      "canonicalId": "gpt-6-sol",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6-sol",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6-sol",
+      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max", "ultra"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask"],
+      "note": "Codex CLI 0.155.0 model discovery on the executing host reports low/medium/high/xhigh/max/ultra with provider default medium. Sol execution was observed successfully on 0.155.0; 0.154.0 rejected it, so 0.155.0 is the minimum observed CLI version. Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks; no comparable local completion or review cohort is available. This support adds no default tier, fallback equivalence, or automatic migration."
+    },
+    {
+      "canonicalId": "gpt-6-luna",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6-luna",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6-luna",
+      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "light",
+      "workflowRoles": ["coreTask"],
+      "note": "Codex CLI 0.155.0 model discovery on the executing host reports low/medium/high/xhigh/max with provider default medium. Luna was discovered but execution availability was not successfully probed; 0.154.0 rejected it, so support remains unverified and 0.155.0 is the minimum discovery version. Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks; no comparable local completion or review cohort is available. This support adds no default tier, fallback equivalence, or automatic migration."
+    },
+    {
       "canonicalId": "claude-fable-5-1",
       "aliases": [],
       "providerId": "anthropic",
@@ -103,6 +135,22 @@
       "capabilityTier": "frontier",
       "workflowRoles": ["coreTask"],
       "note": "Provider-supported model and five-level effort ladder: https://platform.claude.com/docs/en/models/fable-5-1/overview and https://platform.claude.com/docs/en/build-with-claude/effort (retrieved 2026-09-12). Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks. Local completion and review fit remain unvalidated; support does not add a default tier or declare provider-fallback equivalence."
+    },
+    {
+      "canonicalId": "claude-opus-5-5",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-5-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-5-5",
+      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask"],
+      "note": "Anthropic documents low/medium/high/xhigh/max with provider default medium for Claude Opus 5.5. Claude Code 2.1.281 execution reported the canonical model in modelUsage; 2.1.270 silently fell back after an unrecognized-model warning, so 2.1.281 is the minimum observed CLI version. Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks; no comparable local completion or review cohort is available. This support adds no default tier, fallback equivalence, or automatic migration."
     },
     {
       "canonicalId": "gpt-5.4-mini",
