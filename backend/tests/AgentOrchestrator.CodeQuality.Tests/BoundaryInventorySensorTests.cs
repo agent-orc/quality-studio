@@ -346,6 +346,7 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking()
     {
         // QS-95: a class with many stacked bracket attributes above a method - the common
@@ -390,6 +391,33 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    public async Task Scan_work_scales_with_files_and_routes()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-operations-").FullName;
+        try
+        {
+            const int fileCount = 20;
+            await CreateRouteFixtureAsync(root, fileCount);
+            var counts = new BoundaryScanOperationCounts();
+            var sensor = new BoundaryInventorySensor { OperationCounts = counts };
+
+            var inventory = await sensor.InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            Assert.True(inventory.Complete);
+            Assert.Equal(fileCount * 2, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.Equal(fileCount * 2, counts.HostBindingFileVisits);
+            Assert.Equal(fileCount, counts.ClientLineSplits);
+            Assert.Equal(fileCount * 2, counts.ClientRouteRegexBuilds);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
     {
         // QS-95: HostReachability and KnownConsumers used to redo work proportional to the
@@ -402,20 +430,7 @@ public sealed class BoundaryInventorySensorTests
         try
         {
             const int fileCount = 200;
-            for (var index = 0; index < fileCount; index++)
-            {
-                await File.WriteAllTextAsync(Path.Combine(root, $"Endpoint{index}.cs"), $"""
-                    var app = WebApplication.Create();
-                    app.MapGet("/api/items/{index}/detail", () => Results.Ok());
-                    app.MapPost("/api/items/{index}/update", (Widget request) => Results.Ok());
-                    """, TestContext.Current.CancellationToken);
-                await File.WriteAllTextAsync(Path.Combine(root, $"consumer{index}.ts"), $$"""
-                    export async function load{{index}}() {
-                      await fetch(`/api/items/{{index}}/detail`);
-                      return axios.post(`/api/items/{{index}}/update`, {});
-                    }
-                    """, TestContext.Current.CancellationToken);
-            }
+            await CreateRouteFixtureAsync(root, fileCount);
 
             var stopwatch = Stopwatch.StartNew();
             var inventory = await new BoundaryInventorySensor().InventoryAsync(
@@ -431,6 +446,24 @@ public sealed class BoundaryInventorySensorTests
         finally
         {
             Directory.Delete(root, true);
+        }
+    }
+
+    private static async Task CreateRouteFixtureAsync(string root, int fileCount)
+    {
+        for (var index = 0; index < fileCount; index++)
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, $"Endpoint{index}.cs"), $"""
+                var app = WebApplication.Create();
+                app.MapGet("/api/items/{index}/detail", () => Results.Ok());
+                app.MapPost("/api/items/{index}/update", (Widget request) => Results.Ok());
+                """, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, $"consumer{index}.ts"), $$"""
+                export async function load{{index}}() {
+                  await fetch(`/api/items/{{index}}/detail`);
+                  return axios.post(`/api/items/{{index}}/update`, {});
+                }
+                """, TestContext.Current.CancellationToken);
         }
     }
 
