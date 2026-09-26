@@ -102,6 +102,7 @@ public sealed class ProcessSensorCommandRunnerTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Timeout_kills_the_process_tree_and_returns_promptly()
     {
         SkipUnlessPosix();
