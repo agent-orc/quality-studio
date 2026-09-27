@@ -250,6 +250,9 @@ The [quality-domain catalogue and project properties guide](docs/quality-domains
 
 ## Review usage telemetry
 
+The [contract documentation index](docs/start/README.md) links model-selection,
+minimum CLI versions, and ledger query behavior.
+
 Agent-backed reviews persist their model, CLI, token counts, duration, and run
 identity both with the review truth and in a project-local append-only ledger.
 The API exposes repository usage aggregates and provider quota availability. See
