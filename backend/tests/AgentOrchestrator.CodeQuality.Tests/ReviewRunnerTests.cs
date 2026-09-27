@@ -995,7 +995,7 @@ public sealed class ReviewRunnerTests
         await WithReviewFileAsync(async (root, _) =>
         {
             var recorded = new List<ReviewUsageEntry>();
-            var runner = new ReviewRunner(new FakeAgent(response: "{}"), usageRecorded: recorded.Add);
+            var runner = new ReviewRunner(new FakeAgent(response: "{}", model: "gpt-6-sol"), usageRecorded: recorded.Add);
 
             await Assert.ThrowsAsync<ReviewResponseException>(() => runner.ReviewAsync(
                 new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-sweep-test"),
@@ -1008,6 +1008,9 @@ public sealed class ReviewRunnerTests
             Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
             // The fake agent names its model, so the entry is attributed to an explicit choice.
             Assert.Equal(ReviewModelSource.Explicit, recorded[0].ModelSource);
+            Assert.Equal("gpt-6-sol", recorded[0].Model);
+            Assert.Equal("resolved", recorded[0].Cost?.Status);
+            Assert.True(recorded[0].Cost?.Total > 0);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal(2, report.Recent.Count);
