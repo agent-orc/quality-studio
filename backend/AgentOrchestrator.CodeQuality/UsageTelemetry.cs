@@ -80,7 +80,7 @@ public static class UsageLedger
     {
         ArgumentNullException.ThrowIfNull(entry);
         if (!IsSupported(entry))
-            throw new ArgumentException("Usage ledger entries must conform to schema version 1 or 2.", nameof(entry));
+            throw new ArgumentException("Usage ledger entries must conform to schema version 1, 2, or 3.", nameof(entry));
         var path = GetLedgerPath(repositoryRoot, entry.Timestamp);
         var gate = Locks.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -126,9 +126,12 @@ public static class UsageLedger
             }
         }
 
-        var ordered = entries.OrderByDescending(entry => entry.Timestamp).ToArray();
-        // Entries written before cost was recorded are priced at query time so the history stays
-        // comparable; an entry whose model or date has no price stays unpriced and is counted.
+        var ordered = entries.OrderByDescending(entry => entry.Timestamp)
+            .Select(entry => entry.Cost?.Status == "unknownModel"
+                ? entry with { Cost = EstimateCost(entry.Model, entry.Tokens, entry.Timestamp) }
+                : entry).ToArray();
+        // Entries written before cost was recorded, or before a model was catalogued, are priced
+        // at query time; an entry whose model or date has no price stays unpriced and is counted.
         var costs = ordered.Select(entry => entry.Cost ?? EstimateCost(entry.Model, entry.Tokens, entry.Timestamp)).ToArray();
         var priced = costs.Where(cost => cost.Total.HasValue).ToArray();
         return new UsageReport(DateTimeOffset.UtcNow, ordered.Length,
