@@ -64,13 +64,13 @@ public sealed class RepositoryHierarchyMetadataCacheTests : IDisposable
 
         File.AppendAllText(Path.Combine(root, "Sample.cs"), "namespace Third { class Three {} }\n");
         var sourceChanged = cache.GetMeasured(root);
-        Assert.True(sourceChanged.ScanMilliseconds > 0);
+        Assert.False(sourceChanged.CacheHit);
         Assert.Equal(3, Files(sourceChanged.Snapshot).Length);
 
         File.WriteAllText(Path.Combine(root, ".quality", "scope.json"),
             "{\"rules\":[{\"action\":\"exclude\",\"pattern\":\"Sample.cs\",\"reason\":\"Fixture exclusion\"}]}");
         var scopeChanged = cache.GetMeasured(root);
-        Assert.True(scopeChanged.ScanMilliseconds > 0);
+        Assert.False(scopeChanged.CacheHit);
         Assert.Empty(Files(scopeChanged.Snapshot));
     }
 
