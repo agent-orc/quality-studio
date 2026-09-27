@@ -346,6 +346,7 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking()
     {
         // QS-95: a class with many stacked bracket attributes above a method - the common
@@ -390,47 +391,75 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
-    public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
+    public async Task Scan_of_many_files_and_routes_reuses_repository_and_consumer_work()
     {
         // QS-95: HostReachability and KnownConsumers used to redo work proportional to the
         // whole repository for every single HTTP route match (a full re-scan of every source
         // file, and a fresh line split plus regex compile for every route/file/line
-        // combination), so cost grew with routes * files instead of with repository size. This
-        // fixture has enough routes and client-side consumers that a reintroduced O(routes *
-        // files) cost would turn a sub-second scan into tens of seconds.
+        // combination), so cost grew with routes * files instead of with repository size.
+        // The operation counts catch repeated repository scans, route pattern preparation
+        // per file/line, and repeated line splitting without depending on host scheduling.
         var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-scale-").FullName;
         try
         {
-            const int fileCount = 200;
-            for (var index = 0; index < fileCount; index++)
-            {
-                await File.WriteAllTextAsync(Path.Combine(root, $"Endpoint{index}.cs"), $"""
-                    var app = WebApplication.Create();
-                    app.MapGet("/api/items/{index}/detail", () => Results.Ok());
-                    app.MapPost("/api/items/{index}/update", (Widget request) => Results.Ok());
-                    """, TestContext.Current.CancellationToken);
-                await File.WriteAllTextAsync(Path.Combine(root, $"consumer{index}.ts"), $$"""
-                    export async function load{{index}}() {
-                      await fetch(`/api/items/{{index}}/detail`);
-                      return axios.post(`/api/items/{{index}}/update`, {});
-                    }
-                    """, TestContext.Current.CancellationToken);
-            }
+            await WriteScaleFixtureAsync(root);
+            var operations = new BoundaryScanOperations();
+            var inventory = await new BoundaryInventorySensor { Operations = operations }.InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false, Configuration: new Dictionary<string, string>
+                {
+                    [BoundaryInventorySensor.TimeBudgetConfigurationKey] = int.MaxValue.ToString(),
+                }), TestContext.Current.CancellationToken);
 
+            Assert.Equal(400, inventory.Entries.Count(entry => entry.Kind == "http"));
+            Assert.True(inventory.Complete, string.Join(", ", inventory.Omissions.Select(omission => omission.Path)));
+            Assert.Equal(1, operations.HostBindingScans);
+            Assert.Equal(1_200, operations.ConsumerRegexConstructions);
+            Assert.Equal(200, operations.ConsumerLineSplits);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "MachineBound")]
+    public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-scale-perf-").FullName;
+        try
+        {
+            await WriteScaleFixtureAsync(root);
             var stopwatch = Stopwatch.StartNew();
             var inventory = await new BoundaryInventorySensor().InventoryAsync(
                 new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
             stopwatch.Stop();
 
-            Assert.Equal(fileCount * 2, inventory.Entries.Count(entry => entry.Kind == "http"));
             Assert.True(inventory.Complete, string.Join(", ", inventory.Omissions.Select(omission => omission.Path)));
             Assert.True(stopwatch.ElapsedMilliseconds < 15_000,
-                $"Boundary scan of {fileCount * 2} routes across {fileCount * 2} files took " +
-                $"{stopwatch.ElapsedMilliseconds} ms; expected roughly linear scaling with repository size.");
+                $"Boundary scan of 400 routes across 400 files took {stopwatch.ElapsedMilliseconds} ms.");
         }
         finally
         {
             Directory.Delete(root, true);
+        }
+    }
+
+    private static async Task WriteScaleFixtureAsync(string root)
+    {
+        for (var index = 0; index < 200; index++)
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, $"Endpoint{index}.cs"), $"""
+                var app = WebApplication.Create();
+                app.MapGet("/api/items/{index}/detail", () => Results.Ok());
+                app.MapPost("/api/items/{index}/update", (Widget request) => Results.Ok());
+                """, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(root, $"consumer{index}.ts"), $$"""
+                export async function load{{index}}() {
+                  await fetch(`/api/items/{{index}}/detail`);
+                  return axios.post(`/api/items/{{index}}/update`, {});
+                }
+                """, TestContext.Current.CancellationToken);
         }
     }
 
