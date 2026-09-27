@@ -28,6 +28,7 @@ public sealed class CodingAgentReviewAgentWatchdogTests
     private static readonly TimeSpan UnracedAttachTimeout = TimeSpan.FromSeconds(30);
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task RunAsync_FailsFastWithTypedException_WhenDriverNeverAttaches()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
