@@ -8,9 +8,9 @@ public sealed class ReviewModelCatalogTests
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {
         Assert.Equal("agent-orc/token-economy", catalog.Snapshot.SourceRepository);
-        Assert.Equal("98ddcc91fba414919231e242de01dc022aed74dd", catalog.Snapshot.SourceCommit);
-        Assert.Equal("2026-09-12", catalog.Snapshot.PolicyVersion);
-        Assert.Equal(22, catalog.Snapshot.Models.Count);
+        Assert.Equal("bf6f8a9db71b84a92b1dfaa474a6072737fddf54", catalog.Snapshot.SourceCommit);
+        Assert.Equal("2026-09-24", catalog.Snapshot.PolicyVersion);
+        Assert.Equal(25, catalog.Snapshot.Models.Count);
         Assert.All(catalog.Snapshot.Models, model => Assert.True(model.PriceAvailable));
 
         var sol = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == "gpt-5.6-sol");
@@ -21,6 +21,21 @@ public sealed class ReviewModelCatalogTests
         Assert.Contains("xhigh", sol.SupportedThinkingLevels);
         Assert.True(sol.PriceAvailable);
         Assert.True(sol.AvailableForNewRuns);
+    }
+
+    [Theory]
+    [InlineData("claude-opus-5-5", "claude", "2.1.281")]
+    [InlineData("gpt-6-sol", "codex", "0.155.0")]
+    [InlineData("gpt-6-luna", "codex", "0.155.0")]
+    public void New_models_are_selectable_with_observed_cli_version_notes(string modelId, string cli, string minimumVersion)
+    {
+        var option = catalog.Find(modelId)!;
+        Assert.True(option.PriceAvailable);
+        Assert.True(option.AvailableForNewRuns);
+        Assert.Equal("selectable", option.RoutingStatus);
+        Assert.Equal(cli, option.CliType);
+        Assert.Contains(minimumVersion, option.Note, StringComparison.Ordinal);
+        Assert.Equal(modelId, catalog.Resolve(cli, modelId, "medium").Model);
     }
 
     [Theory]
