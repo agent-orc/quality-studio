@@ -43,7 +43,9 @@ public sealed record ReviewRunManifest(
     string? ThinkingLevel = null,
     ReviewModelRecommendation? Recommendation = null,
     bool RouteOverride = false,
-    string? ModelSource = null);
+    string? ModelSource = null,
+    IReadOnlyList<string>? OptInSensors = null,
+    bool RefreshSensors = false);
 
 public sealed record ReviewRunFileTransition(
     string Path,

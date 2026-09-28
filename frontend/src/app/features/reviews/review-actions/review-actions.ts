@@ -1,13 +1,19 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { QualityApi } from '../../../core/api/quality-api';
-import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, StartReviewRequest, TreeNode } from '../../../core/models/contracts';
+import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, SensorPlanEntry, StartReviewRequest, TreeNode } from '../../../core/models/contracts';
 import { ResumeCap, ResumeCapDialog } from '../../../shared/dialog/resume-cap-dialog';
 import {
-  formatCost, formatModelSource, formatPriceStatus, formatTokenCount, parseTokenCount, runStateTone,
+  formatCost, formatDuration, formatModelSource, formatPriceStatus, formatTokenCount, parseTokenCount, runStateTone,
 } from '../../../shared/utils/format';
 
 let reviewActionsInstance = 0;
+
+/** An expected duration; "<1s" is already a bound and takes no tilde. */
+const approximately = (milliseconds: number): string => {
+  const value = formatDuration(milliseconds);
+  return value.startsWith('<') ? value : `~${value}`;
+};
 
 @Component({
   selector: 'qs-review-actions',
@@ -40,6 +46,9 @@ export class ReviewActions {
   readonly modelPickerOpen = signal(false);
   readonly activeModelIndex = signal(-1);
   readonly force = signal(false);
+  /** Build sensors (dotnet-build, angular-compiler) this run executes; none unless the operator ticks them. */
+  readonly optInSensors = signal<string[]>([]);
+  readonly refreshSensors = signal(false);
   readonly capKind = signal<'repository' | 'tokens' | 'cost'>('repository');
   readonly capValue = signal<number | null>(null);
   readonly tokenCapText = signal('');
@@ -202,6 +211,8 @@ export class ReviewActions {
         tokenCap: this.capKind() === 'tokens' ? this.capValue() : null,
         costCap: this.capKind() === 'cost' ? this.capValue() : null,
         force: this.force(),
+        ...(this.optInSensors().length ? { optInSensors: this.optInSensors() } : {}),
+        ...(this.refreshSensors() ? { refreshSensors: true } : {}),
       };
       const preflight = await this.api.estimateReview(request);
       if (generation !== this.preflightGeneration || context !== this.requestContext()) return;
@@ -235,6 +246,53 @@ export class ReviewActions {
     }
   }
 
+  /** Opting a build sensor in or out changes what the run executes, so the preflight is taken again. */
+  setSensorOptIn(sensorId: string, optedIn: boolean): void {
+    this.optInSensors.update(current => optedIn
+      ? [...new Set([...current, sensorId])].sort()
+      : current.filter(candidate => candidate !== sensorId));
+    void this.prepare();
+  }
+
+  setRefreshSensors(value: boolean): void {
+    this.refreshSensors.set(value);
+    void this.prepare();
+  }
+
+  sensorDecisionLabel(entry: SensorPlanEntry): string {
+    if (entry.decision === 'cached') return 'cached for this commit';
+    if (entry.decision === 'opt-in-required') return 'not run · builds the project';
+    return entry.optIn ? 'runs · opted in' : 'runs';
+  }
+
+  sensorDurationLabel(entry: SensorPlanEntry): string {
+    if (entry.decision === 'cached') return 'no wait';
+    const source = entry.durationSource === 'observed' ? 'last run' : 'typical';
+    return `${approximately(entry.expectedDurationMs)} (${source})`;
+  }
+
+  sensorPhaseLabel(preflight: ReviewPreflight): string {
+    const plan = preflight.sensorPlan;
+    if (!plan || plan.sensors.length === 0) return 'No enabled sensors';
+    const running = plan.sensors.filter(entry => entry.decision === 'run').length;
+    const cached = plan.sensors.filter(entry => entry.decision === 'cached').length;
+    return running === 0
+      ? `${cached} cached · no sensor runs`
+      : `${running} to run · ${approximately(plan.expectedDurationMs)} before the first review`;
+  }
+
+  /** What the run's sensors did, so a reused result is visible next to the progress. */
+  runSensorLabel(run: ReviewRun): string {
+    const sensors = run.sensors ?? [];
+    if (!sensors.length) return '';
+    const count = (outcome: string) => sensors.filter(sensor => sensor.outcome === outcome).length;
+    return [
+      count('ran') ? `${count('ran')} ran` : '',
+      count('cached') ? `${count('cached')} cached` : '',
+      count('opt-in-required') ? `${count('opt-in-required')} held for opt-in` : '',
+    ].filter(Boolean).join(' · ');
+  }
+
   useRecommendation(): void {
     const recommendation = this.preflight()?.recommendation;
     if (!recommendation) return;
@@ -251,7 +309,7 @@ export class ReviewActions {
     return JSON.stringify([
       this.api.selectedRepository()?.id, this.node()?.id, this.node()?.path, this.node()?.level,
       this.activeKind(), this.cliType(), this.model().trim(), this.thinkingLevel(),
-      this.capKind(), this.capValue(), this.force(),
+      this.capKind(), this.capValue(), this.force(), this.optInSensors(), this.refreshSensors(),
     ]);
   }
 
