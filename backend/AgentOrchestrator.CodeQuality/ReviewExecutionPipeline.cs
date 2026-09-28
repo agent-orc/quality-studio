@@ -4,7 +4,8 @@ namespace AgentOrchestrator.CodeQuality;
 public sealed record ReviewAgentUsage(string RunId, TokenUsage Usage, string? EffectiveModel);
 
 /// <summary>A completed agent run: its identity, its answer, and what it cost.</summary>
-public sealed record ReviewAgentOutcome(string RunId, string Response, TokenUsage Usage, string? EffectiveModel);
+public sealed record ReviewAgentOutcome(string RunId, string Response, TokenUsage Usage, string? EffectiveModel,
+    ReviewerContext? Context = null);
 
 /// <summary>
 /// One agent answer the response parser refused. The raw answer is kept, capped at
@@ -176,7 +177,8 @@ format required above, and nothing else: no prose before or after it and no seco
         }
 
         var outcome = new ReviewAgentOutcome(
-            result.RunId, result.Response, result.Usage ?? usageWhenUnreported(), result.EffectiveModel);
+            result.RunId, result.Response, result.Usage ?? usageWhenUnreported(), result.EffectiveModel,
+            result.Context);
         await recordUsageAsync(new ReviewAgentUsage(
             outcome.RunId, outcome.Usage, outcome.EffectiveModel)).ConfigureAwait(false);
         return outcome;
