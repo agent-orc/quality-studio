@@ -36,8 +36,10 @@ public sealed record SensorInputFingerprint(string Head, string Value, int Dirty
                 .ConfigureAwait(false)).Trim();
             topLevel = Path.GetFullPath((await GitPlumbing.RunAsync(root, ["rev-parse", "--show-toplevel"],
                 cancellationToken).ConfigureAwait(false)).Trim());
-            // Porcelain paths are relative to the top level; the pathspec keeps edits outside the
-            // registered root (a sibling project in the same repository) from invalidating it.
+            // Porcelain v1 paths are always relative to the top level, even when Git runs in a subdirectory
+            // and whatever status.relativePaths says (git-status(1), "Porcelain Format Version 1"), so they
+            // are resolved against topLevel below. The pathspec "." is resolved against the working
+            // directory and keeps edits outside the registered root (a sibling project) from invalidating it.
             status = await GitPlumbing.RunAsync(root,
                 ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."], cancellationToken)
                 .ConfigureAwait(false);
