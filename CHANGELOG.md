@@ -4,6 +4,20 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Added — metrics beyond grades: coverage producer and complexity (QS-115)
+
+- **Coverage producer.** The `coverage` sensor can run a host-owned, time-boxed profile before it
+  ingests: `dotnet-test-coverage` (`dotnet test --collect "Code Coverage;Format=cobertura"`, 900 s),
+  `vitest-frontend-coverage` and `vitest-root-coverage` (600 s). Opt-in per repository through
+  `configuration.profile`; reports go to `coverage/produced/<profile>/` in the data root, never the
+  checkout. A failed producer keeps the last snapshot. Analyzer profiles gained `timeoutSeconds`.
+- **Complexity.** Cyclomatic and cognitive complexity per function and file for C# (Roslyn syntax) and
+  TypeScript/JavaScript, in every risk row (`complexity`), in a new `GET /api/repos/{repoId}/complexity`
+  route, and as a sortable column of the risk view. It feeds the risk score as a 20 % component; files
+  without a measurement keep the earlier weights.
+- **Directory grade projection.** A directory without its own review shows the line-weighted mean of
+  its files' grades, labelled `projection` (`≈C · 79`), with how many of its files it rests on.
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working

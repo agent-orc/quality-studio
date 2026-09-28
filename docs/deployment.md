@@ -144,7 +144,9 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 
 Repository sensor configuration selects a **profile id**; it can never carry the command the host
 executes. The embedded defaults cover `eslint` (`eslint-frontend-sarif`, `eslint-root-sarif`), `roslyn`
-(`roslyn-build-sarif`) and `tsc` (`tsc-noemit`). To ship your own, mount a file and name it in
+(`roslyn-build-sarif`), `tsc` (`tsc-noemit`) and the `coverage` producers (`dotnet-test-coverage`,
+`vitest-frontend-coverage`, `vitest-root-coverage`; see
+[`coverage-and-risk.md`](coverage-and-risk.md#producing-coverage)). To ship your own, mount a file and name it in
 `QualityStudio__AnalyzerProfiles__Path`:
 
 ```json
@@ -163,7 +165,9 @@ executes. The embedded defaults cover `eslint` (`eslint-frontend-sarif`, `eslint
 ```
 
 `{repositoryRoot}`, `{target}` and `{reportPath}` are expanded at run time; every path stays confined to
-the repository. A host file **replaces** the embedded defaults rather than extending them, so a
+the repository. A `coverage` profile also receives `{outputDirectory}` — a fresh directory below the
+project's data root — and its `reportPath` is a glob of the reports it writes there. `timeoutSeconds`
+(1–3600) time-boxes a profile; the process tree is killed when it expires. A host file **replaces** the embedded defaults rather than extending them, so a
 deployment that names its own profiles cannot silently fall back to a shipped command. A registration
 that names a profile the host does not offer is refused with `400 Unknown analyzer profile`, and a
 registration carrying a `command` with `400 Analyzer commands are host-owned` — for registrars too,

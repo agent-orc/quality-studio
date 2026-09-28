@@ -91,6 +91,7 @@ public sealed class RepositoryExplorerProjection
         var byId = new Dictionary<string, TreeLevelNodeResponse>(StringComparer.Ordinal);
         var byPath = new Dictionary<string, TreeLevelNodeResponse>(StringComparer.Ordinal);
         var children = new Dictionary<string, IReadOnlyList<TreeLevelNodeResponse>>(StringComparer.Ordinal);
+        var rollups = new Dictionary<string, IReadOnlyDictionary<string, GradeRollup>>(StringComparer.Ordinal);
         var root = Project(physicalRoot, null);
         return new RepositoryExplorerProjection(root, byId, byPath, children);
 
@@ -107,12 +108,20 @@ public sealed class RepositoryExplorerProjection
             }
             var direct = scopes is not null && scopes.TryGetValue(directory.Path, out var scope)
                 ? canonical.GetDirect(scope) : null;
-            var kinds = new[] { "code", "security", "performance" }.ToDictionary(kind => kind, kind =>
+            var rollup = Kinds.ToDictionary(kind => kind, kind => descendants.Aggregate(default(GradeRollup),
+                (sum, child) => sum + (rollups.TryGetValue(child.Id, out var nested)
+                    ? nested[kind]
+                    : GradeRollup.ForFile(child.Kinds[kind].Score, child.LineCount, child.SizeBytes))),
+                StringComparer.Ordinal);
+            rollups.Add(id, rollup);
+            var kinds = Kinds.ToDictionary(kind => kind, kind =>
             {
                 var state = WorstState(descendants.Select(child => child.Kinds[kind].Overall));
                 var own = direct?.Kinds[kind];
+                // Until an aggregate review grades the directory, its files' grades project one.
                 return new KindStateResponse(own?.Direct ?? "missing", state,
-                    WorstState([own?.Direct ?? "missing", state]), own?.Score, own?.Band, own?.MetaPath);
+                    WorstState([own?.Direct ?? "missing", state]), own?.Score, own?.Band, own?.MetaPath,
+                    own?.Score is null ? rollup[kind].ToProjection() : null);
             }, StringComparer.Ordinal);
             var node = new TreeLevelNodeResponse(id, parentId, directory.Name,
                 directory.Path == "." ? "repository" : "folder", directory.Path,
@@ -128,6 +137,8 @@ public sealed class RepositoryExplorerProjection
             return node;
         }
     }
+
+    private static readonly string[] Kinds = ["code", "security", "performance"];
 
     private static CoverageAggregate AggregateCoverage(IEnumerable<CoverageAggregate> children)
     {

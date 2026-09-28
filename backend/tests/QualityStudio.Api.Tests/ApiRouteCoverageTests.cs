@@ -45,6 +45,43 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
     }
 
     [Fact]
+    public async Task Risk_rows_carry_the_complexity_of_measured_source_files()
+    {
+        using var client = fixture.CreateClient();
+
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/risk?days=30", TestContext.Current.CancellationToken);
+
+        var sample = json.GetProperty("rows").EnumerateArray()
+            .Single(row => row.GetProperty("path").GetString() == "Sample.cs");
+        var complexity = sample.GetProperty("complexity");
+        Assert.Equal("csharp", complexity.GetProperty("language").GetString());
+        Assert.Equal(1, complexity.GetProperty("functions").GetInt32());
+        Assert.Equal(1, complexity.GetProperty("cyclomatic").GetInt32());
+        Assert.Equal(0, complexity.GetProperty("pressure").GetInt32());
+        Assert.Equal("Sample.Hello", complexity.GetProperty("hotspots")[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Complexity_lists_every_function_of_one_file_and_refuses_unmeasured_files()
+    {
+        using var client = fixture.CreateClient();
+
+        var json = await client.GetFromJsonAsync<JsonElement>(
+            "/api/complexity?path=Sample.cs", TestContext.Current.CancellationToken);
+        using var unsupported = await client.GetAsync(
+            "/api/complexity?path=Sample.csproj", TestContext.Current.CancellationToken);
+        using var escaping = await client.GetAsync(
+            "/api/complexity?path=../outside.cs", TestContext.Current.CancellationToken);
+
+        Assert.Equal(ComplexityAnalyzer.Version, json.GetProperty("analyzerVersion").GetString());
+        Assert.Equal(FileComplexity.CognitiveThreshold, json.GetProperty("cognitiveThreshold").GetInt32());
+        var function = Assert.Single(json.GetProperty("file").GetProperty("functions").EnumerateArray());
+        Assert.Equal(1, function.GetProperty("line").GetInt32());
+        Assert.Equal(HttpStatusCode.BadRequest, unsupported.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, escaping.StatusCode);
+    }
+
+    [Fact]
     public async Task Risk_rejects_a_churn_window_outside_its_range()
     {
         using var client = fixture.CreateClient();
@@ -371,6 +408,7 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
     [Theory]
     [InlineData("tree?path=")]
     [InlineData("risk?days=30")]
+    [InlineData("complexity?path=Sample.cs")]
     [InlineData("project")]
     [InlineData("file?path=Sample.cs")]
     [InlineData("inputs?path=Sample.cs&level=file")]

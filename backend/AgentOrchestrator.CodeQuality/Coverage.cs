@@ -17,13 +17,19 @@ public sealed record CoverageFile(
     IReadOnlyList<int> UncoveredLines,
     IReadOnlyList<int> UncoveredBranchLines);
 
+/// <param name="Reports">
+/// The ingested reports: repository-relative, or <c>data-root:</c>-prefixed for reports a producer
+/// wrote below the project's data root.
+/// </param>
+/// <param name="Production">The producer run that wrote the reports, when the sensor ran one.</param>
 public sealed record CoverageSnapshot(
     int SchemaVersion,
     string SensorVersion,
     string MeasuredAt,
     string? Commit,
     IReadOnlyList<string> Reports,
-    IReadOnlyList<CoverageFile> Files)
+    IReadOnlyList<CoverageFile> Files,
+    CoverageProduction? Production = null)
 {
     /// <summary>The snapshot, relative to the project's data root.</summary>
     public const string RelativePath = "coverage/coverage.json";
@@ -179,18 +185,34 @@ public static class CoverageProjection
 
 public sealed class CoverageReportParser
 {
-    public IReadOnlyList<CoverageFile> Parse(string repositoryRoot, IEnumerable<string> reportPaths)
+    /// <summary>
+    /// Parses coverage reports into per-file facts keyed by repository-relative path.
+    /// </summary>
+    /// <param name="reportRoots">
+    /// Directories besides the repository a report may be read from - the project's data root, where a
+    /// coverage producer writes. Every report and TRX attachment must lie inside one of them.
+    /// </param>
+    /// <param name="sourceBase">
+    /// The directory a producer ran in. Relative source paths that name no repository file are tried
+    /// against it, because vitest writes lcov paths relative to its own root, such as <c>frontend/</c>.
+    /// </param>
+    public IReadOnlyList<CoverageFile> Parse(
+        string repositoryRoot,
+        IEnumerable<string> reportPaths,
+        IReadOnlyList<string>? reportRoots = null,
+        string? sourceBase = null)
     {
         var root = System.IO.Path.GetFullPath(repositoryRoot);
+        IReadOnlyList<string> allowedRoots = [root, .. (reportRoots ?? []).Select(System.IO.Path.GetFullPath)];
         var accumulator = new Dictionary<string, MutableCoverageFile>(StringComparer.Ordinal);
         foreach (var reportPath in reportPaths)
         {
             var fullPath = System.IO.Path.GetFullPath(reportPath);
-            EnsureContainedReport(root, fullPath);
+            EnsureContainedReport(allowedRoots, fullPath);
             var extension = System.IO.Path.GetExtension(fullPath);
             if (extension.Equals(".trx", StringComparison.OrdinalIgnoreCase))
             {
-                ParseTrx(root, fullPath, accumulator);
+                ParseTrx(root, allowedRoots, fullPath, accumulator);
             }
             else if (extension.Equals(".info", StringComparison.OrdinalIgnoreCase) ||
                      extension.Equals(".lcov", StringComparison.OrdinalIgnoreCase))
@@ -202,10 +224,29 @@ public sealed class CoverageReportParser
                 ParseXmlCoverage(root, fullPath, accumulator);
             }
         }
-        return accumulator.Values.Select(value => value.Build()).OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
+        var files = accumulator.Values.Select(value => value.Build());
+        if (!string.IsNullOrWhiteSpace(sourceBase)) files = RebaseRelativeSources(root, System.IO.Path.GetFullPath(sourceBase), files);
+        return files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
     }
 
-    private static void ParseTrx(string root, string path, Dictionary<string, MutableCoverageFile> files)
+    private static IEnumerable<CoverageFile> RebaseRelativeSources(string root, string sourceBase, IEnumerable<CoverageFile> files)
+    {
+        var rebased = new Dictionary<string, CoverageFile>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            var path = file.Path;
+            var inRoot = System.IO.Path.Combine(root, path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            var inBase = System.IO.Path.GetFullPath(System.IO.Path.Combine(sourceBase, path.Replace('/', System.IO.Path.DirectorySeparatorChar)));
+            if (!File.Exists(inRoot) && File.Exists(inBase) && AnalyzerCommand.IsWithin(root, inBase))
+                path = System.IO.Path.GetRelativePath(root, inBase).Replace('\\', '/');
+            // Two reports naming one source through different spellings keep the first; paths are sorted later.
+            rebased.TryAdd(path, file with { Path = path });
+        }
+        return rebased.Values;
+    }
+
+    private static void ParseTrx(
+        string root, IReadOnlyList<string> allowedRoots, string path, Dictionary<string, MutableCoverageFile> files)
     {
         var document = XDocument.Load(path, LoadOptions.None);
         if (HasCoveragePayload(document))
@@ -224,7 +265,7 @@ public sealed class CoverageReportParser
                 ? uri.LocalPath
                 : System.IO.Path.GetFullPath(decoded, System.IO.Path.GetDirectoryName(path)!);
             candidate = System.IO.Path.GetFullPath(candidate);
-            EnsureContainedReport(root, candidate);
+            EnsureContainedReport(allowedRoots, candidate);
             if (File.Exists(candidate)) ParseXmlCoverage(root, candidate, files);
         }
     }
@@ -454,14 +495,16 @@ public sealed class CoverageReportParser
     private static bool TryInt(string? value, out int result) =>
         int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
 
-    private static void EnsureContainedReport(string root, string path)
+    private static void EnsureContainedReport(IReadOnlyList<string> roots, string path)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        var normalizedRoot = System.IO.Path.GetFullPath(root)
-            .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
         var normalizedPath = System.IO.Path.GetFullPath(path);
-        if (!normalizedPath.StartsWith(normalizedRoot + System.IO.Path.DirectorySeparatorChar, comparison))
-            throw new ArgumentException("Coverage report paths must stay within the repository.");
+        var normalizedRoot = roots
+            .Select(root => System.IO.Path.GetFullPath(root)
+                .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar))
+            .FirstOrDefault(root => normalizedPath.StartsWith(root + System.IO.Path.DirectorySeparatorChar, comparison));
+        if (normalizedRoot is null)
+            throw new ArgumentException("Coverage report paths must stay within the repository or its data root.");
         var current = normalizedRoot;
         foreach (var segment in System.IO.Path.GetRelativePath(normalizedRoot, normalizedPath).Split(
                      [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
@@ -497,7 +540,18 @@ public sealed class CoverageReportParser
 
 public sealed class CoverageSensor : IReviewSensor
 {
-    public const string CurrentVersion = "1.0.0";
+    public const string CurrentVersion = "1.1.0";
+
+    /// <summary>Prefix of a snapshot report path that lies below the project's data root.</summary>
+    public const string DataRootReportPrefix = "data-root:";
+
+    private readonly CoverageProducer producer;
+
+    public CoverageSensor(AnalyzerProfileCatalog? profiles = null, CoverageProducer? producer = null)
+    {
+        this.producer = producer ?? new CoverageProducer(profiles);
+    }
+
     public string Id => "coverage";
     public string Version => CurrentVersion;
     public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
@@ -513,16 +567,51 @@ public sealed class CoverageSensor : IReviewSensor
         if (request.Scope != SensorScope.Repository)
             throw new ArgumentException("Coverage ingestion supports repository scope only.", nameof(request));
         var root = System.IO.Path.GetFullPath(request.RepositoryRoot);
-        var reports = ResolveReports(root, request.Configuration).ToArray();
-        var files = reports.Length == 0 ? [] : new CoverageReportParser().Parse(root, reports);
-        var measuredAt = DateTimeOffset.UtcNow.ToString("O");
+        // The commit is read before a producer runs, so the snapshot names the code that was measured.
         var commit = GitValue(root, "rev-parse", "--verify", "HEAD");
-        var relativeReports = reports.Select(report => System.IO.Path.GetRelativePath(root, report).Replace('\\', '/')).ToArray();
-        var snapshot = new CoverageSnapshot(1, Version, measuredAt, commit, relativeReports, files);
+        CoverageProductionResult? production = null;
+        if (CoverageProducer.IsRequested(request.Configuration))
+        {
+            production = await producer.ProduceAsync(root, request.Configuration!, cancellationToken).ConfigureAwait(false);
+            // A failed producer keeps the last snapshot: unknown coverage must not replace measured coverage.
+            if (production.Refusal is not null)
+                return new SensorScanResult(false, production.Refusal, [], Provenance(DateTimeOffset.UtcNow.ToString("O"), 0, production));
+        }
+
+        // With a producer, only explicitly configured repository reports join its output; the default
+        // patterns could otherwise pick up a stale report left in the checkout.
+        var repositoryReports = production is null || request.Configuration?.GetValueOrDefault("reportPaths") is { Length: > 0 }
+            ? ResolveReports(root, request.Configuration).ToArray()
+            : [];
+        string[] reports = [.. repositoryReports, .. production?.Reports ?? []];
+        var dataRoot = QualityDataRoot.For(root);
+        var files = reports.Length == 0
+            ? []
+            : new CoverageReportParser().Parse(root, reports, [dataRoot], production?.SourceBase);
+        var measuredAt = DateTimeOffset.UtcNow.ToString("O");
+        var relativeReports = reports.Select(report => AnalyzerCommand.IsWithin(root, report)
+            ? System.IO.Path.GetRelativePath(root, report).Replace('\\', '/')
+            : DataRootReportPrefix + System.IO.Path.GetRelativePath(dataRoot, report).Replace('\\', '/')).ToArray();
+        var snapshot = new CoverageSnapshot(1, Version, measuredAt, commit, relativeReports, files, production?.Production);
         if (request.PersistMetadata) await snapshot.SaveAsync(root, cancellationToken).ConfigureAwait(false);
         return new SensorScanResult(true, reports.Length == 0 ? "No coverage reports matched the configured report paths." : null,
-            [], new SensorProvenance(Id, Version, "repository", ".", measuredAt,
-                new Dictionary<string, string> { ["parser"] = Version, ["reports"] = reports.Length.ToString(CultureInfo.InvariantCulture) }));
+            [], Provenance(measuredAt, reports.Length, production));
+    }
+
+    private SensorProvenance Provenance(string measuredAt, int reports, CoverageProductionResult? production)
+    {
+        var versions = new Dictionary<string, string>
+        {
+            ["parser"] = Version,
+            ["reports"] = reports.ToString(CultureInfo.InvariantCulture),
+        };
+        if (production?.Production is { } run)
+        {
+            versions["producer"] = run.Profile;
+            versions["producerExitCode"] = run.ExitCode.ToString(CultureInfo.InvariantCulture);
+            versions["producerSeconds"] = run.ElapsedSeconds.ToString(CultureInfo.InvariantCulture);
+        }
+        return new SensorProvenance(Id, Version, "repository", ".", measuredAt, versions);
     }
 
     private static IEnumerable<string> ResolveReports(string root, IReadOnlyDictionary<string, string>? configuration)
@@ -545,7 +634,7 @@ public sealed class CoverageSensor : IReviewSensor
                 if (File.Exists(exact)) results.Add(exact);
                 continue;
             }
-            var regex = Glob(normalized);
+            var regex = CoverageReportGlob.Compile(normalized);
             foreach (var file in Directory.EnumerateFiles(root, "*", new EnumerationOptions
             { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
             {
@@ -554,29 +643,6 @@ public sealed class CoverageSensor : IReviewSensor
             }
         }
         return results.Order(StringComparer.Ordinal);
-    }
-
-    private static Regex Glob(string pattern)
-    {
-        var expression = new StringBuilder("^");
-        for (var index = 0; index < pattern.Length; index++)
-        {
-            if (pattern[index] == '*' && index + 1 < pattern.Length && pattern[index + 1] == '*')
-            {
-                index++;
-                if (index + 1 < pattern.Length && pattern[index + 1] == '/')
-                {
-                    index++;
-                    expression.Append("(?:.*/)?");
-                }
-                else expression.Append(".*");
-            }
-            else if (pattern[index] == '*') expression.Append("[^/]*");
-            else if (pattern[index] == '?') expression.Append("[^/]");
-            else expression.Append(Regex.Escape(pattern[index].ToString()));
-        }
-        expression.Append('$');
-        return new Regex(expression.ToString(), RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     }
 
     public static string? GitValue(string root, params string[] arguments)
