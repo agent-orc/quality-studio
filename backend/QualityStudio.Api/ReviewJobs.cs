@@ -20,7 +20,9 @@ public sealed record StartReviewRequest(
     decimal? CostCap = null,
     bool Force = false,
     bool ConfirmBelowFloor = false,
-    string? ScopeType = null);
+    string? ScopeType = null,
+    IReadOnlyList<string>? OptInSensors = null,
+    bool RefreshSensors = false);
 
 public sealed record ResumeReviewRequest(long? TokenCap = null, decimal? CostCap = null);
 
@@ -37,7 +39,8 @@ public sealed record ReviewPreflightResponse(
     decimal? CostCap,
     ReviewModelRecommendation Recommendation,
     bool OverrideBelowFloor,
-    string? ModelSource = null);
+    string? ModelSource = null,
+    SensorExecutionPlan? SensorPlan = null);
 
 public sealed record ReviewEstimateDeviation(
     decimal InputTokensPercent,
@@ -79,7 +82,10 @@ public sealed record ReviewRunResponse(
     ReviewEstimateDeviation? Deviation,
     ReviewModelRecommendation? Recommendation,
     bool RouteOverride,
-    string? ModelSource = null);
+    string? ModelSource = null,
+    IReadOnlyList<string>? OptInSensors = null,
+    bool RefreshSensors = false,
+    IReadOnlyList<SensorExecutionRecord>? Sensors = null);
 
 public interface IReviewExecutor
 {
@@ -186,6 +192,7 @@ public sealed class ReviewJobService : BackgroundService
         var cliType = route.CliType;
         var model = route.Model;
         var (tokenCap, costCap) = ResolveCap(registration, request.TokenCap, request.CostCap);
+        var optInSensors = ResolveOptIn(registration, request.OptInSensors);
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
@@ -220,7 +227,9 @@ public sealed class ReviewJobService : BackgroundService
             selection.Model is not null &&
             (!string.Equals(selection.Model, recommendation.RecommendedModel, StringComparison.OrdinalIgnoreCase) ||
              !string.Equals(selection.ThinkingLevel, recommendation.RecommendedThinkingLevel, StringComparison.OrdinalIgnoreCase)),
-            modelSource);
+            modelSource,
+            optInSensors.Count == 0 ? null : optInSensors,
+            request.RefreshSensors);
         var store = new ReviewRunStore(registration.RootPath);
         var item = ReviewWorkItem.Create(manifest, registration, store);
         store.Create(manifest, item.DurableStatus());
@@ -248,12 +257,58 @@ public sealed class ReviewJobService : BackgroundService
         var cliType = route.CliType;
         var model = route.Model;
         var (tokenCap, costCap) = ResolveCap(plan.Registration, request.TokenCap, request.CostCap);
+        var optInSensors = ResolveOptIn(plan.Registration, request.OptInSensors);
         var estimate = await EstimateAsync(plan, request.Kind, cliType, model, request.Force, cancellationToken).ConfigureAwait(false);
         if (costCap.HasValue && estimate.Cost is null)
             throw new ArgumentException($"A cost cap cannot be enforced because model '{model ?? "runner-default"}' has no price in the runner catalogue. Use a token cap instead.");
+        var cache = await SensorResultCache.OpenAsync(plan.Registration.RootPath, request.RefreshSensors, cancellationToken)
+            .ConfigureAwait(false);
+        var sensorPlan = SensorExecutionPlan.Build(plan.Registration.RootPath,
+            EnabledSensors(plan.Registration, request.Kind), optInSensors, cache);
         return new ReviewPreflightResponse(plan.Registration.Id, plan.Node.Path,
             plan.Node.Level.ToString().ToLowerInvariant(), request.Kind, model, route.ThinkingLevel,
-            cliType, estimate, tokenCap, costCap, recommendation, belowFloor, modelSource);
+            cliType, estimate, tokenCap, costCap, recommendation, belowFloor, modelSource, sensorPlan);
+    }
+
+    /// <summary>
+    /// The sensors a run of <paramref name="kind"/> draws on, before per-run opt-in: deterministic
+    /// evidence for every kind, and the remaining enabled sensors as the security bundle.
+    /// </summary>
+    private IReadOnlyList<(ReviewSensorConfiguration Configuration, IReviewSensor Sensor, string Role)> EnabledSensors(
+        RepositoryRegistration registration, string kind)
+    {
+        var enabled = new List<(ReviewSensorConfiguration, IReviewSensor, string)>();
+        foreach (var configured in (registration.Sensors ?? []).Where(sensor => sensor.Enabled))
+        {
+            IReviewSensor sensor;
+            try { sensor = sensorRegistry.Get(configured.Id); }
+            catch (SensorNotFoundException) { continue; }
+            var role = sensor is IDeterministicEvidenceSensor ? SensorRole.Deterministic : SensorRole.Security;
+            if (role == SensorRole.Security && kind != "security") continue;
+            enabled.Add((new ReviewSensorConfiguration(configured.Id, configured.Configuration), sensor, role));
+        }
+        return enabled;
+    }
+
+    /// <summary>
+    /// The opt-in sensors a run names, checked: each must be one that builds the project and must be
+    /// enabled for the repository, so a typo cannot silently start a run without the build it asked for.
+    /// </summary>
+    private static IReadOnlyList<string> ResolveOptIn(RepositoryRegistration registration, IReadOnlyList<string>? requested)
+    {
+        if (requested is not { Count: > 0 }) return [];
+        var resolved = new List<string>(requested.Count);
+        foreach (var id in requested.Select(id => id?.Trim() ?? string.Empty).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!SensorExecutionPolicy.RequiresOptIn(id))
+                throw new ArgumentException(
+                    $"Sensor '{id}' does not take a per-run opt-in. Opt-in sensors: {string.Join(", ", SensorExecutionPolicy.OptInSensorIds)}.");
+            if (!(registration.Sensors ?? []).Any(sensor => sensor.Enabled &&
+                    string.Equals(sensor.Id, id, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException($"Sensor '{id}' is not enabled for this repository.");
+            resolved.Add(id.ToLowerInvariant());
+        }
+        return resolved.Order(StringComparer.Ordinal).ToArray();
     }
 
     /// <summary>
@@ -558,15 +613,7 @@ public sealed class ReviewJobService : BackgroundService
             item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
         try
         {
-            item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
-                .CollectAsync(
-                    item.Repository.RootPath,
-                    (item.Repository.Sensors ?? [])
-                        .Where(sensor => sensor.Enabled)
-                        .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                        .ToArray(),
-                    linked.Token)
-                .ConfigureAwait(false);
+            await CollectSensorEvidenceAsync(item, linked.Token).ConfigureAwait(false);
             if (item.HasCap)
             {
                 foreach (var file in item.PendingFiles())
@@ -623,6 +670,39 @@ public sealed class ReviewJobService : BackgroundService
             {
                 item.Fail("The review queue is unavailable.");
             }
+        }
+    }
+
+    /// <summary>
+    /// Runs the sensors of one attempt once, before any agent: the deterministic evidence every kind
+    /// receives and, for a security review, the security bundle. Both go through the per-commit cache,
+    /// and a sensor that builds the project runs only when the run opted in.
+    /// </summary>
+    private async Task CollectSensorEvidenceAsync(ReviewWorkItem item, CancellationToken cancellationToken)
+    {
+        var enabled = EnabledSensors(item.Repository, item.Kind);
+        var admitted = SensorExecutionPolicy.Admit(enabled.Select(sensor => sensor.Configuration), item.OptInSensors);
+        var cache = await SensorResultCache.OpenAsync(item.Repository.RootPath, item.RefreshSensors, cancellationToken)
+            .ConfigureAwait(false);
+        var deterministic = admitted.Where(sensor => enabled.Any(candidate =>
+                candidate.Configuration.Id == sensor.Id && candidate.Role == SensorRole.Deterministic)).ToArray();
+        item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry, cache)
+            .CollectAsync(item.Repository.RootPath, deterministic, cancellationToken).ConfigureAwait(false);
+        item.SecuritySensors = admitted.Except(deterministic).ToArray();
+        item.SecurityEvidence = item.Kind == "security" && item.SecuritySensors.Count > 0
+            ? await new SecurityEvidenceCollector(sensorRegistry, cache)
+                .RunAsync(item.Repository.RootPath, item.SecuritySensors, cancellationToken).ConfigureAwait(false)
+            : null;
+        item.SensorExecutions = cache.Executions
+            .Concat(enabled.Where(sensor => !admitted.Contains(sensor.Configuration))
+                .Select(sensor => new SensorExecutionRecord(sensor.Configuration.Id, SensorOutcome.OptInRequired, 0)))
+            .OrderBy(record => record.SensorId, StringComparer.Ordinal)
+            .ToArray();
+        foreach (var record in item.SensorExecutions)
+        {
+            logger.LogInformation(new EventId(1515, "ReviewSensorEvidence"),
+                "Review {ReviewRunId} sensor {SensorId}: {SensorOutcome} in {ElapsedMilliseconds} ms {SensorDetail}",
+                item.Id, record.SensorId, record.Outcome, record.DurationMs, record.Detail ?? string.Empty);
         }
     }
 
@@ -708,14 +788,9 @@ public sealed class ReviewJobService : BackgroundService
             ModelSource: item.ModelSource,
             SubjectGroups: level == ReviewLevel.File ? null : SubjectGroups(LiveNode(item, node)),
             ReviewRunId: item.Id,
-            Sensors: item.Kind == "security"
-                ? (item.Repository.Sensors ?? Array.Empty<RepositorySensorConfiguration>())
-                    .Where(sensor => sensor.Enabled &&
-                                     sensorRegistry.Get(sensor.Id) is not IDeterministicEvidenceSensor)
-                    .Select(sensor => new ReviewSensorConfiguration(sensor.Id, sensor.Configuration))
-                    .ToArray()
-                : null,
-            DeterministicEvidence: item.DeterministicEvidence);
+            Sensors: item.Kind == "security" ? item.SecuritySensors : null,
+            DeterministicEvidence: item.DeterministicEvidence,
+            SecurityEvidence: item.SecurityEvidence);
     }
 
     /// <summary>
@@ -876,6 +951,11 @@ public sealed class ReviewJobService : BackgroundService
         public int FailedFiles { get { lock (gate) return progress.Values.Count(file => file.State == "failed"); } }
         public bool HasCap { get { lock (gate) return tokenCap.HasValue || costCap.HasValue; } }
         public IReadOnlyList<SensorScanResult> DeterministicEvidence { get; set; } = [];
+        public IReadOnlyList<ReviewSensorConfiguration> SecuritySensors { get; set; } = [];
+        public IReadOnlyList<SensorScanResult>? SecurityEvidence { get; set; }
+        public IReadOnlyList<SensorExecutionRecord>? SensorExecutions { get; set; }
+        public IReadOnlyList<string>? OptInSensors => manifest.OptInSensors;
+        public bool RefreshSensors => manifest.RefreshSensors;
 
         public void PrepareForRecovery()
         {
@@ -1194,7 +1274,7 @@ public sealed class ReviewJobService : BackgroundService
                     manifest.Estimate, tokenCap, costCap, costSpent, currency, priceStatus,
                     files.Count(file => file.State is "skipped" or "skipped-fresh"),
                     aggregateState, stopReason, Deviation(), manifest.Recommendation, manifest.RouteOverride,
-                    manifest.ModelSource);
+                    manifest.ModelSource, manifest.OptInSensors, manifest.RefreshSensors, SensorExecutions);
             }
         }
 
