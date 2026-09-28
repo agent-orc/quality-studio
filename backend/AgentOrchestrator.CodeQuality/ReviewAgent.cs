@@ -26,7 +26,8 @@ public interface IReviewAgent
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
-public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
+public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null,
+    ReviewerContext? Context = null);
 
 public sealed class ReviewAgentRunException(
     string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
@@ -103,7 +104,13 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             : ReviewModelSource.Explicit);
         _logger = logger;
         _attachTimeout = attachTimeout ?? DefaultAttachTimeout;
-        _runner = new CliRunner(options ?? new CliOptions(), logger);
+        // A CLI that cannot be isolated would review with the repository's own instructions in
+        // force, so it is refused up front rather than run shared. See ReviewerIsolation.
+        if (!ReviewerIsolation.Supports(cliType))
+            throw new ReviewerIsolationException(
+                $"The '{cliType}' reviewer CLI cannot run without repository instruction files; use claude or codex.");
+        options ??= new CliOptions();
+        _runner = new CliRunner(options with { Spawner = new IsolatingCliProcessSpawner(cliType, options.Spawner) }, logger);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
@@ -157,6 +164,31 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _driverOverride ?? _runner!.Get(_cliType);
+        var observation = new ReviewerContextObservation();
+        CliRunInfo? started = null;
+        string? sessionId = null;
+        void ObserveOutput(string id, CliOutputLine line)
+        {
+            if (id == runId && line.Stream == "stdout" && _cliType == CliTypes.Claude)
+                observation.ObserveClaudeInitFrame(line.Text);
+        }
+        void ObserveStart(string id, CliRunInfo info)
+        {
+            if (id == runId) started = info;
+        }
+        // The runner deletes the per-run home right after RunEnded's synchronous handlers return,
+        // so the CLI's transcript has to be read here, not once the stream has drained.
+        void ObserveEvent(string id, CliRunEvent runEvent)
+        {
+            if (id != runId) return;
+            if (runEvent is CliRunEvent.SessionStarted session) sessionId = session.SessionId;
+            else if (runEvent is CliRunEvent.RunEnded)
+                observation.ReadSessionRecord(_cliType,
+                    started?.CleanContextHome ?? driver.GetExecution(runId)?.CleanContextHome, sessionId, workingDirectory);
+        }
+        driver.OnOutput += ObserveOutput;
+        driver.OnStarted += ObserveStart;
+        driver.OnRunEvent += ObserveEvent;
         using var watchdog = RunWatchdog.Attach(driver, WatchdogPolicy.Default, autoStop: true);
         watchdog.OnHung += (id, phase, silenceSeconds) =>
         {
@@ -172,7 +204,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             Model = Model,
             ThinkingLevel = _thinkingLevel,
             PermissionMode = "read-only",
-            ContextMode = "shared",
+            ContextMode = ReviewerIsolation.ContextMode,
         }, cancellationToken).GetAsyncEnumerator(cancellationToken);
         var attachTimedOut = false;
         try
@@ -226,10 +258,47 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         finally
         {
             if (!attachTimedOut) await enumerator.DisposeAsync().ConfigureAwait(false);
+            driver.OnOutput -= ObserveOutput;
+            driver.OnStarted -= ObserveStart;
+            driver.OnRunEvent -= ObserveEvent;
         }
 
         var completed = BuildUsage(metrics, stopwatch);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        var context = new ReviewerContext(
+            ReviewerIsolation.ContextMode,
+            ReviewerIsolation.RepositoryInstructionPolicy,
+            observation.Observed,
+            observation.LoadedInstructionFiles,
+            ReviewerIsolation.FindRepositoryInstructionFiles(workingDirectory),
+            observation.Skills,
+            observation.McpServers,
+            observation.SystemPromptCharacters,
+            prompt.Length);
+        if (IsolationViolation(started, context) is { } violation)
+        {
+            _logger?.LogError("Review run {RunId} was not isolated: {Violation}", runId, violation);
+            throw new ReviewAgentRunException(runId, completed.Usage, completed.Model,
+                new ReviewerIsolationException(violation));
+        }
+        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model, context);
+    }
+
+    /// <summary>
+    /// Why a finished run cannot be trusted as isolated, or null. A run whose clean home was never
+    /// created ran on the operator's shared state; a run that reports loading an instruction file,
+    /// a skill or an MCP server saw more than the prompt. Either way its grade is not recorded.
+    /// </summary>
+    internal static string? IsolationViolation(CliRunInfo? started, ReviewerContext context)
+    {
+        if (started is not null && string.IsNullOrWhiteSpace(started.CleanContextHome))
+            return "the runner could not create a clean context home, so the CLI ran on the operator's shared state";
+        if (context.LoadedInstructionFiles.Count > 0)
+            return "the CLI loaded instruction files: " + string.Join(", ", context.LoadedInstructionFiles);
+        if (context.Skills.Count > 0)
+            return "the CLI advertised skills: " + string.Join(", ", context.Skills);
+        if (context.McpServers.Count > 0)
+            return "the CLI wired MCP servers: " + string.Join(", ", context.McpServers);
+        return null;
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,

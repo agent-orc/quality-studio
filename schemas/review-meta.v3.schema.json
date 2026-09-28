@@ -380,6 +380,63 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 100
+        },
+        "context": {
+          "$ref": "#/$defs/reviewerContext"
+        }
+      }
+    },
+    "reviewerContext": {
+      "description": "What the reviewer CLI run actually saw besides the prompt. See docs/reviewer-isolation.md.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "repositoryInstructions",
+        "observed",
+        "loadedInstructionFiles",
+        "excludedInstructionFiles",
+        "skills",
+        "mcpServers",
+        "promptCharacters"
+      ],
+      "properties": {
+        "mode": {
+          "enum": ["clean", "shared"]
+        },
+        "repositoryInstructions": {
+          "enum": ["excluded", "quoted", "loaded"]
+        },
+        "observed": {
+          "type": "boolean"
+        },
+        "loadedInstructionFiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        },
+        "excludedInstructionFiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        },
+        "skills": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "mcpServers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "systemPromptCharacters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "promptCharacters": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

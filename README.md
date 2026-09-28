@@ -235,6 +235,11 @@ from its findings and grade. Configuration and unavailable behavior are document
 
 Global and repository-owned Markdown guidelines can be resolved into review prompts with deterministic overrides and an explicit size budget. See [`docs/review-inputs.md`](docs/review-inputs.md) for the `.quality/inputs/` convention and `--explain-inputs` usage.
 
+The reviewer CLI itself runs isolated: a clean per-run home, no operator skills or MCP servers, and
+no repository instruction files (`CLAUDE.md`, `AGENTS.md`, …) loaded as instructions. Each sidecar
+records what the reviewer loaded and the size of its system prompt. See
+[`docs/reviewer-isolation.md`](docs/reviewer-isolation.md).
+
 ## Rule library
 
 Named, versioned coding-standard rules for code, security, and performance reviews ship with the
