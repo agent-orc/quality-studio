@@ -72,6 +72,66 @@ public sealed class SensorResultCacheTests
     }
 
     [Fact]
+    public async Task A_root_below_the_git_top_level_hashes_its_own_edits_and_ignores_sibling_edits()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var top = Directory.CreateTempSubdirectory("quality-sensor-cache-nested-").FullName;
+        var root = Path.Combine(top, "apps", "web");
+        try
+        {
+            await GitTestRepository.InitializeAsync(top, cancellationToken);
+            Directory.CreateDirectory(Path.Combine(root, "src"));
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Sample.cs"), "class Sample { }", cancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(top, "Sibling.cs"), "class Sibling { }", cancellationToken);
+            await GitTestRepository.RunAsync(top, cancellationToken, "add", ".");
+            await GitTestRepository.RunAsync(top, cancellationToken, "commit", "--quiet", "-m", "initial");
+            async Task<SensorInputFingerprint> FingerprintAsync() =>
+                (await SensorInputFingerprint.ComputeAsync(root, cancellationToken))!;
+
+            var clean = await FingerprintAsync();
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Sample.cs"), "class Sample { int x; }", cancellationToken);
+            var firstEdit = await FingerprintAsync();
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Sample.cs"), "class Sample { int y; }", cancellationToken);
+            var secondEdit = await FingerprintAsync();
+
+            // Two different contents of the same dirty file must differ; a path resolved against the wrong
+            // directory would read both as "deleted" and let the first edit's result stand for the second.
+            Assert.Equal(0, clean.DirtyFiles);
+            Assert.Equal(1, firstEdit.DirtyFiles);
+            Assert.NotEqual(clean.Value, firstEdit.Value);
+            Assert.NotEqual(firstEdit.Value, secondEdit.Value);
+
+            await File.WriteAllTextAsync(Path.Combine(top, "Sibling.cs"), "class Sibling { int z; }", cancellationToken);
+            Assert.Equal(secondEdit, await FingerprintAsync());
+
+            var sensor = new CountingSensor("counting-check", deterministic: true)
+            {
+                OnRun = () => File.WriteAllText(Path.Combine(
+                    Directory.CreateDirectory(Path.Combine(root, ".quality", "preflight")).FullName,
+                    "eslint.sarif"), Guid.NewGuid().ToString()),
+            };
+            async Task RunAsync() =>
+                await (await SensorResultCache.OpenAsync(root, cancellationToken: cancellationToken))
+                    .GetOrRunAsync(sensor, Request(root), cancellationToken);
+
+            await RunAsync();
+            await RunAsync();
+            Assert.Equal(1, sensor.Runs);
+            await File.WriteAllTextAsync(Path.Combine(root, "src", "Sample.cs"), "class Sample { int w; }", cancellationToken);
+            await RunAsync();
+            Assert.Equal(2, sensor.Runs);
+            File.Delete(Path.Combine(root, "src", "Sample.cs"));
+            await RunAsync();
+            Assert.Equal(3, sensor.Runs);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(QualityDataRoot.For(root));
+            Cleanup(top);
+        }
+    }
+
+    [Fact]
     public async Task Refresh_runs_the_sensor_and_replaces_the_entry()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
