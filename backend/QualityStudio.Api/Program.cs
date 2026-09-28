@@ -80,6 +80,7 @@ builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton<AgentStudioTaskClient>();
 builder.Services.Configure<ReviewJobsOptions>(builder.Configuration.GetSection(ReviewJobsOptions.SectionName));
 builder.Services.AddSingleton<IReviewExecutorFactory, ReviewExecutorFactory>();
+builder.Services.AddSingleton<ProviderAuthStateTracker>(_ => new ProviderAuthStateTracker());
 builder.Services.AddSingleton<ReviewJobService>();
 builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<ReviewJobService>());
 builder.Services.AddSingleton(_ => new QuotaService(
@@ -1491,17 +1492,27 @@ static async Task<IResult> Report(HttpContext context, string? format,
     return Results.Text(rendered, QualityReportRenderer.ContentType(selectedFormat), Encoding.UTF8);
 }
 
-static IResult Quotas(QuotaService quotas, ILogger<Program> logger, CancellationToken cancellationToken)
+static IResult Quotas(QuotaService quotas, ProviderAuthStateTracker providerAuth, ILogger<Program> logger,
+    CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var report = quotas.GetWithBackgroundRefresh(cancellationToken);
     logger.LogInformation(new EventId(1401, "QuotasLoaded"),
         "Loaded {QuotaProviderCount} quota providers in {ElapsedMilliseconds} ms",
         report.Snapshots.Count, stopwatch.ElapsedMilliseconds);
+    // The login state sits next to the quota: a provider with quota left but a refused login still
+    // cannot review, and a provider no quota probe covers still shows what reviews learned about it.
+    var quotaProviders = report.Snapshots.Select(snapshot => snapshot.CliType).ToHashSet(StringComparer.OrdinalIgnoreCase);
     return Results.Ok(new
     {
         report.At,
         report.TtlSeconds,
+        Auth = report.Snapshots
+            .Select(snapshot => providerAuth.Describe(snapshot.CliType, snapshot.Error, snapshot.FetchedAt))
+            .Concat(providerAuth.Providers.Where(provider => !quotaProviders.Contains(provider))
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(provider => providerAuth.Describe(provider)))
+            .ToArray(),
         Providers = report.Snapshots.Select(snapshot => new
         {
             Provider = snapshot.CliType,

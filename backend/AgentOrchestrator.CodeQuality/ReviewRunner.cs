@@ -69,6 +69,7 @@ public sealed class ReviewRunner
     private readonly SensorRegistry? _sensorRegistry;
     private readonly HierarchyUnitResolver _unitResolver;
     private readonly ReviewExecutionPipeline _pipeline;
+    private readonly Action<ReviewResponseRejection>? _responseRejected;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -78,8 +79,10 @@ public sealed class ReviewRunner
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
         StalenessEvaluator? stalenessEvaluator = null,
-        HierarchyUnitResolver? unitResolver = null)
+        HierarchyUnitResolver? unitResolver = null,
+        Action<ReviewResponseRejection>? responseRejected = null)
     {
+        _responseRejected = responseRejected;
         _agent = agent ?? CodingAgentReviewAgent.CreateDefault();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
@@ -159,11 +162,17 @@ public sealed class ReviewRunner
                 async (outcome, token) =>
                 {
                     var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, token).ConfigureAwait(false);
+                    var contentHashes = subjectContents.ToDictionary(
+                        pair => pair.Key, pair => FindingIdentity.ContentHash(pair.Value), StringComparer.Ordinal);
                     if (request.Kind == "security")
                     {
                         SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
                     }
-                    var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+                    var stateStore = new FindingStateStore(root);
+                    var unlisted = await LoadUnlistedFindingsAsync(stateStore, contentHashes.Keys, rulePolicy, token)
+                        .ConfigureAwait(false);
+                    var findingIdentities = FindingIdentity.Assign(
+                        response, subjectContents, [.. LoadFindingIdentities(metaPath), .. unlisted]).ToList();
                     AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
                     if (request.Kind == "security")
                     {
@@ -176,9 +185,9 @@ public sealed class ReviewRunner
                     await writeLock.WaitAsync(token).ConfigureAwait(false);
                     try
                     {
-                        var previousFindings = LoadFindingIdentities(metaPath);
-                        var findingStates = await new FindingStateStore(root).MergeReviewAsync(
-                            findingIdentities, previousFindings, _agent.AgentName, token).ConfigureAwait(false);
+                        IReadOnlyList<FindingIdentityRecord> previousFindings = [.. LoadFindingIdentities(metaPath), .. unlisted];
+                        var findingStates = await stateStore.MergeReviewAsync(
+                            findingIdentities, previousFindings, _agent.AgentName, contentHashes, token).ConfigureAwait(false);
                         threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                         ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
                         ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
@@ -215,6 +224,18 @@ public sealed class ReviewRunner
                         false,
                         new ReviewResult(metaPath, reviewedHash, outcome.RunId, inputs, usage, observation),
                         observation);
+                },
+                rejection =>
+                {
+                    QualityStudioEventSource.Log.ResponseRejected(relativePath, request.Kind, rejection.AgentRunId,
+                        rejection.Attempt, rejection.Retried, rejection.Error);
+                    _responseRejected?.Invoke(rejection with
+                    {
+                        Path = relativePath,
+                        Kind = request.Kind,
+                        Level = request.Level.ToString().ToLowerInvariant(),
+                    });
+                    return Task.CompletedTask;
                 }), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -571,18 +592,45 @@ public sealed class ReviewRunner
     }
 
     /// <summary>
-    /// The findings the previous review recorded, which the lifecycle compares against this run.
+    /// The findings the previous review recorded, which the lifecycle compares against this run,
+    /// each with its primary anchor so a re-reported finding can be recognised by its span.
     /// A sidecar that cannot be read yields none: the reader has reported the fault, and claiming
     /// no previous findings resolves nothing, where a guessed list would resolve the wrong ones.
     /// </summary>
     private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath) =>
         ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)
-            ? sidecar.Document.Findings.Select(finding => new FindingIdentityRecord(
-                finding.Fingerprint,
-                finding.Id,
-                finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
-                finding.RuleId)).ToArray()
+            ? sidecar.Document.Findings.Select(finding =>
+            {
+                var anchor = finding.Anchors?.FirstOrDefault(item => item.Role == FindingAnchorRole.Primary);
+                return new FindingIdentityRecord(
+                    finding.Fingerprint,
+                    finding.Id,
+                    anchor?.Path ?? finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
+                    finding.RuleId,
+                    anchor?.CapturedExcerpt.ContentHash,
+                    anchor?.Range);
+            }).ToArray()
             : [];
+
+    /// <summary>
+    /// Findings in this subject that an earlier review did not re-observe on unchanged code. Their
+    /// sidecar no longer lists them, so the lifecycle state carries the anchor they were last seen at,
+    /// and this review can still recognise them — or, once the code changed, resolve them. Only
+    /// findings under a rule this review was given are its to judge: a security review of the same
+    /// file cannot re-observe, or resolve, a code finding.
+    /// </summary>
+    private static async Task<IReadOnlyList<FindingIdentityRecord>> LoadUnlistedFindingsAsync(
+        FindingStateStore store, IEnumerable<string> subjectPaths, RuleIdPolicy rules,
+        CancellationToken cancellationToken)
+    {
+        var paths = subjectPaths.ToHashSet(StringComparer.Ordinal);
+        var states = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
+        return states.Values
+            .Where(record => record.LastObservedRange is not null && paths.Contains(record.Path) &&
+                             rules.Canonicalize(record.RuleId) is not null)
+            .Select(record => record.ToIdentity())
+            .ToArray();
+    }
 
     private static async Task<IReadOnlyList<SubjectInputHash>> HashInputsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)

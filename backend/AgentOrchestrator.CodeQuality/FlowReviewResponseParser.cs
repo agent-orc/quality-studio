@@ -1,10 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 
 namespace AgentOrchestrator.CodeQuality;
 
-internal sealed partial class FlowReviewResponseParser
+internal sealed class FlowReviewResponseParser
 {
     private static readonly HashSet<string> Classes =
     [
@@ -28,20 +27,7 @@ internal sealed partial class FlowReviewResponseParser
     {
         if (string.IsNullOrWhiteSpace(response))
             throw new ReviewResponseException("The agent returned no flow review response.");
-        var matches = JsonFence().Matches(response);
-        if (matches.Count > 1)
-            throw new ReviewResponseException("The agent returned more than one JSON block.");
-        var json = matches.Count == 1 ? matches[0].Groups[1].Value : response.Trim();
-        JsonObject root;
-        try
-        {
-            root = JsonNode.Parse(json)?.AsObject()
-                ?? throw new ReviewResponseException("The flow review response must be a JSON object.");
-        }
-        catch (JsonException exception)
-        {
-            throw new ReviewResponseException("The agent returned invalid flow review JSON.", exception);
-        }
+        var root = AgentJsonReader.FirstObject(response);
 
         var verdict = RequireString(root, "verdict");
         if (verdict is not ("pass" or "fail" or "undetermined"))
@@ -116,7 +102,4 @@ internal sealed partial class FlowReviewResponseParser
 
     private static ReviewResponseException Invalid(string property) =>
         new($"Flow review response property '{property}' is missing or invalid.");
-
-    [GeneratedRegex(@"```json\s*([\s\S]*?)\s*```", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex JsonFence();
 }

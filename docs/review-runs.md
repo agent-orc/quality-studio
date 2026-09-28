@@ -20,6 +20,55 @@ Before every file and aggregate operation, the runner compares the current subje
 
 A run may use one token cap or one cost cap. Omitting both inherits the repository's default. Enforcement happens in `ReviewJobService` at durable review-operation boundaries: once recorded usage reaches the cap, no next file or aggregate operation starts. The operation that crosses the threshold is allowed to finish cleanly, so actual spend can exceed the cap by at most that operation. Remaining files are persisted as `skipped`, the aggregate is reported as `skipped` when applicable, and the run ends as `capped` with a stop reason and complete reviewed, failed, and skipped counts.
 
+### Answers the parser refuses
+
+Every review prompt carries the answer contract,
+[`review-response.v1.schema.json`](../schemas/review-response.v1.schema.json), after the output
+format section of its template. The runner reads the **first complete JSON object** in the answer
+(`AgentJsonReader`): it walks from an opening brace to the brace that closes it, treating everything
+inside JSON strings as data, so a recommendation that quotes a fenced snippet no longer breaks the
+read, and prose or a second block after the object is ignored. A `json` fence is only a hint where to
+start. The schema sits outside the template on purpose: it states the shape the parser already
+enforced, so it is not part of the template hash and adding it made no stored review stale.
+
+When the parser still refuses an answer, the same prompt is sent **once more** with the refusal
+reason appended ("Your previous answer was rejected"). Both runs are recorded in the usage ledger. A
+second refusal fails the unit with the reason and a note that the repair attempt was refused too.
+Each refused answer is appended to `runs/<runId>/rejections.jsonl` with the agent run id, attempt,
+whether it was retried, the reason, the unit, and the raw answer capped at 32,768 characters (head
+and tail, with a marker and the original length when cut). The one-line file error says why an
+answer was refused; the journal shows what the agent actually returned.
+
+The CodingAgentRunner 0.7 request has no structured-output channel, so the schema is requested in
+the prompt and enforced by the parser. When the runner gains a native schema parameter, the same
+embedded schema is what it should pass.
+
+### Provider and login failures
+
+A failed operation is classified before the sweep moves on. Only a failure of the agent run itself
+counts — a CLI that ended without completing, failed to attach, or threw while streaming; a refused
+answer, an edited file, or an unreadable path does not. A failure is an **authentication** failure
+when its message says so (`401`/`403`, unauthorized, not logged in, expired or refreshed token,
+invalid API key, credentials); otherwise it is a provider failure. Run ids, GUIDs and timestamps are
+removed from the message, so the same fault on two files compares equal. To make that message
+available, `CodingAgentReviewAgent` carries the last failed turn or error diagnostic into the abort
+reason when the CLI's terminal event does not say why.
+
+After `ReviewJobs:ProviderFailureStopThreshold` (default `3`) **consecutive identical** failures the
+run stops: it ends as `failed` with a stop reason naming the CLI and the provider's message, every
+file not yet started is persisted as `skipped` with that reason, in-flight operations are cancelled
+and also recorded as `skipped`, the aggregate is `skipped`, and the terminal report is published.
+Any operation that reached the provider — a review written, or an answer refused — restarts the
+count, as does a different failure. The run is not resumable; starting the review again is cheap
+because every file already reviewed is `skipped-fresh`.
+
+The same evidence feeds the provider login state that `GET /api/quotas` returns in `auth` and the
+top bar shows next to each provider's quota: `signed in` once a review reached the provider,
+`auth failed` after an authentication failure (from a review, or from the quota probe's own error
+when no review has succeeded since), otherwise `auth unknown`. A provider with a login state but no
+quota chip still gets its own badge, so a refused login is never hidden. The state is in memory and
+starts as unknown after an API restart.
+
 A capped run is resumable without repeating completed files. `POST /api/review/runs/{id}/resume` accepts a higher `{ "tokenCap": ... }` or `{ "costCap": ... }`. Skipped units return to `queued`, while done and failed units remain durable. The server rejects a replacement cap already below current spend. Repository defaults are configured with `defaultReviewTokenCap` or `defaultReviewCostCap` (mutually exclusive) in the repository registration UI or API.
 
 ## Module and project passes
@@ -107,6 +156,8 @@ Run orchestration is durable under `runs/<runId>/` in the project's data root:
 - `observations.json` is the orchestration checkpoint for exact file and aggregate
   observations. It is replaced atomically before the corresponding progress
   transition is appended, allowing recovery to publish the same captured evidence.
+- `rejections.jsonl` is present only when the parser refused an agent answer. Each line keeps one
+  refused answer, capped, with its reason; see [Answers the parser refuses](#answers-the-parser-refuses).
 
 At every terminal transition the API projects these immutable inputs into
 `reports/runs/<runId>.json`, again in the data root. This canonical,

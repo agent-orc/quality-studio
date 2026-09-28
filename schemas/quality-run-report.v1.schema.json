@@ -213,7 +213,13 @@
         "new": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
         "persisting": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
         "resolved": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
-        "stateChanged": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } }
+        "stateChanged": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha256" } },
+        "notReobserved": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sha256" },
+          "description": "Prior findings this run did not report again although their code is unchanged. They are not resolved. Absent in reports written before 2026-09-28."
+        }
       }
     },
     "summary": {

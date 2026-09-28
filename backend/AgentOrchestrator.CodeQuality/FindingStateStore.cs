@@ -6,8 +6,18 @@ using System.Text.Json.Serialization;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public enum FindingState { Open, Accepted, Waived, FalsePositive, Resolved }
+/// <summary>
+/// The lifecycle of one finding. <see cref="NotReobserved"/> means the latest review of the same,
+/// unchanged code did not report the finding again: a model that misses a finding once has not
+/// shown that it was fixed, so that is never <see cref="Resolved"/>.
+/// </summary>
+public enum FindingState { Open, Accepted, Waived, FalsePositive, Resolved, NotReobserved }
 
+/// <summary>
+/// One finding's lifecycle state. <see cref="LastObservedContentHash"/> and
+/// <see cref="LastObservedRange"/> are kept only while the finding is not re-observed: its review
+/// sidecar no longer lists it, and a later review needs the anchor to recognise it again.
+/// </summary>
 public sealed record FindingStateRecord(
     string Fingerprint,
     string FindingId,
@@ -17,7 +27,14 @@ public sealed record FindingStateRecord(
     string Author,
     string Reason,
     DateTimeOffset Timestamp,
-    DateTimeOffset? ExpiresAt = null);
+    DateTimeOffset? ExpiresAt = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LastObservedContentHash = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FindingRange? LastObservedRange = null)
+{
+    /// <summary>The identity to match against a later review, with the anchor last observed.</summary>
+    public FindingIdentityRecord ToIdentity() =>
+        new(Fingerprint, FindingId, Path, RuleId, LastObservedContentHash, LastObservedRange);
+}
 
 public sealed record FindingStateDocument(int SchemaVersion, long Revision, IReadOnlyList<FindingStateRecord> Findings);
 
@@ -53,10 +70,30 @@ public sealed class FindingStateStore
             return Lookup(effective);
         }, cancellationToken).ConfigureAwait(false);
 
+    public Task<IReadOnlyDictionary<string, FindingStateRecord>> MergeReviewAsync(
+        IReadOnlyCollection<FindingIdentityRecord> current,
+        IReadOnlyCollection<FindingIdentityRecord> previous,
+        string author,
+        CancellationToken cancellationToken = default) =>
+        MergeReviewAsync(current, previous, author, null, cancellationToken);
+
+    /// <summary>
+    /// Records what one review observed. A current finding opens, or reopens when it had been
+    /// resolved or not re-observed. A previous finding the review did not report again is resolved,
+    /// unless <paramref name="currentContentHashes"/> shows that the file it is anchored in still has
+    /// the content hash it was observed on: then the code did not change, the finding is only not
+    /// re-observed, and a human disposition on it stays as it was.
+    /// </summary>
+    /// <param name="currentContentHashes">
+    /// The anchor content hash (<see cref="FindingIdentity.ContentHash"/>) of every file the review
+    /// covered, by repository-relative path. Null for producers without anchors, whose absent
+    /// findings are always resolved.
+    /// </param>
     public async Task<IReadOnlyDictionary<string, FindingStateRecord>> MergeReviewAsync(
         IReadOnlyCollection<FindingIdentityRecord> current,
         IReadOnlyCollection<FindingIdentityRecord> previous,
         string author,
+        IReadOnlyDictionary<string, string>? currentContentHashes,
         CancellationToken cancellationToken = default) =>
         await ExecuteLockedAsync(async () =>
         {
@@ -68,17 +105,39 @@ public sealed class FindingStateStore
 
             foreach (var finding in current)
             {
-                if (!records.TryGetValue(finding.Fingerprint, out var existing) || existing.State == FindingState.Resolved)
+                if (!records.TryGetValue(finding.Fingerprint, out var existing) ||
+                    existing.State is FindingState.Resolved or FindingState.NotReobserved)
                 {
                     records[finding.Fingerprint] = NewRecord(finding, FindingState.Open, author,
-                        existing is null ? "First observed by review." : "Finding reappeared in review.", now);
+                        existing is null ? "First observed by review."
+                        : existing.State == FindingState.NotReobserved ? "Finding was observed again by review."
+                        : "Finding reappeared in review.", now);
                     changed = true;
                 }
             }
 
-            foreach (var finding in previous.Where(item => !currentFingerprints.Contains(item.Fingerprint)))
+            foreach (var finding in previous
+                         .Where(item => !currentFingerprints.Contains(item.Fingerprint))
+                         .DistinctBy(item => item.Fingerprint, StringComparer.Ordinal))
             {
-                if (!records.TryGetValue(finding.Fingerprint, out var existing) || existing.State != FindingState.Resolved)
+                records.TryGetValue(finding.Fingerprint, out var existing);
+                if (IsUnchanged(finding, currentContentHashes))
+                {
+                    if (existing is null || existing.State == FindingState.Open)
+                    {
+                        records[finding.Fingerprint] = NewRecord(finding, FindingState.NotReobserved, author,
+                            "Not re-observed by the latest review of unchanged code; not treated as resolved.", now)
+                            with
+                            {
+                                LastObservedContentHash = finding.ContentHash,
+                                LastObservedRange = finding.Range,
+                            };
+                        changed = true;
+                    }
+                    continue;
+                }
+
+                if (existing is null || existing.State != FindingState.Resolved)
                 {
                     records[finding.Fingerprint] = NewRecord(finding, FindingState.Resolved, author,
                         "Finding was not present in the latest review.", now);
@@ -105,7 +164,8 @@ public sealed class FindingStateStore
         CancellationToken cancellationToken = default) =>
         await ExecuteLockedAsync(async () =>
         {
-            if (state == FindingState.Resolved) throw new ArgumentException("Resolved is set by review merge, not manually.", nameof(state));
+            if (state is FindingState.Resolved or FindingState.NotReobserved)
+                throw new ArgumentException($"{StateName(state)} is set by review merge, not manually.", nameof(state));
             if (string.IsNullOrWhiteSpace(author)) throw new ArgumentException("A state author is required.", nameof(author));
             if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("A state reason is required.", nameof(reason));
             if (author.Length > 200) throw new ArgumentException("A state author cannot exceed 200 characters.", nameof(author));
@@ -131,6 +191,11 @@ public sealed class FindingStateStore
             await SaveAsync(new(1, document.Revision + 1, Ordered(records)), cancellationToken).ConfigureAwait(false);
             return updated;
         }, cancellationToken).ConfigureAwait(false);
+
+    private static bool IsUnchanged(FindingIdentityRecord finding, IReadOnlyDictionary<string, string>? currentContentHashes) =>
+        finding.ContentHash is not null && currentContentHashes is not null &&
+        currentContentHashes.TryGetValue(finding.Path, out var currentHash) &&
+        string.Equals(currentHash, finding.ContentHash, StringComparison.Ordinal);
 
     private static FindingStateRecord NewRecord(FindingIdentityRecord finding, FindingState state, string author, string reason, DateTimeOffset now) =>
         new(finding.Fingerprint, finding.Id, finding.Path, finding.RuleId, state, author, reason, now);
@@ -240,6 +305,7 @@ public sealed class FindingStateStore
     public static string StateName(FindingState state) => state switch
     {
         FindingState.FalsePositive => "false-positive",
+        FindingState.NotReobserved => "not-reobserved",
         _ => state.ToString().ToLowerInvariant(),
     };
 
@@ -276,6 +342,7 @@ public sealed class FindingStateStore
                 "waived" => FindingState.Waived,
                 "false-positive" => FindingState.FalsePositive,
                 "resolved" => FindingState.Resolved,
+                "not-reobserved" => FindingState.NotReobserved,
                 var value => throw new JsonException($"Unsupported finding state '{value}'."),
             };
 

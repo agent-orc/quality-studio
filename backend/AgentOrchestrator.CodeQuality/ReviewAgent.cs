@@ -197,18 +197,32 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
                 throw new ReviewAgentAttachTimeoutException(runId, _attachTimeout);
             }
             var hasCurrent = await attach.ConfigureAwait(false);
+            // A provider that rejects the login usually says so in a failed turn or an error
+            // diagnostic, while the terminal event only reports that the run failed. Carrying the
+            // last such explanation into the abort is what lets a sweep recognise an auth failure.
+            string? lastFailure = null;
             while (hasCurrent)
             {
                 var runEvent = enumerator.Current;
                 metrics.Observe(runEvent);
                 _eventObserver?.Invoke(_cliType, runEvent);
-                if (runEvent is CliRunEvent.OutputDelta delta)
+                switch (runEvent)
                 {
-                    output.Append(delta.Text);
-                }
-                if (runEvent is CliRunEvent.RunEnded ended && ended.Outcome != RunOutcome.Completed)
-                {
-                    throw new ReviewAgentRunAbortedException(runId, ended.Outcome, ended.Reason);
+                    case CliRunEvent.OutputDelta delta:
+                        output.Append(delta.Text);
+                        break;
+                    case CliRunEvent.TurnFailed failed when !string.IsNullOrWhiteSpace(failed.Reason):
+                        lastFailure = failed.Reason;
+                        break;
+                    case CliRunEvent.Diagnostic { Severity: DiagnosticSeverity.Error } diagnostic
+                        when !string.IsNullOrWhiteSpace(diagnostic.Summary):
+                        lastFailure ??= diagnostic.Summary;
+                        break;
+                    case CliRunEvent.RunEnded ended when ended.Outcome != RunOutcome.Completed:
+                        throw new ReviewAgentRunAbortedException(runId, ended.Outcome,
+                            string.IsNullOrWhiteSpace(ended.Reason) ? lastFailure
+                            : lastFailure is null || ended.Reason.Contains(lastFailure, StringComparison.Ordinal) ? ended.Reason
+                            : $"{ended.Reason}; {lastFailure}");
                 }
                 hasCurrent = await enumerator.MoveNextAsync().ConfigureAwait(false);
             }
