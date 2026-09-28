@@ -103,10 +103,21 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             : ReviewModelSource.Explicit);
         _logger = logger;
         _attachTimeout = attachTimeout ?? DefaultAttachTimeout;
-        _runner = new CliRunner(options ?? new CliOptions(), logger);
+        _runner = new CliRunner(options ?? CreateCliOptions(), logger);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
+
+    /// <summary>
+    /// The runner options a review uses when the caller supplies none. Review prompts carry
+    /// whole files and folder aggregates, so Claude receives them over stdin instead of as a
+    /// command-line argument: Windows caps a whole command line at 32,767 characters and
+    /// Linux caps one argument at 128 KiB (see docs/review-runs.md). Codex needs no setting —
+    /// its runner descriptor always writes the prompt to stdin. A caller that supplies its own
+    /// options owns this choice; derive them from this method with <c>with</c> to keep it.
+    /// </summary>
+    public static CliOptions CreateCliOptions() =>
+        new() { ClaudePromptTransport = ClaudePromptTransport.Stdin };
 
     /// <summary>
     /// Builds the agent used when a caller supplies none. The model comes from the synchronized

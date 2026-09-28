@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A stand-in for the claude and codex CLIs, so tests can launch a real child process
+       through CodingAgentRunner on every OS and observe exactly how the prompt arrived.
+       Built as a native apphost (fake-coding-agent / fake-coding-agent.exe); see
+       CodingAgentReviewAgentPromptTransportTests. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>fake-coding-agent</AssemblyName>
+    <RootNamespace>QualityStudio.Testing.FakeCodingAgentCli</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>
