@@ -314,6 +314,11 @@ h3 {
   color: var(--status-missing);
 }
 
+.entry-cost.under-priced,
+.cost-total .under-priced {
+  color: var(--status-missing);
+}
+
 .summary-grid .cost-total strong {
   font-size: var(--studio-font-size-heading);
 }

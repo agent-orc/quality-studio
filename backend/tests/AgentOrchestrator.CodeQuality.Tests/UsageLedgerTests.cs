@@ -20,7 +20,7 @@ public sealed class UsageLedgerTests
             await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
                 "cli-run-3", timestamp, "gpt-5.6-luna", "codex",
                 new TokenUsage(50, 10, 20, 2, 600), "code", "file", "src/c.ts",
-                "review-sweep-3", UsageLedger.CurrentSchemaVersion, ReviewModelSource.PolicyDefault,
+                "review-sweep-3", 3, ReviewModelSource.PolicyDefault,
                 new UsageCost(0.5m, "USD", "resolved")),
                 TestContext.Current.CancellationToken);
             // A standalone CLI review has no sweep id but still names its model source; an entry
@@ -28,7 +28,7 @@ public sealed class UsageLedgerTests
             await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
                 "cli-run-4", timestamp.AddMinutes(1), "gpt-5.6-sol", "codex",
                 new TokenUsage(25, 5, 10, 1, 300), "code", "file", "src/d.ts",
-                null, UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit),
+                null, 3, ReviewModelSource.Explicit),
                 TestContext.Current.CancellationToken);
 
             var lines = await File.ReadAllLinesAsync(
@@ -67,6 +67,97 @@ public sealed class UsageLedgerTests
             Assert.True(report.EstimatedCost > 0.5m, "the query-time price of the second entry is added to the stored cost");
             Assert.Equal("USD", report.CostCurrency);
             Assert.Equal(0, report.UnpricedRuns);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task V4EntriesRecordCacheWritesAndPriceEveryInputTariff()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-v4-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 9, 29, 10, 0, 0, TimeSpan.Zero);
+            // 100k fresh + 600k cache reads + 300k cache writes = 1M billed input tokens.
+            var tokens = new TokenUsage(1_000_000, 10_000, 600_000, 0, 900, CacheWriteInputTokens: 300_000);
+            var cost = UsageLedger.EstimateCost("claude-opus-5", tokens, timestamp);
+            // 0.1M * 5 + 0.6M * 0.5 + 0.3M * 6.25 + 0.01M * 25 per million.
+            Assert.Equal(2.925m, cost.Total);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "claude-run-1", timestamp, "claude-opus-5", "claude", tokens, "code", "file", "src/a.cs",
+                "review-sweep-4", UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit, cost,
+                PromptCharacters: 48_000, PriceAccuracy: UsagePriceAccuracy.UnderPriced),
+                TestContext.Current.CancellationToken);
+
+            var line = Assert.Single(await File.ReadAllLinesAsync(
+                UsageLedger.GetLedgerPath(root.FullName, timestamp), TestContext.Current.CancellationToken));
+            using (var json = JsonDocument.Parse(line))
+            {
+                var validation = SchemaCatalogue.Get("usage-ledger.v4.schema.json").Evaluate(json.RootElement,
+                    new EvaluationOptions { OutputFormat = OutputFormat.List });
+                Assert.True(validation.IsValid, validation.ToString());
+                Assert.Equal(4, json.RootElement.GetProperty("schemaVersion").GetInt32());
+                Assert.Equal(300_000, json.RootElement.GetProperty("tokens").GetProperty("cacheWriteInputTokens").GetInt64());
+                Assert.Equal(48_000, json.RootElement.GetProperty("promptCharacters").GetInt32());
+                // The accuracy flag is derived on read, never persisted.
+                Assert.False(json.RootElement.TryGetProperty("priceAccuracy", out _));
+            }
+
+            var report = await UsageLedger.QueryAsync(root.FullName, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(1_000_000, report.InputTokens);
+            Assert.Equal(300_000, report.CacheWriteInputTokens);
+            Assert.Equal(300_000, Assert.Single(report.ByModel).CacheWriteInputTokens);
+            Assert.Equal(2.925m, report.EstimatedCost);
+            Assert.Equal(0, report.UnderPricedRuns);
+            Assert.Null(Assert.Single(report.Recent).PriceAccuracy);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task PreV4ClaudeEntriesAreReadWithTheirCacheReadsAsInputAndFlaggedUnderPriced()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-legacy-claude-");
+        try
+        {
+            // The 2026-09-28 evaluation shape: Claude's fresh input_tokens only, cache reads apart,
+            // cache writes dropped, and a stored cost that subtracted the reads from the fresh input.
+            var timestamp = new DateTimeOffset(2026, 9, 28, 14, 0, 0, TimeSpan.Zero);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "claude-legacy", timestamp, "claude-opus-5", "claude",
+                new TokenUsage(2_000, 10_000, 600_000, 0, 900), "code", "file", "src/a.cs",
+                "review-sweep-0928", 3, ReviewModelSource.Explicit, new UsageCost(0.251m, "USD", "resolved")),
+                TestContext.Current.CancellationToken);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "codex-legacy", timestamp.AddMinutes(1), "gpt-5.6-luna", "codex",
+                new TokenUsage(1_000_000, 100_000, 200_000, 0, 900), "code", "file", "src/b.cs",
+                "review-sweep-0928", 3, ReviewModelSource.Explicit, new UsageCost(0.284m, "USD", "resolved")),
+                TestContext.Current.CancellationToken);
+
+            var report = await UsageLedger.QueryAsync(root.FullName, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(1, report.UnderPricedRuns);
+            var claude = Assert.Single(report.Recent, entry => entry.RunId == "claude-legacy");
+            Assert.Equal(UsagePriceAccuracy.UnderPriced, claude.PriceAccuracy);
+            Assert.Equal(602_000, claude.Tokens.InputTokens);
+            // Re-priced as 2k fresh at 5 + 600k reads at 0.5 + 10k output at 25: still a lower bound.
+            Assert.Equal(0.56m, claude.Cost!.Total);
+            var codex = Assert.Single(report.Recent, entry => entry.RunId == "codex-legacy");
+            Assert.Null(codex.PriceAccuracy);
+            Assert.Equal(1_000_000, codex.Tokens.InputTokens);
+            Assert.Equal(0.284m, codex.Cost!.Total);
+            Assert.Equal(0.844m, report.EstimatedCost);
+
+            // A pre-v4 entry cannot carry the v4 fields.
+            await Assert.ThrowsAsync<ArgumentException>(() => UsageLedger.AppendAsync(root.FullName,
+                new ReviewUsageEntry("bad", timestamp, "claude-opus-5", "claude",
+                    new TokenUsage(1, 1, 0, 0, 1, CacheWriteInputTokens: 1), "code", "file", "src/a.cs",
+                    null, 3, ReviewModelSource.Explicit), TestContext.Current.CancellationToken));
         }
         finally
         {

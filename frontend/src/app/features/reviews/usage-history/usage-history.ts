@@ -19,6 +19,7 @@ export class UsageHistory {
   readonly durableRuns = computed(() => this.api.usage().byReviewRun?.length ?? 0);
   readonly totalCost = computed(() => formatCost(this.api.usage().estimatedCost, this.api.usage().costCurrency));
   readonly unpricedRuns = computed(() => this.api.usage().unpricedRuns ?? 0);
+  readonly underPricedRuns = computed(() => this.api.usage().underPricedRuns ?? 0);
 
   toggleEntry(index: number): void {
     this.expandedEntry.update(current => current === index ? null : index);
@@ -40,8 +41,16 @@ export class UsageHistory {
     return formatCost(entry.cost.total, entry.cost.currency);
   }
 
+  /** Cache writes are reported by Claude since ledger schema v4; other CLIs do not report them. */
+  cacheWrites(entry: UsageEntry): string {
+    const writes = entry.tokens.cacheWriteInputTokens;
+    return writes === undefined || writes === null ? 'not reported' : this.formatNumber(writes);
+  }
+
   entryCostDetail(entry: UsageEntry): string {
     if (!entry.cost) return 'No cost was recorded for this entry.';
+    if (entry.priceAccuracy === 'underPriced' && entry.cost.total !== null)
+      return `At least ${formatCost(entry.cost.total, entry.cost.currency)}: recorded before cache writes were captured.`;
     return entry.cost.total === null
       ? `Unpriced: ${formatPriceStatus(entry.cost.status)}.`
       : `${formatCost(entry.cost.total, entry.cost.currency)} (${formatPriceStatus(entry.cost.status)})`;

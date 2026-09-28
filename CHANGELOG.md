@@ -4,6 +4,33 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — Claude usage is counted and priced in full; estimates learn only from their own route (QS-110)
+
+The 2026-09-28 evaluation against `agent-studio-dev` showed USD 12.50 in the ledger for Claude
+reviews that cost USD 22.53, and a preflight of USD 56.59 for a run that cost USD 10.61 (defects
+D5–D6). CodingAgentRunner 0.7.0 drops Claude's `cache_creation_input_tokens`, reports Claude's
+`input_tokens` (which excludes cache reads and writes) as if it were all input, and the ledger then
+subtracted the cache reads from that fresh input a second time.
+
+- The review agent reads Claude's usage from the raw `result` frames, including failed turns.
+  `tokens.inputTokens` is now all billed input (fresh + cache reads + cache writes) for every CLI,
+  and the new `tokens.cacheWriteInputTokens` holds the cache writes.
+- One pricing split (`UsageLedger.ToPricingUsage`) prices fresh input, cache reads, cache writes and
+  output at their own catalogue tariffs for the ledger, the running cost cap, and flow reviews.
+  Token caps count all input.
+- Usage ledger schema version 4 (`schemas/usage-ledger.v4.schema.json`) adds
+  `tokens.cacheWriteInputTokens` and `promptCharacters`. Older lines are never rewritten: when read,
+  pre-v4 Claude entries (the 2026-09-28 run among them) count their cache reads as input, are
+  re-priced, and are flagged `priceAccuracy: "underPriced"`, a lower bound because their cache
+  writes were never recorded. `GET /api/usage` reports `underPricedRuns` and
+  `cacheWriteInputTokens`; the usage history marks such entries as "at least".
+- The preflight estimate uses only history of the same CLI and model, never another route's, and
+  never under-priced entries. With prompt sizes recorded, it scales fresh input, cache reads,
+  cache writes and output per prompt character (`history-prompt-ratio`); older matching history
+  gives the mean per operation (`history-per-operation`); without matching history it falls back
+  to prompt characters / 4 with a 20% output ratio (`prompt-size`). The estimate carries its
+  `basis`, which the preflight sheet shows.
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working

@@ -78,6 +78,15 @@ describe('ReviewActions', () => {
     expect(component.modelsForCli().map(model => model.modelId)).toEqual(['claude-sonnet-5']);
   });
 
+  it('names the basis of the estimate', () => {
+    const sheet = (basis: 'history-prompt-ratio' | 'history-per-operation' | 'prompt-size', historySamples: number) => ({
+      estimate: { basis, historySamples },
+    }) as unknown as Parameters<typeof component.estimateBasisLabel>[0];
+    expect(component.estimateBasisLabel(sheet('history-prompt-ratio', 12))).toBe('12 matching history samples · per prompt character');
+    expect(component.estimateBasisLabel(sheet('history-per-operation', 1))).toBe('1 matching history sample · per operation');
+    expect(component.estimateBasisLabel(sheet('prompt-size', 0))).toBe('Prompt size · no matching history');
+  });
+
   it('accepts scaled token caps and sends the parsed token count', async () => {
     api.estimateReview.and.resolveTo({
       repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: null,

@@ -12,12 +12,59 @@ identifiers to two places:
 Token fields are `null` when a CLI does not report them; zero means the CLI
 explicitly reported no tokens in that category. Ledger entries use the versioned
 contracts in `schemas/usage-ledger.v1.schema.json`,
-`schemas/usage-ledger.v2.schema.json`, and `schemas/usage-ledger.v3.schema.json`.
+`schemas/usage-ledger.v2.schema.json`, `schemas/usage-ledger.v3.schema.json`, and
+`schemas/usage-ledger.v4.schema.json`.
 In every version, `runId` is the ID returned by the CLI for one operation.
 Version 2 adds `reviewRunId`, the durable sweep/job ID shared by all file and
 aggregate operations in the review. Version 3 (written since 2026-09-06) adds
 `modelSource` and makes `reviewRunId` optional for standalone CLI reviews.
-Existing v1 and v2 lines remain valid and are never migrated or rewritten.
+Version 4 (written since 2026-09-28) adds `tokens.cacheWriteInputTokens` and
+`promptCharacters`; see [Input tokens and prompt caching](#input-tokens-and-prompt-caching).
+Existing lines remain valid and are never migrated or rewritten.
+
+## Input tokens and prompt caching
+
+`tokens.inputTokens` is all input the provider billed: fresh input plus
+`cachedInputTokens` (cache reads) plus `cacheWriteInputTokens` (cache writes).
+Each part is priced at its own catalogue tariff (`inputPerMTok`,
+`cacheReadPerMTok`, `cacheWritePerMTok`) by one split,
+`UsageLedger.ToPricingUsage`, which the ledger, the running cost cap, and flow
+reviews share. Token caps count all input plus output.
+
+Codex reports `input_tokens` including its cached input and no cache writes, so
+its `cacheWriteInputTokens` is absent. Claude reports `input_tokens` without
+either cache part, and CodingAgentRunner 0.7.0 drops
+`cache_creation_input_tokens` from its usage summary; the review agent therefore
+reads Claude's usage from the raw stream-json `result` frames (failed turns
+included) and sums the three parts itself.
+
+Before version 4, Claude entries recorded only the fresh input as
+`inputTokens`, lost their cache writes, and were priced with the cache reads
+subtracted from the fresh input again. When the ledger is read, such an entry
+counts its cache reads as input, is re-priced, and carries
+`priceAccuracy: "underPriced"`: its price is a lower bound because the cache
+writes cannot be recovered. The flag is derived on read, not stored.
+`GET /api/usage` returns `underPricedRuns`; the usage history shows those costs
+as "at least". The Claude operations of the 2026-09-28 evaluation are such
+entries.
+
+## Review estimates
+
+The preflight estimate learns only from ledger history of the same kind, CLI,
+and model (at most the 50 most recent operations); another CLI or model caches,
+reads files, and answers differently, and under-priced entries lack their cache
+writes, so neither is evidence. `estimate.basis` names what the figures rest on:
+
+- `history-prompt-ratio` — matching v4 operations recorded their
+  `promptCharacters`; fresh input, cache reads, cache writes, and output are
+  each scaled per rendered prompt character.
+- `history-per-operation` — matching operations predate prompt-size recording;
+  their mean per operation is multiplied by the planned operations.
+- `prompt-size` — no matching history; input is rendered prompt characters / 4
+  without caching and output a 20% fallback ratio.
+
+`estimate.inputTokens` is all input, as in the ledger; `cachedInputTokens` and
+`cacheWriteInputTokens` show the cache share the cost was priced with.
 
 ## Model attribution
 

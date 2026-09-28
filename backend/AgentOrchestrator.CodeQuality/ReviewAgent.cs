@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using CodingAgentRunner;
 using CodingAgentRunner.Abstractions;
 using CodingAgentRunner.Events;
@@ -155,8 +156,12 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var runId = "quality-" + Guid.NewGuid().ToString("N");
         var output = new StringBuilder();
         var metrics = new RunMetricsRecorder();
+        var claudeUsage = string.Equals(_cliType, "claude", StringComparison.OrdinalIgnoreCase)
+            ? new ClaudeUsageTap(runId)
+            : null;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _driverOverride ?? _runner!.Get(_cliType);
+        if (claudeUsage is not null) driver.OnOutput += claudeUsage.Observe;
         using var watchdog = RunWatchdog.Attach(driver, WatchdogPolicy.Default, autoStop: true);
         watchdog.OnHung += (id, phase, silenceSeconds) =>
         {
@@ -215,34 +220,96 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
         catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
         {
-            var canceled = BuildUsage(metrics, stopwatch);
+            var canceled = BuildUsage(metrics, claudeUsage, stopwatch);
             throw new ReviewAgentRunCanceledException(runId, canceled.Usage, canceled.Model, exception, cancellationToken);
         }
         catch (Exception exception)
         {
-            var failed = BuildUsage(metrics, stopwatch);
+            var failed = BuildUsage(metrics, claudeUsage, stopwatch);
             throw new ReviewAgentRunException(runId, failed.Usage, failed.Model, exception);
         }
         finally
         {
             if (!attachTimedOut) await enumerator.DisposeAsync().ConfigureAwait(false);
+            if (claudeUsage is not null) driver.OnOutput -= claudeUsage.Observe;
         }
 
-        var completed = BuildUsage(metrics, stopwatch);
+        var completed = BuildUsage(metrics, claudeUsage, stopwatch);
         return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
     }
 
-    private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,
+    private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics, ClaudeUsageTap? claudeUsage,
         System.Diagnostics.Stopwatch stopwatch)
     {
         var snapshot = metrics.Build();
+        var durationMs = snapshot.TotalDurationMs is double duration ? (long)Math.Round(duration) : stopwatch.ElapsedMilliseconds;
+        // The runner's Claude summary carries fresh input and cache reads only; the raw result
+        // frames also carry cache writes and are reported even for a failed turn.
+        if (claudeUsage?.Build(durationMs) is { } claude) return (claude, snapshot.Model ?? Model);
         var hasReportedUsage = snapshot.TurnCount > 0;
         return (new TokenUsage(
             hasReportedUsage ? snapshot.TotalInputTokens : null,
             hasReportedUsage ? snapshot.TotalOutputTokens : null,
             hasReportedUsage ? snapshot.TotalCachedInputTokens : null,
             hasReportedUsage ? snapshot.TotalReasoningOutputTokens : null,
-            snapshot.TotalDurationMs is double duration ? (long)Math.Round(duration) : stopwatch.ElapsedMilliseconds),
+            durationMs),
             snapshot.Model ?? Model);
     }
+}
+
+/// <summary>
+/// Reads Claude's usage from the raw stream-json <c>result</c> frames of one run. CodingAgentRunner
+/// 0.7.0 folds a result's usage into <c>input=… output=… cache_read=…</c> and drops
+/// <c>cache_creation_input_tokens</c>, which Anthropic bills at the cache-write tariff; Claude's
+/// <c>input_tokens</c> also excludes both cache reads and writes. The tap reports input as the sum
+/// of all three so token caps and costs see every billed input token.
+/// </summary>
+internal sealed class ClaudeUsageTap(string runId)
+{
+    private readonly Lock _gate = new();
+    private long _fresh, _cacheRead, _cacheWrite, _output;
+    private int _results;
+
+    public void Observe(string lineRunId, CliOutputLine line)
+    {
+        if (!string.Equals(lineRunId, runId, StringComparison.Ordinal) ||
+            !string.Equals(line.Stream, "stdout", StringComparison.Ordinal) ||
+            !line.Text.Contains("\"result\"", StringComparison.Ordinal))
+            return;
+        try
+        {
+            using var document = JsonDocument.Parse(line.Text);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !root.TryGetProperty("type", out var type) || type.GetString() != "result" ||
+                !root.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object)
+                return;
+            lock (_gate)
+            {
+                _results++;
+                _fresh += Count(usage, "input_tokens");
+                _cacheRead += Count(usage, "cache_read_input_tokens");
+                _cacheWrite += Count(usage, "cache_creation_input_tokens");
+                _output += Count(usage, "output_tokens");
+            }
+        }
+        catch (JsonException)
+        {
+            // Not a JSON frame; the runner's own adapter reports what it can.
+        }
+    }
+
+    /// <summary>The run's usage, or null when no result frame carried any.</summary>
+    public TokenUsage? Build(long durationMs)
+    {
+        lock (_gate)
+        {
+            return _results == 0
+                ? null
+                : new TokenUsage(_fresh + _cacheRead + _cacheWrite, _output, _cacheRead, 0, durationMs, _cacheWrite);
+        }
+    }
+
+    private static long Count(JsonElement usage, string name) =>
+        usage.TryGetProperty(name, out var value) && value.TryGetInt64(out var count) ? Math.Max(0, count) : 0;
 }

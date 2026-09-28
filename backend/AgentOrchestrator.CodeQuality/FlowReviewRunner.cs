@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using CodingAgentRunner.Pricing;
-using PricingTokenUsage = CodingAgentRunner.Pricing.TokenUsage;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -47,7 +46,7 @@ public sealed class FlowReviewRunner
             prepared.Root,
             () => new TokenUsage(null, null, null, null, 0),
             reported => RecordUsageAsync(prepared.Root, request.Flow.Id, reported.RunId, reported.Usage,
-                reported.EffectiveModel, startedAt),
+                reported.EffectiveModel, startedAt, prepared.Prompt.Length),
             outcome => response = responseParser.Parse(outcome.Response),
             // A source or catalogue change during an expensive review invalidates the conclusion.
             async token => string.Equals(
@@ -242,28 +241,34 @@ public sealed class FlowReviewRunner
         string runId,
         TokenUsage usage,
         string? effectiveModel,
-        DateTimeOffset timestamp)
+        DateTimeOffset timestamp,
+        int promptCharacters)
     {
         // The agent has already consumed the tokens; persist that fact even when the run failed.
+        var model = EffectiveModel(effectiveModel);
+        var modelSource = string.Equals(model, ReviewModelSource.RunnerDefault, StringComparison.Ordinal)
+            ? ReviewModelSource.RunnerDefault
+            : agent.ModelSource ?? ReviewModelSource.Explicit;
         await UsageLedger.AppendAsync(root, new ReviewUsageEntry(
             runId,
             timestamp,
-            EffectiveModel(effectiveModel),
+            model,
             agent.AgentName,
             usage,
             UsageKind,
             "flow",
-            flowId), CancellationToken.None).ConfigureAwait(false);
+            flowId,
+            SchemaVersion: UsageLedger.CurrentSchemaVersion,
+            ModelSource: modelSource,
+            Cost: UsageLedger.EstimateCost(model, usage, timestamp),
+            PromptCharacters: promptCharacters), CancellationToken.None).ConfigureAwait(false);
     }
 
     private FlowReviewCost ComputeCost(string model, TokenUsage usage, DateTimeOffset timestamp)
     {
         if (usage.InputTokens is null || usage.OutputTokens is null)
             return new FlowReviewCost("usageUnavailable", null, null);
-        var input = Math.Max(0, usage.InputTokens.Value);
-        var cached = Math.Clamp(usage.CachedInputTokens ?? 0, 0, input);
-        var cost = prices.ComputeCost(model, new PricingTokenUsage(
-            input - cached, Math.Max(0, usage.OutputTokens.Value), cached, 0), timestamp.UtcDateTime);
+        var cost = prices.ComputeCost(model, UsageLedger.ToPricingUsage(usage), timestamp.UtcDateTime);
         return new FlowReviewCost(Camel(cost.Status.ToString()), cost.Total, cost.Currency);
     }
 

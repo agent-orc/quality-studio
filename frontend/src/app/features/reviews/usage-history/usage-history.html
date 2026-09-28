@@ -41,6 +41,9 @@
           <span>Estimated cost</span>
           <strong>{{ totalCost() }}</strong>
           <small>{{ unpricedRuns() ? unpricedRuns() + ' operation(s) unpriced' : 'every operation priced' }}</small>
+          @if (underPricedRuns()) {
+            <small class="under-priced" title="Claude operations recorded before ledger schema v4 lack their cache-write tokens, so their cost is a lower bound.">{{ underPricedRuns() }} operation(s) under-priced: cache writes not recorded</small>
+          }
         </article>
       </section>
 
@@ -114,7 +117,7 @@
                   <small>{{ formatDate(entry.timestamp) }} · {{ entry.model }}</small>
                 </span>
                 <span class="entry-tokens">{{ formatNumber(tokens(entry)) }}<small>tokens</small></span>
-                <span class="entry-cost" [class.unpriced]="!entry.cost || entry.cost.total === null">{{ entryCost(entry) }}<small>cost</small></span>
+                <span class="entry-cost" [class.unpriced]="!entry.cost || entry.cost.total === null" [class.under-priced]="entry.priceAccuracy === 'underPriced'">{{ entryCost(entry) }}<small>{{ entry.priceAccuracy === 'underPriced' ? 'at least' : 'cost' }}</small></span>
                 <span class="chevron" aria-hidden="true">{{ expandedEntry() === index ? '⌃' : '⌄' }}</span>
               </button>
               @if (expandedEntry() === index) {
@@ -123,7 +126,8 @@
                   <div><dt>CLI run</dt><dd>{{ entry.runId }}</dd></div>
                   <div><dt>Input</dt><dd>{{ formatNumber(entry.tokens.inputTokens) }}</dd></div>
                   <div><dt>Output</dt><dd>{{ formatNumber(entry.tokens.outputTokens) }}</dd></div>
-                  <div><dt>Cached input</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
+                  <div><dt>Cache reads</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
+                  <div><dt>Cache writes</dt><dd>{{ cacheWrites(entry) }}</dd></div>
                   <div><dt>Reasoning output</dt><dd>{{ formatNumber(entry.tokens.reasoningOutputTokens) }}</dd></div>
                   <div><dt>Duration</dt><dd>{{ formatDuration(entry.tokens.durationMs) }}</dd></div>
                   <div><dt>Cost</dt><dd>{{ entryCostDetail(entry) }}</dd></div>

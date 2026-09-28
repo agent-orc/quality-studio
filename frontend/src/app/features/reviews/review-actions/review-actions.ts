@@ -273,6 +273,17 @@ export class ReviewActions {
 
   modelSourceLabel(preflight: ReviewPreflight): string { return formatModelSource(preflight.modelSource); }
 
+  /** What the estimate rests on; only history of the same CLI and model counts. */
+  estimateBasisLabel(preflight: ReviewPreflight): string {
+    const samples = preflight.estimate.historySamples;
+    switch (preflight.estimate.basis) {
+      case 'history-prompt-ratio': return `${samples} matching history sample${samples === 1 ? '' : 's'} · per prompt character`;
+      case 'history-per-operation': return `${samples} matching history sample${samples === 1 ? '' : 's'} · per operation`;
+      case 'prompt-size': return 'Prompt size · no matching history';
+      default: return `${samples} history samples`;
+    }
+  }
+
   formatModelSource(source: string | null | undefined): string { return formatModelSource(source); }
 
   /** What the running review has spent so far, with its cost cap when one applies. */

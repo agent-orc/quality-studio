@@ -6,7 +6,6 @@ using CodingAgentRunner.Events;
 using CodingAgentRunner.Quota;
 using Microsoft.Extensions.Options;
 using ModelPriceCatalog = CodingAgentRunner.Pricing.ModelPriceCatalog;
-using PricingTokenUsage = CodingAgentRunner.Pricing.TokenUsage;
 
 namespace QualityStudio.Api;
 
@@ -315,38 +314,13 @@ public sealed class ReviewJobService : BackgroundService
                     plan.Files.Select(file => file.Path).ToArray(), kind), cancellationToken).ConfigureAwait(false));
         }
 
-        var history = await UsageLedger.QueryAsync(plan.Registration.RootPath, kind: kind, recentLimit: 200,
+        var history = await UsageLedger.ReadAsync(plan.Registration.RootPath, kind: kind,
             cancellationToken: cancellationToken).ConfigureAwait(false);
-        var samples = history.Recent.Where(entry =>
-                string.Equals(entry.CliType, cliType, StringComparison.OrdinalIgnoreCase) &&
-                (model is null || string.Equals(entry.Model, model, StringComparison.OrdinalIgnoreCase)) &&
-                entry.Tokens.InputTokens is > 0 && entry.Tokens.OutputTokens is >= 0)
-            .ToArray();
-        if (samples.Length == 0)
-        {
-            samples = history.Recent.Where(entry => entry.Tokens.InputTokens is > 0 &&
-                entry.Tokens.OutputTokens is >= 0).ToArray();
-        }
-        var outputRatio = samples.Length == 0
-            ? 0.20m
-            : Math.Clamp(samples.Sum(sample => (decimal)(sample.Tokens.OutputTokens ?? 0)) /
-                         samples.Sum(sample => (decimal)(sample.Tokens.InputTokens ?? 0)), 0.01m, 4m);
-        var promptCharacters = measurements.Sum(measurement => (long)measurement.Characters);
-        var inputTokens = measurements.Sum(measurement => (long)Math.Ceiling(measurement.Characters / 4m));
-        var outputTokens = measurements.Sum(measurement =>
-            Math.Max(1L, (long)Math.Ceiling(Math.Ceiling(measurement.Characters / 4m) * outputRatio)));
-        var cost = prices.ComputeCost(model ?? "runner-default",
-            new PricingTokenUsage(inputTokens, outputTokens, 0, 0), DateTime.UtcNow);
         var reviewKind = Enum.Parse<ReviewKind>(kind, ignoreCase: true);
         var expectedFreshSkips = force ? 0 : plan.Files.Count(file =>
             file.AggregatedStates[reviewKind].Direct == ReviewState.Current);
-        return new ReviewRunEstimate(plan.Files.Length, measurements.Count, promptCharacters, inputTokens,
-            outputTokens, cost.Total, cost.Currency, Camel(cost.Status.ToString()), samples.Length,
-            samples.Length == 0
-                ? "Input is actual rendered prompt characters / 4; output uses a 20% fallback ratio."
-                : $"Input is actual rendered prompt characters / 4; output uses {samples.Length} recorded .quality/usage operation(s).",
-            expectedFreshSkips
-        );
+        return ReviewEstimator.Estimate(measurements.Select(measurement => measurement.Characters).ToArray(),
+            history, cliType, model, prices, DateTimeOffset.UtcNow, plan.Files.Length, expectedFreshSkips);
     }
 
     private static ReviewRequest CreateEstimateRequest(
@@ -672,10 +646,10 @@ public sealed class ReviewJobService : BackgroundService
             // Every operation's spend is visible in the host log next to the run it belongs to, in
             // the same shape the ledger persists it.
             logger.LogInformation(new EventId(1505, "ReviewOperationUsage"),
-                "Review operation {OperationRunId} in {ReviewRunId} ({ReviewKind} {ReviewPath}) via {ReviewCli}/{ReviewModel} [{ModelSource}]: {InputTokens} in, {CachedInputTokens} cached, {OutputTokens} out, {DurationMs} ms, estimated cost {EstimatedCost} {Currency} ({PriceStatus})",
+                "Review operation {OperationRunId} in {ReviewRunId} ({ReviewKind} {ReviewPath}) via {ReviewCli}/{ReviewModel} [{ModelSource}]: {InputTokens} in, {CachedInputTokens} cache read, {CacheWriteInputTokens} cache write, {OutputTokens} out, {DurationMs} ms, estimated cost {EstimatedCost} {Currency} ({PriceStatus})",
                 usage.RunId, item.Id, usage.Kind, usage.Path, usage.CliType, usage.Model,
                 usage.ModelSource ?? "unknown", usage.Tokens.InputTokens, usage.Tokens.CachedInputTokens,
-                usage.Tokens.OutputTokens, usage.Tokens.DurationMs, usage.Cost?.Total,
+                usage.Tokens.CacheWriteInputTokens, usage.Tokens.OutputTokens, usage.Tokens.DurationMs, usage.Cost?.Total,
                 usage.Cost?.Currency ?? "n/a", usage.Cost?.Status ?? "unknown");
         });
 
@@ -1010,13 +984,11 @@ public sealed class ReviewJobService : BackgroundService
                     Add(usage.OutputTokens, operationUsage.OutputTokens),
                     Add(usage.CachedInputTokens, operationUsage.CachedInputTokens),
                     Add(usage.ReasoningOutputTokens, operationUsage.ReasoningOutputTokens),
-                    usage.DurationMs + operationUsage.DurationMs);
-                var input = Math.Max(0, operationUsage.InputTokens ?? 0);
-                var cached = Math.Clamp(operationUsage.CachedInputTokens ?? 0, 0, input);
-                var operationCost = ReviewPriceCatalog.Default.ComputeCost(entry.Model,
-                    new PricingTokenUsage(input - cached, Math.Max(0, operationUsage.OutputTokens ?? 0), cached, 0),
-                    entry.Timestamp.UtcDateTime);
-                priceStatus = Camel(operationCost.Status.ToString());
+                    usage.DurationMs + operationUsage.DurationMs,
+                    Add(usage.CacheWriteInputTokens, operationUsage.CacheWriteInputTokens));
+                // The same price the ledger stores: fresh input, cache reads, cache writes, output.
+                var operationCost = entry.Cost ?? UsageLedger.EstimateCost(entry.Model, operationUsage, entry.Timestamp);
+                priceStatus = operationCost.Status;
                 currency = operationCost.Currency ?? currency;
                 costSpent = operationCost.Total.HasValue && (costSpent.HasValue || usageOperations == 1)
                     ? (costSpent ?? 0m) + operationCost.Total.Value
@@ -1293,6 +1265,7 @@ public sealed class ReviewJobService : BackgroundService
             costCap.HasValue && usageOperations > 0 &&
             (costSpent is null || costSpent.Value >= costCap.Value);
 
+        /// <summary>All input, including cache reads and writes, plus output: what the provider bills.</summary>
         private long ConsumedTokens() => Math.Max(0, usage.InputTokens ?? 0) + Math.Max(0, usage.OutputTokens ?? 0);
 
         private ReviewEstimateDeviation? Deviation()

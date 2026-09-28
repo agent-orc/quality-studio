@@ -127,4 +127,25 @@ describe('UsageHistory', () => {
     expect(cost.classList).toContain('unpriced');
     expect(fixture.nativeElement.querySelector('.cost-total strong')?.textContent).toContain('unpriced');
   });
+
+  it('flags Claude entries recorded without cache writes as a lower bound', () => {
+    const usage = api.usage();
+    api.usage.set({
+      ...usage,
+      underPricedRuns: 1,
+      recent: [{ ...usage.recent[0], cliType: 'claude', model: 'claude-opus-5', priceAccuracy: 'underPriced' }],
+    });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.cost-total .under-priced')?.textContent).toContain('1 operation(s) under-priced');
+    const cost = element.querySelector('.entry-cost') as HTMLElement;
+    expect(cost.classList).toContain('under-priced');
+    expect(cost.textContent).toContain('at least');
+    (element.querySelector('.entry-summary') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('At least 0.0125 USD');
+    expect(element.textContent).toContain('Cache writes');
+    expect(element.textContent).toContain('not reported');
+  });
 });

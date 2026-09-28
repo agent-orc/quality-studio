@@ -83,7 +83,7 @@
       <div><dt>Route</dt><dd><b>{{ sheet.cliType }} · {{ sheet.model ?? 'Runner default' }} <i class="studio-badge model-source">{{ modelSourceLabel(sheet) }}</i> · {{ sheet.thinkingLevel ?? 'model default' }}</b><span>Recommended: {{ sheet.recommendation.recommendedModel }} / {{ sheet.recommendation.recommendedThinkingLevel }} · {{ sheet.recommendation.capabilityTier }}</span></dd></div>
       <div><dt>Estimate</dt><dd><b>{{ formatNumber(sheet.estimate.inputTokens) }} input + {{ formatNumber(sheet.estimate.outputTokens) }} output</b><span>{{ costLabel(sheet) }}</span></dd></div>
       <div><dt>Cap</dt><dd><b>{{ capLabel(sheet) }}</b><span>Applied by the server before work continues</span></dd></div>
-      <div><dt>Method</dt><dd><b>{{ sheet.estimate.historySamples }} history samples</b><span>{{ sheet.estimate.method }}</span></dd></div>
+      <div><dt>Basis</dt><dd><b class="estimate-basis">{{ estimateBasisLabel(sheet) }}</b><span>{{ sheet.estimate.method }}</span></dd></div>
     </dl>
     <p class="route-reason"><b>Policy {{ sheet.recommendation.policyVersion }} · score {{ sheet.recommendation.score }} · floor {{ sheet.recommendation.correctnessFloor }}</b><span>{{ sheet.recommendation.reason }}</span></p>
     <p class="estimate-uncertainty">Estimate only: tokenizer behavior, context, and response length can change actual usage.</p>
