@@ -22,6 +22,46 @@ A run may use one token cap or one cost cap. Omitting both inherits the reposito
 
 A capped run is resumable without repeating completed files. `POST /api/review/runs/{id}/resume` accepts a higher `{ "tokenCap": ... }` or `{ "costCap": ... }`. Skipped units return to `queued`, while done and failed units remain durable. The server rejects a replacement cap already below current spend. Repository defaults are configured with `defaultReviewTokenCap` or `defaultReviewCostCap` (mutually exclusive) in the repository registration UI or API.
 
+## Sensors: explicit, cached, once per run
+
+Every attempt runs its sensors once, before the first agent operation, and hands the results to every
+file and aggregate prompt of the run. Deterministic evidence (Roslyn, ESLint, `tsc`, architecture,
+the build sensors) reaches every review kind; the remaining enabled sensors (`gitleaks`,
+`dependencies`, `boundaries`, `coverage`) form the security bundle and run only for a `security`
+review. Before QS-111 the security bundle rescanned the whole repository once per file prompt.
+
+**Build sensors run only by per-run opt-in.** `dotnet-build` and `angular-compiler` compile the
+analysed project — a full Release build on a large checkout. Enabling them on the repository makes
+them available; a run executes them only when the start request names them in
+`optInSensors: ["dotnet-build"]`. Naming a sensor that is not an opt-in sensor, or one the
+repository has disabled, is a `400`, so a typo cannot silently start a run without the build it
+asked for. The list is `SensorExecutionPolicy.OptInSensorIds`.
+
+**Results are cached per commit and inputs.** A sensor result is stored under `sensor-cache/` in the
+project's data root, keyed by the sensor id and version, its repository configuration, and a
+working-copy fingerprint: the `HEAD` commit plus the path and content hash of every file that
+differs from it (tracked edits, deletions, untracked files). A later run with the same key reuses the
+result and does not execute the sensor. Consequences worth knowing:
+
+- An edit, a new commit, or a changed sensor configuration runs the sensor again.
+- Files Git ignores — `node_modules`, `bin/`, `obj/` — and the installed tool versions are not part
+  of the key. After a dependency or analyzer upgrade, start the run with `refreshSensors: true` (the
+  launcher's *Re-run sensors* box) to ignore stored results; the fresh results replace them.
+- Reports the analyzers write to `.quality/preflight/` are excluded from the fingerprint, since
+  they would otherwise invalidate the entry they belong to.
+- Unavailable results are never stored, a result is stored only if the working copy did not change
+  while its sensor ran, and a checkout without a Git commit is never cached.
+- Each sensor keeps its newest eight entries.
+
+**The launcher shows the plan.** The estimate response carries `sensorPlan`: for each enabled sensor
+its role, whether this run will `run` it, reuse it (`cached`), or hold it back
+(`opt-in-required`), and its expected duration — the last observed duration in this repository, or
+a typical default before the first run. Sensors run concurrently, so the phase's
+`expectedDurationMs` is that of the slowest sensor that runs. The preflight sheet lists the plan,
+offers the opt-in checkboxes for build sensors, and re-estimates when one is ticked. A started run
+reports what actually happened in `sensors` (`ran`, `cached`, `opt-in-required`, with durations),
+and the host log records one `ReviewSensorEvidence` line per sensor.
+
 ## Module and project passes
 
 A container run reviews every descendant file first and then writes the selected

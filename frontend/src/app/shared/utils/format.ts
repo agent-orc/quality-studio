@@ -64,3 +64,13 @@ export function formatModelSource(source: string | null | undefined): string {
   if (source === 'runner-default') return 'runner default';
   return 'source unrecorded';
 }
+
+/** A wall-clock duration at the scale sensors run: seconds, or minutes and seconds. */
+export function formatDuration(milliseconds: number): string {
+  const seconds = Math.round(Math.max(0, milliseconds) / 1000);
+  if (seconds < 1) return '<1s';
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+}

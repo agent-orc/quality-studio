@@ -233,7 +233,17 @@ export interface ReviewPreflight {
   repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null;
   cliType: string; estimate: ReviewEstimate; tokenCap: number | null; costCap: number | null;
   recommendation: ReviewModelRecommendation; overrideBelowFloor: boolean; modelSource?: ReviewModelSource | null;
+  sensorPlan?: SensorExecutionPlan | null;
 }
+/** One enabled sensor as the launcher presents it: whether this run executes it, reuses it, or holds it for opt-in. */
+export interface SensorPlanEntry {
+  sensorId: string; role: 'deterministic' | 'security'; decision: 'run' | 'cached' | 'opt-in-required';
+  optIn: boolean; optedIn: boolean; expectedDurationMs: number; durationSource: 'default' | 'observed' | 'cache'; detail: string | null;
+}
+/** The sensor phase of a prospective run; sensors run in parallel, so its duration is the slowest one. */
+export interface SensorExecutionPlan { sensors: SensorPlanEntry[]; expectedDurationMs: number; inputFingerprint: string | null; cacheNote: string | null; }
+/** What one sensor did for a started run. */
+export interface SensorExecutionRecord { sensorId: string; outcome: 'ran' | 'cached' | 'opt-in-required'; durationMs: number; detail: string | null; }
 export interface ReviewRun {
   id: string; repositoryId: string; path: string; level: string; kind: ReviewKind; model: string | null; thinkingLevel: string | null; cliType: string;
   state: ReviewRunState; totalFiles: number; completedFiles: number; failedFiles: number; createdAt: string;
@@ -242,6 +252,7 @@ export interface ReviewRun {
   priceStatus: string; skippedFiles: number; aggregateState: ReviewUnitState | null; stopReason: string | null;
   deviation: ReviewEstimateDeviation | null; recommendation?: ReviewModelRecommendation | null; routeOverride?: boolean;
   modelSource?: ReviewModelSource | null;
+  optInSensors?: string[] | null; refreshSensors?: boolean; sensors?: SensorExecutionRecord[] | null;
 }
 export type RunReportFormat = 'html' | 'markdown' | 'sarif' | 'json';
 export interface QualityRunFinding {
@@ -295,7 +306,7 @@ export interface ReviewRunCompareResult {
   comparison: QualityRunComparison | null;
 }
 export interface ReviewRunRetention { snapshotCount: number; totalBytes: number; averageBytes: number; pinnedCount: number; retentionKeep: number; }
-export interface StartReviewRequest { scopeType?: 'directory'; path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; }
+export interface StartReviewRequest { scopeType?: 'directory'; path: string; kind: ReviewKind; model?: string | null; cliType?: string | null; thinkingLevel?: string | null; tokenCap?: number | null; costCap?: number | null; force?: boolean; confirmBelowFloor?: boolean; optInSensors?: string[]; refreshSensors?: boolean; }
 export interface UsageAggregate { key: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; }
 export interface UsageEntry { runId: string; reviewRunId?: string | null; timestamp: string; model: string; cliType: string; tokens: TokenUsage; kind: ReviewKind; level: string; path: string; schemaVersion: number; modelSource?: ReviewModelSource | null; cost?: UsageCost | null; }
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; estimatedCost?: number | null; costCurrency?: string | null; unpricedRuns?: number; }

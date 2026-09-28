@@ -82,7 +82,7 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
-    public async Task Angular_compiler_finding_runs_before_model_projects_to_subject_and_can_be_disabled()
+    public async Task Angular_compiler_runs_only_by_opt_in_before_model_projects_to_subject_and_can_be_disabled()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
@@ -99,19 +99,43 @@ public sealed class ReviewRunStoreTests
         {
             await using var application = fixture.CreateApplication(executor, sensor);
             using var client = application.CreateClient();
-            using var enabledResponse = await client.PostAsJsonAsync("/api/review", new
+            using var implicitResponse = await client.PostAsJsonAsync("/api/review", new
             {
                 path = "frontend/src/app/editor/editor.html",
                 kind = "code",
                 cliType = "test-agent",
                 force = true,
             }, cancellationToken);
+            implicitResponse.EnsureSuccessStatusCode();
+            var implicitRun = await implicitResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var implicitDone = await WaitForStateAsync(
+                client, implicitRun.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            // Enabled on the repository is not enough: a build sensor needs the run to opt in.
+            Assert.Equal(["model"], events.ToArray());
+            Assert.Empty(Assert.Single(executor.Requests).DeterministicEvidence!);
+            var held = Assert.Single(implicitDone.GetProperty("sensors").EnumerateArray());
+            Assert.Equal("angular-compiler", held.GetProperty("sensorId").GetString());
+            Assert.Equal("opt-in-required", held.GetProperty("outcome").GetString());
+
+            using var enabledResponse = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "frontend/src/app/editor/editor.html",
+                kind = "code",
+                cliType = "test-agent",
+                force = true,
+                optInSensors = new[] { "angular-compiler" },
+            }, cancellationToken);
             enabledResponse.EnsureSuccessStatusCode();
             var enabled = await enabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            await WaitForStateAsync(client, enabled.GetProperty("id").GetString()!, "done", cancellationToken);
+            var enabledDone = await WaitForStateAsync(
+                client, enabled.GetProperty("id").GetString()!, "done", cancellationToken);
 
-            Assert.Equal(["check", "model"], events.ToArray());
-            var firstRequest = Assert.Single(executor.Requests);
+            Assert.Equal(["model", "check", "model"], events.ToArray());
+            Assert.Equal("angular-compiler", Assert.Single(enabledDone.GetProperty("optInSensors").EnumerateArray()).GetString());
+            Assert.Equal("ran", Assert.Single(enabledDone.GetProperty("sensors").EnumerateArray())
+                .GetProperty("outcome").GetString());
+            var firstRequest = executor.Requests[1];
             var evidence = Assert.Single(firstRequest.DeterministicEvidence!);
             Assert.Equal("angular-compiler", evidence.Provenance.SensorId);
             var finding = Assert.Single(evidence.Findings);
@@ -131,24 +155,128 @@ public sealed class ReviewRunStoreTests
             }, cancellationToken);
             update.EnsureSuccessStatusCode();
 
-            using var disabledResponse = await client.PostAsJsonAsync("/api/review", new
+            using var disabledResponse = await client.PostAsJsonAsync("/api/review/estimate", new
             {
                 path = "frontend/src/app/editor/editor.html",
                 kind = "code",
                 cliType = "test-agent",
-                force = true,
+                optInSensors = new[] { "angular-compiler" },
             }, cancellationToken);
-            disabledResponse.EnsureSuccessStatusCode();
-            var disabled = await disabledResponse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            await WaitForStateAsync(client, disabled.GetProperty("id").GetString()!, "done", cancellationToken);
 
-            Assert.Equal(["check", "model", "model"], events.ToArray());
-            Assert.Empty(executor.Requests[1].DeterministicEvidence!);
+            // Opting in to a sensor the repository disabled is refused, not silently ignored.
+            Assert.Equal(HttpStatusCode.BadRequest, disabledResponse.StatusCode);
+            Assert.Equal(["model", "check", "model"], events.ToArray());
         }
         finally
         {
             fixture.Dispose();
         }
+    }
+
+    [Fact]
+    public async Task Preflight_lists_the_sensors_a_run_executes_with_expected_duration_and_opt_in_state()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var events = new ConcurrentQueue<string>();
+        await AddAngularTargetAsync(fixture.RepositoryRoot, cancellationToken);
+        var angular = new AngularCompilerSensor(new AngularIntegrationRunner(events), fixture.RepositoryRoot);
+        var ordering = new OrderingSensor(events);
+        var secrets = new CountingSecuritySensor();
+        try
+        {
+            await using var application = fixture.CreateApplication(
+                new OrderingExecutorFactory(events), angular, additionalSensors: [ordering, secrets]);
+            using var client = application.CreateClient();
+
+            var code = await EstimateAsync(client, new { path = "Sample.cs", kind = "code", cliType = "test-agent" },
+                cancellationToken);
+            var codePlan = code.GetProperty("sensorPlan");
+            var codeSensors = codePlan.GetProperty("sensors").EnumerateArray()
+                .ToDictionary(entry => entry.GetProperty("sensorId").GetString()!);
+            Assert.Equal(["angular-compiler", "ordering-check"], codeSensors.Keys.Order(StringComparer.Ordinal));
+            Assert.Equal("opt-in-required", codeSensors["angular-compiler"].GetProperty("decision").GetString());
+            Assert.True(codeSensors["angular-compiler"].GetProperty("optIn").GetBoolean());
+            Assert.Equal(90_000, codeSensors["angular-compiler"].GetProperty("expectedDurationMs").GetInt64());
+            Assert.Equal("run", codeSensors["ordering-check"].GetProperty("decision").GetString());
+            Assert.Equal("deterministic", codeSensors["ordering-check"].GetProperty("role").GetString());
+            Assert.Equal(30_000, codePlan.GetProperty("expectedDurationMs").GetInt64());
+            Assert.Contains("no Git commit", codePlan.GetProperty("cacheNote").GetString());
+
+            var security = await EstimateAsync(client, new
+            {
+                path = "Sample.cs",
+                kind = "security",
+                cliType = "test-agent",
+                optInSensors = new[] { "angular-compiler" },
+            }, cancellationToken);
+            var securitySensors = security.GetProperty("sensorPlan").GetProperty("sensors").EnumerateArray()
+                .ToDictionary(entry => entry.GetProperty("sensorId").GetString()!);
+            Assert.Equal("run", securitySensors["angular-compiler"].GetProperty("decision").GetString());
+            Assert.True(securitySensors["angular-compiler"].GetProperty("optedIn").GetBoolean());
+            Assert.Equal("security", securitySensors["security-count"].GetProperty("role").GetString());
+            Assert.Equal(90_000, security.GetProperty("sensorPlan").GetProperty("expectedDurationMs").GetInt64());
+
+            using var notOptIn = await client.PostAsJsonAsync("/api/review/estimate", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = "test-agent",
+                optInSensors = new[] { "ordering-check" },
+            }, cancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, notOptIn.StatusCode);
+            Assert.Empty(events);
+            Assert.Equal(0, secrets.Runs);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Security_sensors_run_once_per_run_and_every_subject_receives_their_results()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        var secrets = new CountingSecuritySensor();
+        var executor = new CapturingExecutorFactory();
+        try
+        {
+            await using var application = fixture.CreateApplication(executor, secrets);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "security",
+                cliType = "test-agent",
+                force = true,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var done = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "done", cancellationToken);
+
+            Assert.Equal(1, secrets.Runs);
+            Assert.Equal(3, executor.Requests.Count);
+            Assert.All(executor.Requests, request =>
+            {
+                Assert.Equal("security-count", Assert.Single(request.Sensors!).Id);
+                Assert.Equal("security-count", Assert.Single(request.SecurityEvidence!).Provenance.SensorId);
+            });
+            Assert.Equal("ran", Assert.Single(done.GetProperty("sensors").EnumerateArray())
+                .GetProperty("outcome").GetString());
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    private static async Task<JsonElement> EstimateAsync(HttpClient client, object request, CancellationToken cancellationToken)
+    {
+        using var response = await client.PostAsJsonAsync("/api/review/estimate", request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
     }
 
     [Fact]
@@ -705,7 +833,7 @@ public sealed class ReviewRunStoreTests
         }
     }
 
-    private static async Task<JsonElement> WaitForStateAsync(
+    internal static async Task<JsonElement> WaitForStateAsync(
         HttpClient client,
         string runId,
         string expected,
@@ -785,7 +913,7 @@ public sealed class ReviewRunStoreTests
         return new ReviewExecutionResult(skippedFresh, null, snapshot);
     }
 
-    private sealed class DurableRunFixture : IDisposable
+    internal sealed class DurableRunFixture : IDisposable
     {
         private DurableRunFixture(string repositoryRoot, string hostRoot)
         {
@@ -862,8 +990,10 @@ public sealed class ReviewRunStoreTests
         public TestApplication CreateApplication(
             IReviewExecutorFactory? executorFactory = null,
             IReviewSensor? deterministicSensor = null,
-            double? cancelReclaimGraceSeconds = null) =>
-            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor, cancelReclaimGraceSeconds);
+            double? cancelReclaimGraceSeconds = null,
+            IReadOnlyList<IReviewSensor>? additionalSensors = null) =>
+            new(RepositoryRoot, HostRoot, executorFactory, deterministicSensor, cancelReclaimGraceSeconds,
+                additionalSensors);
 
         public void Dispose()
         {
@@ -871,12 +1001,13 @@ public sealed class ReviewRunStoreTests
         }
     }
 
-    private sealed class TestApplication(
+    internal sealed class TestApplication(
         string repositoryRoot,
         string contentRoot,
         IReviewExecutorFactory? executorFactory,
         IReviewSensor? deterministicSensor,
-        double? cancelReclaimGraceSeconds = null) : WebApplicationFactory<Program>
+        double? cancelReclaimGraceSeconds = null,
+        IReadOnlyList<IReviewSensor>? additionalSensors = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -906,6 +1037,7 @@ public sealed class ReviewRunStoreTests
                 {
                     services.AddSingleton(deterministicSensor);
                 }
+                foreach (var sensor in additionalSensors ?? []) services.AddSingleton(sensor);
                 if (cancelReclaimGraceSeconds.HasValue)
                 {
                     services.PostConfigure<ReviewJobsOptions>(options =>
@@ -952,7 +1084,28 @@ public sealed class ReviewRunStoreTests
         }
     }
 
-    private sealed class OrderingSensor(ConcurrentQueue<string> events) : IDeterministicEvidenceSensor
+    /// <summary>A security sensor (not deterministic evidence) that counts how often a run executes it.</summary>
+    internal sealed class CountingSecuritySensor : IReviewSensor
+    {
+        private int runs;
+        public string Id => "security-count";
+        public string Version => "1.0.0";
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+        public int Runs => Volatile.Read(ref runs);
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new SensorAvailability(true));
+
+        public Task<SensorScanResult> RunAsync(SensorScanRequest request, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref runs);
+            return Task.FromResult(new SensorScanResult(true, null, [],
+                new SensorProvenance(Id, Version, "repository", ".", DateTimeOffset.UtcNow.ToString("O"),
+                    new Dictionary<string, string>())));
+        }
+    }
+
+    internal sealed class OrderingSensor(ConcurrentQueue<string> events) : IDeterministicEvidenceSensor
     {
         public string Id => "ordering-check";
         public string Version => "1.0.0";
@@ -988,7 +1141,7 @@ public sealed class ReviewRunStoreTests
         }
     }
 
-    private sealed class OrderingExecutorFactory(ConcurrentQueue<string> events) : IReviewExecutorFactory
+    internal sealed class OrderingExecutorFactory(ConcurrentQueue<string> events) : IReviewExecutorFactory
     {
         private readonly List<ReviewRequest> requests = [];
         public IReadOnlyList<ReviewRequest> Requests

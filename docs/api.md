@@ -262,6 +262,13 @@ curl -X POST "http://127.0.0.1:5127/api/guidelines/impact" -H "Content-Type: app
 curl -X POST "http://127.0.0.1:5127/api/review" -H "Content-Type: application/json" -d "{}"
 # 202 {"id":"review-...","state":"queued",...}
 
+curl -X POST "http://127.0.0.1:5127/api/review/estimate" -H "Content-Type: application/json" \
+  -d '{"path":".","kind":"code","optInSensors":["dotnet-build"],"refreshSensors":false}'
+# 200 {...,"sensorPlan":{"expectedDurationMs":180000,"cacheNote":"Keyed to 9e79cb41abcd.",
+#      "sensors":[{"sensorId":"dotnet-build","decision":"run","optIn":true,"optedIn":true,...},
+#                 {"sensorId":"eslint","decision":"cached","expectedDurationMs":0,...}]}}
+# Build sensors (dotnet-build, angular-compiler) run only when named in optInSensors; see review-runs.md.
+
 curl "http://127.0.0.1:5127/api/models"
 # 200 {"policyVersion":"...","models":[{"modelId":"gpt-...","capabilityTier":"frontier","routingStatus":"selectable",...}]}
 

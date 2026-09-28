@@ -61,8 +61,14 @@ Inside a project directory the layout is the one the `.quality` folder used to h
   changes/<commit>.json
   flows/<hash>.flow-review.json
   runs/<run-id>/…
+  sensor-cache/<sensor-id>/<key>.json
+  sensor-cache/<sensor-id>/observed.json
   attacks/coverage-ledger.jsonl
 ```
+
+`sensor-cache/` holds repository-wide sensor results keyed by commit and inputs, plus each sensor's
+last observed duration; it is disposable and rebuilt by the next run (see
+[`review-runs.md`](review-runs.md#sensors-explicit-cached-once-per-run)).
 
 Review sidecars are the one family whose layout changed shape. They used to sit in a `.quality`
 folder next to each reviewed file, scattered across the tree. They now live under a single

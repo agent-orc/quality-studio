@@ -132,22 +132,53 @@ public sealed record SecurityEvidenceBundle(
     }
 }
 
-public sealed class SecurityEvidenceCollector(SensorRegistry registry)
+/// <summary>
+/// Runs the security sensors of a review and projects their repository-wide results onto one subject.
+/// <para>
+/// The two halves are separate because a run reviews many subjects against one working copy: the
+/// review queue runs the sensors once per run with <see cref="RunAsync"/> and hands every file
+/// prompt the same results through <see cref="Project"/>, instead of rescanning the repository for
+/// each file.
+/// </para>
+/// </summary>
+/// <param name="cache">When given, a sensor whose result for the same commit and inputs is stored is not run again.</param>
+public sealed class SecurityEvidenceCollector(SensorRegistry registry, SensorResultCache? cache = null)
 {
     public async Task<SecurityEvidenceBundle> CollectAsync(
         string repositoryRoot,
         IReadOnlyList<string> subjectPaths,
         IReadOnlyList<ReviewSensorConfiguration> configurations,
+        CancellationToken cancellationToken = default) =>
+        Project(await RunAsync(repositoryRoot, configurations, cancellationToken).ConfigureAwait(false), subjectPaths);
+
+    /// <summary>
+    /// The repository-wide result of every configured sensor. A sensor that is unknown or fails is
+    /// reported as an unavailable result rather than thrown, so one broken scanner cannot hide the rest.
+    /// </summary>
+    public async Task<IReadOnlyList<SensorScanResult>> RunAsync(
+        string repositoryRoot,
+        IReadOnlyList<ReviewSensorConfiguration> configurations,
         CancellationToken cancellationToken = default)
     {
-        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
-            .ToHashSet(StringComparer.Ordinal);
         var tasks = configurations
             .DistinctBy(configuration => configuration.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(configuration => CollectSensorAsync(repositoryRoot, subjects, configuration, cancellationToken))
+            .Select(configuration => RunSensorAsync(repositoryRoot, configuration, cancellationToken))
             .ToArray();
-        var evidence = await Task.WhenAll(tasks).ConfigureAwait(false);
-        var ordered = evidence.OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
+        return (await Task.WhenAll(tasks).ConfigureAwait(false))
+            .OrderBy(result => result.Provenance.SensorId, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    /// <summary>The evidence bundle for one subject: each result narrowed to the subject's locations.</summary>
+    public static SecurityEvidenceBundle Project(
+        IReadOnlyList<SensorScanResult> results,
+        IReadOnlyList<string> subjectPaths)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        var subjects = subjectPaths.Select(SecurityEvidenceBundle.NormalizePath)
+            .ToHashSet(StringComparer.Ordinal);
+        var ordered = results.Select(result => ProjectSensor(result, subjects))
+            .OrderBy(sensor => sensor.SensorId, StringComparer.Ordinal).ToArray();
         var verdict = ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Unavailable)
             ? SecurityEvidenceVerdict.Unavailable
             : ordered.Any(sensor => sensor.Verdict == SecurityEvidenceVerdict.Block)
@@ -158,9 +189,8 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
         return new SecurityEvidenceBundle(verdict, ordered);
     }
 
-    private async Task<SecuritySensorEvidence> CollectSensorAsync(
+    private async Task<SensorScanResult> RunSensorAsync(
         string repositoryRoot,
-        IReadOnlySet<string> subjectPaths,
         ReviewSensorConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -171,42 +201,19 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
         }
         catch (SensorNotFoundException exception)
         {
-            return Unavailable(configuration.Id, "unknown", exception.Message);
+            return UnavailableResult(configuration.Id, "unknown", exception.Message);
         }
 
         try
         {
-            var result = await sensor.RunAsync(new SensorScanRequest(
+            var request = new SensorScanRequest(
                 repositoryRoot,
                 SensorScope.Repository,
                 Configuration: configuration.Configuration,
-                PersistMetadata: false), cancellationToken).ConfigureAwait(false);
-            var findings = result.Findings
-                .Select(finding => finding with
-                {
-                    Locations = finding.Locations.Where(location =>
-                        subjectPaths.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))).ToArray(),
-                })
-                .Where(finding => finding.Locations.Count > 0)
-                .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
-                .ToArray();
-            var verdict = !result.Available
-                ? SecurityEvidenceVerdict.Unavailable
-                : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
-                    ? SecurityEvidenceVerdict.Block
-                    : findings.Length > 0
-                        ? SecurityEvidenceVerdict.Warn
-                        : SecurityEvidenceVerdict.Pass;
-            var draft = new SecuritySensorEvidence(
-                result.Provenance.SensorId,
-                result.Provenance.SensorVersion,
-                string.Empty,
-                result.Available,
-                result.UnavailableReason,
-                verdict,
-                result.Provenance.ToolVersions,
-                findings);
-            return draft with { ResultHash = Hash(draft) };
+                PersistMetadata: false);
+            return cache is null
+                ? await sensor.RunAsync(request, cancellationToken).ConfigureAwait(false)
+                : await cache.GetOrRunAsync(sensor, request, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -214,21 +221,42 @@ public sealed class SecurityEvidenceCollector(SensorRegistry registry)
         }
         catch (Exception exception)
         {
-            return Unavailable(sensor.Id, sensor.Version, $"Sensor execution failed: {exception.Message}");
+            return UnavailableResult(sensor.Id, sensor.Version, $"Sensor execution failed: {exception.Message}");
         }
     }
 
-    private static SecuritySensorEvidence Unavailable(string id, string version, string reason)
+    private static SensorScanResult UnavailableResult(string id, string version, string reason) =>
+        new(false, reason, [], new SensorProvenance(id, version, "repository", ".",
+            DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            new Dictionary<string, string>()));
+
+    private static SecuritySensorEvidence ProjectSensor(SensorScanResult result, IReadOnlySet<string> subjectPaths)
     {
+        var findings = result.Findings
+            .Select(finding => finding with
+            {
+                Locations = finding.Locations.Where(location =>
+                    subjectPaths.Contains(SecurityEvidenceBundle.NormalizePath(location.Path))).ToArray(),
+            })
+            .Where(finding => finding.Locations.Count > 0)
+            .OrderBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+            .ToArray();
+        var verdict = !result.Available
+            ? SecurityEvidenceVerdict.Unavailable
+            : findings.Any(finding => finding.Severity is FindingSeverity.Critical or FindingSeverity.High)
+                ? SecurityEvidenceVerdict.Block
+                : findings.Length > 0
+                    ? SecurityEvidenceVerdict.Warn
+                    : SecurityEvidenceVerdict.Pass;
         var draft = new SecuritySensorEvidence(
-            id,
-            version,
+            result.Provenance.SensorId,
+            result.Provenance.SensorVersion,
             string.Empty,
-            false,
-            reason,
-            SecurityEvidenceVerdict.Unavailable,
-            new Dictionary<string, string>(),
-            Array.Empty<ReviewFinding>());
+            result.Available,
+            result.UnavailableReason,
+            verdict,
+            result.Provenance.ToolVersions,
+            findings);
         return draft with { ResultHash = Hash(draft) };
     }
 
