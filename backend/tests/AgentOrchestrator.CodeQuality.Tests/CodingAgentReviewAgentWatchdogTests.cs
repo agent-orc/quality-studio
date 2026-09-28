@@ -99,7 +99,7 @@ public sealed class CodingAgentReviewAgentWatchdogTests
     private sealed class FakeCliDriver(Func<string, IAsyncEnumerable<CliRunEvent>> stream) : ICliDriver
     {
         public string CliType => "codex";
-        public bool SupportsCleanContext => false;
+        public bool SupportsCleanContext => true;
 
 #pragma warning disable CS0067 // required by ICliDriver; this fake never raises raw output
         public event Action<string, CliOutputLine>? OnOutput;
@@ -118,7 +118,8 @@ public sealed class CodingAgentReviewAgentWatchdogTests
         public async IAsyncEnumerable<CliRunEvent> StreamAsync(
             CliRunRequest request, [EnumeratorCancellation] CancellationToken ct = default)
         {
-            OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId });
+            // A real run of a clean-context CLI reports its per-run home; the agent refuses one that does not.
+            OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, CleanContextHome = Path.GetTempPath() });
             await foreach (var runEvent in stream(request.RunId).WithCancellation(ct))
             {
                 OnRunEvent?.Invoke(request.RunId, runEvent);
