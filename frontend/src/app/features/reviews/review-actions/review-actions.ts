@@ -282,6 +282,16 @@ export class ReviewActions {
     return run.costCap !== null ? `${spent} / ${formatCost(run.costCap, run.currency)}` : spent;
   }
 
+  /** Names what the estimate rests on, so a prompt-size guess never reads like measured history. */
+  estimateBasisLabel(preflight: ReviewPreflight): string {
+    const estimate = preflight.estimate;
+    if (estimate.basis === 'history') {
+      return `${estimate.historySamples} matching ${preflight.cliType} · ${preflight.model ?? 'runner default'} operation${estimate.historySamples === 1 ? '' : 's'}`;
+    }
+    if (estimate.basis === 'prompt-size') return 'Prompt size (no matching history)';
+    return `${estimate.historySamples} history samples`;
+  }
+
   capLabel(preflight: ReviewPreflight): string {
     if (preflight.tokenCap !== null) return `${formatTokenCount(preflight.tokenCap)} tokens`;
     if (preflight.costCap !== null) return formatCost(preflight.costCap, preflight.estimate.currency);

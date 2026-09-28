@@ -81,9 +81,9 @@
       <div><dt>Scope</dt><dd><b>{{ sheet.path }}</b><span>{{ sheet.level }} · {{ sheet.kind }}</span></dd></div>
       <div><dt>Work</dt><dd><b>{{ sheet.estimate.files }} files · {{ sheet.estimate.operations }} operations</b><span>{{ sheet.estimate.expectedFreshSkips }} expected fresh skips</span></dd></div>
       <div><dt>Route</dt><dd><b>{{ sheet.cliType }} · {{ sheet.model ?? 'Runner default' }} <i class="studio-badge model-source">{{ modelSourceLabel(sheet) }}</i> · {{ sheet.thinkingLevel ?? 'model default' }}</b><span>Recommended: {{ sheet.recommendation.recommendedModel }} / {{ sheet.recommendation.recommendedThinkingLevel }} · {{ sheet.recommendation.capabilityTier }}</span></dd></div>
-      <div><dt>Estimate</dt><dd><b>{{ formatNumber(sheet.estimate.inputTokens) }} input + {{ formatNumber(sheet.estimate.outputTokens) }} output</b><span>{{ costLabel(sheet) }}</span></dd></div>
+      <div><dt>Estimate</dt><dd><b>{{ formatNumber(sheet.estimate.inputTokens) }} input + {{ formatNumber(sheet.estimate.outputTokens) }} output</b><span>{{ costLabel(sheet) }}@if (sheet.estimate.cachedInputTokens || sheet.estimate.cacheWriteInputTokens) { · input includes {{ formatNumber(sheet.estimate.cachedInputTokens ?? 0) }} cache read, {{ formatNumber(sheet.estimate.cacheWriteInputTokens ?? 0) }} cache write }</span></dd></div>
       <div><dt>Cap</dt><dd><b>{{ capLabel(sheet) }}</b><span>Applied by the server before work continues</span></dd></div>
-      <div><dt>Method</dt><dd><b>{{ sheet.estimate.historySamples }} history samples</b><span>{{ sheet.estimate.method }}</span></dd></div>
+      <div class="estimate-basis"><dt>Basis</dt><dd><b>{{ estimateBasisLabel(sheet) }}</b><span>{{ sheet.estimate.method }}</span></dd></div>
     </dl>
     <p class="route-reason"><b>Policy {{ sheet.recommendation.policyVersion }} · score {{ sheet.recommendation.score }} · floor {{ sheet.recommendation.correctnessFloor }}</b><span>{{ sheet.recommendation.reason }}</span></p>
     <p class="estimate-uncertainty">Estimate only: tokenizer behavior, context, and response length can change actual usage.</p>

@@ -127,4 +127,29 @@ describe('UsageHistory', () => {
     expect(cost.classList).toContain('unpriced');
     expect(fixture.nativeElement.querySelector('.cost-total strong')?.textContent).toContain('unpriced');
   });
+
+  it('shows cache writes and flags pre-schema-4 Claude entries as under-priced', () => {
+    const usage = api.usage();
+    api.usage.set({
+      ...usage,
+      cacheWriteInputTokens: 50_000,
+      underPricedRuns: 1,
+      recent: [{
+        ...usage.recent[0],
+        cliType: 'claude',
+        model: 'claude-opus-5',
+        tokens: { inputTokens: 401_000, outputTokens: 20_000, cachedInputTokens: 400_000, reasoningOutputTokens: 0, durationMs: 60_000 },
+        accountingNote: 'Recorded before ledger schema 4: Claude cache-write tokens were not captured, so this cost is a lower bound.',
+      }],
+    });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('50,000 cache write');
+    expect(element.querySelector('.summary-grid .under-priced')?.textContent).toContain('1 operation(s) under-priced');
+
+    (element.querySelector('.entry-summary') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Not recorded');
+    expect(element.querySelector('.entry-details .under-priced')?.textContent).toContain('lower bound');
+  });
 });

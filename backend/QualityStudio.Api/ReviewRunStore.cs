@@ -19,7 +19,10 @@ public sealed record ReviewRunEstimate(
     string PriceStatus,
     int HistorySamples,
     string Method,
-    int ExpectedFreshSkips = 0);
+    int ExpectedFreshSkips = 0,
+    long CachedInputTokens = 0,
+    long CacheWriteInputTokens = 0,
+    string? Basis = null);
 
 public sealed record ReviewRunManifest(
     string RunId,

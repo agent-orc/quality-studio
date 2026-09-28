@@ -4,6 +4,26 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — Claude usage accounting, caps and cost estimates (QS-110)
+
+The ledger dropped Claude's `cache_creation_input_tokens` and priced Claude's cache reads as if
+they were a share of the fresh input, so the 2026-09-28 agent-studio-dev sweep recorded USD 12.50
+against USD 22.53 billed, token and cost caps saw only part of the input, and the preflight
+predicted USD 56.59 for a USD 10.61 run (defects D5-D6).
+
+- The review agent reads cache-write tokens from the Claude CLI's raw `result` line (the runner's
+  usage summary drops them). `inputTokens` now counts every input token — fresh, cache read and
+  cache write — with `cachedInputTokens` and the new `cacheWriteInputTokens` as subsets, each priced
+  at its catalogue rate. Token caps and cost caps therefore count all input.
+- Usage ledger schema 4 (`schemas/usage-ledger.v4.schema.json`). Earlier entries are not rewritten:
+  pre-schema-4 Claude entries are normalized and repriced on read and flagged with an
+  `accountingNote` as under-priced (their cache writes were never captured); `GET /api/usage`
+  reports `underPricedRuns` and `cacheWriteInputTokens`, and the usage history shows both.
+- The preflight estimate learns only from recorded operations of the same CLI, model and review
+  kind, per level; without such history it falls back to the rendered prompt size. The estimate
+  carries its `basis` (`history` or `prompt-size`) and cache classes, and the preflight sheet shows
+  the basis.
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working

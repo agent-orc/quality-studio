@@ -127,6 +127,33 @@ describe('ReviewActions', () => {
     expect(api.startReview).toHaveBeenCalledWith(jasmine.objectContaining({ confirmBelowFloor: true }));
   });
 
+  it('names the estimate basis and its cache classes in the preflight sheet', async () => {
+    api.estimateReview.and.resolveTo({
+      repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: 'claude-opus-5',
+      thinkingLevel: 'medium', cliType: 'claude', tokenCap: null, costCap: null, overrideBelowFloor: false,
+      estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 200000, outputTokens: 5000,
+        cost: 0.8, currency: 'USD', priceStatus: 'resolved', historySamples: 3,
+        method: 'History: mean tokens of 3 recorded claude/claude-opus-5 code operation(s).', expectedFreshSkips: 0,
+        cachedInputTokens: 140000, cacheWriteInputTokens: 40000, basis: 'history' },
+      recommendation: { policyVersion: '2026-07-24', recommendedModel: 'gpt-5.6-sol',
+        recommendedThinkingLevel: 'xhigh', capabilityTier: 'frontier', score: 70,
+        correctnessFloor: 'sol-xhigh', reason: 'Correctness floor.', selectionSource: 'model-routing-policy' },
+    });
+
+    await component.prepare();
+    fixture.detectChanges();
+
+    const basis = fixture.nativeElement.querySelector('.estimate-basis') as HTMLElement;
+    expect(basis.textContent).toContain('3 matching claude · claude-opus-5 operations');
+    expect(basis.textContent).toContain('History: mean tokens');
+    const sheet = fixture.nativeElement.querySelector('[aria-label="Review preflight"]') as HTMLElement;
+    expect(sheet.textContent).toContain('140k cache read, 40k cache write');
+
+    const promptSize = component.preflight()!;
+    expect(component.estimateBasisLabel({ ...promptSize, estimate: { ...promptSize.estimate, basis: 'prompt-size', historySamples: 0 } }))
+      .toBe('Prompt size (no matching history)');
+  });
+
   it('moves to the recommended model provider before re-estimating', async () => {
     api.estimateReview.and.resolveTo({
       repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: 'gpt-5.6-sol',
