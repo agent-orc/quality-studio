@@ -122,7 +122,10 @@ attempts above about 20 KB failed to launch in the 2026-09-28 Agent Studio
 evaluation (defect D1). `CodingAgentReviewAgentLargePromptTests` guards against a
 regression on both CI legs, ubuntu and windows. It launches the fake CLI in
 `backend/tests/TestSupport/FakeCodingAgentCli` as `claude` and as `codex` with a
-100 KiB multi-line prompt, then asserts three things: the prompt arrived intact at
+100 KiB multi-line prompt. The fake takes its dialect from its file name, as the
+real CLIs do, so the test runs a copy named `claude[.exe]` or `codex[.exe]`; the
+argv-less `--version` probe therefore answers as the CLI under test, which a second
+test asserts. The large-prompt test asserts three things: the prompt arrived intact at
 the start of stdin, it does not appear in argv, and argv stays below cmd.exe's
 8,191 characters. The runner appends its own subagent-delegation note after the
 prompt, so stdin is slightly longer than the prompt itself.
