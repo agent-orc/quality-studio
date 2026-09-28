@@ -3,6 +3,15 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.6.0 (2026-09-28)
+
+- Added built-in rule packs (`rules/packs/`): `house-style`, `dotnet-service`, `angular-app`,
+  `public-website` and `security-baseline`. `house-style` selects every `defaultOn` rule and is the
+  implicit default, so a repository without an applicability file resolves exactly as before.
+- Per-project applicability chooses packs per project type and replaces the house-style default;
+  custom rules in a repository or the data root use the same rule format with their own id prefix.
+  No existing rule changed. See `docs/rule-pool-management.md`.
+
 ## 1.5.0 (2026-09-13)
 
 - Added four opt-in SEO review rules (QS-GN-005 through QS-GN-008): indexability, canonical/language consistency, descriptive metadata, and crawlable discovery.

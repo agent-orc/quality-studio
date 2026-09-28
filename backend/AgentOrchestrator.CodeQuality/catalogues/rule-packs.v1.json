@@ -1,0 +1,105 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack-catalogue.v1.schema.json",
+  "schemaVersion": 1,
+  "packs": [
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+      "schemaVersion": 1,
+      "id": "angular-app",
+      "version": "1.0.0",
+      "title": "Angular application",
+      "description": "The default-on Angular and language-independent rules for an Angular single-page application. .NET rules and opt-in rules stay off.",
+      "projectTypes": [
+        "angular-spa",
+        "angular-library"
+      ],
+      "include": [
+        {
+          "technologies": [
+            "angular",
+            "generic"
+          ],
+          "defaultOn": true
+        }
+      ]
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+      "schemaVersion": 1,
+      "id": "dotnet-service",
+      "version": "1.0.0",
+      "title": ".NET service or API",
+      "description": "The default-on .NET and language-independent rules for an ASP.NET Core API, worker or CLI. Angular rules and opt-in rules stay off.",
+      "projectTypes": [
+        "dotnet-api",
+        "dotnet-worker",
+        "dotnet-cli"
+      ],
+      "include": [
+        {
+          "technologies": [
+            "dotnet",
+            "generic"
+          ],
+          "defaultOn": true
+        }
+      ]
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+      "schemaVersion": 1,
+      "id": "house-style",
+      "version": "1.0.0",
+      "title": "Quality Studio house style",
+      "description": "Every rule the library marks defaultOn. This is the shipped default: a repository without an applicability file resolves exactly this pack, which is the behaviour before rule packs existed.",
+      "projectTypes": [
+        "any"
+      ],
+      "include": [
+        {
+          "defaultOn": true
+        }
+      ]
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+      "schemaVersion": 1,
+      "id": "public-website",
+      "version": "1.0.0",
+      "title": "Public website (SEO)",
+      "description": "The opt-in search-discovery rules for HTML that is intentionally published for search engines. Combine it with the pack of the site's technology; it adds no obligations to private applications.",
+      "projectTypes": [
+        "public-website",
+        "marketing-site",
+        "documentation-site"
+      ],
+      "include": [
+        {
+          "categories": [
+            "seo"
+          ]
+        }
+      ]
+    },
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+      "schemaVersion": 1,
+      "id": "security-baseline",
+      "version": "1.0.0",
+      "title": "Security baseline",
+      "description": "Every rule that covers the security review kind, in every technology. Language-independent rules that also cover code or performance keep those kinds. For a repository that should be reviewed for security without the house style, such as vendored or integration code.",
+      "projectTypes": [
+        "vendored-code",
+        "third-party-integration",
+        "security-audit"
+      ],
+      "include": [
+        {
+          "kinds": [
+            "security"
+          ]
+        }
+      ]
+    }
+  ]
+}

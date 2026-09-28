@@ -16,8 +16,9 @@ async function sandbox() {
   await mkdir(join(root, 'schemas'), { recursive: true });
   await mkdir(join(root, 'backend', 'AgentOrchestrator.CodeQuality', 'catalogues'), { recursive: true });
   await cp(join(repoRoot, 'scripts', 'sync-rule-catalogue.mjs'), join(root, 'scripts', 'sync-rule-catalogue.mjs'));
-  await cp(join(repoRoot, 'schemas', 'rule-catalogue.v1.schema.json'),
-    join(root, 'schemas', 'rule-catalogue.v1.schema.json'));
+  for (const schema of ['rule-catalogue.v1.schema.json', 'rule-pack.v1.schema.json', 'rule-pack-catalogue.v1.schema.json']) {
+    await cp(join(repoRoot, 'schemas', schema), join(root, 'schemas', schema));
+  }
   await cp(join(repoRoot, 'rules'), join(root, 'rules'), { recursive: true });
   return root;
 }
@@ -120,4 +121,60 @@ test('the generator writes nothing time- or checkout-dependent', async () => {
 
   assert.deepEqual(Object.keys(document), ['$schema', 'schemaVersion', 'catalogueVersion', 'entries']);
   assert.doesNotMatch(catalogue, /generatedAt|generatedFrom|"commit"/);
+});
+
+const packsRelativePath = join('backend', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-packs.v1.json');
+
+test('built-in rule packs are generated deterministically and include the house style', async () => {
+  const root = await sandbox();
+  assert.equal((await run(root)).code, 0);
+
+  const generated = await readFile(join(root, packsRelativePath));
+  assert.deepEqual(generated, await readFile(join(repoRoot, packsRelativePath)),
+    'the committed rule packs are stale; run npm run rules:sync');
+  const document = JSON.parse(generated.toString('utf8'));
+  assert.deepEqual(document.packs.map(pack => pack.id), [...document.packs.map(pack => pack.id)].sort());
+  const houseStyle = document.packs.find(pack => pack.id === 'house-style');
+  assert.deepEqual(houseStyle.include, [{ defaultOn: true }],
+    'house-style must reproduce the defaultOn set, which is the behaviour of a repository without applicability');
+});
+
+test('a pack that selects an unknown rule id fails before anything is written', async () => {
+  const root = await sandbox();
+  const packPath = join(root, 'rules', 'packs', 'public-website.json');
+  const pack = JSON.parse(await readFile(packPath, 'utf8'));
+  pack.include.push({ ids: ['QS-GN-999'] });
+  await writeFile(packPath, JSON.stringify(pack));
+
+  const result = await run(root);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /unknown rule id 'QS-GN-999'/);
+  await assert.rejects(readFile(join(root, packsRelativePath)));
+});
+
+test('a pack whose file name contradicts its id or schema fails validation', async () => {
+  const root = await sandbox();
+  const packPath = join(root, 'rules', 'packs', 'angular-app.json');
+  const pack = JSON.parse(await readFile(packPath, 'utf8'));
+  await writeFile(packPath, JSON.stringify({ ...pack, id: 'angular-web', include: [{}] }));
+
+  const result = await run(root);
+
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /file name must be 'angular-web.json'/);
+  assert.match(result.stderr, /requires at least 1 properties/);
+});
+
+test('--check reports drift after a pack changes', async () => {
+  const root = await sandbox();
+  assert.equal((await run(root)).code, 0);
+  const packPath = join(root, 'rules', 'packs', 'dotnet-service.json');
+  const pack = JSON.parse(await readFile(packPath, 'utf8'));
+  await writeFile(packPath, JSON.stringify({ ...pack, version: '1.0.1' }, null, 2));
+
+  const drifted = await run(root, '--check');
+
+  assert.equal(drifted.code, 1);
+  assert.match(drifted.stderr, /rule packs have drifted/);
 });

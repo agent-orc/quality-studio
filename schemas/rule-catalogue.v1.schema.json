@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json",
   "title": "Quality Studio named-rule catalogue",
-  "description": "Generated from rules/**/*.md by scripts/sync-rule-catalogue.mjs; embedded as the built-in rule library at backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json.",
+  "description": "Generated from rules/**/*.md by scripts/sync-rule-catalogue.mjs; embedded as the built-in rule library at backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json. $defs/entry is also the shape of a custom rule in an exported rule set (rule-set.v1).",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "schemaVersion", "catalogueVersion", "entries"],
@@ -25,7 +25,11 @@
         "deterministicRuleIds", "relatedGuideline", "since", "changeHistory", "enabled"
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^QS-[A-Z]{2,4}-[0-9]{3}$" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]{1,7}-[A-Z]{2,4}-[0-9]{3}$",
+          "description": "Built-in rules use QS-NG, QS-CS or QS-GN (enforced by the generator per directory). Custom rules in a repository or the data root use the same shape with their own owner prefix; QS- is reserved for the built-in library."
+        },
         "version": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1 },
         "technology": { "enum": ["angular", "dotnet", "generic"] },

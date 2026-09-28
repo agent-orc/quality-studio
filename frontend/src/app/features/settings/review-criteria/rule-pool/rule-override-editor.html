@@ -1,0 +1,32 @@
+@if (scopeView(); as scope) {
+  <fieldset class="override-editor" [disabled]="!scope.writable">
+    <legend>Adjust for {{ scopeLabel() }}</legend>
+    @if (!scope.writable) { <p class="muted">These credentials may not change the global rule pool.</p> }
+    <div class="override-fields">
+      <label><span>Enablement</span>
+        <select class="studio-field" [value]="enablement()" (change)="setEnablement($any($event.target).value)">
+          <option value="inherit">Inherit (packs decide)</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option>
+        </select>
+      </label>
+      <label><span>Severity</span>
+        <select class="studio-field" (change)="setSeverity($any($event.target).value)">
+          <option value="inherit" [selected]="severity() === 'inherit'">Inherit ({{ rule().authoredSeverity }})</option>
+          @for (option of severities; track option) { <option [value]="option" [selected]="option === severity()">{{ option }}</option> }
+        </select>
+      </label>
+      <label class="reason-field"><span>Reason <small>required, recorded in the audit trail</small></span>
+        <input class="studio-field" type="text" maxlength="1000" [value]="reason()" (input)="reason.set($any($event.target).value)" placeholder="Why this repository departs from the default">
+      </label>
+    </div>
+    <div class="override-actions">
+      <button class="studio-button studio-button-primary" type="button" [disabled]="!canSave()" (click)="save()">{{ existing() ? 'Update override' : 'Save override' }}</button>
+      @if (existing()) { <button class="studio-button" type="button" [disabled]="!hasReason() || policy.saving()" (click)="remove()">Remove override</button> }
+      @if (saved()) { <span class="saved" role="status">{{ saved() }}</span> }
+    </div>
+    @if (failure(); as problem) {
+      <div class="pool-problem" role="alert"><p>{{ problem.message }}</p>
+        @for (diagnostic of problem.diagnostics; track $index) { <p><code>{{ diagnostic.source }}</code> {{ diagnostic.message }}</p> }
+      </div>
+    }
+  </fieldset>
+}

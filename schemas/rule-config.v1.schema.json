@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agent-orchestrator.dev/quality/schemas/rule-config.v1.schema.json",
   "title": "Quality Studio rule overrides",
-  "description": "A repository's adjustments to the built-in rule catalogue, read from .quality/rules/overrides.json (project scope) or rule-overrides.json in the global inputs directory (global scope). Project wins by rule id.",
+  "description": "A repository's adjustments to the built-in rule catalogue, read from .quality/rules/overrides.json (project scope), <data root>/rules/overrides.json (global scope) or rule-overrides.json in a registration's global inputs directory (shared global scope, read-only). Later layers win by rule id: global, shared global, project.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "overrides"],
@@ -23,8 +23,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^QS-[A-Z]{2,4}-[0-9]{3}$",
-          "description": "A rule id present in the built-in catalogue. An unknown id is an error, not a no-op."
+          "pattern": "^[A-Z][A-Z0-9]{1,7}-[A-Z]{2,4}-[0-9]{3}$",
+          "description": "A rule id present in the resolved pool: the built-in catalogue or a custom rule of the global or project scope. An unknown id is an error, not a no-op."
         },
         "enabled": {
           "type": "boolean",

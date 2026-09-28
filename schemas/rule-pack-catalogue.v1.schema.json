@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-pack-catalogue.v1.schema.json",
+  "title": "Quality Studio built-in rule packs",
+  "description": "Generated from rules/packs/*.json by scripts/sync-rule-catalogue.mjs; embedded next to the rule catalogue at backend/AgentOrchestrator.CodeQuality/catalogues/rule-packs.v1.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "packs"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "packs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "rule-pack.v1.schema.json" }
+    }
+  }
+}

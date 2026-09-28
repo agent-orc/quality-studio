@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "angular-app",
+  "version": "1.0.0",
+  "title": "Angular application",
+  "description": "The default-on Angular and language-independent rules for an Angular single-page application. .NET rules and opt-in rules stay off.",
+  "projectTypes": ["angular-spa", "angular-library"],
+  "include": [
+    { "technologies": ["angular", "generic"], "defaultOn": true }
+  ]
+}

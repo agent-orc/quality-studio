@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+  "title": "Quality Studio rule pack",
+  "description": "A named selection of rules for one kind of project. Built-in packs are authored in rules/packs/*.json and generated into rule-packs.v1.json; custom packs live in .quality/rules/packs/<id>.json (project scope) or <data root>/rules/packs/<id>.json (global scope). A pack only selects rules; severity changes stay overrides with a reason.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "title", "description", "projectTypes", "include"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+      "description": "Stable pack id. A custom pack file is named <id>.json; its id may not repeat a built-in or global pack id."
+    },
+    "version": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "projectTypes": {
+      "type": "array",
+      "description": "Free-form project types the pack is written for, shown when choosing packs.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "include": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "description": "A rule is selected when any selector matches it.",
+      "items": { "$ref": "#/$defs/selector" }
+    }
+  },
+  "$defs": {
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Every property that is set must match; a list matches when the rule carries any of its values.",
+      "minProperties": 1,
+      "properties": {
+        "ids": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "technologies": { "type": "array", "minItems": 1, "items": { "enum": ["angular", "dotnet", "generic"] } },
+        "kinds": { "type": "array", "minItems": 1, "items": { "enum": ["code", "security", "performance"] } },
+        "categories": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "defaultOn": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "security-baseline",
+  "version": "1.0.0",
+  "title": "Security baseline",
+  "description": "Every rule that covers the security review kind, in every technology. Language-independent rules that also cover code or performance keep those kinds. For a repository that should be reviewed for security without the house style, such as vendored or integration code.",
+  "projectTypes": ["vendored-code", "third-party-integration", "security-audit"],
+  "include": [
+    { "kinds": ["security"] }
+  ]
+}

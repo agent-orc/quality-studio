@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "public-website",
+  "version": "1.0.0",
+  "title": "Public website (SEO)",
+  "description": "The opt-in search-discovery rules for HTML that is intentionally published for search engines. Combine it with the pack of the site's technology; it adds no obligations to private applications.",
+  "projectTypes": ["public-website", "marketing-site", "documentation-site"],
+  "include": [
+    { "categories": ["seo"] }
+  ]
+}

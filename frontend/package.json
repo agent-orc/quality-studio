@@ -21,6 +21,7 @@
     "evidence:run-compare": "node tests/run-compare-evidence.mjs",
     "evidence:url-preview-embed": "node tests/url-preview-embed-evidence.mjs",
     "evidence:ignore-list": "node tests/ignore-list-evidence.mjs",
+    "evidence:rule-pool": "node tests/rule-pool-evidence.mjs",
     "shots:run-report": "node tests/shots/run-report-evidence.mjs",
     "test:architecture": "node --test tests/architecture.test.mjs tests/typography.test.mjs",
     "reference": "ng serve style-reference --host 127.0.0.1 --port 4226",

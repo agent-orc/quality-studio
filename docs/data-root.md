@@ -31,6 +31,7 @@ measuring cannot be run against its own repository without the two purposes figh
 | Override, per host | `QualityStudio:DataRoot` (for example `QualityStudio__DataRoot=/data`) |
 | Override, per process | `QUALITY_STUDIO_DATA_ROOT` |
 | Per project | `<base>/projects/<project-key>/` |
+| Host-wide rule pool | `<base>/rules/` — global applicability, overrides, custom rules, packs and their `audit.jsonl` ([rule pool management](rule-pool-management.md)) |
 
 The `quality` CLI has no ASP.NET configuration, so it reads both environment variables and prefers
 `QUALITY_STUDIO_DATA_ROOT`. That matters because the API's own startup warning tells an operator to
@@ -62,6 +63,7 @@ Inside a project directory the layout is the one the `.quality` folder used to h
   flows/<hash>.flow-review.json
   runs/<run-id>/…
   attacks/coverage-ledger.jsonl
+  rules/audit.jsonl
 ```
 
 Review sidecars are the one family whose layout changed shape. They used to sit in a `.quality`
@@ -76,7 +78,8 @@ be reviewed and versioned with it, and the studio only ever reads them:
 
 - `.quality/scope.json` — which paths are in scope
 - `.quality/inputs/` — repository guidelines resolved into review prompts
-- `.quality/rules/overrides.json` — the project's rule-catalogue overrides
+- `.quality/rules/` — the project's rule pool: `overrides.json`, `applicability.json`, custom rules
+  in `custom/*.md` and custom packs in `packs/*.json` (see [rule pool management](rule-pool-management.md))
 - `.quality/security/gitleaks.toml`, `.quality/security/gitleaks.baseline.json`
 - `.quality/attacks/catalogue.json` — the project's attack catalogue
 

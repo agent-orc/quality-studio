@@ -27,14 +27,17 @@
         @for (principle of methodology.principles; track principle.id) { <article><h3>{{ principle.title }}</h3><p>{{ principle.why }}</p><p>{{ principle.method }}</p><p><strong>Limits:</strong> {{ principle.limits }}</p></article> }
         <div class="source-links">@for (source of methodology.sources; track source.id) { <a [href]="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }} ↗</a> }</div>
       </details>
+      <qs-rule-pool-manager />
       @if (policy.catalogue(); as catalogue) {
-        <p class="muted">{{ ruleRows().length }} rules · Library {{ catalogue.catalogueVersion }}. Enablement and severity below include repository overrides. Enabled rules still depend on review kind, technology and prompt budget.</p>
+        <p class="muted">{{ ruleRows().length }} rules · Library {{ catalogue.catalogueVersion }}. Enablement and severity below include packs and overrides. Enabled rules still depend on review kind, technology and prompt budget.</p>
         @for (row of ruleRows(); track row.rule.id) {
-          <details class="reference-card rule-card" [attr.data-rule-id]="row.rule.id" [open]="row.rule.id === selectedRule()"><summary><span><code>{{ row.rule.id }}</code> {{ row.rule.title }}</span><small>{{ row.rule.enabled ? 'Enabled' : 'Disabled' }} · {{ row.rule.severity }} · {{ row.rule.technology }} · {{ row.trace?.source ?? 'built-in' }}</small></summary>
+          <details class="reference-card rule-card" [attr.data-rule-id]="row.rule.id" [open]="row.rule.id === selectedRule()"><summary><span><code>{{ row.rule.id }}</code> {{ row.rule.title }}</span><small>{{ row.rule.enabled ? 'Enabled' : 'Disabled' }} · {{ row.rule.severity }} · {{ row.rule.technology }} · {{ row.trace?.source ?? 'built-in' }}{{ row.origin }}</small></summary>
             <p>{{ row.rule.statement }}</p><h4>Why</h4><p>{{ row.rule.rationale }}</p><h4>How to detect it</h4><p>{{ row.rule.detection }}</p>
             @if (row.trace?.reason) { <p class="override"><strong>Override reason:</strong> {{ row.trace?.reason }}</p> }
+            @if (managed()) { <p><strong>Selected by packs:</strong> {{ row.selectedBy || 'none of the applicable packs; only an override enables it' }}</p> }
             <p><strong>Deterministic mappings:</strong> {{ row.rule.deterministicRuleIds.join(', ') || 'Reviewer judgment; no deterministic rule mapping.' }}</p>
             <details><summary>Worked examples</summary><h4>Good example</h4><pre>{{ row.rule.goodExample }}</pre><h4>Problem example</h4><pre>{{ row.rule.badExample }}</pre></details>
+            @if (managed()) { <qs-rule-override-editor [rule]="row.rule" /> }
           </details>
         } @empty { <p class="studio-empty-state">No rules match these filters.</p> }
       }
@@ -47,6 +50,7 @@
         @for (input of preview.inputs; track input.id + ':' + input.source) {
           <details class="reference-card"><summary>{{ input.id }}<small>{{ input.scope }} · priority {{ input.priority }} · {{ input.includedContent.length }} included characters{{ input.truncated ? ' · truncated' : '' }}</small></summary><pre>{{ input.includedContent || 'No text included: the preview budget was exhausted.' }}</pre></details>
         }
+      } @else if (policy.previewError()) { <p class="input-notice" role="alert">The prompt preview is unavailable: {{ policy.previewError() }} Fix the rule configuration problems listed under Rules & rationale.</p>
       } @else if (!policy.loading() && !policy.error()) { <p class="studio-empty-state">This review kind has no enabled input preview in this repository.</p> }
     }
   }

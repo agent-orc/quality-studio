@@ -78,7 +78,7 @@ public sealed class RuleLibraryTests : IDisposable
             { "schemaVersion": 1, "overrides": [ { "id": "QS-CS-999", "enabled": false, "reason": "Typo." } ] }
             """);
 
-        var exception = Assert.Throws<JsonException>(() => new RuleCatalogueResolver().Resolve(root));
+        var exception = Assert.Throws<RuleConfigurationException>(() => new RuleCatalogueResolver().Resolve(root));
 
         Assert.Contains("QS-CS-999", exception.Message, StringComparison.Ordinal);
     }
@@ -90,7 +90,7 @@ public sealed class RuleLibraryTests : IDisposable
             { "schemaVersion": 1, "overrides": [ { "id": "QS-CS-003", "enabled": false, "reason": "  " } ] }
             """);
 
-        var exception = Assert.Throws<JsonException>(() => new RuleCatalogueResolver().Resolve(root));
+        var exception = Assert.Throws<RuleConfigurationException>(() => new RuleCatalogueResolver().Resolve(root));
 
         Assert.Contains("requires a reason", exception.Message, StringComparison.Ordinal);
     }

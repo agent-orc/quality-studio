@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-set.v1.schema.json",
+  "title": "Quality Studio rule set",
+  "description": "One portable, versioned file holding everything a writable rule scope (project or global) contributes to the rule pool: applicability, overrides, custom rules and custom packs. Written by GET /api/repos/{repoId}/rules/export and read by POST /api/repos/{repoId}/rules/import. Custom rules travel as rule-catalogue entries and are written back as Markdown in the authored rule format.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "overrides", "customRules", "packs"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "name": { "type": ["string", "null"], "maxLength": 200, "description": "A label for the set, e.g. the repository it was exported from." },
+    "libraryVersion": { "type": ["string", "null"], "description": "The built-in catalogueVersion the set was exported against." },
+    "exportedAt": { "type": ["string", "null"], "format": "date-time" },
+    "scope": { "enum": ["project", "global", null] },
+    "digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256 of the canonical applicability, overrides, customRules and packs. An import reports whether the content changed since export; a changed digest is allowed."
+    },
+    "applicability": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["packs", "reason"],
+          "properties": {
+            "packs": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" } },
+            "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+          }
+        }
+      ]
+    },
+    "overrides": {
+      "type": "array",
+      "items": { "$ref": "rule-config.v1.schema.json#/$defs/override" }
+    },
+    "customRules": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "rule-catalogue.v1.schema.json#/$defs/entry" }
+    },
+    "packs": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "rule-pack.v1.schema.json" }
+    }
+  }
+}

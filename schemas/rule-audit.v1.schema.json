@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-audit.v1.schema.json",
+  "title": "Quality Studio rule pool audit entry",
+  "description": "One line of the append-only rule audit trail (JSON Lines). Project-scope changes are recorded in <project data root>/rules/audit.jsonl, global-scope changes in <data root>/rules/audit.jsonl. Only changes made through the API are recorded; a hand edit of a rule file is visible in the file's own version history instead.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "at", "actor", "scope", "action", "target", "reason"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "at": { "type": "string", "format": "date-time" },
+    "actor": { "type": "string", "minLength": 1, "description": "The authenticated API client id." },
+    "scope": { "enum": ["project", "global"] },
+    "action": {
+      "enum": [
+        "override.set", "override.remove", "custom-rule.put", "custom-rule.delete",
+        "pack.put", "pack.delete", "applicability.set", "applicability.clear", "rule-set.import"
+      ]
+    },
+    "target": { "type": "string", "minLength": 1, "description": "The rule id, pack id, 'applicability', or the imported rule set's name." },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "before": { "description": "The previous state of the target, or null. Custom rules and packs are summarised with a content digest." },
+    "after": { "description": "The new state of the target, or null when it was removed." }
+  }
+}

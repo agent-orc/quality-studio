@@ -1,0 +1,146 @@
+@if (managed()) {
+  <section class="rule-pool" aria-label="Rule pool management">
+    <header class="pool-header">
+      <div>
+        <span class="eyebrow">Rule pool</span>
+        @if (applicability(); as applied) {
+          <strong>{{ applied.titles }}</strong>
+          <small>{{ applied.from }}{{ applied.reason ? ' · ' + applied.reason : '' }}</small>
+        }
+        <small>{{ summary() }}</small>
+      </div>
+      <label class="scope-select"><span>Write changes to</span>
+        <select class="studio-field" [value]="scope()" (change)="setScope($any($event.target).value)">
+          <option value="project">This repository · .quality/rules</option>
+          <option value="global" [disabled]="!globalWritable()">All repositories · global (data root)</option>
+        </select>
+      </label>
+    </header>
+
+    @if (diagnostics().length) {
+      <div class="pool-problem" role="alert">
+        <p><strong>Reviews of this repository are blocked until these rule configuration problems are fixed.</strong> Remove or correct the entry below, or import a valid rule set.</p>
+        <ul>@for (diagnostic of diagnostics(); track $index) { <li><code>{{ diagnostic.source }}</code>{{ diagnostic.subject ? ' (' + diagnostic.subject + ')' : '' }}: {{ diagnostic.message }}</li> }</ul>
+      </div>
+    }
+
+    <nav class="pool-actions" aria-label="Rule pool actions">
+      <button class="studio-button" type="button" [attr.aria-pressed]="panel() === 'packs'" (click)="toggle('packs')">Packs & applicability</button>
+      <button class="studio-button" type="button" [attr.aria-pressed]="panel() === 'custom'" (click)="toggle('custom')">Custom rules · {{ scopeView()?.customRules?.length ?? 0 }}</button>
+      <button class="studio-button" type="button" [attr.aria-pressed]="panel() === 'transfer'" (click)="toggle('transfer')">Import / export</button>
+      <button class="studio-button" type="button" [attr.aria-pressed]="panel() === 'audit'" (click)="toggle('audit')">Audit trail</button>
+    </nav>
+
+    @if (notice()) { <p class="saved" role="status">{{ notice() }}</p> }
+    @if (failure(); as problem) {
+      <div class="pool-problem" role="alert"><p>{{ problem.message }}</p>
+        @if (problem.diagnostics.length) { <ul>@for (diagnostic of problem.diagnostics; track $index) { <li><code>{{ diagnostic.source }}</code>{{ diagnostic.subject ? ' (' + diagnostic.subject + ')' : '' }}: {{ diagnostic.message }}</li> }</ul> }
+      </div>
+    }
+
+    @switch (panel()) {
+      @case ('packs') {
+        <div class="pool-panel" role="group" aria-label="Packs and applicability">
+          <p class="muted">Packs decide which rules apply to {{ scopeLabel() }}. Selecting packs replaces the house-style default; overrides on each rule then adjust single rules. A repository without its own choice inherits the global one, then the house style.</p>
+          @for (row of packRows(); track row.pack.id) {
+            <label class="pack-option">
+              <input class="studio-check" type="checkbox" [checked]="row.checked" (change)="togglePack(row.pack.id, $any($event.target).checked)">
+              <span><strong>{{ row.pack.title }}</strong> <code>{{ row.pack.id }}</code> <small>{{ row.meta }}</small><small>{{ row.pack.description }}</small></span>
+            </label>
+          }
+          <label class="reason-field"><span>Reason <small>required, recorded in the audit trail</small></span>
+            <input class="studio-field" type="text" maxlength="1000" [value]="packReason()" (input)="packReason.set($any($event.target).value)" placeholder="What kind of project this is">
+          </label>
+          <div class="override-actions">
+            <button class="studio-button studio-button-primary" type="button" [disabled]="!canSaveApplicability()" (click)="saveApplicability()">Save applicability for {{ scopeLabel() }}</button>
+            @if (scopeView()?.applicability) { <button class="studio-button" type="button" [disabled]="!canSaveApplicability()" (click)="useDefaults()">Remove this scope's choice</button> }
+          </div>
+        </div>
+      }
+      @case ('custom') {
+        <div class="pool-panel" role="group" aria-label="Custom rules">
+          <p class="muted">Custom rules use the library's rule format and are validated when they are loaded; no rebuild is needed. Ids use your own prefix, such as <code>TEAM-CS-001</code>; <code>QS-</code> is reserved for the built-in library. Stored in {{ scopeView()?.location }}.</p>
+          @for (file of scopeView()?.customRules ?? []; track file.fileName) {
+            <div class="custom-row"><span><code>{{ file.id ?? file.fileName }}</code> <small>{{ file.fileName }}</small></span>
+              <button class="studio-button" type="button" (click)="editCustomRule(file)">Edit</button>
+              <button class="studio-button" type="button" [disabled]="!canDelete()" (click)="deleteCustomRule(file.id)">Delete</button>
+            </div>
+          } @empty { <p class="studio-empty-state">No custom rules in {{ scopeLabel() }}.</p> }
+          @if (scopeView()?.customRules?.length) {
+            <label class="reason-field"><span>Reason for deleting <small>required</small></span>
+              <input class="studio-field" type="text" maxlength="1000" [value]="deleteReason()" (input)="deleteReason.set($any($event.target).value)">
+            </label>
+          }
+          @if (draftOpen()) {
+            <div class="rule-draft">
+              <label class="content-field"><span>{{ draftExisting() ? 'Edit ' + draftExisting() : 'New custom rule' }} <small>Markdown with frontmatter and the six required sections</small></span>
+                <textarea class="studio-field" spellcheck="false" rows="18" [value]="draftContent()" (input)="setDraftContent($any($event.target).value)"></textarea>
+              </label>
+              @if (validation(); as result) {
+                @if (result.valid) {
+                  <p class="saved" role="status">Valid: <code>{{ result.id }}</code>
+                    @if (result.rule; as parsed) { {{ parsed.title }} · {{ parsed.technology }} · {{ parsed.kinds.join(', ') }} · {{ parsed.severity }} } @else { retired rule (enabled: false); it will not reach reviews }
+                  </p>
+                }
+                @else { <div class="pool-problem" role="alert"><p>This rule cannot be saved yet.</p><ul>@for (diagnostic of result.diagnostics; track $index) { <li>{{ diagnostic.message }}</li> }</ul></div> }
+              }
+              <label class="reason-field"><span>Reason <small>required, recorded in the audit trail</small></span>
+                <input class="studio-field" type="text" maxlength="1000" [value]="draftReason()" (input)="draftReason.set($any($event.target).value)">
+              </label>
+              <div class="override-actions">
+                <button class="studio-button" type="button" (click)="validateDraft()">Validate</button>
+                <button class="studio-button studio-button-primary" type="button" [disabled]="!canSaveDraft()" (click)="saveDraft()">Save custom rule</button>
+                <button class="studio-button" type="button" (click)="draftOpen.set(false)">Cancel</button>
+              </div>
+            </div>
+          } @else {
+            <button class="studio-button" type="button" (click)="newCustomRule()">+ New custom rule</button>
+          }
+        </div>
+      }
+      @case ('transfer') {
+        <div class="pool-panel" role="group" aria-label="Import and export">
+          <p class="muted">A rule set is one versioned file (<code>rule-set.v1</code>) holding the applicability, overrides, custom rules and custom packs of {{ scopeLabel() }}.</p>
+          <div class="override-actions"><button class="studio-button" type="button" (click)="exportRuleSet()">Download rule set</button></div>
+          <label class="reason-field"><span>Import a rule set</span>
+            <input class="studio-field" type="file" accept="application/json,.json" (change)="readImportFile($any($event.target).files)">
+          </label>
+          <div class="override-fields">
+            <label><span>Mode</span>
+              <select class="studio-field" [value]="importMode()" (change)="setImportMode($any($event.target).value)">
+                <option value="merge">Merge: add or replace entries by id</option>
+                <option value="replace">Replace: make the scope hold exactly this set</option>
+              </select>
+            </label>
+            <label class="reason-field"><span>Reason <small>required to apply</small></span>
+              <input class="studio-field" type="text" maxlength="1000" [value]="importReason()" (input)="importReason.set($any($event.target).value)">
+            </label>
+          </div>
+          <div class="override-actions">
+            <button class="studio-button" type="button" [disabled]="importDocument() === null || policy.saving()" (click)="previewImport()">Preview import</button>
+            <button class="studio-button studio-button-primary" type="button" [disabled]="!canApplyImport()" (click)="applyImport()">Apply import</button>
+          </div>
+          @if (importPreview(); as preview) {
+            <div class="import-plan" [class.invalid]="!preview.valid">
+              <p><strong>{{ preview.applied ? 'Applied' : preview.valid ? 'Ready to apply' : 'Cannot be applied' }}</strong> · {{ importChanges().length }} changes{{ preview.modifiedSinceExport ? ' · edited since it was exported' : '' }}</p>
+              <ul>@for (change of importChanges(); track change.kind + change.id) { <li><span class="change" [class]="'change ' + change.change">{{ change.change }}</span> {{ change.kind }} <code>{{ change.id }}</code></li> }</ul>
+              @if (preview.diagnostics.length) { <ul role="alert">@for (diagnostic of preview.diagnostics; track $index) { <li><code>{{ diagnostic.source }}</code>{{ diagnostic.subject ? ' (' + diagnostic.subject + ')' : '' }}: {{ diagnostic.message }}</li> }</ul> }
+            </div>
+          }
+        </div>
+      }
+      @case ('audit') {
+        <div class="pool-panel" role="group" aria-label="Audit trail">
+          <p class="muted">Changes made through Quality Studio to {{ scopeLabel() }}, newest first. Hand edits of rule files show up in their version history instead.</p>
+          @if (audit(); as entries) {
+            <ol class="audit-list">
+              @for (entry of entries; track entry.at + entry.action + entry.target) {
+                <li><time [attr.datetime]="entry.at">{{ entry.at | date: 'yyyy-MM-dd HH:mm:ss' }}</time> <strong>{{ entry.action }}</strong> <code>{{ entry.target }}</code> <small>by {{ entry.actor }}</small><p>{{ entry.reason }}</p></li>
+              } @empty { <li class="studio-empty-state">No recorded changes.</li> }
+            </ol>
+          } @else if (!failure()) { <p role="status">Loading the audit trail…</p> }
+        </div>
+      }
+    }
+  </section>
+}

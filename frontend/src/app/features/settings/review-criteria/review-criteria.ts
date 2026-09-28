@@ -3,10 +3,12 @@ import { ReviewPolicyApi } from '../../../core/api/review-policy-api';
 import { ReviewKind } from '../../../core/models/contracts';
 import { QualityDomains } from './quality-domains';
 import { REVIEW_METHODOLOGY } from './review-methodology.generated';
+import { RuleOverrideEditor } from './rule-pool/rule-override-editor';
+import { RulePoolManager } from './rule-pool/rule-pool-manager';
 
 @Component({
   selector: 'qs-review-criteria',
-  imports: [QualityDomains],
+  imports: [QualityDomains, RulePoolManager, RuleOverrideEditor],
   templateUrl: './review-criteria.html',
   styleUrl: './review-criteria.css',
   providers: [ReviewPolicyApi],
@@ -24,6 +26,7 @@ export class ReviewCriteria {
   readonly technology = signal('all');
   readonly query = signal('');
   readonly inputPreview = computed(() => this.policy.inputPreview()?.kinds[this.kind()]);
+  readonly managed = computed(() => !!this.policy.catalogue()?.scopes);
   readonly ruleRows = computed(() => {
     const catalogue = this.policy.catalogue();
     const traces = new Map(catalogue?.traces.map(trace => [trace.id, trace]));
@@ -32,7 +35,12 @@ export class ReviewCriteria {
       .filter(rule => rule.kinds.includes(this.kind())
         && (this.technology() === 'all' || rule.technology === this.technology() || rule.technology === 'generic')
         && (!query || `${rule.id} ${rule.title} ${rule.statement}`.toLowerCase().includes(query)))
-      .map(rule => ({ rule, trace: traces.get(rule.id) }));
+      .map(rule => ({
+        rule,
+        trace: traces.get(rule.id),
+        origin: rule.origin && rule.origin !== 'built-in' ? ` · custom (${rule.origin})` : '',
+        selectedBy: rule.selectedBy?.join(', ') ?? '',
+      }));
   });
 
   constructor() {

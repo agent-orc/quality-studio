@@ -9,6 +9,7 @@ Quality Studio groups checks by the question they answer, the evidence they need
 | Named review rules | 33 versioned rules; four SEO rules are available through explicit project opt-in. |
 | Implemented product metrics | Six formulas in [review-methodology.json](../rules/review-methodology.json), with their actual implementation references. |
 | Quality-domain catalogue | [quality-domains.json](../rules/quality-domains.json) lists implemented metrics, available review rules and planned checks across thirteen domains. The tool and public website use this same source. |
+| Rule packs and applicability | Active: a repository or the host selects packs per project type in `applicability.json`, replacing the house-style default ([rule pool management](rule-pool-management.md)). |
 | Project-property applicability | Documented selectors and scope, not a runtime YAML filter. Missing properties remain unknown. |
 | Shared project YAML | AGT's active `.agent-studio/project.yml` is execution contract v1. Its coordinated v2 extension is a draft; Quality Studio and Voice Studio do not yet consume it. |
 
@@ -18,7 +19,7 @@ Review outcomes retain the [existing taxonomy](../backend/AgentOrchestrator.Code
 
 ## Activate the initial SEO review rules
 
-For a repository containing HTML intentionally published for search discovery, merge these entries into its existing `.quality/rules/overrides.json`. Keep other project overrides:
+For a repository containing HTML intentionally published for search discovery, the shortest path is to add the built-in `public-website` pack to the repository's applicability in **Review policy → Rules & rationale → Packs & applicability**, together with the pack of its technology (for example `angular-app`). The equivalent explicit overrides, merged into an existing `.quality/rules/overrides.json` while keeping other project overrides, are:
 
 ```json
 {

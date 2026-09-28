@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/rule-applicability.v1.schema.json",
+  "title": "Quality Studio rule applicability",
+  "description": "Which rule packs decide a project's rule set, read from .quality/rules/applicability.json (project scope) or <data root>/rules/applicability.json (global scope). The most specific file wins. Present, it replaces the house-style default: a rule applies when one of the packs selects it. Absent everywhere, the built-in house-style pack applies.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packs", "reason"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "packs": {
+      "type": "array",
+      "maxItems": 50,
+      "description": "Pack ids known to this repository: built-in, global or project. An empty list selects no rule; only overrides then enable rules.",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" }
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "Why these packs describe the project."
+    }
+  }
+}

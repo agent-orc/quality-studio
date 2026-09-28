@@ -45,19 +45,26 @@ subject to the same character budget; project inputs stay last and still win by 
 over a global file. The prompt receives the rule's statement and detection guidance; its rationale
 and examples stay in the catalogue and on `GET /api/rules`.
 
-A repository adjusts the library in `.quality/rules/overrides.json`
-([`schemas/rule-config.v1.schema.json`](../schemas/rule-config.v1.schema.json)), with an optional
-shared `rule-overrides.json` in the global inputs directory. An entry names a known rule id, sets
+Which rules are enabled is decided by rule packs. Without configuration the built-in `house-style`
+pack applies, which selects every rule marked `defaultOn`; a repository or the host can choose other
+packs per project type in `applicability.json`, add custom rules in the same Markdown format, and
+adjust single rules in `.quality/rules/overrides.json`
+([`schemas/rule-config.v1.schema.json`](../schemas/rule-config.v1.schema.json)). The layers are
+built-in, global (`<data root>/rules/`), the read-only shared `rule-overrides.json` in the global
+inputs directory, and the project's `.quality/rules/`. An override names a known rule id, sets
 `enabled`, `severity`, or both, and states a reason; the reason is carried into the prompt when a
 severity is changed, so the agent knows the repository decided this deliberately. Everything works
-with neither file present.
+with no file present. [Rule pool management](rule-pool-management.md) describes the layers, packs,
+custom rules, import and export, the audit trail and the write API.
 
 Each rule contributes to `reviewInputs.standards[]` with its own version, and to the effective
 input hash. Enabling, disabling, or editing a rule therefore shows the affected units as
 `policyDrift`, exactly as editing a guideline does. `GET /api/rules` and
 `GET /api/repos/{repoId}/rules` return the resolved catalogue for a repository with a trace per
 rule — its source scope, whether it is enabled, whether its severity was overridden, and the
-kinds and adapters it reaches. Both accept optional `kind` and `adapter` query parameters.
+kinds and adapters it reaches, where the rule is defined (`origin`) and which packs select it
+(`selectedBy`). Both accept optional `kind` and `adapter` query parameters. An invalid rule
+configuration fails reviews closed but is reported by these endpoints under `diagnostics`.
 
 Every generated finding requires a `ruleId`. Supplied guidelines use their
 frontmatter `id`; named rules use their rule id; base prompt rules use `built-in:<kind>`. The

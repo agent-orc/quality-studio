@@ -243,7 +243,30 @@ curl "http://127.0.0.1:5127/api/inputs"
 # 200 {"level":"file","kinds":{"code":{"inputs":[...],"omissions":[...]},...}}
 
 curl "http://127.0.0.1:5127/api/rules?kind=security&adapter=dotnet"
-# 200 {"catalogueVersion":"1.2.0","filter":{...},"sources":["built-in"],"rules":[...],"traces":[...]}
+# 200 {"catalogueVersion":"1.6.0","filter":{...},"sources":["built-in"],"valid":true,"diagnostics":[],
+#      "applicability":{"scope":"default","packs":["house-style"],...},"packs":[...],"scopes":{...},"rules":[...],"traces":[...]}
+
+curl -X PUT "http://127.0.0.1:5127/api/repos/agent-studio-dev/rules/applicability?scope=project" \
+  -H "Content-Type: application/json" -d '{"packs":["dotnet-service","angular-app"],"reason":"ASP.NET Core API with an Angular client."}'
+# 200 the re-resolved pool; writes .quality/rules/applicability.json and appends the project audit trail
+
+curl -X PUT "http://127.0.0.1:5127/api/repos/agent-studio-dev/rules/overrides/QS-CS-004?scope=project" \
+  -H "Content-Type: application/json" -d '{"severity":"low","reason":"Snapshot tests share a fixture by design."}'
+# 200 the re-resolved pool; 400 with "diagnostics" when the change would make the pool invalid
+
+curl -X POST "http://127.0.0.1:5127/api/repos/agent-studio-dev/rules/custom/validate" \
+  -H "Content-Type: application/json" -d '{"content":"---\nid: AS-CS-001\n..."}'
+# 200 {"valid":false,"id":"AS-CS-001","rule":null,"diagnostics":[{"message":"requires a non-empty '## Detection' section."}]}
+
+curl "http://127.0.0.1:5127/api/repos/agent-studio-dev/rules/export?scope=project" -o rule-set.json
+# 200 rule-set.v1 attachment: applicability, overrides, customRules, packs, libraryVersion, digest
+
+curl -X POST "http://127.0.0.1:5127/api/repos/other/rules/import?scope=project" -H "Content-Type: application/json" \
+  -d "{\"ruleSet\":$(cat rule-set.json),\"mode\":\"merge\",\"dryRun\":true}"
+# 200 {"valid":true,"applied":false,"modifiedSinceExport":false,"changes":[...],"diagnostics":[],"pool":{...}}
+
+curl "http://127.0.0.1:5127/api/repos/agent-studio-dev/rules/audit?scope=global&limit=20"
+# 200 {"scope":"global","entries":[{"at":"...","actor":"...","action":"override.set","target":"QS-CS-004","reason":"..."}]}
 
 curl "http://127.0.0.1:5127/api/guidelines"
 # 200 {"guidelines":[...],"catalogue":[...],"traces":[...]}

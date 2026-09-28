@@ -1,0 +1,197 @@
+:host {
+  display: block;
+}
+
+.rule-pool {
+  margin: 0 0 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--studio-border);
+  border-radius: 7px;
+  background: var(--studio-bg-surface);
+}
+
+.pool-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+}
+
+.pool-header div {
+  display: grid;
+  gap: 3px;
+}
+
+.pool-header small,
+.pack-option small,
+.custom-row small,
+.audit-list small {
+  display: block;
+  color: var(--studio-fg-muted);
+  font-size: var(--studio-font-size-label);
+}
+
+.scope-select,
+.override-fields label,
+.reason-field,
+.content-field {
+  display: grid;
+  gap: 5px;
+  font-size: var(--studio-font-size-control);
+}
+
+.pool-actions,
+.override-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.pool-actions button[aria-pressed=true] {
+  border-color: var(--studio-accent);
+  background: var(--studio-selected);
+}
+
+.pool-panel {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--studio-border);
+}
+
+.pack-option {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+}
+
+.custom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.custom-row span {
+  flex: 1;
+  min-width: 180px;
+}
+
+.rule-draft {
+  display: grid;
+  gap: 10px;
+}
+
+.rule-draft textarea {
+  font-family: var(--font-mono);
+  font-size: var(--studio-font-size-code);
+  resize: vertical;
+}
+
+.override-editor {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--studio-border);
+  border-radius: 6px;
+}
+
+.override-editor legend {
+  padding: 0 4px;
+  font-weight: 650;
+}
+
+.override-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.reason-field {
+  flex: 1;
+  min-width: 220px;
+}
+
+.pool-problem {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--studio-severity-critical);
+  background: var(--studio-bg-elevated);
+}
+
+.pool-problem p,
+.pool-problem ul {
+  margin: 4px 0;
+}
+
+.saved {
+  margin: 8px 0 0;
+  color: var(--status-fresh);
+}
+
+.import-plan {
+  padding: 8px 12px;
+  border-left: 3px solid var(--status-fresh);
+  background: var(--studio-bg-elevated);
+}
+
+.import-plan.invalid {
+  border-left-color: var(--studio-severity-critical);
+}
+
+.import-plan ul,
+.audit-list {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.change {
+  display: inline-block;
+  min-width: 64px;
+  font-weight: 650;
+}
+
+.change.removed {
+  color: var(--studio-severity-critical);
+}
+
+.change.added {
+  color: var(--status-fresh);
+}
+
+.audit-list li {
+  margin: 0 0 8px;
+}
+
+/* Angular drops the whitespace between inline elements, so separate them explicitly. */
+.pack-option code,
+.audit-list strong,
+.audit-list code {
+  margin-left: 6px;
+}
+
+.audit-list p {
+  margin: 2px 0 0;
+  color: var(--studio-fg-muted);
+}
+
+.muted {
+  margin: 0;
+  color: var(--studio-fg-muted);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: var(--studio-font-size-code);
+}
+
+@media(max-width:650px) {
+  .override-fields label,
+  .reason-field {
+    width: 100%;
+  }
+}

@@ -15,9 +15,11 @@ git history and can be reviewed like any other change.
 | Generation | [`scripts/sync-rule-catalogue.mjs`](../scripts/sync-rule-catalogue.mjs) (`npm run rules:sync`) |
 | Contract | [`schemas/rule-catalogue.v1.schema.json`](../schemas/rule-catalogue.v1.schema.json) |
 | Generated catalogue | `backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json`, committed |
-| Load | embedded resource in the analysis-core assembly, read once per process by `RuleCatalogueResolver` |
+| Built-in packs | `rules/packs/<id>.json`, generated into `catalogues/rule-packs.v1.json` by the same script |
+| Load | embedded resources in the analysis-core assembly, read once per process by `RuleCatalogueResolver` |
+| Custom rules and packs | `.quality/rules/` (project) and `<data root>/rules/` (global), read at runtime |
 | Injection | `InputResolver` renders the effective rules as built-in review inputs |
-| Inspection | `GET /api/rules`, `GET /api/repos/{repoId}/rules` |
+| Inspection and management | `GET /api/repos/{repoId}/rules` and the write routes in [`docs/rule-pool-management.md`](../docs/rule-pool-management.md) |
 
 The generated catalogue is committed and embedded, not fetched: a review has no network step and
 no version skew between the analysis core and the rules it enforces. Regenerate it in the same
@@ -36,6 +38,7 @@ rules/
   angular/QS-NG-###-slug.md  Angular / TypeScript rules
   dotnet/QS-CS-###-slug.md   C#/.NET rules
   generic/QS-GN-###-slug.md  language-independent rules
+  packs/<pack-id>.json       built-in rule packs (rule-pack.v1)
 ```
 
 ## Rule id scheme
@@ -43,6 +46,10 @@ rules/
 Stable, human-readable ids of the form `QS-<TECH>-<NNN>`: `QS-NG-###` for Angular/TypeScript,
 `QS-CS-###` for C#/.NET, `QS-GN-###` for language-independent rules. The prefix, the directory,
 and the `technology` field must agree, and the file name must start with the id.
+
+Custom rules outside this tree use the same shape with their owner's prefix,
+`<PREFIX>-<NG|CS|GN>-<NNN>` (for example `ACME-CS-001`); the `QS-` prefix is reserved for this
+library, so a later release can never collide with a rule a repository already defines.
 
 Ids never get reused or renumbered — a retired rule is marked `enabled: false` in its frontmatter
 and kept in the tree with its full change history, not deleted, so historical findings that cite
@@ -97,23 +104,28 @@ kinds it is injected into. `severity` and `autofixable` are read at runtime; `go
 top entry's version must equal the frontmatter `version`. See
 [`scripts/sync-rule-catalogue.mjs`](../scripts/sync-rule-catalogue.mjs) for the exact parser.
 
-## Defaults and overrides
+## Defaults, packs, overrides and custom rules
 
-The rules marked `defaultOn: true` are the **default-on core**: they apply automatically to
-every reviewed project, with no per-repository install step. A project overrides (disables or
-adjusts) individual rules with an in-repo JSON file — see
-[`schemas/rule-config.v1.schema.json`](../schemas/rule-config.v1.schema.json) for the full schema
-and [`docs/review-inputs.md`](../docs/review-inputs.md#rule-library) for the resolution semantics
-(built-in → optional shared "global" file → project file, project wins).
+The rules marked `defaultOn: true` form the **house style**. The built-in `house-style` pack selects
+exactly them, and it applies to every repository that has not chosen packs of its own, so an
+unconfigured repository needs no install step and reviews as it always did.
 
-An override names a known rule id, sets `enabled`, `severity`, or both, and states a reason. An
-unknown id, a missing reason, and an override that changes nothing are all errors: a rule the
-repository believes it disabled must never be silently active. The global file is
-`rule-overrides.json` in the configured global inputs directory.
+A repository, or the host for all repositories, can replace that default with **per-project
+applicability**: `.quality/rules/applicability.json` names the packs that describe the project (for
+example `dotnet-service`, or `angular-app` plus `public-website`), and a rule then applies when one of
+those packs selects it. **Overrides** adjust single rules on top (`enabled`, `severity`, and always a
+reason), and **custom rules** in the same Markdown format extend the pool without a rebuild.
 
-Project override file: **`.quality/rules/overrides.json`** (repository-relative, committed
-alongside the code it governs — there is no central per-project settings store). Example,
-disabling one rule and softening another's severity:
+Everything is layered built-in → global (`<data root>/rules/`) → shared `rule-overrides.json` in the
+global inputs directory (read-only) → project (`.quality/rules/`). Operators manage the global and
+project layers in **Review policy → Rules & rationale** or through the API, with validation of the
+whole pool before any write, rule-set import and export, and an audit trail. The full contract, with
+the pack table and API, is [`docs/rule-pool-management.md`](../docs/rule-pool-management.md).
+
+An unknown id, a missing reason, and an override that changes nothing are all errors: a rule the
+repository believes it disabled must never be silently active. The project override file is
+**`.quality/rules/overrides.json`** ([`schemas/rule-config.v1.schema.json`](../schemas/rule-config.v1.schema.json)),
+committed alongside the code it governs. Example, disabling one rule and softening another's severity:
 
 ```json
 {
@@ -125,6 +137,12 @@ disabling one rule and softening another's severity:
   ]
 }
 ```
+
+A custom rule's id uses its owner's prefix (`ACME-CS-001`); `QS-` stays reserved for this library.
+Built-in packs are authored in `packs/` and checked by `npm run rules:check` against
+[`schemas/rule-pack.v1.schema.json`](../schemas/rule-pack.v1.schema.json) and the rule tree: a pack
+that names an unknown rule id fails generation. `house-style` must exist and must keep selecting
+`{ "defaultOn": true }`.
 
 ## Review integration
 
@@ -178,9 +196,11 @@ report `policyDrift`.
 ## Review criteria in the tool and website
 
 The application header opens **Review policy**. **Criteria & metrics** shows the effective
-named-rule library returned by the repository API, including enablement, severity,
-override reasons, rationale, detection guidance and examples. **Repository guidelines**
-remains the editor for repository-owned input files.
+named-rule pool returned by the repository API, including enablement, severity, the packs
+that select each rule, override reasons, rationale, detection guidance and examples, and
+manages the pool: packs and applicability, custom rules, overrides per rule, rule-set
+import and export, and the audit trail. **Repository guidelines** remains the editor for
+repository-owned input files.
 
 The **Prompt input preview** shows the repository-wide, file-level input resolution for
 the selected review kind, across all technologies. It displays the actual included text

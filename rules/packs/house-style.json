@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "house-style",
+  "version": "1.0.0",
+  "title": "Quality Studio house style",
+  "description": "Every rule the library marks defaultOn. This is the shipped default: a repository without an applicability file resolves exactly this pack, which is the behaviour before rule packs existed.",
+  "projectTypes": ["any"],
+  "include": [
+    { "defaultOn": true }
+  ]
+}

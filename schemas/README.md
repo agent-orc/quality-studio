@@ -1,8 +1,9 @@
 # Schemas
 
 JSON Schema draft 2020-12 artifacts for every document Quality Studio writes, plus
-`rule-config.v1.schema.json`, which describes the rule-override file a reviewed
-repository writes for Quality Studio to read.
+the rule pool contracts a reviewed repository or host writes for Quality Studio to
+read: `rule-config.v1` (overrides), `rule-applicability.v1` (which packs apply),
+`rule-pack.v1` (custom packs) and `rule-set.v1` (one-file import and export).
 
 ## Canonical domain
 
@@ -47,3 +48,21 @@ checks without duplicating rule content or formulas. Property selectors are
 documentation only: missing properties remain unknown and never inherit from a
 project into its components. `npm run domains:check` also verifies cross-catalogue
 IDs and generated Angular data; it is included in `npm run rules:check`.
+
+## Rule pool contracts
+
+The rule pool is described in [`../docs/rule-pool-management.md`](../docs/rule-pool-management.md).
+
+| Schema | Document |
+| --- | --- |
+| `rule-catalogue.v1` | The generated built-in library. `$defs/entry` is also a custom rule's shape; the built-in `QS-` prefix is enforced by the generator per directory, so the entry's id pattern admits a custom owner prefix. |
+| `rule-config.v1` | `overrides.json` in a project or the global rule folder, and the read-only shared `rule-overrides.json`. The id pattern admits custom rule ids. |
+| `rule-applicability.v1` | `applicability.json`: the packs that replace the house-style default. |
+| `rule-pack.v1` | A pack: built-in in `rules/packs/`, custom in `packs/<id>.json`. |
+| `rule-pack-catalogue.v1` | The generated `rule-packs.v1.json` embedded next to the rule catalogue. |
+| `rule-set.v1` | One scope's applicability, overrides, custom rules and packs, as exported and imported. It references the three schemas above by relative `$ref`. |
+| `rule-audit.v1` | One line of a rule pool `audit.jsonl`. |
+
+On 2026-09-28 the id patterns of `rule-catalogue.v1` and `rule-config.v1` widened from
+`^QS-[A-Z]{2,4}-[0-9]{3}$` to `^[A-Z][A-Z0-9]{1,7}-[A-Z]{2,4}-[0-9]{3}$` so custom rules use
+the same contracts. Every earlier document is still valid, so this is an edit within v1.

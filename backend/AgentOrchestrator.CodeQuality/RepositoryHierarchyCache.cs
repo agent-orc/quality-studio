@@ -58,6 +58,10 @@ public sealed class RepositoryHierarchyCache
     private readonly ConcurrentDictionary<string, object> gitStateGates = new(StringComparer.OrdinalIgnoreCase);
     private readonly TimeSpan gitStateTtl;
 
+    // The rule pool decides which named rules reach a review, so it is part of the effective policy
+    // every attached review state is judged against. Its data-root folder sits outside Git's view.
+    private static readonly RuleCatalogueResolver RulePool = new();
+
     public RepositoryHierarchyCache(TimeSpan? gitStateTtl = null) =>
         this.gitStateTtl = gitStateTtl ?? DefaultGitStateTtl;
 
@@ -87,7 +91,8 @@ public sealed class RepositoryHierarchyCache
             var gitStatusStarted = Stopwatch.GetTimestamp();
             var git = GitState(root);
             var state = git.State + "\0" +
-                        ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
+                        ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters) + "\0" +
+                        RulePool.SourceState(root, globalInputsDirectory);
             var gitStatusMilliseconds = Stopwatch.GetElapsedTime(gitStatusStarted).TotalMilliseconds;
             if (slot.Snapshot is not null && StringComparer.Ordinal.Equals(slot.Snapshot.GitState, state))
             {
@@ -134,7 +139,7 @@ public sealed class RepositoryHierarchyCache
     /// <summary>
     /// The correctness key shared by the memory cache and the API-owned persistent snapshots. HEAD
     /// is carried separately for diagnostics while the state also covers the index, dirty and
-    /// untracked content, the global inputs, and the budget.
+    /// untracked content, the global inputs, the rule pool files, and the budget.
     /// </summary>
     public RepositoryStateMeasurement MeasureState(
         string repositoryPath,
@@ -146,7 +151,8 @@ public sealed class RepositoryHierarchyCache
         var root = Path.GetFullPath(repositoryPath);
         var git = GitState(root);
         var state = git.State + "\0" +
-                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters);
+                    ComputeGlobalInputsState(globalInputsDirectory, inputBudgetCharacters) + "\0" +
+                    RulePool.SourceState(root, globalInputsDirectory);
         return new RepositoryStateMeasurement(
             state,
             git.Head,

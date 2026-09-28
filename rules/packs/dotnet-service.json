@@ -1,0 +1,12 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json",
+  "schemaVersion": 1,
+  "id": "dotnet-service",
+  "version": "1.0.0",
+  "title": ".NET service or API",
+  "description": "The default-on .NET and language-independent rules for an ASP.NET Core API, worker or CLI. Angular rules and opt-in rules stay off.",
+  "projectTypes": ["dotnet-api", "dotnet-worker", "dotnet-cli"],
+  "include": [
+    { "technologies": ["dotnet", "generic"], "defaultOn": true }
+  ]
+}

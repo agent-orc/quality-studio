@@ -4,6 +4,31 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Added — rule pool management (QS-112)
+
+The named-rule library is now managed, not only inspected. **Review policy → Rules & rationale**
+and the repository API write overrides (enablement, severity, reason) per repository and globally,
+custom rules, custom packs and per-project applicability, with rule-set import and export as one
+versioned `rule-set.v1` file and an append-only audit trail per scope.
+
+- Custom rules in `.quality/rules/custom/` or `<data root>/rules/custom/` use the authored rule
+  format and are validated when the pool is resolved; no rebuild is needed. `QS-` stays reserved for
+  the built-in library.
+- Rule packs per project type (`dotnet-service`, `angular-app`, `public-website`,
+  `security-baseline`, plus custom packs) replace the house-style default when a repository or the
+  host chooses them in `applicability.json`. Without a choice the `house-style` pack applies, which
+  is the previous behaviour.
+- Every write is validated against the complete pool first; a change that would add a configuration
+  problem is rejected with located diagnostics and nothing is written. A broken hand edit still fails
+  reviews closed, and `GET …/rules` now reports it under `diagnostics` instead of answering 422.
+- Global changes require a client that may register repositories. Audit trails live in the data
+  root (`<project data root>/rules/audit.jsonl`, `<data root>/rules/audit.jsonl`).
+- The rule pool's files are part of the hierarchy snapshot key, so a global rule change refreshes the
+  tree even though the data root is outside Git's view.
+- New schemas `rule-applicability.v1`, `rule-pack.v1`, `rule-pack-catalogue.v1`, `rule-set.v1`,
+  `rule-audit.v1`; the id patterns of `rule-catalogue.v1` and `rule-config.v1` admit custom rule ids.
+  Contract and API: [`docs/rule-pool-management.md`](docs/rule-pool-management.md).
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working

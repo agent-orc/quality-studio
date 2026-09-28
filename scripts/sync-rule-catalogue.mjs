@@ -4,6 +4,9 @@
 // library version. Target: backend/AgentOrchestrator.CodeQuality/catalogues/rule-catalogue.v1.json,
 // embedded into the analysis core assembly and read by RuleCatalogueResolver.
 //
+// The built-in rule packs (rules/packs/<id>.json) are validated against rule-pack.v1 and the rule
+// tree, and generated into catalogues/rule-packs.v1.json the same way.
+//
 // The output is a pure function of the rule tree: entries are sorted by id, object keys are
 // emitted in a fixed order, and nothing time- or checkout-dependent is written. A commit hash
 // would make the file drift on every commit and turn `rules:check` into a false alarm, so the
@@ -23,6 +26,17 @@ const schemaPath = join(repositoryRoot, 'schemas', 'rule-catalogue.v1.schema.jso
 const targetPath = join(
   repositoryRoot, 'backend', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-catalogue.v1.json');
 const schemaId = 'https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json';
+const packsDirectory = join(rulesDirectory, 'packs');
+const packSchemaPath = join(repositoryRoot, 'schemas', 'rule-pack.v1.schema.json');
+const packCatalogueSchemaPath = join(repositoryRoot, 'schemas', 'rule-pack-catalogue.v1.schema.json');
+const packsTargetPath = join(
+  repositoryRoot, 'backend', 'AgentOrchestrator.CodeQuality', 'catalogues', 'rule-packs.v1.json');
+const packSchemaId = 'https://agent-orchestrator.dev/quality/schemas/rule-pack.v1.schema.json';
+const packCatalogueSchemaId = 'https://agent-orchestrator.dev/quality/schemas/rule-pack-catalogue.v1.schema.json';
+const packKeyOrder = ['$schema', 'schemaVersion', 'id', 'version', 'title', 'description', 'projectTypes', 'include'];
+const selectorKeyOrder = ['ids', 'technologies', 'kinds', 'categories', 'defaultOn'];
+/** Schemas a `$ref` may name by file, for the cross-document references of the rule contracts. */
+const externalSchemas = new Map();
 
 const technologies = new Map([['angular', 'QS-NG'], ['dotnet', 'QS-CS'], ['generic', 'QS-GN']]);
 const requiredSections = ['Statement', 'Rationale', 'Detection', 'Good example', 'Bad example', 'Change history'];
@@ -242,10 +256,13 @@ async function readRules() {
  */
 function validate(schema, value, path, root) {
   if (schema.$ref) {
-    const target = schema.$ref.replace(/^#\//, '').split('/')
-      .reduce((node, segment) => node?.[segment], root);
+    const [file, fragment = ''] = schema.$ref.split('#');
+    const document = file ? externalSchemas.get(file) : root;
+    if (!document) throw new Error(`Unresolvable $ref '${schema.$ref}'.`);
+    const target = fragment.replace(/^\//, '').split('/').filter(segment => segment.length > 0)
+      .reduce((node, segment) => node?.[segment], document);
     if (!target) throw new Error(`Unresolvable $ref '${schema.$ref}'.`);
-    validate(target, value, path, root);
+    validate(target, value, path, document);
     return;
   }
   if (schema.const !== undefined && value !== schema.const) {
@@ -263,6 +280,9 @@ function validate(schema, value, path, root) {
     if (schema.minLength !== undefined && value.length < schema.minLength) {
       fail(`${path}: shorter than ${schema.minLength} characters.`);
     }
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+      fail(`${path}: longer than ${schema.maxLength} characters.`);
+    }
     if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(value)) {
       fail(`${path}: '${value}' does not match ${schema.pattern}.`);
     }
@@ -274,10 +294,16 @@ function validate(schema, value, path, root) {
     if (schema.minItems !== undefined && value.length < schema.minItems) {
       fail(`${path}: requires at least ${schema.minItems} items.`);
     }
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      fail(`${path}: allows at most ${schema.maxItems} items.`);
+    }
     if (schema.items) value.forEach((item, index) => validate(schema.items, item, `${path}[${index}]`, root));
     return;
   }
   if (value !== null && typeof value === 'object') {
+    if (schema.minProperties !== undefined && Object.keys(value).length < schema.minProperties) {
+      fail(`${path}: requires at least ${schema.minProperties} properties.`);
+    }
     for (const key of schema.required ?? []) {
       if (!Object.hasOwn(value, key)) fail(`${path}: missing required property '${key}'.`);
     }
@@ -305,6 +331,48 @@ function matchesType(type, value) {
   }
 }
 
+/** Reads rules/packs/<id>.json; each pack is checked against its schema and the rule tree. */
+async function readPacks(knownIds) {
+  let files = [];
+  try {
+    files = (await readdir(packsDirectory)).filter(name => name.endsWith('.json')).sort();
+  } catch {
+    fail('rules/packs/: missing; the house-style pack is required.');
+    return [];
+  }
+  const packs = [];
+  for (const fileName of files) {
+    const file = `rules/packs/${fileName}`;
+    let pack;
+    try {
+      pack = JSON.parse(await readFile(join(packsDirectory, fileName), 'utf8'));
+    } catch (error) {
+      fail(`${file}: is not valid JSON (${error.message}).`);
+      continue;
+    }
+    validate(packSchema, pack, file, packSchema);
+    if (pack.$schema !== packSchemaId) fail(`${file}: $schema must be '${packSchemaId}'.`);
+    if (`${pack.id}.json` !== fileName) fail(`${file}: file name must be '${pack.id}.json'.`);
+    for (const selector of pack.include ?? []) {
+      for (const id of selector.ids ?? []) {
+        if (!knownIds.has(id)) fail(`${file}: selects unknown rule id '${id}'.`);
+      }
+    }
+    packs.push({
+      ...Object.fromEntries(packKeyOrder.filter(key => Object.hasOwn(pack, key)).map(key => [key, pack[key]])),
+      include: (pack.include ?? []).map(selector => Object.fromEntries(
+        selectorKeyOrder.filter(key => Object.hasOwn(selector, key)).map(key => [key, selector[key]]))),
+    });
+  }
+  if (!packs.some(pack => pack.id === 'house-style')) fail('rules/packs/house-style.json: the house-style pack is required.');
+  const seen = new Set();
+  for (const pack of packs) {
+    if (seen.has(pack.id)) fail(`Duplicate pack id '${pack.id}'.`);
+    seen.add(pack.id);
+  }
+  return packs;
+}
+
 function orderKeys(entry) {
   const ordered = {};
   for (const key of entryKeyOrder) ordered[key] = entry[key];
@@ -322,7 +390,15 @@ const document = {
 const schema = JSON.parse(await readFile(schemaPath, 'utf8'));
 validate(schema, document, 'rule-catalogue', schema);
 
+const packSchema = JSON.parse(await readFile(packSchemaPath, 'utf8'));
+externalSchemas.set('rule-pack.v1.schema.json', packSchema);
+const packs = await readPacks(new Set(entries.map(entry => entry.id)));
+const packDocument = { $schema: packCatalogueSchemaId, schemaVersion: 1, packs };
+const packCatalogueSchema = JSON.parse(await readFile(packCatalogueSchemaPath, 'utf8'));
+validate(packCatalogueSchema, packDocument, 'rule-packs', packCatalogueSchema);
+
 const rendered = `${JSON.stringify(document, null, 2)}\n`;
+const renderedPacks = `${JSON.stringify(packDocument, null, 2)}\n`;
 if (failures.length > 0) {
   for (const message of failures) console.error(message);
   console.error(`rules: ${failures.length} problem(s) in the rule library; nothing was written.`);
@@ -341,8 +417,20 @@ if (process.argv.slice(2).includes('--check')) {
     console.error('rules: the generated catalogue has drifted from rules/. Run npm run rules:sync.');
     process.exit(1);
   }
-  console.log(`rules: catalogue ${catalogueVersion} matches ${entries.length} authored rules.`);
+  let currentPacks = null;
+  try {
+    currentPacks = await readFile(packsTargetPath, 'utf8');
+  } catch {
+    console.error(`rules: ${packsTargetPath} is missing. Run npm run rules:sync.`);
+    process.exit(1);
+  }
+  if (currentPacks !== renderedPacks) {
+    console.error('rules: the generated rule packs have drifted from rules/packs/. Run npm run rules:sync.');
+    process.exit(1);
+  }
+  console.log(`rules: catalogue ${catalogueVersion} matches ${entries.length} authored rules and ${packs.length} packs.`);
 } else {
   await writeFile(targetPath, rendered);
-  console.log(`rules: wrote catalogue ${catalogueVersion} with ${entries.length} rules.`);
+  await writeFile(packsTargetPath, renderedPacks);
+  console.log(`rules: wrote catalogue ${catalogueVersion} with ${entries.length} rules and ${packs.length} packs.`);
 }
