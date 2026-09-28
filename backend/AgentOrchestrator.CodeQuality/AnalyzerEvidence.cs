@@ -6,7 +6,11 @@ using System.Text.Json.Nodes;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public sealed class DeterministicEvidenceCollector(SensorRegistry registry)
+/// <param name="persistResults">
+/// Records every result in the working copy's <see cref="AnalyzerResultStore"/>, so analyzers run as
+/// review evidence also refresh what the explorer and editor show.
+/// </param>
+public sealed class DeterministicEvidenceCollector(SensorRegistry registry, bool persistResults = false)
 {
     public async Task<IReadOnlyList<SensorScanResult>> CollectAsync(
         string repositoryRoot,
@@ -18,11 +22,18 @@ public sealed class DeterministicEvidenceCollector(SensorRegistry registry)
             .Select(configuration => CollectOneAsync(repositoryRoot, configuration, cancellationToken))
             .ToArray();
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
-        return results
+        var collected = results
             .Where(result => result is not null)
             .Select(result => result!)
             .OrderBy(result => result.Provenance.SensorId, StringComparer.Ordinal)
             .ToArray();
+        if (persistResults)
+        {
+            var store = new AnalyzerResultStore(repositoryRoot);
+            foreach (var result in collected)
+                await store.RecordAsync(result, cancellationToken).ConfigureAwait(false);
+        }
+        return collected;
     }
 
     private async Task<SensorScanResult?> CollectOneAsync(
@@ -104,7 +115,15 @@ public static class DeterministicEvidenceProjection
             .ToArray();
     }
 
-    public static string ToPromptJson(IReadOnlyList<SensorScanResult> evidence)
+    /// <param name="ruleMap">
+    /// Links analyzer rule ids to named catalogue rules. A finding whose rule enforces an enabled rule that
+    /// reaches this review (<paramref name="reviewRuleIds"/>, when given) carries <c>catalogueRuleIds</c>, so the
+    /// agent can explain it in that rule's terms and cite the rule id it already knows from its inputs.
+    /// </param>
+    public static string ToPromptJson(
+        IReadOnlyList<SensorScanResult> evidence,
+        DeterministicRuleMap? ruleMap = null,
+        IReadOnlySet<string>? reviewRuleIds = null)
     {
         var projection = new JsonArray();
         foreach (var result in evidence
@@ -129,7 +148,7 @@ public static class DeterministicEvidenceProjection
             foreach (var finding in ordered)
             {
                 var location = finding.Locations.FirstOrDefault();
-                findings.Add(new JsonObject
+                var projectedFinding = new JsonObject
                 {
                     ["ruleId"] = finding.RuleId,
                     ["severity"] = finding.Severity.ToString().ToLowerInvariant(),
@@ -137,7 +156,13 @@ public static class DeterministicEvidenceProjection
                     ["range"] = location?.Range is null
                         ? null
                         : JsonSerializer.SerializeToNode(location.Range, ReviewMetaJson.Options),
-                });
+                };
+                var catalogueRuleIds = (ruleMap ?? DeterministicRuleMap.Empty).For(finding.RuleId)
+                    .Where(link => link.Enabled && (reviewRuleIds is null || reviewRuleIds.Contains(link.Id)))
+                    .Select(link => (JsonNode)JsonValue.Create(link.Id)!)
+                    .ToArray();
+                if (catalogueRuleIds.Length > 0) projectedFinding["catalogueRuleIds"] = new JsonArray(catalogueRuleIds);
+                findings.Add(projectedFinding);
                 if (PromptJson(projection).Length <= MaximumPromptCharacters) continue;
                 findings.RemoveAt(findings.Count - 1);
                 omitted++;

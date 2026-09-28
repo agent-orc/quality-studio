@@ -3,6 +3,12 @@
 Library-level version history. Per-rule history lives in each rule file's own
 `## Change history` section.
 
+## 1.6.0 (2026-09-28)
+
+- Analyzer rule ids are catalogue citizens: twelve rules now list the Roslyn, compiler, ESLint and Angular compiler diagnostics that check them deterministically (`deterministicRuleIds`), so one rule is enforced by an analyzer and explained by the review agent under the same id.
+- `deterministicRuleIds` accepts a trailing `*` for a diagnostic family; an exact id always wins over a family.
+- Added two opt-in family rules: QS-CS-013 (compiler, analyzer and code-style diagnostics, `CS*`, `CA*`, `IDE*`) and QS-NG-014 (TypeScript diagnostics, `TS*`). Both are off by default, so enabling the library version changes no review prompt.
+
 ## 1.5.0 (2026-09-13)
 
 - Added four opt-in SEO review rules (QS-GN-005 through QS-GN-008): indexability, canonical/language consistency, descriptive metadata, and crawlable discovery.

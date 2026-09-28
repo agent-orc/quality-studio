@@ -62,7 +62,16 @@ Inside a project directory the layout is the one the `.quality` folder used to h
   flows/<hash>.flow-review.json
   runs/<run-id>/…
   attacks/coverage-ledger.jsonl
+  analyzers/<sensor>.json
 ```
+
+`analyzers/` keeps the latest result of each deterministic sensor (Roslyn, ESLint, tsc, SARIF, the
+compiler and architecture checks), written by `POST /api/repos/{id}/sensors/{sensor}/scan` and by the
+evidence collection of every review run. A repository scan replaces a sensor's findings, a path scan
+replaces only the findings under that path, and an unavailable scan keeps the last result and records
+the failed attempt. The explorer and editor read it through `GET /api/repos/{id}/analyzers` and the
+`analyzers` block of `GET /api/repos/{id}/file`. It is not part of `quality migrate-data`: it never
+lived in the checkout, and a checkout's `.quality/analyzers/` may hold repository-owned SARIF reports.
 
 Review sidecars are the one family whose layout changed shape. They used to sit in a `.quality`
 folder next to each reviewed file, scattered across the tree. They now live under a single
@@ -82,7 +91,8 @@ be reviewed and versioned with it, and the studio only ever reads them:
 
 One generated family also stays: `.quality/preflight/`. An external analyzer (eslint, tsc, Roslyn)
 writes its report there, and the analyzer command confines that output path to the checkout it runs
-in. Relaxing a path-confinement guard to gain tidiness is a bad trade, so preflight reports stay
+in. The Roslyn profile also writes its MSBuild import, `quality-studio-errorlog.targets`, beside its
+per-project logs in `.quality/preflight/roslyn/`. Relaxing a path-confinement guard to gain tidiness is a bad trade, so preflight reports stay
 where the tool puts them and are ignored by Git.
 
 ## What is versioned

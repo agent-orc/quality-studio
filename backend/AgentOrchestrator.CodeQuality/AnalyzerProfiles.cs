@@ -38,42 +38,59 @@ public sealed class AnalyzerProfileCatalog
         AllowInlineCommands = allowInlineCommands;
     }
 
-    /// <summary>The embedded defaults: what this repository shipped as sensor commands before S0.</summary>
+    // Profiles ask for the analysed repository's own tools through placeholders rather than naming
+    // one workspace layout: see AnalyzerCommand.Expand. Node tools run through `node <script>` rather
+    // than npx, which would need a shell shim on Windows and may reach the network.
+    private const string EslintCommand =
+        "node {nodeModule:eslint/bin/eslint.js} . " +
+        "--config {eslintConfig} " +
+        "--format {nodeModule:@microsoft/eslint-formatter-sarif/sarif.js} " +
+        "--output-file {reportPath}";
+
+    private const string TypeScriptCommand =
+        "node {nodeModule:typescript/bin/tsc} -p {tsconfig} --noEmit --pretty false";
+
+    /// <summary>The embedded defaults.</summary>
     public static AnalyzerProfileCatalog BuiltIn { get; } = new(
     [
         new AnalyzerProfile(
             "eslint-frontend-sarif",
             "eslint",
-            "node frontend/node_modules/eslint/bin/eslint.js . " +
-            "--config frontend/eslint.config.mjs " +
-            "--format frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
-            "--output-file {reportPath}",
-            WorkingDirectory: ".",
+            EslintCommand,
+            WorkingDirectory: "frontend",
             ReportPath: ".quality/preflight/eslint.sarif",
             Description: "ESLint for a repository whose Node workspace lives in frontend/."),
         new AnalyzerProfile(
             "eslint-root-sarif",
             "eslint",
-            "node node_modules/eslint/bin/eslint.js . " +
-            "--config eslint.config.mjs " +
-            "--format node_modules/@microsoft/eslint-formatter-sarif/sarif.js " +
-            "--output-file {reportPath}",
+            EslintCommand,
             WorkingDirectory: ".",
             ReportPath: ".quality/preflight/eslint.sarif",
             Description: "ESLint for a repository whose Node workspace is the repository root."),
         new AnalyzerProfile(
             "roslyn-build-sarif",
             "roslyn",
-            "dotnet build {target} --nologo \"-p:ErrorLog={reportPath},version=2.1\"",
+            // --no-incremental: an up-to-date project skips the compiler and would write no log,
+            // which reads as a clean result. The import gives each project its own SARIF 2.1 log.
+            "dotnet build {target} --nologo --no-incremental -p:RunAnalyzersDuringBuild=true " +
+            "-p:CustomAfterMicrosoftCommonTargets={roslynErrorLogTargets}",
             WorkingDirectory: ".",
-            ReportPath: ".quality/preflight/roslyn.sarif",
-            Description: "Roslyn analyzer diagnostics from a build, written as SARIF 2.1."),
+            ReportPath: ".quality/preflight/roslyn/",
+            Description: "Roslyn analyzer diagnostics from a forced build, one SARIF 2.1 log per project."),
         new AnalyzerProfile(
             "tsc-noemit",
             "tsc",
-            "npx --no-install tsc --noEmit --pretty false",
+            TypeScriptCommand,
             ReportPath: ".quality/preflight/tsc.txt",
-            Description: "TypeScript diagnostics for the tsconfig in the scanned directory."),
+            Description: "TypeScript diagnostics for the tsconfig in the scanned directory; a solution-style " +
+                         "tsconfig is checked through each project it references."),
+        new AnalyzerProfile(
+            "tsc-frontend",
+            "tsc",
+            TypeScriptCommand,
+            WorkingDirectory: "frontend",
+            ReportPath: ".quality/preflight/tsc.txt",
+            Description: "TypeScript diagnostics for a repository whose Node workspace lives in frontend/."),
     ]);
 
     /// <summary>

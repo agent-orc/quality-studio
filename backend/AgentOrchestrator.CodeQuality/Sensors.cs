@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AgentOrchestrator.CodeQuality;
 
 public enum SensorScope
@@ -26,11 +28,17 @@ public sealed record SensorProvenance(
     string ScannedAt,
     IReadOnlyDictionary<string, string> ToolVersions);
 
+/// <param name="SuppressedFindings">
+/// Results the producer reported as suppressed at source (SARIF <c>suppressions</c>, for example a
+/// <c>#pragma warning disable</c> or an <c>eslint-disable</c> comment). They are not findings, but the
+/// count stays visible so a clean result can be told apart from a silenced one.
+/// </param>
 public sealed record SensorScanResult(
     bool Available,
     string? UnavailableReason,
     IReadOnlyList<ReviewFinding> Findings,
-    SensorProvenance Provenance);
+    SensorProvenance Provenance,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int SuppressedFindings = 0);
 
 public sealed record ReviewSensorConfiguration(
     string Id,
@@ -54,6 +62,19 @@ public interface IReviewSensor
 /// The evidence remains separate from findings authored by the review agent.
 /// </summary>
 public interface IDeterministicEvidenceSensor : IReviewSensor;
+
+/// <summary>
+/// A sensor whose availability depends on the analysed repository: the SDK its <c>global.json</c> pins,
+/// or the Node tools its workspace installed. The host-wide probe runs in the host's working
+/// directory and would report the host's own tools instead.
+/// </summary>
+public interface IRepositoryProbedSensor : IReviewSensor
+{
+    Task<SensorAvailability> ProbeAvailabilityAsync(
+        string repositoryRoot,
+        IReadOnlyDictionary<string, string>? configuration,
+        CancellationToken cancellationToken = default);
+}
 
 public sealed class SensorRegistry
 {

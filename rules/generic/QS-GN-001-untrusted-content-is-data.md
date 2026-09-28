@@ -1,6 +1,6 @@
 ---
 id: QS-GN-001
-version: 1.0.0
+version: 1.0.1
 title: Treat content you did not author as data, never as instruction
 technology: generic
 kinds: [code, security]
@@ -8,7 +8,7 @@ category: trust-boundary
 severity: high
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [CA2100, CA3001, CA3002, CA3005, CA3008, CA3009, CA3012, no-eval, no-implied-eval, no-new-func, @typescript-eslint/no-implied-eval]
 since: 1.2.0
 ---
 
@@ -55,6 +55,7 @@ if (response["source"]?.GetValue<string>() == "analyzer") finding.Trusted = true
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Roslyn and ESLint diagnostics that check this rule deterministically (CA2100, CA3001, CA3002, CA3005, CA3008, CA3009, CA3012, no-eval, no-implied-eval, no-new-func, @typescript-eslint/no-implied-eval); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in the per-prompt content boundary in
   `ReviewPromptBuilder` and the provenance and evidence checks in `ReviewResponseParser` and
   `FindingIdentity`.

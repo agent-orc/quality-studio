@@ -191,7 +191,11 @@ public sealed record FileResponse(
     string LineEnding,
     string Encoding,
     CoverageAggregate Coverage,
-    LargeFileResponse? LargeFile = null);
+    LargeFileResponse? LargeFile = null,
+    AnalyzerFileView? Analyzers = null);
+
+/// <summary>Persisted deterministic analyzer findings per repository-relative file path.</summary>
+public sealed record AnalyzerCountsResponse(IReadOnlyDictionary<string, int> Files);
 
 /// <summary>
 /// Present when the file is larger than <c>QualityStudio:Limits:MaxFileBytes</c>. The response then

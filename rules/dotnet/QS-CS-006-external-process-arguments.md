@@ -1,6 +1,6 @@
 ---
 id: QS-CS-006
-version: 1.0.0
+version: 1.0.1
 title: Start external processes from a fixed executable with an argument list
 technology: dotnet
 kinds: [security]
@@ -8,7 +8,7 @@ category: process-execution
 severity: critical
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [CA3006]
 relatedGuideline: dotnet-api-safety
 since: 1.2.0
 ---
@@ -65,6 +65,7 @@ process!.WaitForExit();                                   // no token, no timeou
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA3006); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in the `ArgumentList` launchers in
   `DependencyVulnerabilitySensor` and `GitleaksSecurityScanner` and in the configured-command
   finding recorded in `docs/operations/security/`.

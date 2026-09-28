@@ -150,10 +150,27 @@ see [`docs/finding-lifecycle.md`](../docs/finding-lifecycle.md) for why that mat
 identity. Named-rule findings are traceable end to end via `GET /api/repos/{id}/rules`
 (`traces`).
 
-`deterministicRuleIds` on a rule cross-references sensor-native rule ids (SARIF/Roslyn/ESLint
-rule codes) that the static-analysis wave (see `docs/operations/static-analysis/`) already
-reports deterministically — see the dossier for which of today's rules are enforceable that way
-versus agent-review-only.
+`deterministicRuleIds` on a rule lists the analyzer-native rule ids that check it
+deterministically: Roslyn and compiler codes (`CA2016`, `CS4014`), ESLint rule names
+(`@angular-eslint/template/no-call-expression`), Angular compiler codes (`NG8102`), TypeScript codes
+and Quality Studio's own sensor ids (`architecture/missing-directory`). Ids match case-insensitively;
+an entry ending in `*` claims a whole family (`TS*`, `CA*`), and an exact id always wins over a
+family, so `CA2016` lands on QS-CS-003 while an otherwise unclaimed `CA1822` lands on QS-CS-013.
+
+`DeterministicRuleMap` (`RuleLibrary.cs`) applies the mapping in two places:
+
+- **Explorer and editor.** Persisted analyzer findings (`GET /api/repos/{id}/analyzers`, and the
+  `analyzers` block of `GET /api/repos/{id}/file`) carry `catalogueRules`: the linked rule's id,
+  title, effective severity and whether the project has it enabled.
+- **Agent review.** A deterministic finding in the review prompt's analyzer evidence carries
+  `catalogueRuleIds` when it enforces an enabled rule that reaches that review, and the prompt asks the
+  agent to explain it under that rule id instead of reporting it again. Evidence without links renders
+  exactly as before.
+
+The mapping is not part of the prompt text of a rule, so adding or changing ids does not change a
+rule's effective input hash and does not cause policy drift. The two family rules (QS-CS-013,
+QS-NG-014) are `defaultOn: false`: their findings stay linked, flagged as disabled, until a project
+enables them with an override.
 
 ## Versioning
 

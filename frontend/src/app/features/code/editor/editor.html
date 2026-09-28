@@ -49,6 +49,35 @@
       }
     }
 
+    @if (analyzerSensors().length) {
+      <details class="analyzer-strip">
+        <summary>
+          <b>Analyzers</b>
+          <span>{{ analyzerFindings().length }} finding{{ analyzerFindings().length === 1 ? '' : 's' }} in this file</span>
+          @for (sensor of analyzerSensors(); track sensor.sensorId) {
+            <span class="analyzer-sensor" [class.unavailable]="!sensor.lastAttempt.available" [title]="sensorTitle(sensor)">{{ sensorLabel(sensor) }}</span>
+          }
+        </summary>
+        @if (analyzerFindings().length) {
+          <ul class="analyzer-list" aria-label="Analyzer findings in this file">
+            @for (entry of analyzerFindings(); track entry.sensorId + entry.finding.fingerprint) {
+              <li>
+                <button type="button" class="studio-row-button" (click)="revealLine(analyzerLine(entry))">
+                  <span class="analyzer-line">{{ analyzerLine(entry) ? 'Ln ' + analyzerLine(entry) : 'File' }}</span>
+                  <i class="studio-badge severity" [class]="'studio-badge severity ' + entry.finding.severity">{{ entry.finding.severity }}</i>
+                  <code>{{ entry.sensorId }} &middot; {{ entry.finding.ruleId }}</code>
+                  <span class="analyzer-title">{{ entry.finding.title }}</span>
+                </button>
+                @for (rule of entry.catalogueRules; track rule.id) {
+                  <span class="catalogue-rule" [class.disabled]="!rule.enabled" [title]="rule.title + (rule.enabled ? '' : ' (disabled for this project)')">{{ rule.id }}</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </details>
+    }
+
     <div class="code-viewport" #codeViewport tabindex="0" role="group"
       [attr.aria-label]="'Source of ' + (api.file()?.path ?? selectedPath()) + ', scrollable'"
       [scrollTop]="codeScrollTop()" (scroll)="codeScrollTop.set($any($event.target).scrollTop)">
@@ -57,6 +86,9 @@
         @for (row of visibleRows(); track row.key) {
           @if (row.kind === 'code') {
             <div class="code-line" [class.has-finding]="row.findings.length" [class.selected-range]="isSelectedLine(row.number)" [style.top.px]="row.top">
+              @if (row.analyzer.length) {
+                <i class="analyzer-marker" [class]="'analyzer-marker ' + analyzerSeverity(row.analyzer)" [title]="analyzerTitle(row.analyzer)"><span class="sr-only">{{ analyzerTitle(row.analyzer) }}</span></i>
+              }
               <span class="line-number">{{ row.number }}</span>
               @if (row.findings.length) {
                 <button class="studio-row-button finding-marker" [class]="'finding-marker ' + severity(row.findings)" [attr.data-finding-fingerprint]="selectedMarkerFingerprint(row.findings)" [title]="findingTitle(row.findings)" [attr.aria-label]="findingTitle(row.findings)" (focus)="findingSelect.emit(row.findings[0])" (click)="findingSelect.emit(row.findings[0])"></button>

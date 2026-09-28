@@ -346,7 +346,12 @@ public sealed class ReviewRunner
             request.Kind == "security" ? sensorEvidence.ToPromptJson() : null,
             request.Level,
             coverageEvidence,
-            DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
+            DeterministicEvidenceProjection.ToPromptJson(
+                deterministicEvidence,
+                deterministicEvidence.Any(result => result.Findings.Count > 0)
+                    ? DeterministicRuleMap.From(new RuleCatalogueResolver().Resolve(root, request.GlobalInputsDirectory))
+                    : null,
+                inputs.Inputs.Select(input => input.Id).ToHashSet(StringComparer.OrdinalIgnoreCase)));
         var preparedSubject = await PrepareSubjectAsync(
             root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         if (!initialSubject.Inputs.SequenceEqual(preparedSubject.Inputs))

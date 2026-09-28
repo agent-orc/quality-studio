@@ -1,6 +1,6 @@
 ---
 id: QS-NG-006
-version: 1.0.0
+version: 1.0.1
 title: Address postMessage to a known origin and send only the declared fields
 technology: angular
 kinds: [security]
@@ -8,7 +8,7 @@ category: frame-messaging
 severity: high
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [@microsoft/sdl/no-postmessage-star-origin]
 relatedGuideline: angular-typescript
 since: 1.2.0
 ---
@@ -56,5 +56,6 @@ postToParent({ type: 'qs.url-preview.navigate', url: environment.href }, '*');
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@microsoft/sdl/no-postmessage-star-origin); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in the two findings recorded against
   `frontend/src/app/url-preview-embed.ts` for the literal `'*'` target and the whole-href payload.

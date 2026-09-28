@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { ApiContext } from './api-context';
 import {
-  AgentStudioImportResponse, AttackCoverageMatrix, FindingStateMutationRequest, FindingSuppressionMutation,
+  AgentStudioImportResponse, AnalyzerCountsResponse, AttackCoverageMatrix, FindingStateMutationRequest, FindingSuppressionMutation,
   FindingSuppressionsResponse, Guideline,
   GuidelineCatalogueEntry, GuidelineDraft, GuidelineImpact, GuidelineTrace, HandoverRequest, HandoverResult, ProjectDashboard,
   QualityRunReport, QualityRunTrendPage, RepositoryRegistration, RepositoryRegistrationRequest,
@@ -95,6 +95,8 @@ export class QualityApi {
   readonly projectError = signal('');
   readonly repositoryTransition = signal<RepositoryTransition | null>(null);
   readonly inputs = signal<Partial<Record<ReviewKind, ResolvedInputs>>>({});
+  /** Persisted analyzer findings per repository-relative file; the explorer rolls them up per folder. */
+  readonly analyzerCounts = signal<Record<string, number>>({});
 
   // Connection state, owned by ApiContext.
   readonly connectionState = this.context.connectionState;
@@ -173,9 +175,11 @@ export class QualityApi {
     this.project.set(projectSnapshot ?? null);
     this.repositoryTransition.set({ repositoryId: id, hasSnapshot: projectSnapshot !== undefined });
     this.usage.set(emptyUsageReport());
+    this.analyzerCounts.set({});
     await Promise.all([this.loadProjectDashboard(id), this.loadTree(id, false)]);
     if (sequence !== this.repositorySelectionSequence) return;
     const detailsLoading = Promise.all([
+      this.loadAnalyzerCounts(id),
       this.loadRepositoryDetails(id),
       this.loadReviewRuns(id),
       this.loadUsage(undefined, undefined, id),
@@ -222,6 +226,16 @@ export class QualityApi {
       }
     }
     if (detailsLoading) await detailsLoading;
+  }
+
+  /** Loads the persisted analyzer finding counts. A failure leaves the explorer without badges, not broken. */
+  async loadAnalyzerCounts(repositoryId = this.selectedRepositoryId()): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.http.get<AnalyzerCountsResponse>(`${this.context.repositoryApiBase(repositoryId)}/analyzers/counts`));
+      if (repositoryId === this.selectedRepositoryId()) this.analyzerCounts.set(response.files ?? {});
+    } catch {
+      if (repositoryId === this.selectedRepositoryId()) this.analyzerCounts.set({});
+    }
   }
 
   /**
@@ -345,7 +359,7 @@ export class QualityApi {
     if (!this.connected() || this.destroyed) return;
     console.info(JSON.stringify({ event: 'qs.data.reconnected', repositoryId }));
     await Promise.all([
-      this.loadRepositoryDetails(repositoryId), this.loadModelCatalog(),
+      this.loadRepositoryDetails(repositoryId), this.loadModelCatalog(), this.loadAnalyzerCounts(repositoryId),
       this.loadReviewRuns(repositoryId), this.loadUsage(undefined, undefined, repositoryId), this.loadQuotas(),
       this.file()?.path ? this.loadFile(this.file()!.path) : Promise.resolve(),
     ]);
@@ -469,6 +483,7 @@ export class QualityApi {
     const openPath = this.file()?.path;
     await this.loadTree();
     void this.loadProjectDashboard();
+    void this.loadAnalyzerCounts();
     if (openPath) await this.loadFile(openPath);
   }
 

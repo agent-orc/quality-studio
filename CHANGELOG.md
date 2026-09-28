@@ -4,6 +4,31 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Changed — analyzer rules are catalogue citizens (QS-113)
+
+The Roslyn, ESLint and tsc profiles failed on real repositories in the 2026-09-28 evaluation against
+the Agent Studio checkout (defects D8-D10). Fixed:
+
+- **Roslyn**: `-p:ErrorLog=…,version=2.1` was split by MSBuild at the comma into a SARIF 1.0 log the
+  importer rejected, every project of a solution wrote the same file, and an incremental build logged
+  nothing. The profile now forces a compile (`--no-incremental`) and hands MSBuild a generated import that
+  gives every project its own SARIF 2.1 log (`%2C`-escaped); the sensor merges the log directory.
+- **tsc**: runs the workspace's own compiler through `node` with `-p`, and checks each project a
+  solution-style `tsconfig.json` references (`tsc -p` on Angular's root config compiled nothing).
+- **ESLint**: the binary, the formatter and the flat config are resolved from the workspace, including
+  hoisted `node_modules`, and the `frontend` profile runs in `frontend/`.
+- **Probes** run in the analysed repository and the profile's working directory instead of the host's.
+- The SARIF import honours `suppressions` and reports `suppressedFindings`.
+
+Deterministic sensor results are persisted in the data root (`analyzers/<sensor>.json`) by scans and by
+review evidence collection, shown as badges in the explorer and as an analyzer strip and gutter marks in
+the editor (`GET /api/repos/{id}/analyzers`, `…/analyzers/counts`, and `analyzers` on the file response).
+
+Analyzer ids map to named rules through `deterministicRuleIds` (rule library 1.6.0): twelve rules list the
+Roslyn, compiler, ESLint and Angular compiler ids that check them, and two opt-in family rules own
+`CS*`/`CA*`/`IDE*` (QS-CS-013) and `TS*` (QS-NG-014). A linked finding reaches the review agent with
+`catalogueRuleIds`, so one rule is enforced by the analyzer and explained by the agent.
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working

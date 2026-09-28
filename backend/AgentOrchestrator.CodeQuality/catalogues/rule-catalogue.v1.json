@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-catalogue.v1.schema.json",
   "schemaVersion": 1,
-  "catalogueVersion": "1.5.0",
+  "catalogueVersion": "1.6.0",
   "entries": [
     {
       "id": "QS-CS-001",
@@ -39,7 +39,7 @@
     },
     {
       "id": "QS-CS-002",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "title": "Register the narrowest correct DI lifetime; inject via constructor",
       "technology": "dotnet",
       "category": "dependency-injection",
@@ -54,10 +54,17 @@
       "severity": "medium",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "ASP0000"
+      ],
       "relatedGuideline": "dotnet-api-safety",
       "since": "1.0.0",
       "changeHistory": [
+        {
+          "version": "1.1.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and compiler diagnostics that check this rule deterministically (ASP0000); statement and detection guidance unchanged."
+        },
         {
           "version": "1.1.0",
           "date": "2026-09-06",
@@ -73,7 +80,7 @@
     },
     {
       "id": "QS-CS-003",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "title": "Propagate CancellationToken; never write async void",
       "technology": "dotnet",
       "category": "async-hygiene",
@@ -88,10 +95,21 @@
       "severity": "high",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "CA2016",
+        "CS4014",
+        "VSTHRD100",
+        "VSTHRD002",
+        "xUnit1031"
+      ],
       "relatedGuideline": "dotnet-api-safety",
       "since": "1.0.0",
       "changeHistory": [
+        {
+          "version": "1.1.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA2016, CS4014, VSTHRD100, VSTHRD002, xUnit1031); statement and detection guidance unchanged."
+        },
         {
           "version": "1.1.0",
           "date": "2026-09-06",
@@ -141,7 +159,7 @@
     },
     {
       "id": "QS-CS-005",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Confine every repository path through the shared confinement helper",
       "technology": "dotnet",
       "category": "path-confinement",
@@ -156,10 +174,17 @@
       "severity": "critical",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "CA3003"
+      ],
       "relatedGuideline": "dotnet-api-safety",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA3003); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -170,7 +195,7 @@
     },
     {
       "id": "QS-CS-006",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Start external processes from a fixed executable with an argument list",
       "technology": "dotnet",
       "category": "process-execution",
@@ -185,10 +210,17 @@
       "severity": "critical",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "CA3006"
+      ],
       "relatedGuideline": "dotnet-api-safety",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA3006); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -228,7 +260,7 @@
     },
     {
       "id": "QS-CS-008",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Gate and bound every deserialization of data you did not write",
       "technology": "dotnet",
       "category": "deserialization",
@@ -243,10 +275,29 @@
       "severity": "high",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "CA2300",
+        "CA2301",
+        "CA2302",
+        "CA2305",
+        "CA2310",
+        "CA2315",
+        "CA2321",
+        "CA2326",
+        "CA2327",
+        "CA2328",
+        "CA2329",
+        "CA2330",
+        "CA3075"
+      ],
       "relatedGuideline": "dotnet-api-safety",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA2300, CA2301, CA2302, CA2305, CA2310, CA2315, CA2321, CA2326, CA2327, CA2328, CA2329, CA2330, CA3075); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -257,7 +308,7 @@
     },
     {
       "id": "QS-CS-009",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Keep blocking I/O and process waits off request paths and out of locks",
       "technology": "dotnet",
       "category": "request-path",
@@ -272,10 +323,18 @@
       "severity": "high",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "CA1849",
+        "VSTHRD103"
+      ],
       "relatedGuideline": "dotnet-api-safety",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA1849, VSTHRD103); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -372,8 +431,41 @@
       "enabled": true
     },
     {
-      "id": "QS-GN-001",
+      "id": "QS-CS-013",
       "version": "1.0.0",
+      "title": "Keep the build free of compiler and analyzer diagnostics",
+      "technology": "dotnet",
+      "category": "static-analysis",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Keep every project free of the compiler and Roslyn analyzer diagnostics the repository enables. Fix a reported diagnostic at its cause. Suppress one only in source (`#pragma warning disable` with a matching restore, or `[SuppressMessage]` with a `Justification`) when the analyzer is wrong for that exact site, never by lowering the analysis level for a whole project.",
+      "rationale": "A build that is warning-clean turns every new diagnostic into a visible change instead of noise in a long list nobody reads. Quality Studio's Roslyn sensor reads the diagnostics from a forced build and honours in-source suppressions, so a justified suppression stays out of the findings while its count remains visible, and a silenced project cannot pass for a clean one.",
+      "detection": "Use the Roslyn sensor's findings for the reviewed files: each carries the compiler (`CS`), analyzer (`CA`) or code-style (`IDE`) id and its location. Explain what the diagnostic protects against at that site and the proportionate fix. Diagnostics that a more specific rule claims, such as `CA2016` under QS-CS-003, are explained under that rule. A suppression without a justification, or a project-wide `NoWarn` that hides a diagnostic class, is a finding; a single justified in-source suppression is not.",
+      "goodExample": "<Project>\n  <PropertyGroup>\n    <Nullable>enable</Nullable>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n  </PropertyGroup>\n</Project>",
+      "badExample": "<PropertyGroup>\n  <!-- Silences the analyzers instead of fixing what they found. -->\n  <NoWarn>$(NoWarn);CA1822;CA2016;CS8618</NoWarn>\n</PropertyGroup>",
+      "severity": "medium",
+      "defaultOn": false,
+      "autofixable": false,
+      "deterministicRuleIds": [
+        "CS*",
+        "CA*",
+        "IDE*"
+      ],
+      "relatedGuideline": "dotnet-api-safety",
+      "since": "1.6.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-28",
+          "change": "Initial opt-in rule that owns the compiler, analyzer and code-style diagnostic families no more specific rule claims."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-GN-001",
+      "version": "1.0.1",
       "title": "Treat content you did not author as data, never as instruction",
       "technology": "generic",
       "category": "trust-boundary",
@@ -389,10 +481,27 @@
       "severity": "high",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "CA2100",
+        "CA3001",
+        "CA3002",
+        "CA3005",
+        "CA3008",
+        "CA3009",
+        "CA3012",
+        "no-eval",
+        "no-implied-eval",
+        "no-new-func",
+        "@typescript-eslint/no-implied-eval"
+      ],
       "relatedGuideline": null,
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Roslyn and ESLint diagnostics that check this rule deterministically (CA2100, CA3001, CA3002, CA3005, CA3008, CA3009, CA3012, no-eval, no-implied-eval, no-new-func, @typescript-eslint/no-implied-eval); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -736,7 +845,7 @@
     },
     {
       "id": "QS-NG-004",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "title": "Keep templates declarative; always track list expressions",
       "technology": "angular",
       "category": "template-hygiene",
@@ -751,10 +860,23 @@
       "severity": "medium",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "@angular-eslint/template/use-track-by-function",
+        "@angular-eslint/template/prefer-control-flow",
+        "NG8101",
+        "NG8102",
+        "NG8103",
+        "NG8107",
+        "NG8109"
+      ],
       "relatedGuideline": "angular-typescript",
       "since": "1.0.0",
       "changeHistory": [
+        {
+          "version": "1.1.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@angular-eslint/template/use-track-by-function, @angular-eslint/template/prefer-control-flow, NG8101, NG8102, NG8103, NG8107, NG8109); statement and detection guidance unchanged."
+        },
         {
           "version": "1.1.0",
           "date": "2026-09-06",
@@ -770,7 +892,7 @@
     },
     {
       "id": "QS-NG-005",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "title": "Default to OnPush with signal-driven state",
       "technology": "angular",
       "category": "change-detection",
@@ -785,10 +907,18 @@
       "severity": "medium",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "@angular-eslint/prefer-on-push-component-change-detection",
+        "@angular-eslint/prefer-signals"
+      ],
       "relatedGuideline": "angular-typescript",
       "since": "1.0.0",
       "changeHistory": [
+        {
+          "version": "1.1.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@angular-eslint/prefer-on-push-component-change-detection, @angular-eslint/prefer-signals); statement and detection guidance unchanged."
+        },
         {
           "version": "1.1.0",
           "date": "2026-09-06",
@@ -804,7 +934,7 @@
     },
     {
       "id": "QS-NG-006",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Address postMessage to a known origin and send only the declared fields",
       "technology": "angular",
       "category": "frame-messaging",
@@ -819,10 +949,17 @@
       "severity": "high",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "@microsoft/sdl/no-postmessage-star-origin"
+      ],
       "relatedGuideline": "angular-typescript",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@microsoft/sdl/no-postmessage-star-origin); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -833,7 +970,7 @@
     },
     {
       "id": "QS-NG-007",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Render text as text; never bypass Angular's sanitizer",
       "technology": "angular",
       "category": "rendering-safety",
@@ -848,10 +985,18 @@
       "severity": "high",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "@microsoft/sdl/no-angular-bypass-sanitizer",
+        "@microsoft/sdl/no-inner-html"
+      ],
       "relatedGuideline": "angular-typescript",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@microsoft/sdl/no-angular-bypass-sanitizer, @microsoft/sdl/no-inner-html); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -920,7 +1065,7 @@
     },
     {
       "id": "QS-NG-010",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "title": "Derive template collections in computed signals, not in template calls",
       "technology": "angular",
       "category": "change-detection",
@@ -935,10 +1080,17 @@
       "severity": "medium",
       "defaultOn": true,
       "autofixable": false,
-      "deterministicRuleIds": [],
+      "deterministicRuleIds": [
+        "@angular-eslint/template/no-call-expression"
+      ],
       "relatedGuideline": "angular-typescript",
       "since": "1.2.0",
       "changeHistory": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-28",
+          "change": "Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@angular-eslint/template/no-call-expression); statement and detection guidance unchanged."
+        },
         {
           "version": "1.0.0",
           "date": "2026-09-06",
@@ -1030,6 +1182,37 @@
           "version": "1.0.0",
           "date": "2026-09-06",
           "change": "Initial rule, grounded in the chunked, cancellable, single-concurrency syntax worker described in `frontend/PERF.md`."
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "QS-NG-014",
+      "version": "1.0.0",
+      "title": "Keep the TypeScript program type-clean under strict settings",
+      "technology": "angular",
+      "category": "static-analysis",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Keep every TypeScript project of the workspace free of `tsc` diagnostics under its strict compiler settings. Fix a type error at its cause rather than widening a type to `any`, adding a non-null assertion that the code cannot justify, or silencing the line with `@ts-ignore`. When a suppression is unavoidable, use `@ts-expect-error` with a reason so it fails once the error is gone.",
+      "rationale": "Strict type checking catches null dereferences, missing cases and mismatched contracts before they reach a browser. The value depends on the program staying clean: once errors are tolerated, new ones hide among the old. Quality Studio's tsc sensor checks each project a solution-style `tsconfig.json` references, so a workspace cannot look clean just because its root config compiles no files.",
+      "detection": "Use the tsc sensor's findings for the reviewed files: each carries its `TS` diagnostic code and location. Explain the type contract that is violated and the proportionate fix. Flag new `any`, unjustified `!` assertions and `@ts-ignore` comments that exist to avoid a diagnostic. A diagnostic in generated or vendored code is not a finding against the reviewed source.",
+      "goodExample": "{\n  \"compilerOptions\": {\n    \"strict\": true,\n    \"noImplicitOverride\": true,\n    \"noPropertyAccessFromIndexSignature\": true,\n    \"noImplicitReturns\": true\n  },\n  \"files\": [],\n  \"references\": [{ \"path\": \"./tsconfig.app.json\" }]\n}",
+      "badExample": "// @ts-ignore -- the response type is wrong, fix later\nconst repository: Repository = response.items[0] as any;",
+      "severity": "medium",
+      "defaultOn": false,
+      "autofixable": false,
+      "deterministicRuleIds": [
+        "TS*"
+      ],
+      "relatedGuideline": "angular-typescript",
+      "since": "1.6.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-09-28",
+          "change": "Initial opt-in rule that owns the TypeScript diagnostic family reported by the tsc sensor."
         }
       ],
       "enabled": true

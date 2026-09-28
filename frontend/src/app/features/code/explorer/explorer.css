@@ -191,3 +191,12 @@
   background: transparent;
   font-size: var(--studio-font-size-control);
 }
+
+.analyzer-badge {
+  flex: none;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--studio-accent-soft);
+  color: var(--studio-accent);
+  font: var(--studio-font-size-label) var(--font-mono);
+}

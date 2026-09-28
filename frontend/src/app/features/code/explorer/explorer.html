@@ -20,6 +20,9 @@
           @if (item.node.excluded?.length) {
             <span class="scope-exclusion-badge" [title]="exclusionTitle(item.node)">⊘ {{ item.node.excluded?.length }}</span>
           }
+          @if (analyzerCount(item.node); as count) {
+            <span class="analyzer-badge" [title]="analyzerTitle(item.node)" [attr.aria-label]="analyzerTitle(item.node)">&#9670; {{ count }}</span>
+          }
           <span class="tree-states" aria-label="Rolled-up review states">
             @for (decoration of item.node.decorations; track decoration.kind) { <i class="status" [class]="'status ' + decoration.state" [title]="decoration.label"><span class="sr-only">{{ decoration.label }}</span></i> }
           </span>

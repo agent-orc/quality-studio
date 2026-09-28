@@ -1,6 +1,6 @@
 ---
 id: QS-NG-005
-version: 1.1.0
+version: 1.1.1
 title: Default to OnPush with signal-driven state
 technology: angular
 kinds: [code]
@@ -8,7 +8,7 @@ category: change-detection
 severity: medium
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [@angular-eslint/prefer-on-push-component-change-detection, @angular-eslint/prefer-signals]
 relatedGuideline: angular-typescript
 since: 1.0.0
 ---
@@ -60,6 +60,7 @@ export class Widget implements OnInit {
 
 ## Change history
 
+- 1.1.1 (2026-09-28): Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@angular-eslint/prefer-on-push-component-change-detection, @angular-eslint/prefer-signals); statement and detection guidance unchanged.
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `ChangeDetectionStrategy.OnPush` declaration
   already present on every component under `frontend/src/app` (`review-panel.ts`, `explorer.ts`,

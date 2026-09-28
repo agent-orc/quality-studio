@@ -5,10 +5,11 @@ using System.Text.RegularExpressions;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
+public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor, IRepositoryProbedSensor
 {
     private readonly ISensorCommandRunner commandRunner;
     private readonly SarifSensor sarif;
+    private readonly AnalyzerProfileCatalog profiles;
     private readonly string executable;
     private readonly string[] versionArguments;
     private readonly string toolVersionKey;
@@ -26,19 +27,58 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor
         this.versionArguments = versionArguments;
         this.toolVersionKey = toolVersionKey ?? id;
         this.commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
-        sarif = new SarifSensor(id, this.commandRunner, profiles);
+        this.profiles = profiles ?? AnalyzerProfileCatalog.BuiltIn;
+        sarif = new SarifSensor(id, this.commandRunner, this.profiles);
     }
 
     public string Id { get; }
     public string Version => SarifSensor.SensorVersion;
     public IReadOnlyList<SensorScope> SupportedScopes => sarif.SupportedScopes;
 
-    public async Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default)
+    public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+        ProbeInAsync(Directory.GetCurrentDirectory(), cancellationToken);
+
+    /// <summary>
+    /// Probes the executable from the directory the profile would run in, and checks that every tool
+    /// the profile asks the repository for is installed, so a missing <c>npm ci</c> shows up as an
+    /// unavailable sensor before a scan rather than as a failed one.
+    /// </summary>
+    public async Task<SensorAvailability> ProbeAvailabilityAsync(
+        string repositoryRoot,
+        IReadOnlyDictionary<string, string>? configuration,
+        CancellationToken cancellationToken = default)
+    {
+        var root = Path.GetFullPath(repositoryRoot);
+        if (!Directory.Exists(root))
+            return new SensorAvailability(false, $"{Id} is unavailable: the repository path does not exist.");
+        var workingDirectory = root;
+        if (configuration is not null &&
+            AnalyzerInvocation.TryResolve(Id, configuration, profiles, out var invocation, out _))
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(invocation.WorkingDirectory))
+                    workingDirectory = AnalyzerCommand.ContainedPath(root, invocation.WorkingDirectory);
+                if (!Directory.Exists(workingDirectory))
+                    return new SensorAvailability(false,
+                        $"{Id} is unavailable: working directory '{invocation.WorkingDirectory}' does not exist.");
+                if (!string.IsNullOrWhiteSpace(invocation.Command))
+                    AnalyzerCommand.CheckTools(invocation.Command, root, workingDirectory);
+            }
+            catch (ArgumentException exception)
+            {
+                return new SensorAvailability(false, $"{Id} is unavailable: {exception.Message}");
+            }
+        }
+        return await ProbeInAsync(workingDirectory, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<SensorAvailability> ProbeInAsync(string directory, CancellationToken cancellationToken)
     {
         try
         {
             var result = await commandRunner.RunAsync(
-                executable, versionArguments, Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+                executable, versionArguments, directory, cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
                 return new SensorAvailability(
                     false, $"{Id} is unavailable: version probe exited with code {result.ExitCode}.");
@@ -80,9 +120,10 @@ public sealed class EslintAnalyzerSensor : SarifCommandAnalyzerSensor
     }
 }
 
-public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSensor
+public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSensor, IRepositoryProbedSensor
 {
-    public const string SensorVersion = "1.0.0";
+    public const string SensorVersion = "1.1.0";
+    private const string CompilerModule = "typescript/bin/tsc";
     private readonly ISensorCommandRunner commandRunner;
     private readonly AnalyzerProfileCatalog profiles;
 
@@ -103,13 +144,7 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             var output = await commandRunner.RunAsync(
                 "npx", ["--no-install", "tsc", "--version"], Directory.GetCurrentDirectory(), cancellationToken)
                 .ConfigureAwait(false);
-            return output.ExitCode == 0
-                ? new SensorAvailability(true, ToolVersions: new Dictionary<string, string>
-                {
-                    ["typescript"] = output.StandardOutput.Trim(),
-                })
-                : new SensorAvailability(
-                    false, $"tsc is unavailable: version probe exited with code {output.ExitCode}.");
+            return VersionAvailability(output);
         }
         catch (Exception exception) when (
             exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
@@ -117,6 +152,58 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             return new SensorAvailability(false, $"tsc is unavailable: {exception.Message}");
         }
     }
+
+    /// <summary>
+    /// Probes the TypeScript compiler the repository installed for the profile's working directory,
+    /// and the project the profile would check, instead of whatever <c>tsc</c> the host can reach.
+    /// </summary>
+    public async Task<SensorAvailability> ProbeAvailabilityAsync(
+        string repositoryRoot,
+        IReadOnlyDictionary<string, string>? configuration,
+        CancellationToken cancellationToken = default)
+    {
+        var root = Path.GetFullPath(repositoryRoot);
+        if (!Directory.Exists(root))
+            return new SensorAvailability(false, "tsc is unavailable: the repository path does not exist.");
+        string compiler;
+        try
+        {
+            var workingDirectory = root;
+            if (configuration is not null &&
+                AnalyzerInvocation.TryResolve(Id, configuration, profiles, out var invocation, out _))
+            {
+                if (!string.IsNullOrWhiteSpace(invocation.WorkingDirectory))
+                    workingDirectory = AnalyzerCommand.ContainedPath(root, invocation.WorkingDirectory);
+                if (!Directory.Exists(workingDirectory))
+                    return new SensorAvailability(false,
+                        $"tsc is unavailable: working directory '{invocation.WorkingDirectory}' does not exist.");
+                if (invocation.Command?.Contains(TsconfigPlaceholder, StringComparison.Ordinal) == true)
+                    TypeScriptProjects.Resolve(root, workingDirectory);
+            }
+            compiler = AnalyzerCommand.NodeModule(root, workingDirectory, CompilerModule);
+            var output = await commandRunner.RunAsync(
+                "node", [compiler, "--version"], workingDirectory, cancellationToken).ConfigureAwait(false);
+            return VersionAvailability(output);
+        }
+        catch (ArgumentException exception)
+        {
+            return new SensorAvailability(false, $"tsc is unavailable: {exception.Message}");
+        }
+        catch (Exception exception) when (
+            exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+        {
+            return new SensorAvailability(false, $"tsc is unavailable: {exception.Message}");
+        }
+    }
+
+    private static SensorAvailability VersionAvailability(SensorCommandResult output) =>
+        output.ExitCode == 0
+            ? new SensorAvailability(true, ToolVersions: new Dictionary<string, string>
+            {
+                ["typescript"] = output.StandardOutput.Trim(),
+            })
+            : new SensorAvailability(
+                false, $"tsc is unavailable: version probe exited with code {output.ExitCode}.");
 
     public async Task<SensorScanResult> RunAsync(
         SensorScanRequest request,
@@ -138,7 +225,7 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         string reportPath;
         string target;
         string workingDirectory;
-        IReadOnlyList<string> command;
+        IReadOnlyList<IReadOnlyList<string>> commands;
         try
         {
             target = request.Scope == SensorScope.Path && !string.IsNullOrWhiteSpace(request.Path)
@@ -150,24 +237,43 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
                 : Directory.Exists(target) ? target : Path.GetDirectoryName(target)!;
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "tsc workingDirectory must be an existing repository directory.");
-            command = AnalyzerCommand.Expand(configuredCommand, root, target, reportPath);
+            // One invocation per checked project: `tsc -p` on a solution-style tsconfig checks nothing.
+            IReadOnlyList<string?> projects = [null];
+            if (configuredCommand.Contains(TsconfigPlaceholder, StringComparison.Ordinal))
+                projects = [.. TypeScriptProjects.Resolve(root, workingDirectory)];
+            commands = projects
+                .Select(project => AnalyzerCommand.Expand(
+                    project is null
+                        ? configuredCommand
+                        : configuredCommand.Replace(TsconfigPlaceholder, Quote(project), StringComparison.Ordinal),
+                    root, target, reportPath, workingDirectory))
+                .ToArray();
         }
         catch (ArgumentException exception)
         {
             return Unavailable(request, exception.Message);
         }
 
-        SensorCommandResult output;
+        var outputs = new List<SensorCommandResult>();
         try
         {
-            output = await commandRunner.RunAsync(
-                command[0], command.Skip(1).ToArray(), workingDirectory, cancellationToken).ConfigureAwait(false);
+            foreach (var command in commands)
+            {
+                outputs.Add(await commandRunner.RunAsync(
+                    command[0], command.Skip(1).ToArray(), workingDirectory, cancellationToken).ConfigureAwait(false));
+            }
         }
         catch (Exception exception) when (
             exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
         {
             return Unavailable(request, $"tsc is unavailable: {exception.Message}");
         }
+        var output = new SensorCommandResult(
+            outputs.Select(result => result.ExitCode).FirstOrDefault(code => code != 0),
+            string.Join(Environment.NewLine, outputs.Select(result => result.StandardOutput)
+                .Where(value => !string.IsNullOrWhiteSpace(value))),
+            string.Join(Environment.NewLine, outputs.Select(result => result.StandardError)
+                .Where(value => !string.IsNullOrWhiteSpace(value))));
 
         var diagnostics = string.Join(
             Environment.NewLine,
@@ -241,6 +347,12 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             .ThenBy(finding => finding.Locations[0].Range!.Start.Line)
             .ToArray();
     }
+
+    /// <summary>The placeholder a tsc profile uses for the project file it checks.</summary>
+    public const string TsconfigPlaceholder = "{tsconfig}";
+
+    // Split() treats a quoted segment as one argument, so a project path with spaces survives.
+    private static string Quote(string path) => "\"" + path.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
     private SensorScanResult Unavailable(SensorScanRequest request, string reason) =>
         new(false, reason, [], Provenance(

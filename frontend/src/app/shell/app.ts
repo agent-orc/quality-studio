@@ -195,6 +195,7 @@ export class App implements OnDestroy {
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
+    void this.api.loadAnalyzerCounts();
     if (preferredPath !== '.' && !this.api.nodeAt(preferredPath)) await this.api.searchTree(preferredPath);
     void dashboardLoading;
     await this.api.loadReviewRuns();

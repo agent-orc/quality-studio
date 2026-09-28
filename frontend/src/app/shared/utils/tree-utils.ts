@@ -30,3 +30,20 @@ export function ancestorIds(nodes: TreeNode[], path: string): string[] {
   }
   return [];
 }
+
+/**
+ * Rolls per-file analyzer finding counts up to every containing folder, keyed by the same
+ * repository-relative paths tree nodes carry. The repository root answers to both '' and '.'.
+ */
+export function rollUpPathCounts(files: Readonly<Record<string, number>>): Map<string, number> {
+  const totals = new Map<string, number>();
+  const add = (path: string, count: number) => totals.set(path, (totals.get(path) ?? 0) + count);
+  for (const [path, count] of Object.entries(files)) {
+    if (!count) continue;
+    add(path, count);
+    for (let slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) add(path.slice(0, slash), count);
+    add('', count);
+  }
+  totals.set('.', totals.get('') ?? 0);
+  return totals;
+}

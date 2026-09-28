@@ -1,6 +1,6 @@
 ---
 id: QS-NG-004
-version: 1.1.0
+version: 1.1.1
 title: Keep templates declarative; always track list expressions
 technology: angular
 kinds: [code]
@@ -8,7 +8,7 @@ category: template-hygiene
 severity: medium
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [@angular-eslint/template/use-track-by-function, @angular-eslint/template/prefer-control-flow, NG8101, NG8102, NG8103, NG8107, NG8109]
 relatedGuideline: angular-typescript
 since: 1.0.0
 ---
@@ -53,6 +53,7 @@ Search the template for `@for` blocks without a `track` expression, for `*ngFor`
 
 ## Change history
 
+- 1.1.1 (2026-09-28): Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@angular-eslint/template/use-track-by-function, @angular-eslint/template/prefer-control-flow, NG8101, NG8102, NG8103, NG8107, NG8109); statement and detection guidance unchanged.
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `track finding.fingerprint ?? finding.id`
   pattern already used throughout `review-panel.html`.

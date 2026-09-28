@@ -226,3 +226,102 @@ public sealed class RuleCatalogueResolver
             throw new JsonException($"Rule catalogue '{source}' contains an invalid entry.");
     }
 }
+
+/// <summary>One catalogue rule an analyzer rule id enforces, as the effective catalogue resolves it.</summary>
+public sealed record CatalogueRuleLink(
+    string Id,
+    string Title,
+    string Technology,
+    bool Enabled,
+    FindingSeverity Severity);
+
+/// <summary>
+/// Maps analyzer-native rule ids (Roslyn <c>CA2016</c>, compiler <c>CS4014</c>, ESLint
+/// <c>@angular-eslint/template/no-call-expression</c>, TypeScript <c>TS2322</c>, a sensor's own
+/// <c>architecture/missing-directory</c>) to the named catalogue rules whose <c>deterministicRuleIds</c> list
+/// them. That makes one rule enforceable twice: an analyzer reports the violation deterministically,
+/// and the review agent, handed the same finding with the rule id attached, explains it in the rule's
+/// terms instead of reporting it again under an invented id.
+/// <para>
+/// Ids match case-insensitively. An entry ending in <c>*</c> is a prefix, for a rule that owns a
+/// whole diagnostic family; an exact entry always wins over a prefix. Retired rules
+/// (<c>enabled: false</c> in the catalogue) are absent from the resolved catalogue and never match;
+/// rules a project override disabled still match, flagged <see cref="CatalogueRuleLink.Enabled"/>
+/// false, so the analyzer result stays explainable while the project has opted out of the rule.
+/// </para>
+/// </summary>
+public sealed class DeterministicRuleMap
+{
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<CatalogueRuleLink>> exact;
+    private readonly IReadOnlyList<(string Prefix, CatalogueRuleLink Link)> prefixes;
+
+    private DeterministicRuleMap(
+        IReadOnlyDictionary<string, IReadOnlyList<CatalogueRuleLink>> exact,
+        IReadOnlyList<(string Prefix, CatalogueRuleLink Link)> prefixes)
+    {
+        this.exact = exact;
+        this.prefixes = prefixes;
+    }
+
+    public static DeterministicRuleMap Empty { get; } = new(
+        new Dictionary<string, IReadOnlyList<CatalogueRuleLink>>(StringComparer.OrdinalIgnoreCase), []);
+
+    public static DeterministicRuleMap From(ResolvedRuleCatalogue catalogue)
+    {
+        ArgumentNullException.ThrowIfNull(catalogue);
+        var exact = new Dictionary<string, List<CatalogueRuleLink>>(StringComparer.OrdinalIgnoreCase);
+        var prefixes = new List<(string Prefix, CatalogueRuleLink Link)>();
+        foreach (var rule in catalogue.Rules)
+        {
+            var link = new CatalogueRuleLink(
+                rule.Rule.Id, rule.Rule.Title, rule.Rule.Technology, rule.EffectiveEnabled, rule.EffectiveSeverity);
+            foreach (var analyzerId in rule.Rule.DeterministicRuleIds ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(analyzerId)) continue;
+                var id = analyzerId.Trim();
+                if (id.EndsWith('*'))
+                {
+                    if (id.Length > 1) prefixes.Add((id[..^1], link));
+                    continue;
+                }
+                if (!exact.TryGetValue(id, out var links)) exact[id] = links = [];
+                if (!links.Any(existing => existing.Id == link.Id)) links.Add(link);
+            }
+        }
+        return new DeterministicRuleMap(
+            exact.ToDictionary(
+                pair => pair.Key,
+                pair => (IReadOnlyList<CatalogueRuleLink>)pair.Value.OrderBy(link => link.Id, StringComparer.Ordinal).ToArray(),
+                StringComparer.OrdinalIgnoreCase),
+            prefixes.OrderByDescending(entry => entry.Prefix.Length)
+                .ThenBy(entry => entry.Link.Id, StringComparer.Ordinal)
+                .ToArray());
+    }
+
+    /// <summary>The catalogue rules <paramref name="analyzerRuleId"/> enforces; empty when none claims it.</summary>
+    public IReadOnlyList<CatalogueRuleLink> For(string? analyzerRuleId)
+    {
+        if (string.IsNullOrWhiteSpace(analyzerRuleId)) return [];
+        if (exact.TryGetValue(analyzerRuleId, out var links)) return links;
+        var longest = prefixes
+            .Where(entry => analyzerRuleId.StartsWith(entry.Prefix, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (longest.Length == 0) return [];
+        var length = longest[0].Prefix.Length;
+        return longest.Where(entry => entry.Prefix.Length == length).Select(entry => entry.Link).ToArray();
+    }
+
+    /// <summary>
+    /// The links of every distinct rule id in <paramref name="ruleIds"/> that maps to at least one
+    /// catalogue rule, keyed by the analyzer rule id as reported.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<CatalogueRuleLink>> ForAll(IEnumerable<string?> ruleIds) =>
+        ruleIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .Distinct(StringComparer.Ordinal)
+            .Select(id => KeyValuePair.Create(id, For(id)))
+            .Where(pair => pair.Value.Count > 0)
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+}
