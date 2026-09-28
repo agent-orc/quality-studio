@@ -169,10 +169,13 @@ public sealed class ReviewRunner
                         SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
                     }
                     var stateStore = new FindingStateStore(root);
-                    var unlisted = await LoadUnlistedFindingsAsync(stateStore, contentHashes.Keys, rulePolicy, token)
-                        .ConfigureAwait(false);
+                    var lifecycle = await stateStore.ReadAsync(token).ConfigureAwait(false);
+                    var unlisted = UnlistedFindings(lifecycle, contentHashes.Keys, rulePolicy);
+                    // Every lifecycle fingerprint is known: a finding that matches no earlier anchor
+                    // must not take over one of them by its text.
                     var findingIdentities = FindingIdentity.Assign(
-                        response, subjectContents, [.. LoadFindingIdentities(metaPath), .. unlisted]).ToList();
+                        response, subjectContents, [.. LoadFindingIdentities(metaPath), .. unlisted],
+                        [.. lifecycle.Keys]).ToList();
                     AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
                     if (request.Kind == "security")
                     {
@@ -619,12 +622,10 @@ public sealed class ReviewRunner
     /// findings under a rule this review was given are its to judge: a security review of the same
     /// file cannot re-observe, or resolve, a code finding.
     /// </summary>
-    private static async Task<IReadOnlyList<FindingIdentityRecord>> LoadUnlistedFindingsAsync(
-        FindingStateStore store, IEnumerable<string> subjectPaths, RuleIdPolicy rules,
-        CancellationToken cancellationToken)
+    private static IReadOnlyList<FindingIdentityRecord> UnlistedFindings(
+        IReadOnlyDictionary<string, FindingStateRecord> states, IEnumerable<string> subjectPaths, RuleIdPolicy rules)
     {
         var paths = subjectPaths.ToHashSet(StringComparer.Ordinal);
-        var states = await store.ReadAsync(cancellationToken).ConfigureAwait(false);
         return states.Values
             .Where(record => record.LastObservedRange is not null && paths.Contains(record.Path) &&
                              rules.Canonicalize(record.RuleId) is not null)

@@ -59,6 +59,126 @@ public sealed class FindingReobservationTests
     }
 
     [Fact]
+    public void The_same_text_on_changed_content_does_not_keep_the_identity()
+    {
+        var earlier = Assign(Response(("correctness.risk", 5, 5, "Division by zero"))).Identities;
+        var original = Assert.Single(earlier);
+
+        // A line above the defect changed; the enclosed code, rule and path are the same, so the
+        // computed text fingerprint is too — but the anchor content hash is not.
+        var shifted = Assign(Response(("correctness.risk", 6, 6, "Division by zero")), earlier,
+            "// header\n" + Source);
+
+        var rerun = Assert.Single(shifted.Identities);
+        Assert.Equal(original.Fingerprint, FindingIdentity.Compute(Path,
+            FindingIdentity.NormalizeSnippet(shifted.Response["findings"]![0]!["anchors"]![0]!["capturedExcerpt"]!["text"]!
+                .GetValue<string>()), "correctness.risk"));
+        Assert.NotEqual(original.Fingerprint, rerun.Fingerprint);
+        Assert.NotEqual(original.Id, rerun.Id);
+        Assert.Equal(rerun.Fingerprint, shifted.Response["findings"]![0]!["fingerprint"]!.GetValue<string>());
+        Assert.NotEqual(original.ContentHash, rerun.ContentHash);
+    }
+
+    [Fact]
+    public void The_same_text_without_an_overlapping_anchor_or_a_measured_anchor_does_not_keep_the_identity()
+    {
+        var measured = Assert.Single(Assign(Response(("correctness.risk", 5, 5, "Division by zero"))).Identities);
+        var elsewhere = measured with { Range = new FindingRange(new FindingPosition(1, 1), new FindingPosition(2, 1)) };
+        var unanchored = measured with { ContentHash = null, Range = null };
+
+        var notOverlapping = Assert.Single(Assign(Response(("correctness.risk", 5, 5, "Division by zero")), [elsewhere]).Identities);
+        var withoutAnchor = Assert.Single(Assign(Response(("correctness.risk", 5, 5, "Division by zero")), [unanchored]).Identities);
+        var matched = Assert.Single(Assign(Response(("correctness.risk", 5, 5, "Division by zero")), [measured]).Identities);
+
+        Assert.NotEqual(measured.Fingerprint, notOverlapping.Fingerprint);
+        Assert.NotEqual(measured.Fingerprint, withoutAnchor.Fingerprint);
+        Assert.Equal(measured.Fingerprint, matched.Fingerprint);
+        Assert.Equal(measured.Id, matched.Id);
+    }
+
+    [Fact]
+    public void A_known_lifecycle_fingerprint_is_never_taken_by_text()
+    {
+        var first = Assert.Single(Assign(Response(("correctness.risk", 5, 5, "Division by zero"))).Identities);
+
+        var parsed = new ReviewResponseParser().Parse(Response(("correctness.risk", 5, 5, "Division by zero")));
+        var rerun = Assert.Single(FindingIdentity.Assign(parsed, new Dictionary<string, string> { [Path] = Source },
+            earlier: [], knownFingerprints: [first.Fingerprint]));
+        var again = Assert.Single(FindingIdentity.Assign(
+            new ReviewResponseParser().Parse(Response(("correctness.risk", 5, 5, "Division by zero"))),
+            new Dictionary<string, string> { [Path] = Source }, earlier: [], knownFingerprints: [first.Fingerprint]));
+
+        Assert.NotEqual(first.Fingerprint, rerun.Fingerprint);
+        Assert.Equal("finding-" + rerun.Fingerprint[7..], rerun.Id);
+        // The derived fingerprint is deterministic.
+        Assert.Equal(rerun.Fingerprint, again.Fingerprint);
+    }
+
+    [Fact]
+    public void Duplicates_still_collapse_into_the_finding_that_keeps_the_identity()
+    {
+        var earlier = Assign(Response(("correctness.risk", 5, 5, "Division by zero"))).Identities;
+
+        var rerun = Assign(Response(
+            ("correctness.risk", 5, 5, "First copy"),
+            ("correctness.risk", 5, 5, "Second copy")), earlier);
+
+        Assert.Equal(earlier[0].Fingerprint, Assert.Single(rerun.Identities).Fingerprint);
+        Assert.Single(rerun.Response["findings"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task A_disposition_is_kept_by_anchor_on_unchanged_code_and_not_inherited_by_text_after_a_change()
+    {
+        var root = Directory.CreateTempSubdirectory("finding-disposition-");
+        Directory.CreateDirectory(System.IO.Path.Combine(root.FullName, "src"));
+        var file = System.IO.Path.Combine(root.FullName, "src", "Sample.cs");
+        await File.WriteAllTextAsync(file, Source, TestContext.Current.CancellationToken);
+        var runner = new ReviewRunner(new QueueAgent(
+            Response(("correctness.risk", 5, 5, "Division by zero")),
+            Response(),
+            Response(("correctness.risk", 4, 6, "Unchecked divisor")),
+            Response(("correctness.risk", 6, 6, "Division by zero"))));
+        var request = new ReviewRequest(Path, RepositoryRoot: root.FullName);
+        var store = new FindingStateStore(root.FullName);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        try
+        {
+            var first = await runner.ReviewAsync(request, cancellationToken);
+            var fingerprint = SidecarFingerprints(first.MetaPath).Single();
+            await store.SetAsync(fingerprint, FindingState.Waived, "Ada", "Accepted for the migration.",
+                cancellationToken: cancellationToken);
+
+            // Missed on unchanged code: the waiver stays and keeps its anchor.
+            await runner.ReviewAsync(request, cancellationToken);
+            var missed = (await store.ReadAsync(cancellationToken))[fingerprint];
+            Assert.Equal(FindingState.Waived, missed.State);
+            Assert.Equal(5, missed.LastObservedRange!.Start.Line);
+            Assert.Equal(FindingIdentity.ContentHash(Source), missed.LastObservedContentHash);
+
+            // Re-reported one line wider on the same code: the anchor carries the identity and the waiver.
+            var again = await runner.ReviewAsync(request, cancellationToken);
+            Assert.Equal(new[] { fingerprint }, SidecarFingerprints(again.MetaPath));
+            var reobserved = (await store.ReadAsync(cancellationToken))[fingerprint];
+            Assert.Equal(FindingState.Waived, reobserved.State);
+            Assert.Null(reobserved.LastObservedRange);
+
+            // The code changed above the finding; the same text alone does not inherit the waiver.
+            await File.WriteAllTextAsync(file, "// edited elsewhere\n" + Source, cancellationToken);
+            var changed = await runner.ReviewAsync(request, cancellationToken);
+            var reported = SidecarFingerprints(changed.MetaPath).Single();
+            Assert.NotEqual(fingerprint, reported);
+            var states = await store.ReadAsync(cancellationToken);
+            Assert.Equal(FindingState.Open, states[reported].State);
+            Assert.Equal(FindingState.Resolved, states[fingerprint].State);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root.FullName);
+        }
+    }
+
+    [Fact]
     public async Task Missing_on_unchanged_code_is_not_reobserved_and_keeps_a_human_disposition()
     {
         var root = Directory.CreateTempSubdirectory("finding-reobservation-");
@@ -86,6 +206,7 @@ public sealed class FindingReobservationTests
             Assert.Equal(hash, missed[open.Fingerprint].LastObservedContentHash);
             Assert.Equal(FindingState.Waived, missed[waived.Fingerprint].State);
             Assert.Equal("Ada", missed[waived.Fingerprint].Author);
+            Assert.Equal(range, missed[waived.Fingerprint].LastObservedRange);
             // Without an anchor there is nothing to compare, so the old rule still applies.
             Assert.Equal(FindingState.Resolved, missed[unanchored.Fingerprint].State);
             await Assert.ThrowsAsync<ArgumentException>(() => store.SetAsync(open.Fingerprint,

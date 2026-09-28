@@ -15,7 +15,9 @@ From the 2026-09-28 evaluation of the Agent Studio checkout (defects D2-D4):
   retried once with the refusal reason; each refused answer is kept, capped at 32,768 characters, in
   `runs/<runId>/rejections.jsonl`.
 - **Findings keep their identity across reruns.** A re-reported finding keeps an earlier identity by
-  rule id plus overlapping anchor span on content with the same hash, never by its wording. A finding
+  rule id plus overlapping anchor span on content with the same hash, never by its wording or by the
+  text of the code it encloses alone: a finding that matches no earlier anchor gets a fingerprint no
+  lifecycle record uses, so it cannot inherit a disposition by text. A finding
   missing from a rerun of unchanged code is `not-reobserved`, never `resolved`; the run report delta
   lists such findings under `notReobserved`.
 - **Identical provider failures stop the sweep.** After `ReviewJobs:ProviderFailureStopThreshold`

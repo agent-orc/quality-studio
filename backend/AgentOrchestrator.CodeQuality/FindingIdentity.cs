@@ -13,18 +13,27 @@ namespace AgentOrchestrator.CodeQuality;
 /// A finding computes its fingerprint from rule, path and the code its range encloses. Across
 /// reruns that alone is too brittle: an agent that re-reports the same defect one line wider
 /// encloses different code, and the defect would get a new identity while the old one looked
-/// fixed. So a finding first keeps an earlier identity with the same fingerprint, and otherwise
-/// adopts the identity of an earlier finding for the same rule whose anchor span it overlaps on
-/// content with the same hash. The agent's title and description never take part.
+/// fixed. So a finding adopts the identity of an earlier finding for the same rule and path whose
+/// anchor span it overlaps on content with the same hash; among those, one with the same computed
+/// fingerprint is preferred. Text never carries an identity on its own: a finding that matches no
+/// earlier anchor never reuses a fingerprint that is already known, even when the code it encloses
+/// is the same. The agent's title and description never take part.
 /// </remarks>
 public static partial class FindingIdentity
 {
     public const string Canonicalization = "quality-studio-finding-v1";
 
+    /// <param name="earlier">The identities a finding may keep, each with the anchor it was last observed at.</param>
+    /// <param name="knownFingerprints">
+    /// Further fingerprints already in use, such as every lifecycle record. A finding that keeps no
+    /// earlier identity is given a fingerprint outside these and <paramref name="earlier"/>, so it can
+    /// neither inherit their lifecycle state nor be hidden behind them.
+    /// </param>
     public static IReadOnlyList<FindingIdentityRecord> Assign(
         JsonObject response,
         IReadOnlyDictionary<string, string> subjectContents,
-        IReadOnlyCollection<FindingIdentityRecord>? earlier = null)
+        IReadOnlyCollection<FindingIdentityRecord>? earlier = null,
+        IReadOnlyCollection<string>? knownFingerprints = null)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentNullException.ThrowIfNull(subjectContents);
@@ -80,14 +89,17 @@ public static partial class FindingIdentity
                 contentHash, Compute(primaryPath, primarySnippet!, ruleId)));
         }
 
-        MatchEarlier(candidates, earlier ?? []);
+        earlier ??= [];
+        MatchEarlier(candidates, earlier);
+        var taken = new HashSet<string>(earlier.Select(record => record.Fingerprint), StringComparer.Ordinal);
+        taken.UnionWith(knownFingerprints ?? []);
 
-        var result = new List<FindingIdentityRecord>();
-        var fingerprints = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var candidate in candidates)
+        // Candidates that keep an earlier identity settle first, so a duplicate of one of them is
+        // the finding that collapses, not the one that carries the identity.
+        var reported = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var candidate in candidates.OrderBy(candidate => candidate.Earlier is null))
         {
-            var fingerprint = candidate.Earlier?.Fingerprint ?? candidate.ComputedFingerprint;
-            if (!fingerprints.Add(fingerprint))
+            if (!reported.Add(candidate.ComputedFingerprint))
             {
                 // Duplicate identities collapse into one finding instead of discarding the
                 // whole completed review document.
@@ -95,6 +107,14 @@ public static partial class FindingIdentity
                 continue;
             }
 
+            candidate.Fingerprint = candidate.Earlier?.Fingerprint ?? Unused(candidate, taken);
+            taken.Add(candidate.Fingerprint);
+        }
+
+        var result = new List<FindingIdentityRecord>();
+        foreach (var candidate in candidates.Where(candidate => candidate.Fingerprint is not null))
+        {
+            var fingerprint = candidate.Fingerprint!;
             var id = candidate.Earlier?.Id ?? "finding-" + fingerprint[7..];
             var finding = candidate.Finding;
             finding["id"] = id;
@@ -116,40 +136,65 @@ public static partial class FindingIdentity
 
     /// <summary>
     /// Gives each candidate at most one earlier identity, and each earlier identity to at most one
-    /// candidate. Exact fingerprints are settled first so an overlapping neighbour cannot take an
-    /// identity that a candidate reproduces exactly. A span match needs the same rule, the same path,
-    /// the same content hash — the code both anchors point into is identical — and overlapping lines;
+    /// candidate. Every match needs the same rule, the same path, the same content hash — the code
+    /// both anchors point into is identical — and overlapping lines; an earlier finding without a
+    /// measured anchor matches nothing. Among the matches, exact fingerprints are settled first so an
+    /// overlapping neighbour cannot take an identity that a candidate reproduces exactly; otherwise
     /// the largest overlap wins, then the nearest start line.
     /// </summary>
     private static void MatchEarlier(List<Candidate> candidates, IReadOnlyCollection<FindingIdentityRecord> earlier)
     {
         if (earlier.Count == 0) return;
         var claimed = new HashSet<string>(StringComparer.Ordinal);
-        var byFingerprint = new Dictionary<string, FindingIdentityRecord>(StringComparer.Ordinal);
-        foreach (var record in earlier) byFingerprint.TryAdd(record.Fingerprint, record);
 
         foreach (var candidate in candidates)
         {
-            if (byFingerprint.TryGetValue(candidate.ComputedFingerprint, out var exact) && claimed.Add(exact.Fingerprint))
-                candidate.Earlier = exact;
+            var range = ReadRange(candidate.Range);
+            var exact = earlier.FirstOrDefault(record =>
+                string.Equals(record.Fingerprint, candidate.ComputedFingerprint, StringComparison.Ordinal) &&
+                Anchors(record, candidate, range));
+            if (exact is not null && claimed.Add(exact.Fingerprint)) candidate.Earlier = exact;
         }
 
         foreach (var candidate in candidates.Where(candidate => candidate.Earlier is null))
         {
             var range = ReadRange(candidate.Range);
             var match = earlier
-                .Where(record => record.Range is not null &&
-                                 !claimed.Contains(record.Fingerprint) &&
-                                 string.Equals(record.RuleId, candidate.RuleId, StringComparison.Ordinal) &&
-                                 string.Equals(record.Path, candidate.Path, StringComparison.Ordinal) &&
-                                 string.Equals(record.ContentHash, candidate.ContentHash, StringComparison.Ordinal) &&
-                                 OverlappingLines(record.Range, range) > 0)
+                .Where(record => !claimed.Contains(record.Fingerprint) && Anchors(record, candidate, range))
                 .OrderByDescending(record => OverlappingLines(record.Range!, range))
                 .ThenBy(record => Math.Abs(record.Range!.Start.Line - range.Start.Line))
                 .ThenBy(record => record.Fingerprint, StringComparer.Ordinal)
                 .FirstOrDefault();
             if (match is not null && claimed.Add(match.Fingerprint)) candidate.Earlier = match;
         }
+    }
+
+    /// <summary>Whether the earlier anchor and the candidate's point into the same code.</summary>
+    private static bool Anchors(FindingIdentityRecord record, Candidate candidate, FindingRange range) =>
+        record.Range is not null &&
+        record.ContentHash is not null &&
+        string.Equals(record.RuleId, candidate.RuleId, StringComparison.Ordinal) &&
+        string.Equals(record.Path, candidate.Path, StringComparison.Ordinal) &&
+        string.Equals(record.ContentHash, candidate.ContentHash, StringComparison.Ordinal) &&
+        OverlappingLines(record.Range, range) > 0;
+
+    /// <summary>
+    /// The computed fingerprint, unless an identity the candidate did not match already uses it —
+    /// the same code under the same rule, reported on changed content or at a span that does not
+    /// overlap. Then the fingerprint is derived again from the content hash and the anchor span, so
+    /// the finding starts a lifecycle of its own.
+    /// </summary>
+    private static string Unused(Candidate candidate, HashSet<string> taken)
+    {
+        var fingerprint = candidate.ComputedFingerprint;
+        var range = ReadRange(candidate.Range);
+        for (var attempt = 1; taken.Contains(fingerprint); attempt++)
+        {
+            var canonical = $"{Canonicalization}\0{candidate.ComputedFingerprint}\0{candidate.ContentHash}\0" +
+                            $"{range.Start.Line}:{range.Start.Column}-{range.End.Line}:{range.End.Column}\0{attempt}";
+            fingerprint = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        }
+        return fingerprint;
     }
 
     private static int OverlappingLines(FindingRange? left, FindingRange right) =>
@@ -180,6 +225,7 @@ public static partial class FindingIdentity
         public string ContentHash { get; } = contentHash;
         public string ComputedFingerprint { get; } = computedFingerprint;
         public FindingIdentityRecord? Earlier { get; set; }
+        public string? Fingerprint { get; set; }
     }
 
     /// <summary>

@@ -15,8 +15,9 @@ public enum FindingState { Open, Accepted, Waived, FalsePositive, Resolved, NotR
 
 /// <summary>
 /// One finding's lifecycle state. <see cref="LastObservedContentHash"/> and
-/// <see cref="LastObservedRange"/> are kept only while the finding is not re-observed: its review
-/// sidecar no longer lists it, and a later review needs the anchor to recognise it again.
+/// <see cref="LastObservedRange"/> are kept only while the finding is not re-observed — whether its
+/// state is not re-observed or a human disposition: its review sidecar no longer lists it, and a later
+/// review needs the anchor to recognise it again.
 /// </summary>
 public sealed record FindingStateRecord(
     string Fingerprint,
@@ -114,6 +115,12 @@ public sealed class FindingStateStore
                         : "Finding reappeared in review.", now);
                     changed = true;
                 }
+                else if (existing.LastObservedRange is not null || existing.LastObservedContentHash is not null)
+                {
+                    // Observed again under a human disposition: the sidecar lists it once more.
+                    records[finding.Fingerprint] = existing with { LastObservedContentHash = null, LastObservedRange = null };
+                    changed = true;
+                }
             }
 
             foreach (var finding in previous
@@ -132,6 +139,18 @@ public sealed class FindingStateStore
                                 LastObservedContentHash = finding.ContentHash,
                                 LastObservedRange = finding.Range,
                             };
+                        changed = true;
+                    }
+                    else if ((existing.State is FindingState.Accepted or FindingState.Waived or FindingState.FalsePositive) &&
+                             (existing.LastObservedContentHash != finding.ContentHash || existing.LastObservedRange != finding.Range))
+                    {
+                        // The disposition stays as a person set it. It keeps the anchor, so a later
+                        // review recognises the finding by its span rather than by its text.
+                        records[finding.Fingerprint] = existing with
+                        {
+                            LastObservedContentHash = finding.ContentHash,
+                            LastObservedRange = finding.Range,
+                        };
                         changed = true;
                     }
                     continue;
