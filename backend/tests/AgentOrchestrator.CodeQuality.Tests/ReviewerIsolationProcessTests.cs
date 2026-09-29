@@ -78,12 +78,12 @@ public sealed class ReviewerIsolationProcessTests
             var driver = new CliRunner(new CliOptions { ClaudePath = fakeClaude }).Get(CliTypes.Claude);
             var output = new StringBuilder();
             await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
-                           {
-                               RunId = "control-" + Guid.NewGuid().ToString("N"),
-                               Prompt = "Review src/Weak.cs.",
-                               WorkingDirectory = root,
-                               ContextMode = CliContextModes.Shared,
-                           }, cancellationToken))
+            {
+                RunId = "control-" + Guid.NewGuid().ToString("N"),
+                Prompt = "Review src/Weak.cs.",
+                WorkingDirectory = root,
+                ContextMode = CliContextModes.Shared,
+            }, cancellationToken))
             {
                 if (runEvent is CliRunEvent.OutputDelta delta) output.Append(delta.Text);
             }
@@ -227,11 +227,17 @@ public sealed class ReviewerIsolationProcessTests
                 arguments.Add("-r");
                 arguments.Add(runtime);
             }
-            using var process = new Process { StartInfo = new ProcessStartInfo("dotnet")
+            using var process = new Process
             {
-                WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
-                UseShellExecute = false, CreateNoWindow = true,
-            } };
+                StartInfo = new ProcessStartInfo("dotnet")
+                {
+                    WorkingDirectory = root,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                }
+            };
             foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
             process.Start();
             var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -268,7 +274,7 @@ public sealed class ReviewerIsolationProcessTests
     /// </summary>
     internal sealed class SuggestibleMessagesApi : IDisposable
     {
-                private readonly HttpListener _listener = new();
+        private readonly HttpListener _listener = new();
         private readonly List<string> _requests = [];
         private readonly Task _loop;
 
@@ -410,14 +416,14 @@ public sealed class LiveReviewerIsolationTests
             var driver = new CliRunner(options).Get(CliTypes.Claude);
             var control = new StringBuilder();
             await foreach (var runEvent in driver.StreamAsync(new CliRunRequest
-                           {
-                               RunId = "live-control-" + Guid.NewGuid().ToString("N"),
-                               Prompt = "Review src/Weak.cs and answer with the review JSON.",
-                               WorkingDirectory = root,
-                               Model = "claude-haiku-4-5-20251001",
-                               PermissionMode = "read-only",
-                               ContextMode = CliContextModes.Shared,
-                           }, cancellationToken))
+            {
+                RunId = "live-control-" + Guid.NewGuid().ToString("N"),
+                Prompt = "Review src/Weak.cs and answer with the review JSON.",
+                WorkingDirectory = root,
+                Model = "claude-haiku-4-5-20251001",
+                PermissionMode = "read-only",
+                ContextMode = CliContextModes.Shared,
+            }, cancellationToken))
             {
                 if (runEvent is CliRunEvent.OutputDelta delta) control.Append(delta.Text);
             }
