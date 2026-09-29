@@ -18,6 +18,13 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 - **Directory grade projection.** A directory without its own review shows the line-weighted mean of
   its files' grades, labelled `projection` (`≈C · 79`), with how many of its files it rests on.
 
+### Fixed — large and aggregate reviews launch on Windows (QS-108)
+
+The review agent now hands Claude its prompt over stdin (`ClaudePromptTransport.Stdin`) instead of
+as a command-line argument; Codex already used stdin. On Windows the 32,767-character command-line
+limit had stopped every folder-level review and files above about 20 KB from launching. Limits
+per OS and the regression test are described in [`docs/review-runs.md`](docs/review-runs.md#prompt-transport).
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working
