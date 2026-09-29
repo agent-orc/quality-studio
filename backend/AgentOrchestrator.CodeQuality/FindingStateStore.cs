@@ -135,10 +135,10 @@ public sealed class FindingStateStore
                         records[finding.Fingerprint] = NewRecord(finding, FindingState.NotReobserved, author,
                             "Not re-observed by the latest review of unchanged code; not treated as resolved.", now)
                             with
-                            {
-                                LastObservedContentHash = finding.ContentHash,
-                                LastObservedRange = finding.Range,
-                            };
+                        {
+                            LastObservedContentHash = finding.ContentHash,
+                            LastObservedRange = finding.Range,
+                        };
                         changed = true;
                     }
                     else if ((existing.State is FindingState.Accepted or FindingState.Waived or FindingState.FalsePositive) &&

@@ -64,7 +64,8 @@ public sealed class ReviewProviderFailureTests
             if (request.Level != ReviewLevel.File) return new ReviewExecutionResult(false, null, null);
             if (call != 3) throw AuthFailure();
             rejected(ReviewResponseRejection.Capture("quality-answer", 2, false, "The agent returned no JSON object.",
-                raw, DateTimeOffset.UtcNow) with { Path = request.FilePath, Kind = request.Kind, Level = "file" });
+                raw, DateTimeOffset.UtcNow) with
+            { Path = request.FilePath, Kind = request.Kind, Level = "file" });
             throw new ReviewResponseException("The agent returned no JSON object.");
         });
         await using var application = fixture.CreateApplication(executor);
