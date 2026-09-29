@@ -93,6 +93,43 @@ status is `observed` when it matched and `unverified` when it did not, and
 removes the array before writing. `review-meta.v3` findings allow no additional
 property, and none is needed.
 
+## Prompt transport
+
+Every file and aggregate prompt reaches the reviewer CLI over standard input, never
+on the command line. A file prompt is its template plus the whole file, and an
+aggregate prompt carries a digest of up to 80,000 characters, so both routinely
+exceed what an operating system accepts as a process argument:
+
+| OS | Limit on a prompt passed as an argument | Consequence |
+| --- | --- | --- |
+| Windows | `CreateProcess` accepts a whole command line of at most 32,767 characters; through `cmd.exe` the limit is 8,191 | A file of roughly 20 KB plus its template, or any aggregate digest, cannot launch |
+| Linux | One argument may be at most 128 KiB (`MAX_ARG_STRLEN`); all arguments plus the environment share `ARG_MAX`, usually 2 MiB | Very large file prompts fail with `E2BIG` |
+| macOS | All arguments plus the environment share `ARG_MAX`, 1 MiB | Only extreme prompts fail |
+
+Standard input has no such limit: the runner writes the prompt to the child's pipe
+and closes it. It also keeps the full source out of process listings such as `ps`
+and `/proc/<pid>/cmdline`.
+
+`CodingAgentReviewAgent.CreateCliOptions()` is the default `CodingAgentRunner`
+configuration of the review agent. It sets `ClaudePromptTransport.Stdin`, because
+the library's Claude default is still `Argv`. Codex needs no setting: the runner
+always launches `codex exec` with `-` and writes the prompt to stdin. A caller that
+passes its own `CliOptions` owns the choice, so derive them with
+`CodingAgentReviewAgent.CreateCliOptions() with { ... }` to keep stdin.
+
+Before this was set, every folder-level review on Windows and 23 of 124 file
+attempts above about 20 KB failed to launch in the 2026-09-28 Agent Studio
+evaluation (defect D1). `CodingAgentReviewAgentLargePromptTests` guards against a
+regression on both CI legs, ubuntu and windows. It launches the fake CLI in
+`backend/tests/TestSupport/FakeCodingAgentCli` as `claude` and as `codex` with a
+100 KiB multi-line prompt. The fake takes its dialect from its file name, as the
+real CLIs do, so the test runs a copy named `claude[.exe]` or `codex[.exe]`; the
+argv-less `--version` probe therefore answers as the CLI under test, which a second
+test asserts. The large-prompt test asserts three things: the prompt arrived intact at
+the start of stdin, it does not appear in argv, and argv stays below cmd.exe's
+8,191 characters. The runner appends its own subagent-delegation note after the
+prompt, so stdin is slightly longer than the prompt itself.
+
 ## Durable state
 
 Run orchestration is durable under `runs/<runId>/` in the project's data root:

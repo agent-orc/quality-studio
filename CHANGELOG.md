@@ -29,6 +29,13 @@ Roslyn, compiler, ESLint and Angular compiler ids that check them, and two opt-i
 `CS*`/`CA*`/`IDE*` (QS-CS-013) and `TS*` (QS-NG-014). A linked finding reaches the review agent with
 `catalogueRuleIds`, so one rule is enforced by the analyzer and explained by the agent.
 
+### Fixed — large and aggregate reviews launch on Windows (QS-108)
+
+The review agent now hands Claude its prompt over stdin (`ClaudePromptTransport.Stdin`) instead of
+as a command-line argument; Codex already used stdin. On Windows the 32,767-character command-line
+limit had stopped every folder-level review and files above about 20 KB from launching. Limits
+per OS and the regression test are described in [`docs/review-runs.md`](docs/review-runs.md#prompt-transport).
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working
