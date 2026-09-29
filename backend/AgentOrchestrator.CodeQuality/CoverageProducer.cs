@@ -137,10 +137,10 @@ internal static class CoverageReportGlob
         if (!Directory.Exists(directory)) return [];
         var regex = Compile(pattern.Replace('\\', '/'));
         return Directory.EnumerateFiles(directory, "*", new EnumerationOptions
-            {
-                RecurseSubdirectories = true,
-                AttributesToSkip = FileAttributes.ReparsePoint,
-            })
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+        })
             .Where(file => regex.IsMatch(Path.GetRelativePath(directory, file).Replace('\\', '/')))
             .Select(Path.GetFullPath)
             .Order(StringComparer.Ordinal)
