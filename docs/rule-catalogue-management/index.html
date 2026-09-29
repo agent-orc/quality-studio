@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en" data-document-pattern="concept">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rule catalogue management | Article document</title>
+  <style data-article-template="v2">
+    :root {
+      color-scheme: light;
+      --article-paper: #fcfcfb;
+      --article-surface: #f2f1ee;
+      --article-surface-strong: #e9e8e3;
+      --article-ink: #151515;
+      --article-muted: #5f5e59;
+      --article-faint: #7c7a74;
+      --article-line: #d8d6cf;
+      --article-link: #1f67b2;
+      --article-link-soft: #eaf1fb;
+      --article-good: #18753a;
+      --article-good-soft: #eaf4ea;
+      --article-warn: #8b6100;
+      --article-warn-soft: #f8f0dd;
+      --article-bad: #b72f2f;
+      --article-bad-soft: #fbecec;
+      --article-serif: Georgia, "Times New Roman", serif;
+      --article-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --article-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --article-paper: #1a1a19;
+        --article-surface: #232322;
+        --article-surface-strong: #2c2c2a;
+        --article-ink: #f7f7f4;
+        --article-muted: #c3c2b7;
+        --article-faint: #9d9c94;
+        --article-line: #3d3d3a;
+        --article-link: #78aef0;
+        --article-link-soft: #1e2a3a;
+        --article-good: #67b867;
+        --article-good-soft: #1f2f1f;
+        --article-warn: #d9a63f;
+        --article-warn-soft: #33301e;
+        --article-bad: #e66767;
+        --article-bad-soft: #382222;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--article-paper); }
+    body {
+      margin: 0;
+      background: var(--article-paper);
+      color: var(--article-ink);
+      font: 17px/1.75 var(--article-serif);
+      text-rendering: optimizeLegibility;
+    }
+    main,
+    .article {
+      width: min(70ch, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 0 0 80px;
+    }
+    header.page {
+      margin-bottom: 12px;
+      padding: 48px 0 28px;
+      border-bottom: 1px solid var(--article-line);
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    .kicker,
+    .meta,
+    .number,
+    nav,
+    table,
+    figcaption,
+    .box,
+    .callout,
+    .evidence-figure,
+    .variant-grid,
+    .evidence-list {
+      font-family: var(--article-sans);
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      margin: 56px 0 10px;
+      font-size: 1.55rem;
+      line-height: 1.25;
+    }
+    h3 { margin: 34px 0 8px; font-size: 1.08rem; line-height: 1.35; }
+    h4 { margin: 0 0 8px; font-size: 0.94rem; }
+    p { margin: 0 0 18px; }
+    p:last-child { margin-bottom: 0; }
+    .kicker,
+    .number {
+      margin: 0 0 12px;
+      color: var(--article-faint);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .lede { margin: 0; color: var(--article-muted); font-size: 1.18rem; line-height: 1.6; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 20px; color: var(--article-faint); font-size: 0.78rem; }
+    .meta b { color: var(--article-muted); font-weight: 650; }
+    a { color: var(--article-link); text-underline-offset: 0.16em; }
+    a:focus-visible { outline: 2px solid var(--article-link); outline-offset: 3px; border-radius: 2px; }
+    code {
+      padding: 0.08em 0.34em;
+      border-radius: 4px;
+      background: var(--article-surface-strong);
+      font: 0.84em/1.5 var(--article-mono);
+      overflow-wrap: anywhere;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 24px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    pre code { padding: 0; background: transparent; }
+    ul,
+    ol { margin: 0 0 18px; padding-left: 24px; }
+    li + li { margin-top: 6px; }
+    table { width: 100%; margin: 24px 0; border-collapse: collapse; font-size: 0.88rem; line-height: 1.5; }
+    th,
+    td { padding: 10px 12px; border-bottom: 1px solid var(--article-line); text-align: left; vertical-align: top; }
+    th { color: var(--article-faint); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .box,
+    .callout {
+      margin: 24px 0;
+      padding: 18px 22px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+    .box.accent,
+    .callout[data-tone="accent"] { border-color: color-mix(in srgb, var(--article-link) 30%, var(--article-line)); background: var(--article-link-soft); }
+    .box.good,
+    .callout[data-tone="good"] { border-color: color-mix(in srgb, var(--article-good) 30%, var(--article-line)); background: var(--article-good-soft); }
+    .box.warn,
+    .callout[data-tone="warn"] { border-color: color-mix(in srgb, var(--article-warn) 35%, var(--article-line)); background: var(--article-warn-soft); }
+    .box.bad,
+    .callout[data-tone="bad"] { border-color: color-mix(in srgb, var(--article-bad) 30%, var(--article-line)); background: var(--article-bad-soft); }
+    figure { margin: 30px 0; }
+    figure > img,
+    figure > svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    figcaption { margin-top: 10px; color: var(--article-muted); font-size: 0.8rem; line-height: 1.5; }
+    .evidence-figure { margin-top: 38px; margin-bottom: 38px; }
+    .evidence-captures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+      gap: 12px;
+    }
+    .evidence-capture {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    .evidence-capture > img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .capture-theme,
+    .figure-annotation {
+      position: absolute;
+      z-index: 1;
+      border: 1px solid var(--article-line);
+      border-radius: 999px;
+      background: var(--article-surface);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      line-height: 1.35;
+    }
+    .capture-theme {
+      top: 10px;
+      left: 10px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+    }
+    .figure-annotation {
+      right: 12px;
+      bottom: 12px;
+      max-width: min(28ch, calc(100% - 24px));
+      padding: 5px 10px;
+      border-color: color-mix(in srgb, var(--article-link) 45%, var(--article-line));
+      background: var(--article-link-soft);
+      color: var(--article-link);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .figure-claim { display: block; color: var(--article-ink); font-size: 0.84rem; }
+    .figure-as-of {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 14px;
+      margin-top: 6px;
+      color: var(--article-faint);
+      font-size: 0.72rem;
+    }
+    .breakout,
+    .media-breakout {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+    }
+    .variant-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 24px 0; }
+    .variant {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    .variant h3 { margin: 0 0 8px; }
+    .variant img,
+    .variant svg { display: block; width: 100%; height: auto; margin-top: 12px; }
+    [data-document-pattern="ui"] .variant-grid {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    [data-document-pattern="ui"] .mockup { width: min(1120px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+    .evidence-list { display: grid; gap: 10px; margin: 24px 0; }
+    .evidence {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px 14px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--article-line);
+      border-radius: 9px;
+      background: var(--article-surface);
+      color: var(--article-ink);
+      text-decoration: none;
+    }
+    .evidence:hover { border-color: var(--article-link); background: var(--article-link-soft); }
+    .evidence-class {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--article-surface-strong);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="observed"] { background: var(--article-good-soft); color: var(--article-good); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="inferred"] { background: var(--article-warn-soft); color: var(--article-warn); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="proposed"] { background: var(--article-link-soft); color: var(--article-link); }
+    .evidence b { display: block; margin-bottom: 2px; font-size: 0.88rem; }
+    .evidence small { display: block; color: var(--article-muted); font-size: 0.78rem; line-height: 1.45; }
+    .dim { color: var(--article-muted); }
+
+    @media (max-width: 760px) {
+      main,
+      .article { width: min(100% - 28px, 70ch); padding-bottom: 52px; }
+      header.page { padding-top: 32px; }
+      .breakout,
+      .media-breakout,
+      [data-document-pattern="ui"] .variant-grid,
+      [data-document-pattern="ui"] .mockup { width: calc(100vw - 20px); }
+      [data-document-pattern="ui"] .variant-grid { grid-template-columns: 1fr; }
+      .evidence { grid-template-columns: 1fr; }
+      .evidence-captures { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }
+    }
+  </style>
+  <style>
+    /* Diagram strokes and text reuse the article tokens above; no additional colours. */
+    .diagram .d-box { fill: var(--article-surface); stroke: var(--article-line); stroke-width: 1; }
+    .diagram .d-box-new { fill: var(--article-link-soft); stroke: var(--article-link); stroke-width: 1.5; }
+    .diagram .d-line { stroke: var(--article-faint); stroke-width: 1.2; fill: none; }
+    .diagram .d-line-accent { stroke: var(--article-link); stroke-width: 1.5; fill: none; }
+    .diagram .d-head { fill: var(--article-faint); }
+    .diagram .d-head-accent { fill: var(--article-link); }
+    .diagram text { font-family: var(--article-sans); fill: var(--article-ink); }
+    .diagram .d-title { font-size: 14px; font-weight: 650; }
+    .diagram .d-small { font-size: 12px; fill: var(--article-muted); }
+    .diagram .d-label { font-size: 11px; fill: var(--article-faint); letter-spacing: 0.06em; text-transform: uppercase; }
+    .diagram .d-accent-text { fill: var(--article-link); }
+    pre.layout { font-size: 0.8rem; line-height: 1.45; }
+    .breakout table { font-size: 0.84rem; }
+  </style>
+</head>
+<body>
+<main class="article">
+  <header class="page">
+    <p class="kicker">Concept Dossier · QS-119</p>
+    <h1>Rule catalogue management</h1>
+    <p class="lede">The management layer on top of the Quality Studio rule pool. QS-112 lets an operator adjust one repository at a time. This design adds one host-wide catalogue with rule lifecycle, provenance, named profiles, overrides that expire, retirement that accounts for open findings, and retirement signals from QS-114 metrics. It is cut into eight cards over two waves.</p>
+    <div class="meta"><span><b>Pattern</b> concept</span><span><b>Status</b> decision-pending</span><span><b>Phase</b> decision-ready</span><span><b>As of</b> <time datetime="2026-09-29">29 September 2026</time></span><span><b>Builds on</b> QS-112, QS-113, QS-114</span></div>
+  </header>
+
+  <section id="starting-point" data-document-section="context">
+    <h2><span class="number">01</span> Starting point</h2>
+    <p>The card treats QS-112, QS-113 and QS-114 as the delivered mechanics. As of 29 September 2026, the repository shows them at three different stages. The design depends on this, so it comes first.</p>
+    <table>
+      <thead><tr><th>Card</th><th>State on 29 September 2026</th><th>What the management layer uses</th></tr></thead>
+      <tbody>
+        <tr><td>QS-112 rule pool v1</td><td>Reviewed delivery on <code>runner/agent-runner-01/QS-112</code> at <code>f0086f2e</code>. Not in <code>main</code>. Integration recovery was recorded the same day.</td><td>The four-layer resolution, <code>RulePoolStore</code>, <code>ResolvedRuleCatalogue</code>, the <code>/rules</code> routes, and the schemas <code>rule-pack.v1</code>, <code>rule-applicability.v1</code>, <code>rule-set.v1</code> and <code>rule-audit.v1</code>. Also the per-repository manager <code>qs-rule-pool-manager</code>.</td></tr>
+        <tr><td>QS-113 analyzer rules</td><td>Reviewed delivery at <code>a55f3810</code> (salvage ref). Not in <code>main</code>. It changes 8 of the same files as QS-112. Both branches declare rule library <code>1.6.0</code>.</td><td><code>deterministicRuleIds</code>, <code>DeterministicRuleMap</code>, <code>catalogueRules</code> on analyzer findings, <code>GET /api/repos/{id}/analyzers</code>.</td></tr>
+        <tr><td>QS-114 effectiveness metrics</td><td>No commit, branch or task folder on this runner.</td><td>Nothing yet. <a href="#metrics-contract">Section 06</a> states the contract this layer needs from QS-114.</td></tr>
+      </tbody>
+    </table>
+    <p>Main already has what the metrics need: finding lifecycle records keyed by fingerprint in <code>findings/state.json</code> (<code>open</code>, <code>accepted</code>, <code>waived</code>, <code>false-positive</code>, <code>resolved</code>, <code>not-reobserved</code>). Every finding also carries a validated <code>ruleId</code>. The review panel's <em>Dismiss</em> action writes either <code>waived</code> or <code>false-positive</code>.</p>
+  </section>
+
+  <section id="alternatives" data-concept-section="alternatives" data-document-section="alternatives">
+    <h2><span class="number">02</span> Alternatives</h2>
+    <p>The alternatives differ in where management happens and what counts as the source of truth. In all three, the files QS-112 writes stay the stored form, and every change keeps a required reason.</p>
+    <div class="variant-grid">
+      <article class="variant">
+        <h3>A. Deeper per-repository manager</h3>
+        <p>Add lifecycle, override expiry and metrics to the existing <em>Review policy → Rules &amp; rationale</em> panel. A "profile" would be a <code>rule-set.v1</code> file exported from one repository and imported into others.</p>
+        <p class="dim">Smallest change. There is still no view across repositories, though. A rule's adoption, its overrides and its open findings can only be seen one repository at a time. Imported profiles are copies, so a change to the source does not reach the other repositories and they drift silently. Retiring a rule for the host would mean visiting each repository.</p>
+      </article>
+      <article class="variant">
+        <h3>B. Host catalogue workspace over the same files</h3>
+        <p>A host-level <em>Rule catalogue</em> view reads every repository the client can reach. It adds three first-class concepts: rule lifecycle, named profiles assigned to repositories, and overrides with expiry. Composing packs, importing packs, reviewing the audit trail and retiring rules all happen here. Every write still goes through the QS-112 validation and audit path. The per-repository manager stays for project-scope edits.</p>
+        <p class="dim">Moderate change: one aggregate read endpoint, one new resolution layer (profile), three additive schema fields, and new screens. Files stay the source of truth, so project changes remain reviewable in Git.</p>
+      </article>
+      <article class="variant">
+        <h3>C. Catalogue as a Git repository</h3>
+        <p>Keep global rules, packs and profiles in a dedicated catalogue repository. Quality Studio only reads it. Changes are made by pull request, and the UI would at most draft the pull request.</p>
+        <p class="dim">Strongest review trail. But it needs Git hosting integration, and it contradicts the QS-102 principle that the studio does not write into checkouts. It also would not let Robert manage rules in the UI within two waves. It duplicates the audit trail QS-112 already records.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="recommendation" data-concept-section="recommendation" data-document-section="recommendation">
+    <h2><span class="number">03</span> Recommendation</h2>
+    <div class="callout" data-tone="accent">
+      <h3>Recommended: B, host catalogue workspace</h3>
+      <p>Build one catalogue view across repositories on top of the QS-112 files and API. Add lifecycle status to the rule definition, named profiles as a host layer assigned per repository, and an optional expiry on overrides. Every action that turns a rule off shows what happens to its open findings before it is applied. Effectiveness metrics from QS-114 raise retirement candidates in a queue. They never retire a rule automatically.</p>
+      <p>Main reason: Robert wants to manage the catalogue, and managing means seeing adoption, overrides and outcomes across repositories. Option A cannot show that. Option C cannot deliver it in the UI within two waves.</p>
+    </div>
+    <p>Working decisions (each is detailed below and listed again under <a href="#open-decisions">Open decisions</a>):</p>
+    <ol>
+      <li><b>Lifecycle</b> is stored in the rule's own frontmatter (<code>status: proposed | active | deprecated</code>). The existing <code>enabled: false</code> keeps meaning retired.</li>
+      <li><b>Profiles</b> are host objects in <code>&lt;data root&gt;/rules/profiles/</code>. They are assigned on the repository registration and resolve as a new layer between the global scope and the project.</li>
+      <li><b>Override expiry</b> lapses the override back to the inherited state and shows a warning. It never fails reviews closed.</li>
+      <li><b>Turning a rule off</b> offers to waive its open findings with a traceable retirement marker. Reactivating the rule offers to reopen exactly those findings.</li>
+      <li><b>Governance</b> uses the two privilege levels the API already has, Git review for project scope, and automatic snapshots for the global scope.</li>
+    </ol>
+  </section>
+
+  <section id="model" data-document-section="model">
+    <h2><span class="number">04</span> Catalogue model</h2>
+    <p>The operator sees six concepts. Only lifecycle, profile, expiry and the imported marker are new. Everything else is QS-112 and QS-113 under its operator name.</p>
+    <div class="breakout">
+    <table>
+      <thead><tr><th>Concept</th><th>What the operator sees</th><th>Stored as</th><th>New or existing</th></tr></thead>
+      <tbody>
+        <tr><td>Rule</td><td>Id, title, technology, kinds, category, effective and authored severity, version, statement, examples, change history, packs that select it, analyzer ids that enforce it.</td><td>Rule Markdown → <code>rule-catalogue.v1</code> entry (<code>RuleDefinition</code>)</td><td>Existing (QS-112, QS-113)</td></tr>
+        <tr><td>Pack</td><td>A named, versioned selection for one project type. It selects rules and never changes severity.</td><td><code>rule-pack.v1</code> (<code>RulePackDocument</code>)</td><td>Existing (QS-112)</td></tr>
+        <tr><td>Profile</td><td>A named bundle of packs and overrides assigned to one or more repositories, for example <em>dotnet-service-strict</em>.</td><td>New <code>rule-profile.v1</code> in <code>&lt;data root&gt;/rules/profiles/&lt;id&gt;.json</code>, assigned by <code>ruleProfile</code> on the registration</td><td>New</td></tr>
+        <tr><td>Override</td><td>Enablement or severity for one rule in one scope, with a required reason and now an optional expiry.</td><td><code>rule-config.v1</code> override plus optional <code>expiresAt</code></td><td>Existing, expiry new</td></tr>
+        <tr><td>Lifecycle</td><td><em>Proposed</em>, <em>Active</em>, <em>Deprecated</em> (with sunset date and optional replacement), <em>Retired</em>.</td><td>Frontmatter <code>status</code>, <code>sunset</code>, <code>replacedBy</code>; retired is <code>enabled: false</code></td><td>New (retired exists)</td></tr>
+        <tr><td>Provenance</td><td>Two badges. Origin: <em>Built-in</em>, <em>Custom</em> or <em>Imported</em>. Enforcement: <em>Agent</em>, or <em>Analyzer + agent</em> when <code>deterministicRuleIds</code> is not empty.</td><td>Origin from <code>ResolvedRule.Origin</code>; imported from a new optional <code>importedFrom</code>; enforcement from QS-113</td><td>Derived; imported marker new</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>Resolution with profiles</h3>
+    <p>QS-112 resolves four layers. The profile becomes a fifth, placed so that the repository's own files still win. Project files are author-owned and reviewed in Git. A host assignment should not silently override them.</p>
+    <figure>
+      <svg class="diagram" viewBox="0 0 680 330" role="img" aria-labelledby="fig-layers-title fig-layers-desc">
+        <title id="fig-layers-title">Rule pool resolution layers with the proposed profile layer</title>
+        <desc id="fig-layers-desc">Five stacked layers from lowest to highest: built-in library, global scope, shared global inputs, profile (new, highlighted), and project. A later layer wins for the same rule id. Applicability is taken from the most specific layer that has one.</desc>
+        <text class="d-label" x="24" y="26">Lowest</text>
+        <rect class="d-box" x="24" y="36" width="420" height="44" rx="8"/>
+        <text class="d-title" x="40" y="63">Built-in library</text>
+        <text class="d-small" x="460" y="54">rule-catalogue.v1, rule-packs.v1</text>
+        <text class="d-small" x="460" y="70">changed by a library release</text>
+        <rect class="d-box" x="24" y="92" width="420" height="44" rx="8"/>
+        <text class="d-title" x="40" y="119">Global scope · &lt;data root&gt;/rules</text>
+        <text class="d-small" x="460" y="110">applies to every repository</text>
+        <text class="d-small" x="460" y="126">registrar writes</text>
+        <rect class="d-box" x="24" y="148" width="420" height="44" rx="8"/>
+        <text class="d-title" x="40" y="175">Shared global inputs (read-only)</text>
+        <text class="d-small" x="460" y="166">rule-overrides.json</text>
+        <text class="d-small" x="460" y="182">compatibility only</text>
+        <rect class="d-box-new" x="24" y="204" width="420" height="44" rx="8"/>
+        <text class="d-title d-accent-text" x="40" y="231">Profile · assigned per repository (new)</text>
+        <text class="d-small" x="460" y="222">rule-profile.v1: packs + overrides</text>
+        <text class="d-small" x="460" y="238">registrar assigns and edits</text>
+        <rect class="d-box" x="24" y="260" width="420" height="44" rx="8"/>
+        <text class="d-title" x="40" y="287">Project · .quality/rules</text>
+        <text class="d-small" x="460" y="278">versioned with the code</text>
+        <text class="d-small" x="460" y="294">reviewed as a Git change</text>
+        <text class="d-label" x="24" y="324">Highest · a later layer wins by rule id</text>
+      </svg>
+      <figcaption>Proposed resolution order. Applicability: project, then profile, then global, then the <code>house-style</code> default. Overrides: global, shared global inputs, profile, project. Custom rules and packs are only defined in the global and project scopes. A profile references them and never defines rules.</figcaption>
+    </figure>
+
+    <h3>Lifecycle</h3>
+    <figure>
+      <svg class="diagram" viewBox="0 0 680 230" role="img" aria-labelledby="fig-life-title fig-life-desc">
+        <title id="fig-life-title">Rule lifecycle states and transitions</title>
+        <desc id="fig-life-desc">Proposed moves to Active or directly to Retired. Active moves to Deprecated. Deprecated moves to Retired, or back to Active as a reprieve. Retired moves back to Active only as a reactivation. A proposed rule reaches reviews only through a pilot override with an expiry.</desc>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0,0 L10,5 L0,10 z"/></marker>
+          <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head-accent" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <rect class="d-box" x="20" y="60" width="130" height="54" rx="10"/>
+        <text class="d-title" x="46" y="84">Proposed</text>
+        <text class="d-small" x="34" y="102">not in any pack</text>
+        <rect class="d-box-new" x="190" y="60" width="130" height="54" rx="10"/>
+        <text class="d-title d-accent-text" x="228" y="84">Active</text>
+        <text class="d-small" x="206" y="102">packs select it</text>
+        <rect class="d-box" x="360" y="60" width="140" height="54" rx="10"/>
+        <text class="d-title" x="386" y="84">Deprecated</text>
+        <text class="d-small" x="372" y="102">enforced · sunset set</text>
+        <rect class="d-box" x="540" y="60" width="120" height="54" rx="10"/>
+        <text class="d-title" x="570" y="84">Retired</text>
+        <text class="d-small" x="552" y="102">enabled: false</text>
+        <path class="d-line-accent" d="M150,80 L188,80" marker-end="url(#arrow-accent)"/>
+        <path class="d-line" d="M320,80 L358,80" marker-end="url(#arrow)"/>
+        <path class="d-line" d="M500,80 L538,80" marker-end="url(#arrow)"/>
+        <path class="d-line" d="M430,114 C430,150 255,150 255,116" marker-end="url(#arrow)"/>
+        <text class="d-small" x="300" y="158">reprieve</text>
+        <path class="d-line" d="M85,60 C85,14 600,14 600,58" marker-end="url(#arrow)"/>
+        <text class="d-small" x="300" y="22">rejected before activation</text>
+        <path class="d-line" d="M600,114 C600,196 255,196 255,118" marker-end="url(#arrow)"/>
+        <text class="d-small" x="380" y="206">reactivated · offers to reopen retirement-waived findings</text>
+        <text class="d-small" x="20" y="140">pilot: override enabled: true</text>
+        <text class="d-small" x="20" y="156">with expiresAt, one repository</text>
+      </svg>
+      <figcaption>Lifecycle belongs to the rule definition, so whoever owns the definition changes it. The library changes built-in rules by release. The owning scope changes custom rules through Quality Studio. Every transition bumps the rule's <code>version</code> and appends to its <code>## Change history</code>, so the history travels with an exported rule set. Status is not prompt text, so a transition by itself causes no policy drift.</figcaption>
+    </figure>
+    <ul>
+      <li><b>Proposed.</b> Validated and visible, but no pack selector matches it, including an explicit <code>ids</code> selector. It reaches reviews only through a <em>pilot</em>: an override with <code>enabled: true</code> and an <code>expiresAt</code>, normally in one repository. Pilot findings are ordinary findings, so their dispositions feed the metrics the activation decision needs.</li>
+      <li><b>Active.</b> Behaves exactly as today.</li>
+      <li><b>Deprecated.</b> Still enforced. It needs a <code>sunset</code> date and may name a <code>replacedBy</code> rule that exists in the pool. The catalogue and each rule card show the sunset. The sunset is advisory: after it passes the rule stays enforced and appears in the rule health queue as <em>sunset passed</em>. Behaviour never changes because a date passed.</li>
+      <li><b>Retired.</b> <code>enabled: false</code>, as today. The id is never reused. For a built-in rule an operator cannot edit the library, so <em>retire on this host</em> writes a global override with <code>enabled: false</code> and a reason. The catalogue shows this as <em>Retired here</em>.</li>
+    </ul>
+
+    <h3>Overrides with expiry</h3>
+    <p>An override gains an optional <code>expiresAt</code> (UTC date-time, in the future when written). From that moment the override stops applying and the rule returns to what the lower layers say. Resolution adds a warning diagnostic, not an error, so reviews keep running. The UI defaults the expiry to 90 days for a disable or a severity downgrade. <em>No expiry</em> must be chosen explicitly. The catalogue counts permanent overrides separately. The pool cache key and the hierarchy snapshot key must include the set of active overrides. Otherwise a lapse is not seen until a file changes.</p>
+  </section>
+
+  <section id="flows" data-document-section="flows">
+    <h2><span class="number">05</span> Management flows</h2>
+    <p>The layouts below are proposals, and the figures in them are illustrative. They sit in a host-level <em>Rule catalogue</em> view, reached from the shell next to <em>Review policy</em>. The QS-112 manager stays in <em>Review policy → Rules &amp; rationale</em> for editing one repository, and links to the catalogue.</p>
+
+    <h3>Browse and search the catalogue</h3>
+    <p>One row per rule id across the whole pool the client can reach. Search matches id, title, statement and analyzer ids, so <code>CA2016</code> finds QS-CS-003 through its <code>deterministicRuleIds</code>. <em>Adopted</em> counts the repositories where the rule is enabled. The marker after it counts repositories that override it. A repository with an invalid pool is listed with its diagnostics, not hidden.</p>
+    <div class="breakout">
+<pre class="layout"><code>RULE CATALOGUE                                         library 1.6.0 | 5 repositories | 1 pool invalid
+Search [ CA2016                    ]  Technology [all v]  Kind [all v]  Status [not retired v]  Health [any v]
+Origin [x] Built-in [x] Custom [x] Imported     Enforcement [ ] Analyzer + agent only
+---------------------------------------------------------------------------------------------------------
+Rule         Title                           Origin     Status      Adopted          Health, 90 days
+---------------------------------------------------------------------------------------------------------
+QS-CS-003    Async hygiene   [A]             Built-in   Active      4/5  ov:1        31 hits, 6 % FP
+QS-CS-004    Isolated Arrange-Act-Assert     Built-in   Active      5/5  ov:2 exp:1  12 hits, 42 % FP  !
+ACME-CS-001  Domain names for exports        Imported   Proposed    pilot in 1       3 hits, n too small
+QS-NG-005    OnPush change detection         Built-in   Deprecated  2/2              sunset 2026-12-31
+---------------------------------------------------------------------------------------------------------
+[A] analyzer ids (CA2016, CS4014)   ov:n overridden in n repositories   exp:n expires within 14 days
+!   retirement candidate
+
+QS-CS-004 DETAIL
+Statement | Why | How to detect | Examples | Change history (v1.1.0 ...)
+Packs: dotnet-service, house-style                 Profiles: dotnet-service-strict
+Repository     State      Source             Severity  Reason                              Expires
+orders         enabled    project override   low       Orders tests share one fixture ...  none (permanent)
+billing        enabled    profile            medium    -                                   -
+legacy-import  disabled   global override    -         Vendored test harness               2026-10-10  exp
+[ Adjust in orders ]  [ Deprecate ... ]  [ Retire on this host ... ]  [ Audit for this rule ]</code></pre>
+    </div>
+
+    <h3>Compose a pack</h3>
+    <p>A pack editor over <code>rule-pack.v1</code> selectors, with a live preview resolved against the target scope's pool. Proposed rules are never selected. The editor shows which profiles and repositories use the pack, and what each would gain or lose. If the selection changes, the version must change. The editor suggests a minor bump when the selection widens and a major bump when it narrows.</p>
+    <div class="breakout">
+<pre class="layout"><code>PACK team-backend (global scope)                           version 1.2.0 -&gt; [ 2.0.0 ]  suggested: major
+Title [ Team backend services ]            Project types [ dotnet-api, dotnet-worker ]
+Selectors (a rule is selected when any row matches; every field set in a row must match)
+  1  technologies [dotnet, generic]  defaultOn [true]                    19 rules
+  2  ids [ACME-CS-002]                                                    1 rule
+  3  kinds [security]                                    (removed)       -2 rules
+  [ + selector ]
+---------------------------------------------------------------------------------------------------------
+PREVIEW                                  | IMPACT
+20 rules selected (was 22)               | Used by profile dotnet-service-strict -&gt; 3 repositories
+- QS-GN-001 Untrusted content is data    |   billing   -2 rules, 4 units will show policy drift
+- QS-CS-006 External process arguments   |   payments  -2 rules, 9 units will show policy drift
+skipped: ACME-CS-009 (proposed)          |   orders    not affected (project applicability wins)
+---------------------------------------------------------------------------------------------------------
+Reason [ Security review runs as its own profile now                 ]      [ Validate ]  [ Save pack ]</code></pre>
+    </div>
+
+    <h3>Apply a profile to a repository</h3>
+    <p>A profile is packs plus overrides. Assigning it to a repository is a host change on the registration, so it needs the registrar privilege. The dialog runs the resolution as a dry run and lists the rule set difference. Project-scope settings that will keep winning are shown explicitly, so the operator is not surprised later.</p>
+    <div class="breakout">
+<pre class="layout"><code>REPOSITORIES AND RULE PROFILES
+Repository     Profile                    Applicability from  Enabled rules  Overrides (expiring)  Pool
+orders         -                          project             16             1                     valid
+billing        dotnet-service-strict v3   profile             21             3 (1)                 valid
+website        angular-public v1          profile             21             0                     valid
+legacy-import  -                          global              11             2                     1 problem
+
+APPLY PROFILE TO orders
+Profile [ dotnet-service-strict v3 v ]
+Result for orders (dry run)
+  + 5 rules enabled     QS-CS-006, QS-CS-008, QS-CS-009, QS-GN-001, QS-GN-002
+  ~ 1 severity changed  QS-CS-003 medium -&gt; high (profile override: "payments-grade async rules")
+  ! kept by project     .quality/rules/applicability.json still wins; the profile's packs do not apply
+                        [ Show how to remove it from the checkout ]
+  14 units will show policy drift on their next review
+Reason [ Orders moves to the strict service baseline          ]              [ Cancel ]  [ Assign ]</code></pre>
+    </div>
+
+    <h3>Review an override audit trail</h3>
+    <p>QS-112 records an audit line per scope and shows it per repository (<a href="#fig-audit">Evidence, audit figure</a>). The catalogue adds one timeline across the global scope, profiles and every reachable repository. It has filters and shows the stored before and after as a diff. Two kinds of derived rows fill the gaps the file cannot record: an override that lapsed by time, and a rule file that changed outside Quality Studio. The second is detected when the pool fingerprint changes without a matching audit line.</p>
+    <div class="breakout">
+<pre class="layout"><code>AUDIT, ALL SCOPES
+Scope [all v]  Repository [all v]  Action [override.* v]  Rule [ QS-CS-004 ]  Actor [all v]  From [2026-09-01]
+---------------------------------------------------------------------------------------------------------
+When              Scope    Action             Target     Actor              Reason
+---------------------------------------------------------------------------------------------------------
+2026-10-10 00:00  global   override lapsed    QS-CS-004  (time)             expiry set on 2026-07-12
+2026-09-29 11:59  orders   override.set       QS-CS-004  local-development  Orders tests share one ...
+                           severity: medium (authored) -&gt; low     expires: none -&gt; none
+2026-09-27 08:14  billing  changed outside    overrides  (file)             see the file's Git history
+2026-07-12 16:02  global   override.set       QS-CS-004  ops-robert         Vendored test harness
+---------------------------------------------------------------------------------------------------------
+[ Export CSV ]    Global history: 42 snapshots    [ Restore global scope to 2026-09-20 ... ] (dry run first)</code></pre>
+    </div>
+
+    <h3>Retire a rule and its effect on open findings</h3>
+    <p>Today, turning a rule off leaves its open findings open until the unit is reviewed again. That review no longer reports them. They then become <code>resolved</code> ("Finding was not present in the latest review") when the file changed, or <code>not-reobserved</code> when it did not (<a href="#ev-retire-code">evidence</a>). A retired rule therefore looks like a fixed defect in the reports. Every action that turns a rule off in a scope shows the affected findings first: <em>retire</em>, <em>disable override</em>, <em>remove from pack</em> and <em>assign profile</em>.</p>
+    <div class="breakout">
+<pre class="layout"><code>RETIRE QS-CS-004 ON THIS HOST
+Effect on reviews   The rule stops reaching prompts in 5 repositories; 37 units will show policy drift.
+Replacement         [ none v ]
+Reason              [ Replaced by the team's own fixture rule ACME-CS-004                     ]
+---------------------------------------------------------------------------------------------------------
+FINDINGS UNDER QS-CS-004 IN 5 REPOSITORIES
+open                  23   [x] Waive as retired   (author rule-retirement:QS-CS-004, reason above)
+not-reobserved         4   [x] Waive as retired
+accepted               6   [ ] Keep accepted      (default: a person confirmed these as real defects)
+waived, false-pos.     9   unchanged
+Grade effect           billing 81 -&gt; 86   orders 90 -&gt; 92   payments 77 -&gt; 79   2 repositories unchanged
+---------------------------------------------------------------------------------------------------------
+Writes: global override enabled: false (audit override.set) and 27 finding states (audit rule-retirement)
+                                                                         [ Cancel ]  [ Retire rule ]</code></pre>
+    </div>
+    <p>The finding step reuses <code>FindingStateStore.SetAsync</code> with state <code>waived</code>. The author is <code>rule-retirement:&lt;rule id&gt;</code> and the reason is the retirement reason. Review merge already leaves a waived finding as a person set it, so a later review does not turn it into <code>resolved</code>. Waived findings stay visible and counted, and only their grade deficit is removed. Reactivating the rule offers to reopen exactly the findings with that author. No new lifecycle state is needed.</p>
+
+    <h3>Import a pack from another repository</h3>
+    <p>QS-112 imports a whole scope as a <code>rule-set.v1</code> file. Robert's case is narrower: take one pack that another registered repository already uses. The flow exports that pack from the source with its dependency closure, then runs the existing merge import into the target with a dry run first. No file round trip is needed, and the client must be able to reach both repositories.</p>
+    <div class="breakout">
+<pre class="layout"><code>IMPORT PACK
+From repository [ billing v ]   Scope [ project v ]   Pack [ team-fixtures v1.3.0 v ]
+Into            [ orders, this repository (.quality/rules) v ]
+---------------------------------------------------------------------------------------------------------
+CLOSURE (dry run of POST /rules/import, mode merge)
+added      pack         team-fixtures   importedFrom billing, sha256:4be1..., v1.3.0
+added      customRule   ACME-CS-004     selected by ids; not present in orders
+unchanged  customRule   ACME-CS-001     identical content already present
+conflict   customRule   ACME-CS-002     differs from the copy in orders   [ keep orders' copy v ]
+not imported            applicability and overrides (a pack import never changes them)
+Result valid. orders reviews with +2 rules once team-fixtures is selected in its applicability or profile.
+---------------------------------------------------------------------------------------------------------
+Reason [ Adopt billing's fixture rules                              ]             [ Cancel ]  [ Import ]</code></pre>
+    </div>
+    <p>A pack import adds the pack and nothing else. The operator still selects it in an applicability or a profile, which makes the second decision explicit and audited. Imported custom rules and packs carry <code>importedFrom</code> (source repository or rule set name, digest, time), which the <em>Imported</em> badge reads.</p>
+  </section>
+
+  <section id="governance" data-document-section="governance">
+    <h2><span class="number">06</span> Governance</h2>
+    <h3>Who may change what</h3>
+    <p>The API has two privilege levels today. A client that may reach a repository may mutate its project scope. A client that may register repositories also writes the global scope; QS-112 already enforces this with a 403. The design maps onto these levels and the library release process. It adds no new privilege for now.</p>
+    <div class="breakout">
+    <table>
+      <thead><tr><th>Change</th><th>Repository client</th><th>Registrar</th><th>Library release</th><th>Recorded in</th></tr></thead>
+      <tbody>
+        <tr><td>Browse catalogue, metrics, audit</td><td>reachable repositories</td><td>all</td><td>—</td><td>—</td></tr>
+        <tr><td>Project override, custom rule, pack, applicability</td><td>yes</td><td>yes</td><td>—</td><td>Project audit and the checkout's Git history</td></tr>
+        <tr><td>Lifecycle of a project custom rule</td><td>yes</td><td>yes</td><td>—</td><td>Rule change history and project audit</td></tr>
+        <tr><td>Global override, custom rule, pack, lifecycle of a global rule</td><td>no</td><td>yes</td><td>—</td><td>Global audit and global snapshot</td></tr>
+        <tr><td>Profile create or edit, assign to a repository</td><td>no</td><td>yes</td><td>—</td><td>Global audit (full before and after)</td></tr>
+        <tr><td>Retire a built-in rule on this host</td><td>no</td><td>yes (global override)</td><td>—</td><td>Global audit and retirement finding states</td></tr>
+        <tr><td>Built-in rule text, status, packs</td><td>no</td><td>no</td><td>yes (<code>rules/*.md</code>, <code>rules/CHANGELOG.md</code>)</td><td>Library version and changelog</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <h3>How a change is versioned and reviewed</h3>
+    <ul>
+      <li><b>Project scope</b> is versioned by Git. A write through Quality Studio changes <code>.quality/rules/</code> in the checkout, and the change is reviewed in the repository's pull request like any other code. The capture for this Dossier shows the result: after two UI writes, the sample checkout had an untracked <code>.quality/</code> directory. Reviews read the working tree, so an uncommitted rule change affects results before anyone has reviewed it. The catalogue therefore marks repositories with uncommitted rule files, and each review run records the rule pool digest together with a <em>rule files uncommitted</em> flag.</li>
+      <li><b>Global scope and profiles</b> live in the data root, outside Git. Every accepted global write already appends an audit line. In addition, it writes a <code>rule-set.v1</code> snapshot to <code>&lt;data root&gt;/rules/history/</code>. <em>Restore</em> is an import in replace mode, always shown as a dry run first. Profile changes keep their full before and after in the audit line, because profiles are small.</li>
+      <li><b>Validation first.</b> QS-112 already rejects any write that would add a configuration problem. The management layer adds an impact dry run before every write that changes an effective rule set (packs, profiles, retirement). Save stays disabled until that preview has been loaded.</li>
+      <li><b>Packs and profiles carry versions.</b> A changed selection or override set requires a new version. The audit line records both versions.</li>
+      <li><b>Actor.</b> In Local mode every write is recorded as <code>local-development</code>, as the capture shows. That is acceptable on a single-operator loopback host. The audit view states that the actor is unauthenticated, and Hosted mode records the client id.</li>
+    </ul>
+
+    <h3 id="metrics-contract">Effectiveness metrics and retirement</h3>
+    <p>QS-114 has not been delivered, so this is the contract the management layer needs, stated in terms of data main already holds. Counts are per rule id, per repository, over a window. They are derived from <code>findings/state.json</code> and the persisted analyzer results.</p>
+    <table>
+      <thead><tr><th>Measure</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td>Hits</td><td>Distinct fingerprints with this <code>ruleId</code> first observed in the window, from agent reviews. Analyzer hits are counted separately: deterministic findings linked to the rule through <code>catalogueRules</code>.</td></tr>
+        <tr><td>Accepted</td><td>Findings whose current state is <code>accepted</code>.</td></tr>
+        <tr><td>Dismissed</td><td><code>waived</code> + <code>false-positive</code>, the two outcomes of the UI's Dismiss. Retirement waivers (author <code>rule-retirement:*</code>) are excluded.</td></tr>
+        <tr><td>False positives</td><td><code>false-positive</code> alone.</td></tr>
+        <tr><td>False-positive rate</td><td>false positives ÷ (accepted + waived + false positives), reported with its denominator <em>n</em>.</td></tr>
+        <tr><td>Resolved</td><td><code>resolved</code> excluding retirement effects. It shows the rule led to a fix.</td></tr>
+      </tbody>
+    </table>
+    <p>Three signals put a rule into the <em>Rule health</em> queue. The thresholds are proposed defaults, not measured values, and are configurable per host:</p>
+    <ul>
+      <li><b>Noisy:</b> false-positive rate ≥ 40 % with n ≥ 20 over 90 days across repositories. Suggested action: rewrite the detection text, or deprecate.</li>
+      <li><b>Contested:</b> disabled or downgraded by an override in at least half of the repositories whose packs select it, with at least 4 such repositories. Suggested action: move it out of the pack, or rewrite it.</li>
+      <li><b>Silent:</b> no agent or analyzer hit for 180 days while active in at least 3 repositories. Suggested action: confirm relevance. Silence can also mean the rule works.</li>
+    </ul>
+    <p>A signal only opens a queue item. The steward decides: <em>keep</em> (the item is snoozed for one window), <em>rewrite</em> (opens the custom rule editor, or a note for the library), <em>deprecate</em> (sets status and sunset), or <em>retire</em> (runs the retirement flow above). The chosen action and its reason go to the audit. No metric changes a rule by itself.</p>
+  </section>
+
+  <section id="cut" data-document-section="implementation-cut">
+    <h2><span class="number">07</span> Implementation cut</h2>
+    <p>Eight cards in two waves, after a wave 0 that is integration work, not new design. At the end of wave 1 Robert can browse and search the catalogue across repositories, compose and import packs, set expiring overrides and manage lifecycle in the UI. Wave 2 adds profiles, the host-wide audit trail, retirement with its finding effect, and rule health.</p>
+    <figure>
+      <svg class="diagram" viewBox="0 0 680 290" role="img" aria-labelledby="fig-waves-title fig-waves-desc">
+        <title id="fig-waves-title">Delivery waves and dependencies</title>
+        <desc id="fig-waves-desc">Wave 0: integrate QS-112 and QS-113 into main, and start QS-114. Wave 1: card 1 catalogue needs wave 0; cards 2 lifecycle, 3 expiry and 4 packs and import each need card 1. Wave 2: card 5 profiles needs cards 1 and 3; card 6 audit and history needs card 1; card 7 rule off with findings needs card 2; card 8 rule health needs card 7 and QS-114.</desc>
+        <text class="d-label" x="20" y="22">Wave 0 · prerequisites</text>
+        <rect class="d-box" x="20" y="32" width="310" height="52" rx="8"/>
+        <text class="d-title" x="32" y="54">Merge QS-112 and QS-113 to main</text>
+        <text class="d-small" x="32" y="72">resolve the shared library version</text>
+        <rect class="d-box" x="350" y="32" width="310" height="52" rx="8"/>
+        <text class="d-title" x="362" y="54">QS-114 effectiveness metrics</text>
+        <text class="d-small" x="362" y="72">starts in parallel; needed by card 8</text>
+        <text class="d-label" x="20" y="118">Wave 1 · manage in the UI</text>
+        <rect class="d-box-new" x="20" y="128" width="145" height="52" rx="8"/>
+        <text class="d-title d-accent-text" x="32" y="150">1 Catalogue</text>
+        <text class="d-small" x="32" y="168">needs wave 0</text>
+        <rect class="d-box" x="185" y="128" width="145" height="52" rx="8"/>
+        <text class="d-title" x="197" y="150">2 Lifecycle</text>
+        <text class="d-small" x="197" y="168">needs 1</text>
+        <rect class="d-box" x="350" y="128" width="145" height="52" rx="8"/>
+        <text class="d-title" x="362" y="150">3 Expiry</text>
+        <text class="d-small" x="362" y="168">needs 1</text>
+        <rect class="d-box" x="515" y="128" width="145" height="52" rx="8"/>
+        <text class="d-title" x="527" y="150">4 Packs + import</text>
+        <text class="d-small" x="527" y="168">needs 1</text>
+        <text class="d-label" x="20" y="214">Wave 2 · govern and retire</text>
+        <rect class="d-box" x="20" y="224" width="145" height="52" rx="8"/>
+        <text class="d-title" x="32" y="246">5 Profiles</text>
+        <text class="d-small" x="32" y="264">needs 1, 3</text>
+        <rect class="d-box" x="185" y="224" width="145" height="52" rx="8"/>
+        <text class="d-title" x="197" y="246">6 Audit + history</text>
+        <text class="d-small" x="197" y="264">needs 1</text>
+        <rect class="d-box" x="350" y="224" width="145" height="52" rx="8"/>
+        <text class="d-title" x="362" y="246">7 Rule off</text>
+        <text class="d-small" x="362" y="264">needs 2</text>
+        <rect class="d-box" x="515" y="224" width="145" height="52" rx="8"/>
+        <text class="d-title" x="527" y="246">8 Rule health</text>
+        <text class="d-small" x="527" y="264">needs 7, QS-114</text>
+      </svg>
+      <figcaption>Proposed order. Card 8 also needs QS-114's measures. If QS-114 has not landed by the start of wave 2, card 8 moves to wave 3 and nothing else moves.</figcaption>
+    </figure>
+    <div class="breakout">
+    <table>
+      <thead><tr><th>#</th><th>Card</th><th>Wave</th><th>Depends on</th><th>Acceptance in short</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>Integrate QS-112 and QS-113 into main</td><td>0</td><td>—</td><td>Both on main. The shared library version is resolved (one becomes 1.7.0). The combined catalogue and schema checks pass.</td></tr>
+        <tr><td>1</td><td>Catalogue browser across repositories</td><td>1</td><td>0</td><td><code>GET /api/rule-catalogue</code>, search including analyzer ids, adoption per repository, provenance badges, invalid pools listed.</td></tr>
+        <tr><td>2</td><td>Rule lifecycle and pilots</td><td>1</td><td>1</td><td>Frontmatter status, sunset and replacedBy; packs never select proposed rules; pilots via override; no prompt drift from a status change.</td></tr>
+        <tr><td>3</td><td>Overrides with expiry</td><td>1</td><td>1</td><td><code>expiresAt</code> lapses to the inherited state with a warning; the cache key includes active overrides; 90-day default for disable or downgrade.</td></tr>
+        <tr><td>4</td><td>Pack composer and pack import</td><td>1</td><td>1</td><td>Selector editor with live preview and impact; version bump enforced; import one pack with its closure from another repository; <code>importedFrom</code>.</td></tr>
+        <tr><td>5</td><td>Named profiles</td><td>2</td><td>1, 3</td><td><code>rule-profile.v1</code>, assignment on the registration, new resolution layer, dry-run impact before assignment.</td></tr>
+        <tr><td>6</td><td>Host audit timeline and global history</td><td>2</td><td>1</td><td>Cross-scope timeline with before and after diff, rows for lapses and outside edits, global snapshots with restore, uncommitted flag.</td></tr>
+        <tr><td>7</td><td>Turning a rule off with its finding effect</td><td>2</td><td>2</td><td>Preview of findings by state, retirement waiver with marker, reopen on reactivation, applied to every rule-off action.</td></tr>
+        <tr><td>8</td><td>Rule health</td><td>2</td><td>7, QS-114</td><td>Metrics columns and rule detail, three signals, queue with keep, rewrite, deprecate and retire actions, all audited.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Card 0 is not a new card. It is the existing QS-112 and QS-113 integration and is listed only because every other card assumes it. The <code>implementationTasks</code> in <code>workbench.json</code> hold cards 1 to 8 with complete prompts.</p>
+  </section>
+
+  <section id="evidence" data-concept-section="evidence" data-document-section="evidence">
+    <h2><span class="number">08</span> Evidence</h2>
+    <p>Classes: <em>Observed</em> was read or measured on 29 September 2026. <em>Inferred</em> follows from observations. <em>Proposed</em> is this design's choice.</p>
+    <div class="evidence-list">
+      <a class="evidence" href="#ev-branches"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b id="ev-branches">QS-112 and QS-113 are not on main; QS-114 does not exist yet</b><small><code>git merge-base --is-ancestor</code> is false for <code>f0086f2e</code> (QS-112) and <code>a55f3810</code> (QS-113) against <code>main</code> at <code>4ca5577b</code>. The two branches change 8 of the same files, including <code>RuleLibrary.cs</code>, the generated <code>rule-catalogue.v1.json</code> and <code>rules/CHANGELOG.md</code>, and both declare library 1.6.0. No commit, branch or task folder exists for QS-114. The QS-112 integration recovery note of 29 September records a failed merge-into-develop that was repaired on its branch.</small></span></a>
+      <a class="evidence" href="#ev-schemas"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b id="ev-schemas">No lifecycle status, override expiry or imported marker in the QS-112 contracts</b><small>The <code>rule-catalogue.v1</code> entry and <code>rule-config.v1</code> override (at <code>f0086f2e</code>) set <code>additionalProperties: false</code> and have no status, sunset, expiry or origin-of-import field. Retirement is <code>enabled: false</code> ("false retires the rule without deleting it", <code>rules/README.md</code>). Origin exists only at resolution time (<code>ResolvedRule.Origin</code>: built-in, global, project). So the new fields are additive schema changes.</small></span></a>
+      <a class="evidence" href="#ev-retire-code"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b id="ev-retire-code">A rule turned off makes its open findings look resolved</b><small><code>ReviewRunner.cs</code> passes the previous sidecar's findings to <code>FindingStateStore.MergeReviewAsync</code>. Any finding not reported again becomes <code>resolved</code> with "Finding was not present in the latest review" when its file changed, or <code>not-reobserved</code> when it did not. <code>accepted</code>, <code>waived</code> and <code>false-positive</code> stay as a person set them. Until the unit is reviewed again, the findings stay <code>open</code> and count toward the grade.</small></span></a>
+      <a class="evidence" href="#ev-dismiss"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b id="ev-dismiss">Dismiss writes waived or false-positive</b><small><code>review-panel.ts</code> lines 39 to 40 on main: <code>dispositionMode</code> <code>accept | dismiss | reopen</code> and <code>dismissState</code> <code>waived | false-positive</code>. That is the basis for the <em>Dismissed</em> measure.</small></span></a>
+      <a class="evidence" href="#ev-auth"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b id="ev-auth">Two privilege levels exist</b><small><code>docs/api.md</code>: clients carry reachable repository ids and whether they may register repositories. <code>RulePoolEndpoints.cs</code> (QS-112) marks the global scope writable only for <code>CanRegisterRepositories</code> and answers 403 otherwise. In Local mode every caller is a registrar.</small></span></a>
+      <a class="evidence" href="#fig-packs"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>The QS-112 manager works one repository at a time</b><small>See the three figures below, captured from a real build of <code>f0086f2e</code> with no page errors.</small></span></a>
+      <a class="evidence" href="#ev-checkout"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b id="ev-checkout">A UI write changes the checkout, and the actor is not a person in Local mode</b><small>After the capture's two UI writes, <code>git status</code> in the sample repository showed <code>?? .quality/</code>. Both audit lines in <code>&lt;data root&gt;/projects/…/rules/audit.jsonl</code> carry <code>"actor":"local-development"</code>. Their <code>after</code> holds the full state, and <code>before</code> is omitted because nothing existed. Copies are in the task results under <code>capture/</code>.</small></span></a>
+      <a class="evidence" href="#flows"><span class="evidence-class" data-evidence-class="inferred">Inferred</span><span><b>Profiles as imported copies would drift</b><small><code>rule-set.v1</code> import writes the entries into the target scope. Nothing links them back to the source, so a later change to the source reaches no copy. That is why option A's profiles are copies and option B makes them a referenced layer.</small></span></a>
+      <a class="evidence" href="#metrics-contract"><span class="evidence-class" data-evidence-class="proposed">Proposed</span><span><b>Thresholds for retirement signals</b><small>40 % false positives at n ≥ 20 in 90 days, contested at half of at least 4 repositories, and silent for 180 days in at least 3 repositories are starting values. They have not been measured, because QS-114 has produced no data yet.</small></span></a>
+    </div>
+
+    <figure class="evidence-figure media-breakout" id="fig-packs">
+      <div class="evidence-captures">
+        <div class="evidence-capture">
+          <span class="capture-theme">Light</span>
+          <img src="assets/qs-112-rule-pool-packs-light--real.png" alt="Rule pool panel of Review policy for one repository: the header reads .NET service or API, set for this repository, 16 of 33 rules enabled, library 1.6.0. A Write changes to selector offers This repository. Five built-in packs are listed with checkboxes, dotnet-service is checked, and a required reason field and Save applicability button follow.">
+          <span class="figure-annotation">Scope: this repository only</span>
+        </div>
+        <div class="evidence-capture">
+          <span class="capture-theme">Dark</span>
+          <img src="assets/qs-112-rule-pool-packs-dark--real.png" alt="The same packs and applicability panel in the dark theme, with dotnet-service checked and the same reason text.">
+        </div>
+      </div>
+      <figcaption>
+        <span class="figure-claim"><b>Evidence.</b> The QS-112 rule pool manager chooses packs for one scope at a time: this repository or all repositories. It shows no rule lifecycle, no profile and no view of other repositories. The applicability reason is required and shown in the header.</span>
+        <span class="figure-as-of">
+          <span><b>Light:</b> captured <time datetime="2026-09-29">29 September 2026</time> from a real build of QS-112 <code>f0086f2e</code> (API and <code>ng serve</code> through <code>scripts/dev-stack.mjs</code>) against a sample repository created for this capture. The pack choice was made through the UI.</span>
+          <span><b>Dark:</b> captured <time datetime="2026-09-29">29 September 2026</time>, same build and state, <code>?theme=dark</code>.</span>
+        </span>
+      </figcaption>
+    </figure>
+
+    <figure class="evidence-figure media-breakout" id="fig-override">
+      <div class="evidence-captures">
+        <div class="evidence-capture">
+          <span class="capture-theme">Light</span>
+          <img src="assets/qs-112-rule-override-editor-light--real.png" alt="Expanded rule card QS-CS-004, Structure tests as isolated Arrange-Act-Assert, marked enabled, low, dotnet, project. The override reason is shown, selected by packs dotnet-service. The Adjust for this repository form has three fields: Enablement set to inherit, Severity set to low, and Reason, followed by Update override and Remove override.">
+          <span class="figure-annotation">Three fields, no expiry</span>
+        </div>
+        <div class="evidence-capture">
+          <span class="capture-theme">Dark</span>
+          <img src="assets/qs-112-rule-override-editor-dark--real.png" alt="The same expanded QS-CS-004 rule card and override form in the dark theme.">
+        </div>
+      </div>
+      <figcaption>
+        <span class="figure-claim"><b>Evidence.</b> An override in QS-112 has exactly three inputs: Enablement, Severity and a required Reason. There is no expiry, so every override is permanent until someone removes it.</span>
+        <span class="figure-as-of">
+          <span><b>Light:</b> captured <time datetime="2026-09-29">29 September 2026</time> from the same QS-112 <code>f0086f2e</code> build. The severity override was saved through this form during the capture.</span>
+          <span><b>Dark:</b> captured <time datetime="2026-09-29">29 September 2026</time>, same build and state, <code>?theme=dark</code>.</span>
+        </span>
+      </figcaption>
+    </figure>
+
+    <figure class="evidence-figure media-breakout" id="fig-audit">
+      <div class="evidence-captures">
+        <div class="evidence-capture">
+          <span class="capture-theme">Light</span>
+          <img src="assets/qs-112-rule-audit-trail-light--real.png" alt="Audit trail panel of the rule pool manager listing two entries, newest first: override.set QS-CS-004 and applicability.set applicability, both at 2026-09-29 11:59:52 by local-development, each followed by its reason.">
+          <span class="figure-annotation">Reason shown, before and after not shown</span>
+        </div>
+        <div class="evidence-capture">
+          <span class="capture-theme">Dark</span>
+          <img src="assets/qs-112-rule-audit-trail-dark--real.png" alt="The same two audit entries in the dark theme.">
+        </div>
+      </div>
+      <figcaption>
+        <span class="figure-claim"><b>Evidence.</b> The QS-112 audit trail lists one scope's entries with time, action, target, actor and reason. It does not show the stored after state, and it cannot filter or span repositories. In Local mode the actor is <code>local-development</code> for every change.</span>
+        <span class="figure-as-of">
+          <span><b>Light:</b> captured <time datetime="2026-09-29">29 September 2026</time> from the same QS-112 <code>f0086f2e</code> build after the two capture writes. The stored lines are in the task results as <code>capture/qs-112-audit--real.jsonl</code>.</span>
+          <span><b>Dark:</b> captured <time datetime="2026-09-29">29 September 2026</time>, same build and state, <code>?theme=dark</code>.</span>
+        </span>
+      </figcaption>
+    </figure>
+    <p class="dim">Capture method: the pinned presentation-capture tooling named in the task (<code>docs/operations/setup/presentation-capture.md</code>, <code>frontend/e2e/…</code>, <code>scripts/stable-frontend-boot-probe.mjs</code>) does not exist in this repository. The captures follow QS-112's own <code>frontend/tests/rule-pool-evidence.mjs</code> pattern. The browser waits for network idle and fonts, and page errors and console errors are recorded (0 of each). The script, capture record and audit lines are in the task results under <code>capture/</code>. The build ran in a temporary worktree that was removed afterwards. The house template <code>docs/app/templates/article-document-v2.html</code> and the named fallback are also absent here, so this document copies the style block of the canonical AGT-2536 template.</p>
+  </section>
+
+  <section id="open-decisions" data-concept-section="open-decisions" data-document-section="open-decisions">
+    <h2><span class="number">09</span> Open decisions</h2>
+    <p>Each decision has a recommended working option. An implementation card uses it unless the operator records another.</p>
+    <table>
+      <thead><tr><th>Decision</th><th>Options</th><th>Recommended</th></tr></thead>
+      <tbody>
+        <tr><td>1. Shape of the management layer</td><td>A per-repository manager · B host catalogue · C Git catalogue repository</td><td><b>B.</b> It is the only option with a view across repositories that fits in two waves.</td></tr>
+        <tr><td>2. Where lifecycle is stored</td><td>Frontmatter of the rule · host-side lifecycle registry</td><td><b>Frontmatter</b> (<code>status</code>, <code>sunset</code>, <code>replacedBy</code>). It travels with export and Git, and uses the existing change history. Built-in rules can be retired on a host through a global override.</td></tr>
+        <tr><td>3. Where a profile is assigned</td><td>Repository registration (host) · <code>profile</code> in project <code>applicability.json</code> · profile as an imported copy</td><td><b>Registration.</b> The host owns the assignment. Project files keep winning, and a checkout never names a host-specific id.</td></tr>
+        <tr><td>4. What an expired override does</td><td>Lapse with a warning · fail reviews closed</td><td><b>Lapse.</b> It falls back to the intended default and matches the expiry of finding states.</td></tr>
+        <tr><td>5. When a deprecated rule's sunset passes</td><td>Advisory, listed in the queue · automatic retirement</td><td><b>Advisory.</b> Behaviour never changes because a date passed. Retirement is a decision.</td></tr>
+        <tr><td>6. Effect of turning a rule off on its findings</td><td>Waive with a retirement marker · new lifecycle state <code>rule-retired</code> · leave as today</td><td><b>Waive with marker</b> (<code>rule-retirement:&lt;id&gt;</code>). It needs no schema change, can be reversed, and review merge already preserves it.</td></tr>
+        <tr><td>7. How proposed rules are tried</td><td>Pilot through an expiring override · shadow mode that keeps findings out of the grade</td><td><b>Pilot override.</b> It reuses the existing mechanics. Shadow mode would add a second finding class to grades and reports.</td></tr>
+        <tr><td>8. Who governs global changes</td><td>Reuse the registrar privilege · new rule-steward privilege · two-person approval</td><td><b>Reuse registrar.</b> Robert's host has one operator. Revisit once there is more than one registrar.</td></tr>
+        <tr><td>9. How the global scope is versioned</td><td>Automatic <code>rule-set.v1</code> snapshots in the data root · require the data root's rules folder to be a Git repository</td><td><b>Snapshots.</b> Restore reuses import in replace mode, and no Git is needed on the host.</td></tr>
+        <tr><td>10. Retirement signal thresholds</td><td>Proposed defaults · wait for QS-114 data first</td><td><b>Ship the proposed defaults as configurable values.</b> Re-tune them after the first 90-day window of QS-114 data.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- agent-studio:implementation-section:start -->
+  <section id="implementation" data-document-section="implementation">
+    <h2><span class="number">10</span> Implementation</h2>
+    <p>Delivery slices append their current implementation status here. Decision content above remains unchanged. Define one <code>workbench.json</code> <code>implementationTasks</code> entry per independently reviewable slice, each with a bounded <code>acceptanceScope</code>. Never combine all recommendations into one open-ended implementation card.</p>
+    <ol class="implementation-log">
+<!-- agent-studio:implementation-log:start -->
+<!-- agent-studio:implementation-log:end -->
+    </ol>
+  </section>
+  <!-- agent-studio:implementation-section:end -->
+</main>
+</body>
+</html>

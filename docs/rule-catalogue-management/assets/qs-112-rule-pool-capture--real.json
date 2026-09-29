@@ -1,0 +1,14 @@
+{
+  "baseUrl": "http://127.0.0.1:4391/",
+  "capturedAt": "2026-09-29T09:59:48.677Z",
+  "commit": "f0086f2e",
+  "shots": [
+    "qs-112-rule-pool-packs-light--real.png",
+    "qs-112-rule-override-editor-light--real.png",
+    "qs-112-rule-audit-trail-light--real.png",
+    "qs-112-rule-pool-packs-dark--real.png",
+    "qs-112-rule-override-editor-dark--real.png",
+    "qs-112-rule-audit-trail-dark--real.png"
+  ],
+  "pageErrors": []
+}
