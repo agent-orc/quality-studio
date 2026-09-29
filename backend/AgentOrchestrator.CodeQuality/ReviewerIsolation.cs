@@ -18,8 +18,8 @@ namespace AgentOrchestrator.CodeQuality;
 /// <item>Launch flags: the CLI is told not to load repository instruction files, project or local
 /// settings (hooks, MCP servers, permissions), skills, plugins, or execpolicy rules.</item>
 /// <item>Observation: after the run, the CLI's own transcript is read back and the instruction
-/// files, skills and MCP servers it actually loaded are recorded. A run that loaded any of them
-/// is refused — see <see cref="ReviewerIsolationException"/>.</item>
+/// files, skills and MCP servers it actually loaded are recorded. A run that loaded any of them,
+/// or whose transcript could not be read, is refused — see <see cref="ReviewerIsolationException"/>.</item>
 /// </list>
 /// </para>
 /// <para>
@@ -208,7 +208,8 @@ public sealed class ReviewerIsolationException(string message) : Exception(messa
 /// <param name="Mode">The runner context mode (<c>clean</c>).</param>
 /// <param name="RepositoryInstructions">What happened to repository instruction files (<c>excluded</c>).</param>
 /// <param name="Observed">Whether the CLI's own transcript was found and read. When false, the
-/// loaded lists and the system-prompt size are unknown rather than empty.</param>
+/// loaded lists and the system-prompt size are unknown rather than empty, so the run is refused;
+/// an accepted review always records true.</param>
 /// <param name="LoadedInstructionFiles">Instruction files the CLI reported loading. Always empty for
 /// an accepted review; repository-relative, or <c>external:&lt;name&gt;</c> outside the checkout.</param>
 /// <param name="ExcludedInstructionFiles">Instruction and agent-configuration files present in the

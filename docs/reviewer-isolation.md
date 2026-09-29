@@ -67,11 +67,14 @@ Every review run gets three layers. None is optional and none depends on the oth
    - Codex: the rollout `sessions/**/rollout-*-<thread>.jsonl` — `session_meta.base_instructions`
      (the system prompt) and `world_state.agents_md` (loaded `AGENTS.md`).
 
-   A run that loaded any instruction file, advertised any skill, wired any MCP server, or whose
-   clean home could not be created is refused with `ReviewerIsolationException` (wrapped in
+   A run that loaded any instruction file, advertised any skill, wired any MCP server, whose
+   clean home could not be created, or whose transcript / rollout was missing or unreadable
+   (`observed: false`) is refused with `ReviewerIsolationException` (wrapped in
    `ReviewAgentRunException`). The tokens are still recorded in the usage ledger; no sidecar is
    written, so no steered grade reaches a report. This is what protects against a future CLI
-   release that stops honouring one of the flags.
+   release that stops honouring one of the flags. The observation fails closed: an unobserved run
+   reports empty lists because nothing was read, not because nothing was loaded, so it is refused
+   like a run that was seen loading an instruction file.
 
 A CLI with no isolation recipe (`gemini`, `antigravity`) is refused when the agent is constructed.
 
@@ -98,7 +101,7 @@ agent review since QS-116):
 | --- | --- |
 | `mode` | Runner context mode. Always `clean`. |
 | `repositoryInstructions` | The policy above. Always `excluded`. |
-| `observed` | Whether the CLI's transcript / rollout was found and read. `false` means the lists and the system-prompt size are **unknown**, not empty. |
+| `observed` | Whether the CLI's transcript / rollout was found and read. Always `true` on an accepted review: an unobserved run is refused, because its empty lists and missing system-prompt size would mean **unknown**, not empty. |
 | `loadedInstructionFiles` | Instruction files the CLI reported loading. Always empty on an accepted review. Repository-relative; `external:<name>` for a file outside the checkout, so a sidecar or report never carries a home directory or user name. |
 | `excludedInstructionFiles` | Instruction and agent-configuration files present in the checkout (`CLAUDE.md`, `AGENTS.md`, … at any depth outside `node_modules`/`bin`/`obj`/`.git`/`.quality`, plus `.claude/rules`, `.claude/skills`, `.mcp.json`, `.agents/skills`, `.codex`, …) that the CLI was told not to load. |
 | `skills`, `mcpServers` | What the CLI advertised / wired. Always empty on an accepted review. |
@@ -139,6 +142,8 @@ a `SessionStart` hook in `.claude/settings.json`, `sub/CLAUDE.md`, `AGENTS.md`, 
     the pre-QS-116 way, returns A.
   - `ReviewAsync_RefusesARunWhoseTranscriptShowsALoadedInstructionFile` — a CLI that ignores the
     flags is caught by the observation and no sidecar is written.
+  - `ReviewAsync_RefusesARunThatLeftNoTranscriptToObserve` — a CLI whose transcript is missing is
+    refused rather than accepted with empty lists; no sidecar is written.
 - `LiveReviewerIsolationTests` (`Category=ExternalLive`; `QUALITY_RUN_LIVE_REVIEW=1`, `claude` on
   `PATH`, optional `QS_LIVE_EVIDENCE_DIR`): the installed Claude Code CLI against a local
   suggestible Messages API, so no credentials or tokens are used. The control run sends the

@@ -118,14 +118,27 @@ public sealed class CodingAgentReviewAgentWatchdogTests
         public async IAsyncEnumerable<CliRunEvent> StreamAsync(
             CliRunRequest request, [EnumeratorCancellation] CancellationToken ct = default)
         {
-            // A real run of a clean-context CLI reports its per-run home; the agent refuses one that does not.
-            OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, CleanContextHome = Path.GetTempPath() });
-            await foreach (var runEvent in stream(request.RunId).WithCancellation(ct))
+            // A real run of a clean-context CLI reports its per-run home and keeps its rollout there;
+            // the agent refuses a run that has no home or whose rollout it cannot read.
+            var home = Directory.CreateTempSubdirectory("quality-watchdog-home-").FullName;
+            try
             {
-                OnRunEvent?.Invoke(request.RunId, runEvent);
-                yield return runEvent;
+                const string Thread = "fake-thread";
+                Directory.CreateDirectory(Path.Combine(home, "sessions"));
+                File.WriteAllText(Path.Combine(home, "sessions", $"rollout-fake-{Thread}.jsonl"), "{}\n");
+                OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, CleanContextHome = home });
+                OnRunEvent?.Invoke(request.RunId, new CliRunEvent.SessionStarted(Thread) { RunId = request.RunId });
+                await foreach (var runEvent in stream(request.RunId).WithCancellation(ct))
+                {
+                    OnRunEvent?.Invoke(request.RunId, runEvent);
+                    yield return runEvent;
+                }
+                OnFinished?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, Status = "completed" });
             }
-            OnFinished?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, Status = "completed" });
+            finally
+            {
+                Directory.Delete(home, recursive: true);
+            }
         }
 
         public bool Stop(string runId, RunStopReason reason = RunStopReason.UserStop) => false;

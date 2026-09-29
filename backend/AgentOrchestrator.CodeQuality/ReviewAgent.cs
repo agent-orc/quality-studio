@@ -296,13 +296,16 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
 
     /// <summary>
     /// Why a finished run cannot be trusted as isolated, or null. A run whose clean home was never
-    /// created ran on the operator's shared state; a run that reports loading an instruction file,
-    /// a skill or an MCP server saw more than the prompt. Either way its grade is not recorded.
+    /// created ran on the operator's shared state; a run whose transcript could not be read may have
+    /// loaded anything; a run that reports loading an instruction file, a skill or an MCP server saw
+    /// more than the prompt. In every case its grade is not recorded.
     /// </summary>
     internal static string? IsolationViolation(CliRunInfo? started, ReviewerContext context)
     {
         if (started is not null && string.IsNullOrWhiteSpace(started.CleanContextHome))
             return "the runner could not create a clean context home, so the CLI ran on the operator's shared state";
+        if (!context.Observed)
+            return "the CLI's context was not observed: its transcript or rollout was missing or unreadable, so what it loaded is unknown";
         if (context.LoadedInstructionFiles.Count > 0)
             return "the CLI loaded instruction files: " + string.Join(", ", context.LoadedInstructionFiles);
         if (context.Skills.Count > 0)
