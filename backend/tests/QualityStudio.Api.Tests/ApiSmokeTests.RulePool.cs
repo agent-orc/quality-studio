@@ -210,8 +210,19 @@ public sealed partial class ApiSmokeTests
             Assert.Equal("project", pool.GetProperty("applicability").GetProperty("scope").GetString());
 
             using var unknownProperty = await client.PostAsJsonAsync("/api/rules/import?scope=project",
-                new { ruleSet = new { schemaVersion = 1, overrides = Array.Empty<object>(), customRules = Array.Empty<object>(),
-                    packs = Array.Empty<object>(), surprise = true }, mode = "merge", dryRun = true },
+                new
+                {
+                    ruleSet = new
+                    {
+                        schemaVersion = 1,
+                        overrides = Array.Empty<object>(),
+                        customRules = Array.Empty<object>(),
+                        packs = Array.Empty<object>(),
+                        surprise = true
+                    },
+                    mode = "merge",
+                    dryRun = true
+                },
                 TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, unknownProperty.StatusCode);
         }

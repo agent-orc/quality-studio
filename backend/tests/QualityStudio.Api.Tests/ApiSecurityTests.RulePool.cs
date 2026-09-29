@@ -16,8 +16,18 @@ public sealed partial class ApiSecurityTests
             using var global = await alice.PutAsJsonAsync("/api/repos/default/rules/overrides/QS-CS-004?scope=global",
                 new { enabled = false, reason = "Host-wide." }, TestContext.Current.CancellationToken);
             using var globalImport = await alice.PostAsJsonAsync("/api/repos/default/rules/import?scope=global",
-                new { ruleSet = new { schemaVersion = 1, overrides = Array.Empty<object>(), customRules = Array.Empty<object>(),
-                    packs = Array.Empty<object>() }, mode = "replace", reason = "Wipe it." }, TestContext.Current.CancellationToken);
+                new
+                {
+                    ruleSet = new
+                    {
+                        schemaVersion = 1,
+                        overrides = Array.Empty<object>(),
+                        customRules = Array.Empty<object>(),
+                        packs = Array.Empty<object>()
+                    },
+                    mode = "replace",
+                    reason = "Wipe it."
+                }, TestContext.Current.CancellationToken);
             using var foreign = await alice.PutAsJsonAsync("/api/repos/foreign/rules/overrides/QS-CS-004",
                 new { enabled = false, reason = "Not mine." }, TestContext.Current.CancellationToken);
             using var project = await alice.PutAsJsonAsync("/api/repos/default/rules/overrides/QS-CS-004",
