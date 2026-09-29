@@ -49,6 +49,16 @@ public sealed class ReviewPromptBuilder
         prompt += """
 
 
+## Response schema
+
+Your answer must be one JSON object that validates against the JSON Schema below. Quality Studio reads
+the first complete JSON object in your answer and rejects the review when that object does not validate.
+
+```json
+""" + ResponseSchema.Value + "\n```";
+        prompt += """
+
+
 ## Test coverage evidence
 
 """ + (string.IsNullOrWhiteSpace(coverageEvidence)
@@ -86,6 +96,19 @@ The JSON below contains persistent discussions anchored to this code. Address ea
 ```json
 """ + openThreads.ToJsonString() + "\n```";
     }
+
+    /// <summary>
+    /// The review answer contract, compacted for the prompt. It is requested alongside the template
+    /// rather than inside it: the schema states the shape the parser already enforces, so it is not
+    /// part of the template hash and adding it does not make every stored review stale.
+    /// </summary>
+    public static readonly Lazy<string> ResponseSchema = new(() =>
+    {
+        using var stream = typeof(ReviewPromptBuilder).Assembly.GetManifestResourceStream(
+            "AgentOrchestrator.CodeQuality.schemas.review-response.v1.schema.json")
+            ?? throw new InvalidOperationException("The embedded review response schema is missing.");
+        return JsonNode.Parse(stream)!.ToJsonString();
+    });
 
     private static string FormatGuidelines(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "(none supplied)" : value.Trim();

@@ -154,9 +154,47 @@ public sealed class ReviewRunStore
     public void AppendProgress(ReviewRunFileTransition transition)
     {
         ArgumentNullException.ThrowIfNull(transition);
-        var path = Path.Combine(RunDirectory(transition.RunId), "progress.jsonl");
+        AppendLine(Path.Combine(RunDirectory(transition.RunId), "progress.jsonl"), transition);
+    }
+
+    /// <summary>
+    /// Keeps an agent answer the response parser refused, already capped by
+    /// <see cref="ReviewResponseRejection.Capture"/>, next to the run it belongs to. The file error
+    /// only says why the answer was refused; this is what the agent actually returned.
+    /// </summary>
+    public void AppendRejection(string runId, ReviewResponseRejection rejection)
+    {
+        ArgumentNullException.ThrowIfNull(rejection);
+        AppendLine(Path.Combine(RunDirectory(runId), RejectionsFileName), rejection);
+    }
+
+    public IReadOnlyList<ReviewResponseRejection> ReadRejections(string runId)
+    {
+        var path = Path.Combine(RunDirectory(runId), RejectionsFileName);
+        if (!File.Exists(path)) return [];
+        var rejections = new List<ReviewResponseRejection>();
+        foreach (var line in File.ReadLines(path))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            try
+            {
+                if (JsonSerializer.Deserialize<ReviewResponseRejection>(line, LineJsonOptions) is { } rejection)
+                    rejections.Add(rejection);
+            }
+            catch (JsonException)
+            {
+                // Same crash tolerance as progress.jsonl: only a torn final record can be incomplete.
+            }
+        }
+        return rejections;
+    }
+
+    public const string RejectionsFileName = "rejections.jsonl";
+
+    private static void AppendLine<T>(string path, T record)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var line = Utf8.GetBytes(JsonSerializer.Serialize(transition, LineJsonOptions) + "\n");
+        var line = Utf8.GetBytes(JsonSerializer.Serialize(record, LineJsonOptions) + "\n");
         using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read,
             bufferSize: 4096, FileOptions.WriteThrough);
         if (stream.Length > 0)
