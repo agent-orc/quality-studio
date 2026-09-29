@@ -7,6 +7,7 @@ using Xunit;
 
 namespace QualityStudio.Api.Tests;
 
+[Trait("Category", "ToolBound")]
 public sealed partial class ApiSmokeTests
 {
     [Fact]
