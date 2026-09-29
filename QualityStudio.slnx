@@ -7,5 +7,6 @@
   <Folder Name="/backend/tests/">
     <Project Path="backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj" />
     <Project Path="backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj" />
+    <Project Path="backend/tests/TestSupport/FakeCodingAgentCli/FakeCodingAgentCli.csproj" />
   </Folder>
 </Solution>
