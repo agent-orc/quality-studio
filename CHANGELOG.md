@@ -18,6 +18,27 @@ and a security review rescanned the repository once per file prompt.
 - The review preflight lists which sensors the run executes, reuses, or holds for opt-in, with
   expected durations; a started run reports what each sensor did.
 
+### Changed — review output contract, finding identity and failure handling (QS-109)
+
+From the 2026-09-28 evaluation of the Agent Studio checkout (defects D2-D4):
+
+- **Answers are read, not matched.** The first complete JSON object in an agent answer is read with a
+  string-aware reader instead of a lazy fence regex, so valid JSON whose strings contain a code fence
+  is accepted. Every review prompt carries the new
+  [`review-response.v1.schema.json`](schemas/review-response.v1.schema.json). A refused answer is
+  retried once with the refusal reason; each refused answer is kept, capped at 32,768 characters, in
+  `runs/<runId>/rejections.jsonl`.
+- **Findings keep their identity across reruns.** A re-reported finding keeps an earlier identity by
+  rule id plus overlapping anchor span on content with the same hash, never by its wording or by the
+  text of the code it encloses alone: a finding that matches no earlier anchor gets a fingerprint no
+  lifecycle record uses, so it cannot inherit a disposition by text. A finding
+  missing from a rerun of unchanged code is `not-reobserved`, never `resolved`; the run report delta
+  lists such findings under `notReobserved`.
+- **Identical provider failures stop the sweep.** After `ReviewJobs:ProviderFailureStopThreshold`
+  (default 3) consecutive identical provider or authentication failures the run ends as `failed`
+  with the reason and skips the remaining files. `GET /api/quotas` returns each provider's login
+  state in `auth`, and the top bar shows it next to the quota.
+
 ### Fixed — large and aggregate reviews launch on Windows (QS-108)
 
 The review agent now hands Claude its prompt over stdin (`ClaudePromptTransport.Stdin`) instead of

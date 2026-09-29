@@ -395,4 +395,8 @@ internal sealed class QualityStudioEventSource : EventSource
     [Event(12, Level = EventLevel.Error)]
     public void ReviewMetaUnreadable(string source, string failure, string reason) =>
         WriteEvent(12, source, failure, reason);
+
+    [Event(13, Level = EventLevel.Warning)]
+    public void ResponseRejected(string filePath, string kind, string runId, int attempt, bool retried, string reason) =>
+        WriteEvent(13, filePath, kind, runId, attempt, retried, reason);
 }

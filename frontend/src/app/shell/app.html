@@ -37,8 +37,14 @@
         <span class="studio-badge quota-chip" [class.fresh]="quotaRemaining(provider) !== null && quotaRemaining(provider)! > 10" [class.stale]="quotaRemaining(provider) !== null && quotaRemaining(provider)! <= 10" [class.missing]="quotaRemaining(provider) === null" [title]="quotaTooltip(provider)">
           {{ provider.provider }} <b>{{ quotaRemainingLabel(provider) }}</b>
         </span>
+        @if (authFor(provider.provider); as auth) {
+          <span class="studio-badge auth-chip" [attr.data-auth-state]="auth.state" [title]="authTooltip(auth)">{{ authLabel(auth) }}</span>
+        }
       } @empty {
         <span class="studio-badge quota-chip missing" title="No provider quota has been reported yet. The API refreshes the runner quota cache in the background.">Quota unavailable</span>
+      }
+      @for (auth of authWithoutQuota(); track auth.provider) {
+        <span class="studio-badge auth-chip" [attr.data-auth-state]="auth.state" [title]="authTooltip(auth)">{{ auth.provider }} {{ authLabel(auth) }}</span>
       }
     </div>
     <button class="studio-button guidelines-button security-landing-button" type="button" [disabled]="!api.connected()" (click)="openAttackCoverage()">Security matrix</button>

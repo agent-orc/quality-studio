@@ -29,7 +29,11 @@ public static class FindingStateProjection
             var state = fingerprint is not null && states.TryGetValue(fingerprint, out var stored)
                 ? stored
                 : null;
-            var effective = state?.State ?? FindingState.Open;
+            // A finding this metadata lists was observed by it; not re-observed only describes
+            // findings a review no longer lists, so here it reads as open.
+            var effective = state?.State is { } lifecycle && lifecycle != FindingState.NotReobserved
+                ? lifecycle
+                : FindingState.Open;
             var suppression = fingerprint is not null && suppressions?.TryGetValue(fingerprint, out var storedSuppression) == true
                 ? storedSuppression
                 : null;
