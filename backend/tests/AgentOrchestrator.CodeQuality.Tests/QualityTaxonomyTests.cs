@@ -38,7 +38,7 @@ public sealed class QualityTaxonomyTests
     [InlineData("change", "improved", "regressed", "mixed", "unchanged", "no-observed-delta", "inconclusive")]
     [InlineData("decision", "allow", "warn", "block", "defer")]
     [InlineData("severity", "critical", "high", "medium", "low", "info")]
-    [InlineData("lifecycle", "open", "accepted-risk", "waived", "false-positive", "resolved")]
+    [InlineData("lifecycle", "open", "accepted-risk", "waived", "false-positive", "resolved", "not-reobserved")]
     [InlineData("evidenceKind", "source-code", "test-result", "runtime-measurement", "tool-result", "artifact",
         "document", "human-attestation")]
     public void EachAxisPinsExactlyTheApprovedTerms(string axisId, params string[] expected)

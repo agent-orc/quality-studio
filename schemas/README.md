@@ -39,6 +39,14 @@ pattern is still valid, so it is an edit within each version rather than a new o
 `aggregateBand`. The older `score` and `grade` properties hold the same values and
 are marked deprecated; see [`../docs/quality-reports.md`](../docs/quality-reports.md).
 
+## Review response
+
+[`review-response.v1.schema.json`](review-response.v1.schema.json) is the one JSON object a file,
+module or project review agent returns. It is embedded into the analysis library and appended to
+every review prompt; the response parser enforces the same shape and additionally checks aspect
+references and canonicalizes rule and aspect ids. See
+[`../docs/review-runs.md`](../docs/review-runs.md#answers-the-parser-refuses).
+
 ## Quality domains reference
 
 [`quality-domains.v1.schema.json`](quality-domains.v1.schema.json) describes the

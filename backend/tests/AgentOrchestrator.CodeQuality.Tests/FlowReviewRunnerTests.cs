@@ -152,8 +152,9 @@ public sealed class FlowReviewRunnerTests
             ("persistence", 27, "Capture"),
             ("response", 30, "response"));
 
+        // The same invalid answer twice: the first is followed by one repair attempt.
         var exception = await Assert.ThrowsAsync<ReviewResponseException>(() =>
-            new FlowReviewRunner(new QueueAgent(response)).ReviewAsync(
+            new FlowReviewRunner(new QueueAgent(response, response)).ReviewAsync(
                 Request(repository.Root, inventory, "/orders/{orderId}/charge", "charge"),
                 TestContext.Current.CancellationToken));
 
