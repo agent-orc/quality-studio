@@ -186,6 +186,19 @@ public sealed class ReviewerIsolationTests
         static ReviewerContext Context() => new("clean", "excluded", true, [], [], [], [], 10, 20);
     }
 
+    /// <summary>
+    /// Fail closed: a run whose transcript or rollout was missing or unreadable reports empty lists
+    /// because nothing was read, not because nothing was loaded, so its grade is not recorded.
+    /// </summary>
+    [Fact]
+    public void IsolationViolation_RefusesARunWhoseContextWasNotObserved()
+    {
+        var unobserved = new ReviewerContext("clean", "excluded", false, [], ["CLAUDE.md"], [], [], null, 20);
+
+        Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(new CliRunInfo { CleanContextHome = "/tmp/home" }, unobserved));
+        Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null, unobserved));
+    }
+
 }
 
 /// <summary>Fixtures shared by the reviewer isolation tests.</summary>

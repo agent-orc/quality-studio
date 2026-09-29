@@ -10,8 +10,8 @@ Agent reviews used to run the reviewer CLI in the operator's shared context and 
 reviewed checkout's `CLAUDE.md` / `AGENTS.md`, so a repository could steer its own grade (D12).
 Every review now runs in a clean per-run CLI home with launch flags that exclude repository
 instruction files, project settings and hooks, skills, plugins and MCP servers. After the run the
-CLI's own transcript is read back; a run that loaded an instruction file, a skill or an MCP server
-is refused and writes no sidecar. Repository instruction files are **excluded**, not quoted: they
+CLI's own transcript is read back; a run that loaded an instruction file, a skill or an MCP server,
+or whose transcript could not be read, is refused and writes no sidecar. Repository instruction files are **excluded**, not quoted: they
 stay readable as ordinary files, and review guidance belongs in `.quality/inputs/`.
 `review-meta.v3` gains an optional `reviewer.context` block recording the loaded and excluded
 instruction files, skills, MCP servers, and the system-prompt and prompt sizes. `gemini` and

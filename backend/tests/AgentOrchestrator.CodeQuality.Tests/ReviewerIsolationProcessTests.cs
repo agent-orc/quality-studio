@@ -130,6 +130,40 @@ public sealed class ReviewerIsolationProcessTests
     }
 
     /// <summary>
+    /// A CLI that leaves no transcript in its clean home cannot show what it loaded. The review is
+    /// refused rather than accepted with empty lists — no sidecar, so an unobserved run cannot carry
+    /// a grade the repository steered.
+    /// </summary>
+    [Fact]
+    public async Task ReviewAsync_RefusesARunThatLeftNoTranscriptToObserve()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fakeClaude = await ReviewerIsolationProcessTests.FakeClaude.PathAsync(cancellationToken);
+        var root = ReviewerIsolationFixture.CreateSteeringRepository();
+        try
+        {
+            var agent = new CodingAgentReviewAgent(CliTypes.Claude, "fake-model",
+                options: new CliOptions
+                {
+                    ClaudePath = fakeClaude,
+                    EnvironmentOverrides = new Dictionary<string, string> { ["FAKE_CLAUDE_NO_TRANSCRIPT"] = "1" },
+                },
+                attachTimeout: TimeSpan.FromSeconds(60));
+
+            var exception = await Assert.ThrowsAsync<ReviewAgentRunException>(() => new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Weak.cs", RepositoryRoot: root), cancellationToken));
+
+            var isolation = Assert.IsType<ReviewerIsolationException>(exception.InnerException);
+            Assert.Contains("not observed", isolation.Message, StringComparison.Ordinal);
+            Assert.False(File.Exists(ReviewMetaPath.ForFile(root, "src/Weak.cs", "code")));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    /// <summary>
     /// A published stand-in for the Claude Code CLI. It models the CLI's documented context
     /// assembly — CLAUDE.md is loaded unless <c>--setting-sources</c> leaves out <c>project</c> or
     /// <c>CLAUDE_CODE_DISABLE_CLAUDE_MDS=1</c>; skills and MCP servers appear unless switched off —
@@ -192,7 +226,7 @@ public sealed class ReviewerIsolationProcessTests
                 var session = Guid.NewGuid().ToString();
 
                 var home = Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR");
-                if (!string.IsNullOrEmpty(home))
+                if (!string.IsNullOrEmpty(home) && Environment.GetEnvironmentVariable("FAKE_CLAUDE_NO_TRANSCRIPT") != "1")
                 {
                     var transcript = Path.Combine(home, "projects", "fake", session + ".jsonl");
                     Directory.CreateDirectory(Path.GetDirectoryName(transcript)!);
