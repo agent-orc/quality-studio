@@ -242,7 +242,8 @@ product. They are authored as Markdown in [`rules/`](rules/README.md), generated
 JSON catalogue by `npm run rules:sync`. Enabled rules enter reviews matching their kind and
 technology. The default-on core needs no per-repository install step; contextual rules such as SEO require explicit opt-in. A repository disables or re-weights individual rules
 in `.quality/rules/overrides.json`, and `GET /api/rules` returns the resolved catalogue with a
-trace per rule.
+trace per rule. Overrides, custom rules, rule packs, rule-set import and export and the audit trail are
+managed in the UI and API; see [rule pool management](docs/rule-pool-management.md).
 
 The workbench's **Review policy** explains effective rules, included prompt inputs, and metric formulas with their limits. The [public review-policy guide](https://agent-orchestrator.dev/quality/#review-policy) uses the same versioned sources, including [`rules/review-methodology.json`](rules/review-methodology.json). The live DE/EN website is maintained in the separate website repository; see the [publication guide](website/DEPLOY.md) for its sync and release path.
 
@@ -314,7 +315,7 @@ scripts/                          # launcher, catalogue synchronization and meas
 rules/                            # authored review rules
 schemas/                          # shared versioned data contracts
 samples/                          # contract examples
-docs/                             # architecture, API, operations and visual standards
+docs/                             # architecture, API, operations and visual standards (index: docs/start/README.md)
 QualityStudio.slnx                # root entry point for every .NET project
 Directory.Build.props             # shared .NET build settings
 ```
