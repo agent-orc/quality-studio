@@ -65,16 +65,17 @@ internal static class RulePoolEndpoints
                 Detail = $"'{kind}' is not a review kind.",
             });
         }
-        var store = Store(context, registry);
+        var store = Store(context, registry, security);
         return Results.Ok(View(store.Inspect(), kind?.ToLowerInvariant(), adapter, security.Identity(context)));
     }
 
-    private static IResult Export(HttpContext context, string? scope, string? name, RepositoryRegistry registry) =>
+    private static IResult Export(HttpContext context, string? scope, string? name, RepositoryRegistry registry,
+        ApiSecurity security) =>
         Guarded(() =>
         {
-            var (registration, _) = Resolve(context, registry);
+            var (registration, _) = Resolve(context, registry, security);
             var selected = Scope(scope);
-            var document = Store(context, registry).Export(selected, name ?? (selected == RuleScopes.Project ? registration.Id : null));
+            var document = Store(context, registry, security).Export(selected, name ?? (selected == RuleScopes.Project ? registration.Id : null));
             var fileName = $"rule-set-{Slug(document.Name ?? selected)}-{document.ExportedAt:yyyyMMdd}.json";
             context.Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}\"";
             return Results.Text(JsonSerializer.Serialize(document, AttackCoverageJson.Options) + "\n", "application/json");
@@ -88,7 +89,7 @@ internal static class RulePoolEndpoints
             if (!request.DryRun && Forbidden(context, security, selected) is { } forbidden) return forbidden;
             if (request.RuleSet is not { ValueKind: JsonValueKind.Object } element)
                 throw new RulePoolValidationException("The request requires a 'ruleSet' object.");
-            var result = Store(context, registry).Import(selected, RulePoolStore.ParseRuleSet(element),
+            var result = Store(context, registry, security).Import(selected, RulePoolStore.ParseRuleSet(element),
                 request.Mode ?? "merge", request.DryRun, request.Reason ?? string.Empty, Actor(context, security));
             return Results.Ok(new
             {
@@ -101,14 +102,15 @@ internal static class RulePoolEndpoints
             });
         });
 
-    private static IResult Audit(HttpContext context, string? scope, int? limit, RepositoryRegistry registry) =>
+    private static IResult Audit(HttpContext context, string? scope, int? limit, RepositoryRegistry registry,
+        ApiSecurity security) =>
         Guarded(() =>
         {
             var selected = Scope(scope);
             return Results.Ok(new
             {
                 scope = selected,
-                entries = Store(context, registry).ReadAudit(selected, limit ?? 100),
+                entries = Store(context, registry, security).ReadAudit(selected, limit ?? 100),
             });
         });
 
@@ -139,7 +141,7 @@ internal static class RulePoolEndpoints
         var id = RuleCatalogueResolver.PeekId(content) ?? string.Empty;
         try
         {
-            var catalogue = Store(context, registry).PutCustomRule(selected, id, content, string.Empty,
+            var catalogue = Store(context, registry, security).PutCustomRule(selected, id, content, string.Empty,
                 Actor(context, security), dryRun: true);
             // A retired rule (enabled: false) is valid but never resolved, so it has no view.
             var rule = catalogue.Rules.FirstOrDefault(candidate => candidate.Rule.Id == id);
@@ -195,7 +197,7 @@ internal static class RulePoolEndpoints
         {
             var selected = Scope(scope);
             if (Forbidden(context, security, selected) is { } forbidden) return forbidden;
-            var catalogue = change(Store(context, registry), selected, Actor(context, security));
+            var catalogue = change(Store(context, registry, security), selected, Actor(context, security));
             return Results.Ok(View(catalogue, null, null, security.Identity(context)));
         });
 
@@ -220,7 +222,7 @@ internal static class RulePoolEndpoints
 
     // A global change reaches every repository on the host, so it needs the same standing as
     // registering one. A project change needs only access to the repository, which the API
-    // middleware has already checked for the route.
+    // middleware and Resolve check.
     private static IResult? Forbidden(HttpContext context, ApiSecurity security, string scope) =>
         scope == RuleScopes.Global && !security.Identity(context).CanRegisterRepositories
             ? Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Global rule changes are not permitted")
@@ -235,16 +237,21 @@ internal static class RulePoolEndpoints
 
     private static string Actor(HttpContext context, ApiSecurity security) => security.Identity(context).Id;
 
-    private static (RepositoryRegistration Registration, RepositoryAccess Access) Resolve(HttpContext context, RepositoryRegistry registry)
+    internal static (RepositoryRegistration Registration, RepositoryAccess Access) Resolve(HttpContext context,
+        RepositoryRegistry registry, ApiSecurity security)
     {
         var id = context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
         var registration = registry.Get(id);
+        // Checked here as well as in the API middleware, so no rule-pool read or write can reach a
+        // repository outside the caller's identity. Answered like an unknown id, as the middleware does.
+        if (!security.Identity(context).CanAccess(registration.Id))
+            throw new KeyNotFoundException($"Repository '{registration.Id}' was not found.");
         return (registration, registry.Access(registration.Id));
     }
 
-    private static RulePoolStore Store(HttpContext context, RepositoryRegistry registry)
+    private static RulePoolStore Store(HttpContext context, RepositoryRegistry registry, ApiSecurity security)
     {
-        var (registration, repository) = Resolve(context, registry);
+        var (registration, repository) = Resolve(context, registry, security);
         var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
             ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
             : registration.GlobalInputsDirectory;
