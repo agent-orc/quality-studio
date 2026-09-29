@@ -92,6 +92,11 @@ public interface IReviewExecutorFactory
 {
     IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded);
+
+    /// <summary>Also reports every agent answer the response parser refused, for the run journal.</summary>
+    IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
+        Action<ReviewUsageEntry> usageRecorded, Action<ReviewResponseRejection> responseRejected) =>
+        Create(cliType, model, thinkingLevel, eventObserver, usageRecorded);
 }
 
 public sealed class ReviewExecutorFactory(
@@ -104,10 +109,14 @@ public sealed class ReviewExecutorFactory(
 
     public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
         Action<ReviewUsageEntry> usageRecorded) =>
+        Create(cliType, model, thinkingLevel, eventObserver, usageRecorded, _ => { });
+
+    public IReviewExecutor Create(string cliType, string? model, string? thinkingLevel, Action<string, CliRunEvent> eventObserver,
+        Action<ReviewUsageEntry> usageRecorded, Action<ReviewResponseRejection> responseRejected) =>
         new ReviewExecutor(new ReviewRunner(new CodingAgentReviewAgent(
                 cliType, model, thinkingLevel, eventObserver: eventObserver, logger: logger),
             usageRecorded: usageRecorded, sensorRegistry: sensors, stalenessEvaluator: stalenessEvaluator,
-            unitResolver: unitResolver));
+            unitResolver: unitResolver, responseRejected: responseRejected));
 
     private sealed class ReviewExecutor(ReviewRunner runner) : IReviewExecutor
     {
@@ -132,6 +141,13 @@ public sealed class ReviewJobsOptions
     /// a defense-in-depth backstop, not the primary mechanism.
     /// </summary>
     public double CancelReclaimGraceSeconds { get; set; } = 45;
+
+    /// <summary>
+    /// A run stops after this many consecutive identical provider or authentication failures. Every
+    /// remaining file would fail the same way while each attempt still costs a CLI start, and an
+    /// expired login does not fix itself mid-run. Values below 1 are treated as 1.
+    /// </summary>
+    public int ProviderFailureStopThreshold { get; set; } = 3;
 }
 
 public sealed class ReviewJobService : BackgroundService
@@ -150,12 +166,14 @@ public sealed class ReviewJobService : BackgroundService
     private readonly ModelPriceCatalog prices = ReviewPriceCatalog.Default;
     private readonly ProjectDashboardService dashboards;
     private readonly ReviewModelCatalog modelCatalog;
+    private readonly ProviderAuthStateTracker providerAuth;
 
     public ReviewJobService(RepositoryRegistry repositories, IOptions<ReviewJobsOptions> options,
         ILogger<ReviewJobService> logger, QuotaService quotas, RepositoryHierarchyCache hierarchyCache,
         IReviewExecutorFactory executors, ProjectDashboardService dashboards, SensorRegistry sensorRegistry,
-        ReviewModelCatalog modelCatalog)
+        ReviewModelCatalog modelCatalog, ProviderAuthStateTracker providerAuth)
     {
+        this.providerAuth = providerAuth;
         this.repositories = repositories;
         this.options = options.Value;
         this.logger = logger;
@@ -577,6 +595,7 @@ public sealed class ReviewJobService : BackgroundService
                             item.Force,
                             linked.Token).ConfigureAwait(false);
                         item.FinishAggregate(execution);
+                        if (!execution.SkippedFresh) RecordProviderReached(item);
                     }
                 }
             }
@@ -620,10 +639,11 @@ public sealed class ReviewJobService : BackgroundService
                 item.Force,
                 cancellationToken).ConfigureAwait(false);
             item.FinishFile(file.Path, execution);
+            if (!execution.SkippedFresh) RecordProviderReached(item);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            if (item.State == "cancelled") item.CancelFile(file.Path); else item.RequeueFile(file.Path);
+            item.InterruptFile(file.Path);
             throw;
         }
         catch (Exception exception)
@@ -631,7 +651,35 @@ public sealed class ReviewJobService : BackgroundService
             item.FailFile(file.Path, exception.Message);
             logger.LogError(new EventId(1504, "ReviewFileFailed"), exception,
                 "File {ReviewFilePath} failed in review {ReviewRunId}", file.Path, item.Id);
+            RecordFailure(item, exception);
         }
+    }
+
+    /// <summary>
+    /// Feeds one failed operation to the run's provider breaker and to the provider login state. A
+    /// refused answer still proves the provider served the request, so it counts as reaching it.
+    /// </summary>
+    private void RecordFailure(ReviewWorkItem item, Exception exception)
+    {
+        if (ProviderFailureClassifier.Classify(exception) is not { } failure)
+        {
+            if (exception is ReviewResponseException) RecordProviderReached(item);
+            return;
+        }
+
+        if (failure.IsAuth) providerAuth.RecordFailure(item.CliType, failure.Message);
+        if (item.RecordProviderFailure(failure, Math.Max(1, options.ProviderFailureStopThreshold)))
+        {
+            logger.LogError(new EventId(1516, "ReviewProviderBreakerOpened"),
+                "Stopped review {ReviewRunId} after {Threshold} identical {FailureKind} failures from {ReviewCli}: {FailureMessage}",
+                item.Id, Math.Max(1, options.ProviderFailureStopThreshold), failure.Kind, item.CliType, failure.Message);
+        }
+    }
+
+    private void RecordProviderReached(ReviewWorkItem item)
+    {
+        providerAuth.RecordSuccess(item.CliType);
+        item.RecordProviderSuccess();
     }
 
     private ReviewWorkItem Find(string repositoryId, string id)
@@ -657,6 +705,14 @@ public sealed class ReviewJobService : BackgroundService
                 usage.Tokens.CacheWriteInputTokens,
                 usage.Tokens.OutputTokens, usage.Tokens.DurationMs, usage.Cost?.Total,
                 usage.Cost?.Currency ?? "n/a", usage.Cost?.Status ?? "unknown");
+        },
+        rejection =>
+        {
+            item.RecordRejection(rejection);
+            logger.LogWarning(new EventId(1515, "ReviewResponseRejected"),
+                "Rejected review answer {OperationRunId} in {ReviewRunId} ({ReviewKind} {ReviewPath}), attempt {Attempt}, retrying {Retried}: {Reason}",
+                rejection.AgentRunId, item.Id, rejection.Kind, rejection.Path, rejection.Attempt, rejection.Retried,
+                rejection.Error);
         });
 
     private ReviewRequest CreateRequest(
@@ -766,6 +822,8 @@ public sealed class ReviewJobService : BackgroundService
         private bool resumePending;
         private string state;
         private int reportRevision;
+        private string? providerFailureSignature;
+        private int providerFailureStreak;
 
         private ReviewWorkItem(
             ReviewRunManifest manifest,
@@ -936,25 +994,92 @@ public sealed class ReviewJobService : BackgroundService
             }
         }
 
-        public void RequeueFile(string path)
+        /// <summary>
+        /// Settles a file whose operation was cancelled. A cancelled run cancels it, a run the
+        /// provider breaker stopped skips it for the recorded reason, and a pause requeues it.
+        /// </summary>
+        public void InterruptFile(string path)
         {
             lock (gate)
             {
                 var file = progress[path];
-                if (file.State == "running") RequeueFileCore(file);
+                switch (state)
+                {
+                    case "cancelled" when file.State != "cancelled":
+                        file.State = "cancelled";
+                        file.FinishedAt = DateTimeOffset.UtcNow;
+                        Append(file);
+                        break;
+                    case "failed" when file.State == "running":
+                        file.State = "skipped";
+                        file.FinishedAt = DateTimeOffset.UtcNow;
+                        file.Error = stopReason;
+                        Append(file);
+                        break;
+                    case not ("cancelled" or "failed") when file.State == "running":
+                        RequeueFileCore(file);
+                        break;
+                }
             }
         }
 
-        public void CancelFile(string path)
+        public void RecordRejection(ReviewResponseRejection rejection)
+        {
+            lock (gate) store.AppendRejection(Id, rejection);
+        }
+
+        public void RecordProviderSuccess()
         {
             lock (gate)
             {
-                var file = progress[path];
-                if (file.State == "cancelled") return;
-                file.State = "cancelled";
-                file.FinishedAt = DateTimeOffset.UtcNow;
-                Append(file);
+                providerFailureSignature = null;
+                providerFailureStreak = 0;
             }
+        }
+
+        /// <summary>
+        /// Counts consecutive identical provider failures and stops the run once
+        /// <paramref name="threshold"/> is reached: the remaining files are skipped with the reason,
+        /// the attempt is cancelled so in-flight operations end, and the run ends as failed. A
+        /// success or a different failure restarts the count. Returns true when this call stopped it.
+        /// </summary>
+        public bool RecordProviderFailure(ProviderFailure failure, int threshold)
+        {
+            CancellationTokenSource cancellation;
+            lock (gate)
+            {
+                if (state != "running") return false;
+                if (string.Equals(providerFailureSignature, failure.Signature, StringComparison.Ordinal))
+                {
+                    providerFailureStreak++;
+                }
+                else
+                {
+                    providerFailureSignature = failure.Signature;
+                    providerFailureStreak = 1;
+                }
+                if (providerFailureStreak < threshold) return false;
+
+                state = "failed";
+                FinishedAt = DateTimeOffset.UtcNow;
+                stopReason = failure.IsAuth
+                    ? $"Stopped after {providerFailureStreak} identical authentication failures from {CliType}: {failure.Message} Sign in to {CliType} again, then start the review again; files already reviewed are skipped as fresh."
+                    : $"Stopped after {providerFailureStreak} identical provider failures from {CliType}: {failure.Message} Start the review again once the provider recovers; files already reviewed are skipped as fresh.";
+                errors.Add(stopReason);
+                foreach (var file in progress.Values.Where(file => file.State == "queued"))
+                {
+                    file.State = "skipped";
+                    file.FinishedAt = FinishedAt;
+                    file.Error = stopReason;
+                    AppendProgress(file);
+                }
+                if (aggregateState is "queued" or "running") aggregateState = "skipped";
+                PersistStatus();
+                PublishReport();
+                cancellation = attemptCancellation;
+            }
+            cancellation.Cancel();
+            return true;
         }
 
         public bool StartAggregate()
@@ -1137,7 +1262,8 @@ public sealed class ReviewJobService : BackgroundService
         {
             lock (gate)
             {
-                if (state == "cancelled") return;
+                // A cancelled run and a run the provider breaker stopped are both final.
+                if (ReviewRunStore.IsTerminal(state)) return;
                 foreach (var file in progress.Values.Where(file => file.State == "running")) RequeueFileCore(file);
                 if (aggregateState == "running") aggregateState = "queued";
                 if (state == "running") state = "queued";

@@ -14,7 +14,7 @@ import { AttackCoverage } from '../features/security/attack-coverage/attack-cove
 import { Editor } from '../features/code/editor/editor';
 import { Explorer } from '../features/code/explorer/explorer';
 import { QualityApi } from '../core/api/quality-api';
-import { AgentStudioImportResponse, Guideline, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from '../core/models/contracts';
+import { AgentStudioImportResponse, Guideline, ProviderAuthState, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from '../core/models/contracts';
 import { ReviewPanel } from '../features/reviews/review-panel/review-panel';
 import { ReviewActions } from '../features/reviews/review-actions/review-actions';
 import { ProjectDashboardView } from '../features/dashboard/project-dashboard/project-dashboard';
@@ -246,6 +246,30 @@ export class App implements OnDestroy {
       return;
     }
     this.open(path, false, true, true);
+  }
+
+  /** Login states for providers the quota strip has no chip for, so an auth failure is never hidden. */
+  readonly authWithoutQuota = computed(() => {
+    const quota = new Set(this.api.quotas().providers.map(provider => provider.provider.toLowerCase()));
+    return (this.api.quotas().auth ?? []).filter(auth => !quota.has(auth.provider.toLowerCase()));
+  });
+
+  authFor(provider: string): ProviderAuthState | null {
+    return (this.api.quotas().auth ?? []).find(auth => auth.provider.toLowerCase() === provider.toLowerCase()) ?? null;
+  }
+
+  authLabel(auth: ProviderAuthState): string {
+    return auth.state === 'ok' ? 'signed in' : auth.state === 'failed' ? 'auth failed' : 'auth unknown';
+  }
+
+  authTooltip(auth: ProviderAuthState): string {
+    const checked = auth.checkedAt ? ` · ${new Date(auth.checkedAt).toLocaleString()}` : '';
+    if (auth.state === 'ok') return `${auth.provider}: the last review reached the provider${checked}`;
+    if (auth.state === 'failed') {
+      const source = auth.source === 'quota-probe' ? 'quota probe' : 'review';
+      return `${auth.provider}: login refused by the ${source}${checked}\n${auth.detail ?? ''}\nSign in to ${auth.provider} again before starting a review.`;
+    }
+    return `${auth.provider}: no review has reached the provider since the API started`;
   }
 
   quotaRemaining(provider: QuotaProvider): number | null {

@@ -54,7 +54,7 @@ public static class QualityRunReportRenderer
             ? $"Aggregate score (projection) {summary.Score}/100 ({summary.Grade}) · {summary.Findings.Total} active findings · {JoinCounts(summary.Findings.BySeverity)}"
             : $"Aggregate score (projection) unavailable · {summary.Findings.Total} active findings · {EscapeMarkdown(summary.PartialReason ?? "partial run")}");
         text.AppendLine(report.Delta.Status == "available"
-            ? $"Delta from `{EscapeMarkdown(report.Delta.PriorRunId!)}`: {report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.StateChanged.Count} state-changed"
+            ? $"Delta from `{EscapeMarkdown(report.Delta.PriorRunId!)}`: {report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.NotReobserved?.Count ?? 0} not re-observed · {report.Delta.StateChanged.Count} state-changed"
             : $"Delta: unavailable ({EscapeMarkdown(report.Delta.Reason ?? "no prior comparable run snapshot")})");
         text.AppendLine();
         text.AppendLine("The aggregate score is a rounded mean over the unit grades this run observed. No unit carries it as its grade.");
@@ -127,7 +127,7 @@ public static class QualityRunReportRenderer
             .Append("</b><span>Reused fresh</span></div></div>");
         if (summary.PartialReason is not null) html.Append("<p class=\"partial\">").Append(H(summary.PartialReason)).Append("</p>");
         html.Append("<p class=\"muted\">Delta: ").Append(report.Delta.Status == "available"
-            ? $"{report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.StateChanged.Count} state-changed"
+            ? $"{report.Delta.New.Count} new · {report.Delta.Persisting.Count} persisting · {report.Delta.Resolved.Count} resolved · {report.Delta.NotReobserved?.Count ?? 0} not re-observed · {report.Delta.StateChanged.Count} state-changed"
             : H(report.Delta.Reason ?? "unavailable")).Append("</p></section>");
 
         html.Append("<section><h2>Findings</h2>");
