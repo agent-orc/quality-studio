@@ -25,6 +25,13 @@ From the 2026-09-28 evaluation of the Agent Studio checkout (defects D2-D4):
   with the reason and skips the remaining files. `GET /api/quotas` returns each provider's login
   state in `auth`, and the top bar shows it next to the quota.
 
+### Fixed — large and aggregate reviews launch on Windows (QS-108)
+
+The review agent now hands Claude its prompt over stdin (`ClaudePromptTransport.Stdin`) instead of
+as a command-line argument; Codex already used stdin. On Windows the 32,767-character command-line
+limit had stopped every folder-level review and files above about 20 KB from launching. Limits
+per OS and the regression test are described in [`docs/review-runs.md`](docs/review-runs.md#prompt-transport).
+
 ### Changed — the studio no longer writes into the checkout it analyses (QS-102)
 
 Everything a run generates now lives in a per-project **data root** outside the analysed working
