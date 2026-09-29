@@ -119,13 +119,15 @@ public sealed class CodingAgentReviewAgentWatchdogTests
             CliRunRequest request, [EnumeratorCancellation] CancellationToken ct = default)
         {
             // A real run of a clean-context CLI reports its per-run home and keeps its rollout there;
-            // the agent refuses a run that has no home or whose rollout it cannot read.
+            // the agent refuses a run that has no home or whose rollout it cannot read or holds no
+            // system prompt.
             var home = Directory.CreateTempSubdirectory("quality-watchdog-home-").FullName;
             try
             {
                 const string Thread = "fake-thread";
                 Directory.CreateDirectory(Path.Combine(home, "sessions"));
-                File.WriteAllText(Path.Combine(home, "sessions", $"rollout-fake-{Thread}.jsonl"), "{}\n");
+                File.WriteAllText(Path.Combine(home, "sessions", $"rollout-fake-{Thread}.jsonl"),
+                    """{"type":"session_meta","payload":{"base_instructions":{"text":"fake base instructions"}}}""" + "\n");
                 OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, CleanContextHome = home });
                 OnRunEvent?.Invoke(request.RunId, new CliRunEvent.SessionStarted(Thread) { RunId = request.RunId });
                 await foreach (var runEvent in stream(request.RunId).WithCancellation(ct))

@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using CodingAgentRunner;
 using CodingAgentRunner.Abstractions;
+using CodingAgentRunner.Delegation;
 using CodingAgentRunner.Events;
 using CodingAgentRunner.Execution;
 using CodingAgentRunner.Metrics;
@@ -110,7 +111,13 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             throw new ReviewerIsolationException(
                 $"The '{cliType}' reviewer CLI cannot run without repository instruction files; use claude or codex.");
         options ??= CreateCliOptions();
-        _runner = new CliRunner(options with { Spawner = new IsolatingCliProcessSpawner(cliType, options.Spawner) }, logger);
+        // Subagent delegation would write agent definitions into the reviewed checkout and read
+        // its contexts/delegation-economy.md into the prompt, so a reviewer runs without it.
+        _runner = new CliRunner(options with
+        {
+            Spawner = new IsolatingCliProcessSpawner(cliType, options.Spawner),
+            Delegation = new DelegationOptions { Enabled = false },
+        }, logger);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
@@ -310,16 +317,18 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
 
     /// <summary>
     /// Why a finished run cannot be trusted as isolated, or null. A run whose clean home was never
-    /// created ran on the operator's shared state; a run whose transcript could not be read may have
-    /// loaded anything; a run that reports loading an instruction file, a skill or an MCP server saw
-    /// more than the prompt. In every case its grade is not recorded.
+    /// created ran on the operator's shared state; a run whose transcript could not be read, or held
+    /// no system prompt, may have loaded anything; a run that reports loading an instruction file, a
+    /// skill or an MCP server saw more than the prompt. In every case its grade is not recorded.
     /// </summary>
     internal static string? IsolationViolation(CliRunInfo? started, ReviewerContext context)
     {
         if (started is not null && string.IsNullOrWhiteSpace(started.CleanContextHome))
             return "the runner could not create a clean context home, so the CLI ran on the operator's shared state";
         if (!context.Observed)
-            return "the CLI's context was not observed: its transcript or rollout was missing or unreadable, so what it loaded is unknown";
+            return "the CLI's context was not observed: its transcript or rollout was missing, unreadable, malformed or incomplete, so what it loaded is unknown";
+        if (context.SystemPromptCharacters is null)
+            return "the CLI's system prompt was not observed, so the record of what it loaded is incomplete";
         if (context.LoadedInstructionFiles.Count > 0)
             return "the CLI loaded instruction files: " + string.Join(", ", context.LoadedInstructionFiles);
         if (context.Skills.Count > 0)

@@ -36,7 +36,10 @@ Every review run gets three layers. None is optional and none depends on the oth
    config home (`CLAUDE_CONFIG_DIR` / `CODEX_HOME`) to a per-run temp directory seeded only with
    credentials and the base config file. Operator memory, session history, the user-level
    `CLAUDE.md` / `AGENTS.md`, the skills directory, and Claude's user MCP registry
-   (`~/.claude.json`) are absent.
+   (`~/.claude.json`) are absent. The runner's subagent delegation is switched off
+   (`CliOptions.Delegation.Enabled = false`): it would write agent definitions into the checkout's
+   `.claude/agents` / `.codex/agents` and read the checkout's `contexts/delegation-economy.md`
+   into the prompt.
 2. **Launch flags.** An `ICliProcessSpawner` wrapper adds these to every launch (after the
    runner has built it, so the runner's own arguments are untouched):
 
@@ -68,10 +71,14 @@ Every review run gets three layers. None is optional and none depends on the oth
      (the system prompt) and `world_state.agents_md` (loaded `AGENTS.md`).
 
    A run that loaded any instruction file, advertised any skill, wired any MCP server, whose
-   clean home could not be created, or whose transcript / rollout was missing or unreadable
+   clean home could not be created, or whose transcript / rollout was not observed
    (`observed: false`) is refused with `ReviewerIsolationException` (wrapped in
-   `ReviewAgentRunException`). The tokens are still recorded in the usage ledger; no sidecar is
-   written, so no steered grade reaches a report. This is what protects against a future CLI
+   `ReviewAgentRunException`). A record is observed only when it was found and read to the end,
+   every line is a JSON object, and it holds the system-prompt record every run writes
+   (`prompt_snapshot` / `session_meta.base_instructions`): a malformed line could have hidden an
+   `instructions` attachment, and a record without the system prompt is incomplete. A context
+   without a system-prompt size is refused even if it claims to be observed. The tokens are still
+   recorded in the usage ledger; no sidecar is written, so no steered grade reaches a report. This is what protects against a future CLI
    release that stops honouring one of the flags. The observation fails closed: an unobserved run
    reports empty lists because nothing was read, not because nothing was loaded, so it is refused
    like a run that was seen loading an instruction file.
@@ -101,11 +108,11 @@ agent review since QS-116):
 | --- | --- |
 | `mode` | Runner context mode. Always `clean`. |
 | `repositoryInstructions` | The policy above. Always `excluded`. |
-| `observed` | Whether the CLI's transcript / rollout was found and read. Always `true` on an accepted review: an unobserved run is refused, because its empty lists and missing system-prompt size would mean **unknown**, not empty. |
+| `observed` | Whether the CLI's transcript / rollout was found, read, well-formed and complete (see step 3). Always `true` on an accepted review: an unobserved run is refused, because its empty lists and missing system-prompt size would mean **unknown**, not empty. |
 | `loadedInstructionFiles` | Instruction files the CLI reported loading. Always empty on an accepted review. Repository-relative; `external:<name>` for a file outside the checkout, so a sidecar or report never carries a home directory or user name. |
 | `excludedInstructionFiles` | Instruction and agent-configuration files present in the checkout (`CLAUDE.md`, `AGENTS.md`, … at any depth outside `node_modules`/`bin`/`obj`/`.git`/`.quality`, plus `.claude/rules`, `.claude/skills`, `.mcp.json`, `.agents/skills`, `.codex`, …) that the CLI was told not to load. |
 | `skills`, `mcpServers` | What the CLI advertised / wired. Always empty on an accepted review. |
-| `systemPromptCharacters` | Size of the CLI's own system prompt / base instructions as it recorded it. Absent when not observed. |
+| `systemPromptCharacters` | Size of the CLI's own system prompt / base instructions as it recorded it. Always present on an accepted review; absent when not observed. |
 | `promptCharacters` | Size of the Quality Studio prompt handed to the CLI. |
 
 The two sizes together are the fixed context cost of a review before the reviewer reads any file.
@@ -131,7 +138,10 @@ a `SessionStart` hook in `.claude/settings.json`, `sub/CLAUDE.md`, `AGENTS.md`, 
 
 - `backend/tests/AgentOrchestrator.CodeQuality.Tests/ReviewerIsolationTests.cs` (portable): launch
   flags and environment per CLI, refusal of CLIs without a recipe, the excluded-file inventory,
-  transcript and rollout parsing, and the refusal rules.
+  transcript and rollout parsing, and the refusal rules — including
+  `Observation_AMalformedOrIncompleteRecordIsNotObserved` (malformed lines, a malformed line among
+  valid ones, or no system-prompt record, for Claude and Codex) and
+  `IsolationViolation_RefusesAnObservedRunWithoutASystemPromptSize`.
 - `ReviewerIsolationProcessTests` (`Category=ToolBound`, same folder), driving the real runner,
   spawner and review pipeline with a published fake `claude` that models the CLI's context assembly
   and obeys any "grade A" instruction it loads:
@@ -140,6 +150,9 @@ a `SessionStart` hook in `.claude/settings.json`, `sub/CLAUDE.md`, `AGENTS.md`, 
     records the context above.
   - `FakeClaude_WithoutIsolation_ObeysTheRepositoryClaudeMd` — the control: the same fake, launched
     the pre-QS-116 way, returns A.
+  - `ReviewAsync_ARepositoryDelegationRuleAskingForGradeADoesNotReachThePrompt` — a checkout
+    `contexts/delegation-economy.md` demanding grade A does not reach the prompt, and no
+    `.claude/agents` is written into the checkout.
   - `ReviewAsync_RefusesARunWhoseTranscriptShowsALoadedInstructionFile` — a CLI that ignores the
     flags is caught by the observation and no sidecar is written.
   - `ReviewAsync_RefusesARunThatLeftNoTranscriptToObserve` — a CLI whose transcript is missing is

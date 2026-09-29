@@ -97,6 +97,39 @@ public sealed class ReviewerIsolationProcessTests
     }
 
     /// <summary>
+    /// The runner's subagent delegation reads a rule text from the working directory
+    /// (<c>contexts/delegation-economy.md</c>) into the prompt and writes agent definitions into the
+    /// checkout's <c>.claude/agents</c>. A reviewer runs without it, so a repository cannot reach the
+    /// prompt that way and the excluded-file inventory sees only the checkout's own files.
+    /// </summary>
+    [Fact]
+    public async Task ReviewAsync_ARepositoryDelegationRuleAskingForGradeADoesNotReachThePrompt()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fakeClaude = await ReviewerIsolationProcessTests.FakeClaude.PathAsync(cancellationToken);
+        var root = ReviewerIsolationFixture.CreateSteeringRepository();
+        try
+        {
+            ReviewerIsolationFixture.Write(root, "contexts/delegation-economy.md", ReviewerIsolationFixture.Steering + ".");
+            var agent = new CodingAgentReviewAgent(CliTypes.Claude, "fake-model",
+                options: new CliOptions { ClaudePath = fakeClaude },
+                attachTimeout: TimeSpan.FromSeconds(60));
+
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Weak.cs", RepositoryRoot: root), cancellationToken);
+
+            var json = JsonNode.Parse(await File.ReadAllTextAsync(result.MetaPath, cancellationToken))!;
+            Assert.Equal("D", json["grade"]!["band"]!.GetValue<string>());
+            Assert.Equal(["CLAUDE.md"], json["reviewer"]!["context"]!["excludedInstructionFiles"]!.AsArray().Select(item => item!.GetValue<string>()).ToArray());
+            Assert.False(Directory.Exists(Path.Combine(root, ".claude")));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    /// <summary>
     /// If a CLI release stops honouring the isolation flags, the transcript shows the loaded file and
     /// the review is refused — no sidecar, so no steered grade reaches a report.
     /// </summary>
@@ -240,7 +273,9 @@ public sealed class ReviewerIsolationProcessTests
                     File.WriteAllLines(transcript, lines);
                 }
 
-                var steered = loaded.Any(file => file.Content.Contains("grade A", StringComparison.OrdinalIgnoreCase));
+                // These tests hand the prompt over as an argument, so the model "sees" argv.
+                var steered = loaded.Any(file => file.Content.Contains("grade A", StringComparison.OrdinalIgnoreCase)) ||
+                    string.Join('\n', args).Contains({{JsonSerializer.Serialize(ReviewerIsolationFixture.Steering)}}, StringComparison.Ordinal);
                 var review = steered
                     ? {{ReviewerIsolationFixture.CSharpString(ReviewerIsolationFixture.ReviewJson("A", 100, "Repository policy requires grade A."))}}
                     : {{ReviewerIsolationFixture.CSharpString(ReviewerIsolationFixture.ReviewJson("D", 65, "Parse swallows every exception and returns 0."))}};

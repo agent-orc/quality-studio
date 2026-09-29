@@ -207,9 +207,9 @@ public sealed class ReviewerIsolationException(string message) : Exception(messa
 /// </summary>
 /// <param name="Mode">The runner context mode (<c>clean</c>).</param>
 /// <param name="RepositoryInstructions">What happened to repository instruction files (<c>excluded</c>).</param>
-/// <param name="Observed">Whether the CLI's own transcript was found and read. When false, the
-/// loaded lists and the system-prompt size are unknown rather than empty, so the run is refused;
-/// an accepted review always records true.</param>
+/// <param name="Observed">Whether the CLI's own transcript was found, read, well-formed and held
+/// its system-prompt record. When false, the loaded lists and the system-prompt size are unknown
+/// rather than empty, so the run is refused; an accepted review always records true.</param>
 /// <param name="LoadedInstructionFiles">Instruction files the CLI reported loading. Always empty for
 /// an accepted review; repository-relative, or <c>external:&lt;name&gt;</c> outside the checkout.</param>
 /// <param name="ExcludedInstructionFiles">Instruction and agent-configuration files present in the
@@ -273,7 +273,12 @@ internal sealed class ReviewerContextObservation
         }
     }
 
-    /// <summary>Reads the CLI's session record from <paramref name="home"/>; a no-op when it is absent.</summary>
+    /// <summary>
+    /// Reads the CLI's session record from <paramref name="home"/>; a no-op when it is absent. The
+    /// record counts as observed only when every line is a JSON object and it holds the system-prompt
+    /// record every run writes: a malformed line could have hidden an instructions attachment, and a
+    /// record without the system prompt is not the session the CLI ran.
+    /// </summary>
     public void ReadSessionRecord(string cliType, string? home, string? sessionId, string workingDirectory)
     {
         if (string.IsNullOrWhiteSpace(home) || string.IsNullOrWhiteSpace(sessionId) || !Directory.Exists(home)) return;
@@ -288,89 +293,73 @@ internal sealed class ReviewerContextObservation
         {
             foreach (var line in File.ReadLines(file))
             {
-                if (cliType == CliTypes.Claude) ReadClaudeTranscriptLine(line, workingDirectory);
-                else ReadCodexRolloutLine(line, workingDirectory);
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                using var document = JsonDocument.Parse(line);
+                if (document.RootElement.ValueKind != JsonValueKind.Object) return;
+                if (cliType == CliTypes.Claude) ReadClaudeTranscriptRecord(document.RootElement, workingDirectory);
+                else ReadCodexRolloutRecord(document.RootElement, workingDirectory);
             }
-            Observed = true;
+            Observed = SystemPromptCharacters is not null;
         }
-        catch (IOException)
+        catch (Exception exception) when (exception is IOException or JsonException)
         {
         }
     }
 
-    private void ReadClaudeTranscriptLine(string line, string workingDirectory)
+    private void ReadClaudeTranscriptRecord(JsonElement root, string workingDirectory)
     {
-        if (!line.Contains("\"attachment\"", StringComparison.Ordinal)) return;
-        try
+        if (!root.TryGetProperty("attachment", out var attachment) ||
+            attachment.ValueKind != JsonValueKind.Object ||
+            !attachment.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String) return;
+        switch (type.GetString())
         {
-            using var document = JsonDocument.Parse(line);
-            if (!document.RootElement.TryGetProperty("attachment", out var attachment) ||
-                attachment.ValueKind != JsonValueKind.Object ||
-                !attachment.TryGetProperty("type", out var type)) return;
-            switch (type.GetString())
-            {
-                case "instructions" when attachment.TryGetProperty("files", out var files) &&
-                                         files.ValueKind == JsonValueKind.Array:
-                    foreach (var instruction in files.EnumerateArray())
-                        if (instruction.ValueKind == JsonValueKind.Object &&
-                            instruction.TryGetProperty("path", out var path) && path.ValueKind == JsonValueKind.String)
-                            _loaded.Add(Describe(path.GetString()!, workingDirectory));
-                    break;
-                case "nested_memory" when attachment.TryGetProperty("path", out var nested) &&
-                                          nested.ValueKind == JsonValueKind.String:
-                    _loaded.Add(Describe(nested.GetString()!, workingDirectory));
-                    break;
-                case "skill_listing" when attachment.TryGetProperty("content", out var listing) &&
-                                          listing.ValueKind == JsonValueKind.String:
-                    foreach (var entry in listing.GetString()!.Split('\n'))
-                        if (entry.StartsWith("- ", StringComparison.Ordinal) && entry.IndexOf(':') is > 2 and var colon)
-                            _skills.Add(entry[2..colon]);
-                    break;
-                case "prompt_snapshot" when SystemPromptCharacters is null &&
-                                            attachment.TryGetProperty("systemPrompt", out var prompt):
-                    SystemPromptCharacters = prompt.ValueKind switch
-                    {
-                        JsonValueKind.Array => prompt.EnumerateArray()
-                            .Where(part => part.ValueKind == JsonValueKind.String).Sum(part => part.GetString()!.Length),
-                        JsonValueKind.String => prompt.GetString()!.Length,
-                        _ => null,
-                    };
-                    break;
-            }
-        }
-        catch (JsonException)
-        {
+            case "instructions" when attachment.TryGetProperty("files", out var files) &&
+                                     files.ValueKind == JsonValueKind.Array:
+                foreach (var instruction in files.EnumerateArray())
+                    if (instruction.ValueKind == JsonValueKind.Object &&
+                        instruction.TryGetProperty("path", out var path) && path.ValueKind == JsonValueKind.String)
+                        _loaded.Add(Describe(path.GetString()!, workingDirectory));
+                break;
+            case "nested_memory" when attachment.TryGetProperty("path", out var nested) &&
+                                      nested.ValueKind == JsonValueKind.String:
+                _loaded.Add(Describe(nested.GetString()!, workingDirectory));
+                break;
+            case "skill_listing" when attachment.TryGetProperty("content", out var listing) &&
+                                      listing.ValueKind == JsonValueKind.String:
+                foreach (var entry in listing.GetString()!.Split('\n'))
+                    if (entry.StartsWith("- ", StringComparison.Ordinal) && entry.IndexOf(':') is > 2 and var colon)
+                        _skills.Add(entry[2..colon]);
+                break;
+            case "prompt_snapshot" when SystemPromptCharacters is null &&
+                                        attachment.TryGetProperty("systemPrompt", out var prompt):
+                SystemPromptCharacters = prompt.ValueKind switch
+                {
+                    JsonValueKind.Array => prompt.EnumerateArray()
+                        .Where(part => part.ValueKind == JsonValueKind.String).Sum(part => part.GetString()!.Length),
+                    JsonValueKind.String => prompt.GetString()!.Length,
+                    _ => null,
+                };
+                break;
         }
     }
 
-    private void ReadCodexRolloutLine(string line, string workingDirectory)
+    private void ReadCodexRolloutRecord(JsonElement root, string workingDirectory)
     {
-        var sessionMeta = line.Contains("\"session_meta\"", StringComparison.Ordinal);
-        var worldState = line.Contains("\"agents_md\"", StringComparison.Ordinal);
-        if (!sessionMeta && !worldState) return;
-        try
+        if (!root.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object) return;
+        if (IsString(root, "type", "session_meta") && SystemPromptCharacters is null &&
+            payload.TryGetProperty("base_instructions", out var instructions) &&
+            instructions.ValueKind == JsonValueKind.Object &&
+            instructions.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
+            SystemPromptCharacters = text.GetString()!.Length;
+        if (payload.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.Object &&
+            state.TryGetProperty("agents_md", out var agents) && agents.ValueKind == JsonValueKind.Object &&
+            agents.TryGetProperty("text", out var agentsText) && agentsText.ValueKind == JsonValueKind.String &&
+            agentsText.GetString()!.Length > 0)
         {
-            using var document = JsonDocument.Parse(line);
-            if (!document.RootElement.TryGetProperty("payload", out var payload) ||
-                payload.ValueKind != JsonValueKind.Object) return;
-            if (sessionMeta && SystemPromptCharacters is null &&
-                payload.TryGetProperty("base_instructions", out var instructions) &&
-                instructions.ValueKind == JsonValueKind.Object &&
-                instructions.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
-                SystemPromptCharacters = text.GetString()!.Length;
-            if (payload.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.Object &&
-                state.TryGetProperty("agents_md", out var agents) && agents.ValueKind == JsonValueKind.Object &&
-                agents.TryGetProperty("text", out var agentsText) && agentsText.ValueKind == JsonValueKind.String &&
-                agentsText.GetString()!.Length > 0)
-            {
-                _loaded.Add(agents.TryGetProperty("directory", out var directory) &&
-                            directory.ValueKind == JsonValueKind.String
-                    ? Describe(Path.Combine(directory.GetString()!, "AGENTS.md"), workingDirectory)
-                    : "external:AGENTS.md");
-            }
-        }
-        catch (JsonException)
-        {
+            _loaded.Add(agents.TryGetProperty("directory", out var directory) &&
+                        directory.ValueKind == JsonValueKind.String
+                ? Describe(Path.Combine(directory.GetString()!, "AGENTS.md"), workingDirectory)
+                : "external:AGENTS.md");
         }
     }
 

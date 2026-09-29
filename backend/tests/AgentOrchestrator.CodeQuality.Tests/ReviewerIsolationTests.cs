@@ -199,6 +199,65 @@ public sealed class ReviewerIsolationTests
         Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null, unobserved));
     }
 
+    /// <summary>
+    /// A record the CLI kept but that says nothing readable is no observation: a transcript or
+    /// rollout of malformed lines, one without the system-prompt record every run writes, or one
+    /// with a malformed line that could have hidden an instructions attachment.
+    /// </summary>
+    [Theory]
+    [InlineData(CliTypes.Claude, "malformed")]
+    [InlineData(CliTypes.Claude, "no-system-prompt")]
+    [InlineData(CliTypes.Claude, "malformed-among-valid")]
+    [InlineData(CliTypes.Codex, "malformed")]
+    [InlineData(CliTypes.Codex, "no-system-prompt")]
+    [InlineData(CliTypes.Codex, "malformed-among-valid")]
+    public void Observation_AMalformedOrIncompleteRecordIsNotObserved(string cliType, string shape)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var systemPrompt = cliType == CliTypes.Claude
+                ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
+                : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            var other = new JsonObject { ["type"] = "user", ["message"] = "review src/Weak.cs" }.ToJsonString();
+            var lines = shape switch
+            {
+                "malformed" => new[] { "not json", """{"type":"attachment","attachment":{"type":"instr""" },
+                "no-system-prompt" => [other],
+                _ => [systemPrompt, """{"type":"attachment","attachment":{"type":"instructions","files":[{"path":"CLAUDE.md""", other],
+            };
+            var path = cliType == CliTypes.Claude ? "projects/-repo/session-1.jsonl" : "sessions/2026/09/29/rollout-2026-09-29T10-00-00-session-1.jsonl";
+            ReviewerIsolationFixture.Write(home, path, string.Join('\n', lines));
+            var observation = new ReviewerContextObservation();
+
+            observation.ReadSessionRecord(cliType, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+            Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null, new ReviewerContext("clean", "excluded",
+                observation.Observed, observation.LoadedInstructionFiles, [], observation.Skills, observation.McpServers,
+                observation.SystemPromptCharacters, 20)));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    /// <summary>
+    /// The system-prompt size is part of the observation the metadata promises; a context that
+    /// claims to be observed without it is incomplete and refused.
+    /// </summary>
+    [Fact]
+    public void IsolationViolation_RefusesAnObservedRunWithoutASystemPromptSize()
+    {
+        var incomplete = new ReviewerContext("clean", "excluded", true, [], ["CLAUDE.md"], [], [], null, 20);
+
+        Assert.Contains("system prompt", CodingAgentReviewAgent.IsolationViolation(new CliRunInfo { CleanContextHome = "/tmp/home" }, incomplete));
+        Assert.Contains("system prompt", CodingAgentReviewAgent.IsolationViolation(null, incomplete));
+    }
+
 }
 
 /// <summary>Fixtures shared by the reviewer isolation tests.</summary>
