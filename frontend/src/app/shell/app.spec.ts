@@ -212,6 +212,27 @@ describe('App shell URL state', () => {
     expect(app.apiAccessRejected()).toBeFalse();
   });
 
+  it('shows each provider login state next to its quota and keeps a refused login without a quota visible', () => {
+    app.api.quotas.set({
+      at: '2026-09-28T10:00:00Z', ttlSeconds: 600,
+      providers: [{
+        provider: 'claude', plan: 'max', fetchedAt: '2026-09-28T10:00:00Z', source: 'oauth', error: null,
+        windows: [{ label: '5-hour', usedPct: 20, remainingPct: 80, used: null, limit: null, unit: '%', resetAt: null, resetLabel: null }],
+      }],
+      auth: [
+        { provider: 'claude', state: 'ok', checkedAt: '2026-09-28T10:00:00Z', detail: null, source: 'review-run' },
+        { provider: 'codex', state: 'failed', checkedAt: '2026-09-28T10:01:00Z', detail: '401 Unauthorized', source: 'review-run' },
+      ],
+    });
+    fixture.detectChanges();
+
+    const chips = Array.from(fixture.nativeElement.querySelectorAll('.quota-strip .auth-chip')) as HTMLElement[];
+    expect(chips.map(chip => chip.textContent?.trim())).toEqual(['signed in', 'codex auth failed']);
+    expect(chips[0].previousElementSibling?.classList.contains('quota-chip')).toBeTrue();
+    expect(chips[1].getAttribute('data-auth-state')).toBe('failed');
+    expect(chips[1].title).toContain('401 Unauthorized');
+  });
+
   it('toggles the explorer with Ctrl+B and the review panel with Ctrl+Alt+B', () => {
     expect(app.explorerVisible()).toBeTrue();
     app.onKeydown(new KeyboardEvent('keydown', { key: 'b', ctrlKey: true }));

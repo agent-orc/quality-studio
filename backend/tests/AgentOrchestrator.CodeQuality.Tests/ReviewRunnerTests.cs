@@ -1001,14 +1001,16 @@ public sealed class ReviewRunnerTests
                 new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-sweep-test"),
                 TestContext.Current.CancellationToken));
 
-            Assert.Equal("run-test", Assert.Single(recorded).RunId);
-            Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
+            // The rejected answer and its one repair attempt both consumed tokens.
+            Assert.Equal(2, recorded.Count);
+            Assert.All(recorded, entry => Assert.Equal("run-test", entry.RunId));
+            Assert.All(recorded, entry => Assert.Equal("review-sweep-test", entry.ReviewRunId));
             Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
             // The fake agent names its model, so the entry is attributed to an explicit choice.
             Assert.Equal(ReviewModelSource.Explicit, recorded[0].ModelSource);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
-            Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
+            Assert.Equal(2, report.Recent.Count);
             Assert.Equal("review-sweep-test", Assert.Single(report.ByReviewRun).Key);
         });
     }

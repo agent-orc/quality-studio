@@ -108,7 +108,12 @@
           "description": "The issue was judged not to exist in the assessed subject.",
           "aliases": ["falsePositive"]
         },
-        { "id": "resolved", "description": "The issue was fixed and the fix is backed by a resolution basis." }
+        { "id": "resolved", "description": "The issue was fixed and the fix is backed by a resolution basis." },
+        {
+          "id": "not-reobserved",
+          "description": "The latest review of the same, unchanged code did not report the issue again. Neither fixed nor confirmed; never counted as resolved.",
+          "aliases": ["notReobserved"]
+        }
       ]
     },
     {
