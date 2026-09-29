@@ -159,6 +159,48 @@ public sealed class ComplexityMetricsTests
     }
 
     [Fact]
+    public void TypeScript_class_members_count_towards_the_innermost_container_not_the_enclosing_member()
+    {
+        // A class nested in a namespace and a class expression returned from a top-level function: each
+        // method's branches belong to that method, and the enclosing member keeps only its own.
+        var file = ComplexityAnalyzer.Analyze("src/nested.ts", """
+            export namespace Shapes {
+              export class Circle {
+                area(r: number): number {
+                  if (r < 0) return 0;
+                  return r * r;
+                }
+              }
+            }
+
+            export function makeCounter(start: number) {
+              const initial = start > 0 ? start : 0;
+              return class Counter {
+                value = initial;
+                step(by: number): number {
+                  for (let i = 0; i < by; i++) {
+                    if (this.value > 100) break;
+                    this.value++;
+                  }
+                  return this.value;
+                }
+              };
+            }
+
+            export class After {
+              run(flag: boolean): number { return flag ? 1 : 0; }
+            }
+            """)!;
+
+        var functions = file.Functions.ToDictionary(function => function.Name);
+        AssertMetric(functions["Circle.area"], cyclomatic: 2, cognitive: 1);
+        AssertMetric(functions["Counter.step"], cyclomatic: 3, cognitive: 3);
+        AssertMetric(functions["makeCounter"], cyclomatic: 2, cognitive: 1);
+        AssertMetric(functions["After.run"], cyclomatic: 2, cognitive: 1);
+        Assert.Equal(4, functions.Count);
+    }
+
+    [Fact]
     public void CSharp_top_level_local_functions_are_units_of_their_own()
     {
         var file = ComplexityAnalyzer.Analyze("Program.cs", """

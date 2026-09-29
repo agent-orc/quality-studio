@@ -527,14 +527,16 @@ internal static class ScriptComplexity
                 }
             }
 
-            var member = Container.Member;
+            var member = InnermostContainer.Member;
             if (member is null) return topLevel;
             member.EndLine = token.Line;
             // An ignored member (import, type alias) still absorbs its tokens, but they count nowhere.
             return member;
         }
 
-        private Scope Container => scopes.First(candidate => candidate.Kind is ScopeKind.Container);
+        // Stack<T> enumerates from the top, so the first container is the innermost one: a class
+        // method's increments go to that method, not to the member enclosing the class.
+        private Scope InnermostContainer => scopes.First(candidate => candidate.Kind is ScopeKind.Container);
 
         private void OnWord(Token token, int index, Member target)
         {
