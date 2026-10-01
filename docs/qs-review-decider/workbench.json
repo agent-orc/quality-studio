@@ -44,5 +44,7 @@
       "promptMarkdown": "Implement the trial report from \u0060docs/qs-review-decider/index.html\u0060 (Recommendation: acceptance criteria and metrics) in the Quality Studio repository, on top of QS-114 (rule effectiveness metrics).\n\n## Scope\n\n1. Import the Agent Studio trial export (deciding and shadow code-quality verdicts, operator adjudications, escaped-defect marks, minutes, tokens).\n2. Report per rule and overall: QS blocks, adjudicated false blocks, Claude-only valid blocks (QS misses), QS-only valid blocks, escaped defects, tokens and minutes per review, and verdict agreement between repeated runs on the same subject.\n3. Evaluate the Dossier\u0027s acceptance criteria and stop rules and print pass or fail per criterion with the numbers; write the report as HTML and JSON under the data root.\n\n## Acceptance\n\n- A fixture export with known counts produces the expected pass/fail per criterion, including the stop rules.\n- False-block and miss rates are computed only from adjudicated findings; unadjudicated findings are counted and shown separately."
     }
   ],
-  "key": "QS-W31"
+  "key": "QS-W31",
+  "tags": [],
+  "taggingStatus": "tags-proposed"
 }
