@@ -64,6 +64,7 @@ async function fulfillApi(runId, run, report, trend, route) {
   else if (p.endsWith('/handover')) body = { targetConfigured: false, dryRun: true };
   else if (p.endsWith('/review/runs/trend')) body = trend;
   else if (p.endsWith(`/${runId}/report`)) body = report;
+  else if (p.endsWith('/review/runs/pins')) body = { pinnedRunIds: [] };
   else if (p.endsWith('/review/runs')) body = { runs: [run] };
   else if (p.endsWith('/usage')) body = { generatedAt: run.finishedAt, runs: 1, inputTokens: 620, outputTokens: 140, cachedInputTokens: 80, reasoningOutputTokens: 30, durationMs: 4000, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] };
   else if (p === '/api/quotas') body = { at: run.finishedAt, ttlSeconds: 600, providers: [] };
@@ -104,7 +105,11 @@ for (const [name, fixture] of Object.entries(cases)) {
   const open = page.locator('.run-open').first();
   await open.waitFor();
   await open.click();
-  await page.locator('.run-detail-surface').waitFor();
+  try {
+    await page.locator('.run-detail-surface .run-report-state').waitFor({ timeout: 10_000 });
+  } catch (error) {
+    throw new Error(`Run report did not load for ${name}: ${await page.locator('.run-detail-surface').evaluate(element => element.outerHTML)}`, { cause: error });
+  }
   const fileName = `qs-100-run-report-${name}.png`;
   await page.screenshot({ path: join(output, fileName), fullPage: true });
   const badge = page.locator('.run-row .run-heading .studio-badge').first();
