@@ -50,23 +50,7 @@ public sealed partial class ReviewResponseParser
             throw new ReviewResponseException("The agent returned no review response.");
         }
 
-        var matches = JsonFence().Matches(response);
-        if (matches.Count > 1)
-        {
-            throw new ReviewResponseException("The agent returned more than one JSON block.");
-        }
-
-        var json = matches.Count == 1 ? matches[0].Groups[1].Value : response.Trim();
-        JsonObject root;
-        try
-        {
-            root = JsonNode.Parse(json)?.AsObject()
-                ?? throw new ReviewResponseException("The response root must be a JSON object.");
-        }
-        catch (JsonException exception)
-        {
-            throw new ReviewResponseException("The agent returned invalid JSON.", exception);
-        }
+        var root = AgentJsonReader.FirstObject(response);
 
         ValidateGrade(RequireObject(root, "grade"));
         RequireString(root, "summary");
@@ -290,8 +274,6 @@ public sealed partial class ReviewResponseParser
     [GeneratedRegex("-{2,}", RegexOptions.CultureInvariant)]
     private static partial Regex HyphenRun();
 
-    [GeneratedRegex(@"```json\s*([\s\S]*?)\s*```", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex JsonFence();
 }
 
 public sealed class ReviewResponseException(string message, Exception? innerException = null)

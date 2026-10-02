@@ -230,7 +230,7 @@ curl -X POST "http://127.0.0.1:5127/api/security/attack-coverage/judgements?path
 # 201 and appends attacks/coverage-ledger.jsonl in the project's data root
 
 curl "http://127.0.0.1:5127/api/sensors"
-# 200 {"sensors":[{"id":"dependencies","version":"1.0.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
+# 200 {"sensors":[{"id":"dependencies","version":"1.1.0","scopes":["repository","path"],"enabled":true,"available":true,...},...]}
 
 curl -X POST "http://127.0.0.1:5127/api/sensors/dependencies/scan?path=frontend"
 # 200 {"available":true,"unavailableReason":null,"findings":[...],"provenance":{...}}
@@ -294,7 +294,11 @@ entry preserves `null`, distinguishing unreported usage from a reported zero.
 `/api/quotas` is a global, presentation-safe snapshot from Runner's
 quota service. It may return an empty `providers` array while credentials or
 provider data are unavailable; callers must treat that as an unavailable state,
-not as unlimited quota.
+not as unlimited quota. Its `auth` array holds one login state per provider
+(`provider`, `state` = `ok` | `failed` | `unknown`, `checkedAt`, `detail`,
+`source` = `review-run` | `quota-probe` | `none`), covering every quota provider
+plus any provider a review has used; see
+[`review-runs.md`](review-runs.md#provider-and-login-failures).
 
 All repository operations also have a scoped form, for example
 `/api/repos/payments/tree?path=`, `/api/repos/payments/file?path=README.md`,

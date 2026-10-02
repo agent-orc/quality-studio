@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-09-19T21:06:56.094Z",
+  "baseUrl": "http://127.0.0.1:4229/",
+  "assertions": [
+    "Back restores repository, file, security finding and existing history entry",
+    "Forward survives delayed tree loading",
+    "Blocked storage allows startup, theme change and repository switch",
+    "Hosted exports carry bearer auth, download octet-stream blobs and release their URLs",
+    "Export 403 is visible and retry succeeds",
+    "Hostile finding/model strings remain text and downloaded HTML never executes",
+    "Only mocked GET API requests and no page exceptions"
+  ],
+  "apiRequestCount": 93,
+  "pageErrors": []
+}

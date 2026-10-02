@@ -204,6 +204,26 @@
   color: var(--status-missing);
 }
 
+.auth-chip {
+  padding: 4px 7px;
+  border: 1px solid var(--studio-border);
+  border-radius: 999px;
+  background: var(--studio-bg-surface);
+  color: var(--status-missing);
+  font-size: var(--studio-font-size-label);
+  white-space: nowrap;
+}
+
+.auth-chip[data-auth-state='ok'] {
+  color: var(--status-fresh);
+}
+
+.auth-chip[data-auth-state='failed'] {
+  border-color: var(--status-stale);
+  color: var(--status-stale);
+  font-weight: var(--studio-font-weight-strong);
+}
+
 .usage-button {
   display: flex;
   align-items: center;

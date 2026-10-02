@@ -126,6 +126,12 @@ public sealed record QualityRunFinding(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<FindingEvidenceItem>? EvidenceItems = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReproductionInfo? Reproduction = null);
 
+/// <summary>
+/// How a run's findings moved against the prior comparable run. <see cref="NotReobserved"/> holds
+/// prior findings this run did not report again although their code is unchanged; they are not in
+/// <see cref="Resolved"/>, because a review that misses a finding has not shown it was fixed. Absent
+/// in reports written before the distinction existed.
+/// </summary>
 public sealed record QualityRunDelta(
     string Status,
     string? PriorRunId,
@@ -133,7 +139,8 @@ public sealed record QualityRunDelta(
     IReadOnlyList<string> New,
     IReadOnlyList<string> Persisting,
     IReadOnlyList<string> Resolved,
-    IReadOnlyList<string> StateChanged);
+    IReadOnlyList<string> StateChanged,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? NotReobserved = null);
 
 /// <summary>
 /// Descriptive projection over the observations of one run, not a review statement about the run scope.

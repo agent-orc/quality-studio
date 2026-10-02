@@ -1,0 +1,72 @@
+{
+  "gitVersion": "git version 2.55.0.windows.1",
+  "fixture": "isolated disposable repository; hook only writes fixture-local marker and exits 1",
+  "results": [
+    {
+      "args": [
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all"
+      ],
+      "hardened": false,
+      "exitCode": 0,
+      "hookExecuted": true
+    },
+    {
+      "args": [
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all"
+      ],
+      "hardened": true,
+      "exitCode": 0,
+      "hookExecuted": false
+    },
+    {
+      "args": [
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "hardened": false,
+      "exitCode": 0,
+      "hookExecuted": true
+    },
+    {
+      "args": [
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "hardened": true,
+      "exitCode": 0,
+      "hookExecuted": false
+    },
+    {
+      "args": [
+        "ls-files",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "-z"
+      ],
+      "hardened": false,
+      "exitCode": 0,
+      "hookExecuted": true
+    },
+    {
+      "args": [
+        "ls-files",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "-z"
+      ],
+      "hardened": true,
+      "exitCode": 0,
+      "hookExecuted": false
+    }
+  ]
+}

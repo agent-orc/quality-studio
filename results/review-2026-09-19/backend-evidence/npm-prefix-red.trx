@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="fc6c025b-3c07-4cb5-afbb-ffef2ebb66a2" name="rmisc@TUFI2 2026-09-19 23:40:30" runUser="TUFI2\rmisc" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-19T23:40:30.0675670+02:00" queuing="2026-09-19T23:40:30.0675673+02:00" start="2026-09-19T23:40:27.7376241+02:00" finish="2026-09-19T23:40:30.0737909+02:00" />
+  <TestSettings name="default" id="9a0935f9-4cc0-44f6-bd57-db1c45e792eb">
+    <Deployment runDeploymentRoot="rmisc_TUFI2_2026-09-19_23_40_30" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="a8b98370-8ea4-421c-9890-21685c4d2ba6" testId="5b6b9ee2-5760-d651-5dce-af310f54d524" testName="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Audit_uses_the_discovered_lock_root_instead_of_an_ancestor_package" computerName="TUFI2" duration="00:00:00.6359373" startTime="2026-09-19T23:40:29.2767293+02:00" endTime="2026-09-19T23:40:29.9433008+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a8b98370-8ea4-421c-9890-21685c4d2ba6">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: C:\Users\rmisc\AppData\Local\Temp\quality npm ancestor-u4c2yr1v.kap\lock-only &amp; (nested)&#xD;
+Actual:   C:\Users\rmisc\AppData\Local\Temp\quality npm ancestor-u4c2yr1v.kap</Message>
+          <StackTrace>   at AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Audit_uses_the_discovered_lock_root_instead_of_an_ancestor_package() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\WindowsNpmCommandTests.cs:line 129&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Audit_uses_the_discovered_lock_root_instead_of_an_ancestor_package" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="5b6b9ee2-5760-d651-5dce-af310f54d524">
+      <Execution id="a8b98370-8ea4-421c-9890-21685c4d2ba6" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests" name="Audit_uses_the_discovered_lock_root_instead_of_an_ancestor_package" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="5b6b9ee2-5760-d651-5dce-af310f54d524" executionId="a8b98370-8ea4-421c-9890-21685c4d2ba6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="1" executed="1" passed="0" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.9)&#xD;
+[xUnit.net 00:00:00.23]   Discovering: AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:00.73]   Discovered:  AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:00.96]   Starting:    AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.70]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:01.70]       Expected: C:\Users\rmisc\AppData\Local\Temp\quality npm ancestor-u4c2yr1v.kap\lock-only &amp; (nested)&#xD;
+[xUnit.net 00:00:01.70]       Actual:   C:\Users\rmisc\AppData\Local\Temp\quality npm ancestor-u4c2yr1v.kap&#xD;
+[xUnit.net 00:00:01.70]       Stack Trace:&#xD;
+[xUnit.net 00:00:01.70]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\WindowsNpmCommandTests.cs(129,0): at AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Audit_uses_the_discovered_lock_root_instead_of_an_ancestor_package()&#xD;
+[xUnit.net 00:00:01.70]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:01.72]   Finished:    AgentOrchestrator.CodeQuality.Tests (ID = '8a53d804e00b4efa9f51a3eb276cfe4ed05fec6a1c98e718a1afbd857257950e')&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T23:40:29.9517401+02:00">
+        <Text>[xUnit.net 00:00:01.70]     AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Audit_uses_the_discovered_lock_root_instead_of_an_ancestor_package [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

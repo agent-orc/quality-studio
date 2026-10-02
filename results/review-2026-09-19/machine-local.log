@@ -1,0 +1,13 @@
+> dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --filter Category=MachineBound --verbosity quiet --no-build --list-tests
+> dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --filter Category=MachineBound --verbosity quiet --no-build --list-tests
+lane inventory: machine (host timing and performance checks on the labeled canary host); core=1, api=1
+> dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --filter Category=MachineBound --verbosity minimal --no-build
+Test run for C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 6 s - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)
+> dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --filter Category=MachineBound --verbosity minimal --no-build
+Test run for C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 8 s - QualityStudio.Api.Tests.dll (net10.0)

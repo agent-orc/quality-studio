@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/review-response.v1.schema.json",
+  "title": "Quality Studio review agent response v1",
+  "description": "The one JSON object a file, module or project review agent returns. Quality Studio reads the first complete JSON object in the answer, validates it, and assigns finding ids and fingerprints itself.",
+  "type": "object",
+  "required": ["grade", "summary", "aspects", "findings"],
+  "properties": {
+    "grade": { "$ref": "#/$defs/grade" },
+    "summary": { "$ref": "#/$defs/text" },
+    "aspects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "grade"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{1,63}$" },
+          "title": { "$ref": "#/$defs/text" },
+          "grade": { "$ref": "#/$defs/grade" }
+        }
+      }
+    },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "threadUpdates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["threadId", "body"],
+        "properties": {
+          "threadId": { "$ref": "#/$defs/text" },
+          "body": { "type": "string", "minLength": 1, "maxLength": 20000, "pattern": "\\S" },
+          "replyTo": { "$ref": "#/$defs/text" },
+          "status": { "enum": ["open", "resolved"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "grade": {
+      "type": "object",
+      "required": ["score", "band", "rationale"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "band": { "enum": ["A", "B", "C", "D", "F"] },
+        "rationale": { "$ref": "#/$defs/text" }
+      },
+      "allOf": [
+        { "if": { "properties": { "score": { "minimum": 90 } } }, "then": { "properties": { "band": { "const": "A" } } } },
+        { "if": { "properties": { "score": { "minimum": 80, "maximum": 89 } } }, "then": { "properties": { "band": { "const": "B" } } } },
+        { "if": { "properties": { "score": { "minimum": 70, "maximum": 79 } } }, "then": { "properties": { "band": { "const": "C" } } } },
+        { "if": { "properties": { "score": { "minimum": 60, "maximum": 69 } } }, "then": { "properties": { "band": { "const": "D" } } } },
+        { "if": { "properties": { "score": { "maximum": 59 } } }, "then": { "properties": { "band": { "const": "F" } } } }
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "ruleId", "aspect", "severity", "title", "description", "recommendation", "locations"],
+      "not": { "required": ["source"] },
+      "properties": {
+        "id": { "$ref": "#/$defs/text" },
+        "ruleId": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "\\S" },
+        "aspect": { "$ref": "#/$defs/text" },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "title": { "$ref": "#/$defs/text" },
+        "description": { "$ref": "#/$defs/text" },
+        "recommendation": { "$ref": "#/$defs/text" },
+        "evidence": { "type": "string" },
+        "locations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/location" } }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["path", "range"],
+      "properties": {
+        "path": { "$ref": "#/$defs/text" },
+        "range": {
+          "type": "object",
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "$ref": "#/$defs/position" },
+            "end": { "$ref": "#/$defs/position" }
+          }
+        }
+      }
+    },
+    "position": {
+      "type": "object",
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

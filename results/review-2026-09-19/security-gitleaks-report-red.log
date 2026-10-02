@@ -1,0 +1,54 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentOrchestrator.CodeQuality -> C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\bin\Release\net10.0\AgentOrchestrator.CodeQuality.dll
+  quality-cli -> C:\Projects\quality-studio\backend\quality-cli\bin\Release\net10.0\quality.dll
+  AgentOrchestrator.CodeQuality.Tests -> C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll
+Test run for C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:07.15]     AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "stdout-overflow") [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "stdout-overflow") [3 s]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(String scenario) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\GitleaksSecurityScannerTests.cs:line 69
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:10.11]     AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "oversized-report") [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "oversized-report") [2 s]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(String scenario) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\GitleaksSecurityScannerTests.cs:line 69
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:13.16]     AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "empty-report") [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "empty-report") [3 s]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(String scenario) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\GitleaksSecurityScannerTests.cs:line 69
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:16.08]     AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "missing-report-findings") [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "missing-report-findings") [2 s]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(String scenario) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\GitleaksSecurityScannerTests.cs:line 69
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:19.16]     AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "missing-report-success") [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(scenario: "missing-report-success") [3 s]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.GitleaksSecurityScannerTests.Failed_or_incomplete_scan_output_is_unavailable_not_clean(String scenario) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\GitleaksSecurityScannerTests.cs:line 69
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     5, Passed:     1, Skipped:     0, Total:     6, Duration: 18 s - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)

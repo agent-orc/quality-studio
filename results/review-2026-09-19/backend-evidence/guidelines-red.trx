@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="70faa8b9-59dd-47ed-8790-b938b8d6c0e3" name="rmisc@TUFI2 2026-09-19 22:36:46" runUser="TUFI2\rmisc" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-19T22:36:46.2312199+02:00" queuing="2026-09-19T22:36:46.2312202+02:00" start="2026-09-19T22:36:41.2230966+02:00" finish="2026-09-19T22:36:46.9381823+02:00" />
+  <TestSettings name="default" id="79dc2cc4-3b28-43c5-a440-f8ea1f1f4a7a">
+    <Deployment runDeploymentRoot="rmisc_TUFI2_2026-09-19_22_36_46" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="b86fc08f-0924-406e-bfe1-d28fdb3e43e0" testId="3f344eba-507a-ec46-4924-dafe3b528f43" testName="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(global: False)" computerName="TUFI2" duration="00:00:00.5593578" startTime="2026-09-19T22:36:46.1732548+02:00" endTime="2026-09-19T22:36:46.7346955+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b86fc08f-0924-406e-bfe1-d28fdb3e43e0">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.False() Failure&#xD;
+Expected: False&#xD;
+Actual:   True</Message>
+          <StackTrace>   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.&lt;&gt;c__DisplayClass12_0.&lt;&lt;ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change&gt;b__0&gt;d.MoveNext() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 815&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.WithReviewFileAsync(Func`3 test) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 1072&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(Boolean global) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 798&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="88e18c09-5526-4d5a-a156-da7ce21dbb05" testId="a7df0119-6571-d191-bdd6-40d53986b61c" testName="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(global: True)" computerName="TUFI2" duration="00:00:01.4843759" startTime="2026-09-19T22:36:44.5865725+02:00" endTime="2026-09-19T22:36:46.1551185+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="88e18c09-5526-4d5a-a156-da7ce21dbb05">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.False() Failure&#xD;
+Expected: False&#xD;
+Actual:   True</Message>
+          <StackTrace>   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.&lt;&gt;c__DisplayClass12_0.&lt;&lt;ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change&gt;b__0&gt;d.MoveNext() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 815&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.WithReviewFileAsync(Func`3 test) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 1072&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(Boolean global) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs:line 798&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(global: True)" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="a7df0119-6571-d191-bdd6-40d53986b61c">
+      <Execution id="88e18c09-5526-4d5a-a156-da7ce21dbb05" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests" name="ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(global: False)" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="3f344eba-507a-ec46-4924-dafe3b528f43">
+      <Execution id="b86fc08f-0924-406e-bfe1-d28fdb3e43e0" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests" name="ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="3f344eba-507a-ec46-4924-dafe3b528f43" executionId="b86fc08f-0924-406e-bfe1-d28fdb3e43e0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a7df0119-6571-d191-bdd6-40d53986b61c" executionId="88e18c09-5526-4d5a-a156-da7ce21dbb05" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="2" executed="2" passed="0" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.9)&#xD;
+[xUnit.net 00:00:00.61]   Discovering: AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.56]   Discovered:  AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:02.05]   Starting:    AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:03.80]       Assert.False() Failure&#xD;
+[xUnit.net 00:00:03.80]       Expected: False&#xD;
+[xUnit.net 00:00:03.80]       Actual:   True&#xD;
+[xUnit.net 00:00:03.80]       Stack Trace:&#xD;
+[xUnit.net 00:00:03.80]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(815,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.&lt;&gt;c__DisplayClass12_0.&lt;&lt;ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change&gt;b__0&gt;d.MoveNext()&#xD;
+[xUnit.net 00:00:03.80]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:03.80]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(1072,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.WithReviewFileAsync(Func`3 test)&#xD;
+[xUnit.net 00:00:03.80]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(798,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(Boolean global)&#xD;
+[xUnit.net 00:00:03.80]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:04.37]       Assert.False() Failure&#xD;
+[xUnit.net 00:00:04.37]       Expected: False&#xD;
+[xUnit.net 00:00:04.37]       Actual:   True&#xD;
+[xUnit.net 00:00:04.37]       Stack Trace:&#xD;
+[xUnit.net 00:00:04.37]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(815,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.&lt;&gt;c__DisplayClass12_0.&lt;&lt;ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change&gt;b__0&gt;d.MoveNext()&#xD;
+[xUnit.net 00:00:04.37]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:04.37]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(1072,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.WithReviewFileAsync(Func`3 test)&#xD;
+[xUnit.net 00:00:04.37]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\ReviewRunnerTests.cs(798,0): at AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(Boolean global)&#xD;
+[xUnit.net 00:00:04.37]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:04.40]   Finished:    AgentOrchestrator.CodeQuality.Tests (ID = '8a53d804e00b4efa9f51a3eb276cfe4ed05fec6a1c98e718a1afbd857257950e')&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T22:36:46.1675135+02:00">
+        <Text>[xUnit.net 00:00:03.80]     AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(global: True) [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T22:36:46.7418260+02:00">
+        <Text>[xUnit.net 00:00:04.37]     AgentOrchestrator.CodeQuality.Tests.ReviewRunnerTests.ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(global: False) [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

@@ -1,0 +1,27 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentOrchestrator.CodeQuality -> C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\bin\Release\net10.0\AgentOrchestrator.CodeQuality.dll
+  QualityStudio.Api -> C:\Projects\quality-studio\backend\QualityStudio.Api\bin\Release\net10.0\QualityStudio.Api.dll
+  QualityStudio.Api.Tests -> C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll
+Test run for C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.73]     QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(configureProxy: False) [FAIL]
+  Failed QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(configureProxy: False) [1 s]
+  Error Message:
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(System.InvalidOperationException)
+  Stack Trace:
+     at QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(Boolean configureProxy) in C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs:line 398
+   at QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(Boolean configureProxy) in C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs:line 401
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:03.65]     QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(configureProxy: True) [FAIL]
+  Failed QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(configureProxy: True) [919 ms]
+  Error Message:
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(System.InvalidOperationException)
+  Stack Trace:
+     at QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(Boolean configureProxy) in C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs:line 398
+   at QualityStudio.Api.Tests.ApiSecurityTests.Hosted_startup_rejects_framework_wide_automatic_forwarding(Boolean configureProxy) in C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs:line 401
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     2, Passed:     0, Skipped:     0, Total:     2, Duration: 2 s - QualityStudio.Api.Tests.dll (net10.0)

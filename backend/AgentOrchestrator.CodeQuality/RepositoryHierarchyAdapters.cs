@@ -301,11 +301,9 @@ public static partial class RepositoryHierarchyBuilder
                 CreateNoWindow = true,
             },
         };
-        process.StartInfo.ArgumentList.Add("ls-files");
-        process.StartInfo.ArgumentList.Add("--cached");
-        process.StartInfo.ArgumentList.Add("--others");
-        process.StartInfo.ArgumentList.Add("--exclude-standard");
-        process.StartInfo.ArgumentList.Add("-z");
+        foreach (var argument in ReadOnlyGit.WithSafetyOptions(
+                     ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]))
+            process.StartInfo.ArgumentList.Add(argument);
         try
         {
             if (!process.Start()) return null;

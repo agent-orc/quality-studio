@@ -1,0 +1,40 @@
+change qs 6.15.3 => 6.16.0
+change body-parser 1.20.6 => 1.20.8
+change js-yaml 4.3.1 => 4.3.2
+change hono 4.13.3 => 4.13.8
+
+changed 4 packages, and audited 679 packages in 2s
+
+157 packages are looking for funding
+  run `npm fund` for details
+
+# npm audit report
+
+hono  <=4.13.4
+Severity: moderate
+Hono: Incomplete fix for CVE-2026-39408: `toSSG()` still writes files outside the output directory - https://github.com/advisories/GHSA-gqvv-2mrq-wpjv
+Hono: Unbounded dot-notation nesting in `parseBody()` can cause memory exhaustion - https://github.com/advisories/GHSA-g6gw-c38x-mqfc
+Hono: Query parser reads parameters after the URL fragment, causing cache-key and proxy interpretation differentials - https://github.com/advisories/GHSA-crvj-82cr-hjcx
+fix available via `npm audit fix`
+
+
+js-yaml  4.0.0 - 4.3.1
+Severity: high
+js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources - https://github.com/advisories/GHSA-2883-xcg3-v3hh
+fix available via `npm audit fix`
+
+
+qs  2.2.5 - 6.15.3
+Severity: moderate
+qs array-limit bypass via bracket-key comma parsing - https://github.com/advisories/GHSA-x5fp-wj9c-mxmx
+qs: Denial of Service via Attacker Controlled isBuffer - https://github.com/advisories/GHSA-4mjr-xmp4-gh2g
+fix available via `npm audit fix`
+
+  body-parser  1.20.5 - 1.20.6
+  Depends on vulnerable versions of qs
+  
+
+4 vulnerabilities (3 moderate, 1 high)
+
+To address all issues, run:
+  npm audit fix

@@ -1,0 +1,108 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentOrchestrator.CodeQuality -> C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\bin\Release\net10.0\AgentOrchestrator.CodeQuality.dll
+  quality-cli -> C:\Projects\quality-studio\backend\quality-cli\bin\Release\net10.0\quality.dll
+  AgentOrchestrator.CodeQuality.Tests -> C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll
+Test run for C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.79]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{\"projects\":{}}") [FAIL]
+[xUnit.net 00:00:01.82]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{}") [FAIL]
+[xUnit.net 00:00:01.82]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{\"vulnerabilities\":[]}") [FAIL]
+[xUnit.net 00:00:01.83]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{\"projects\":[{}]}") [FAIL]
+[xUnit.net 00:00:01.84]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 1, json: "{\"advisories\":{}}") [FAIL]
+[xUnit.net 00:00:01.84]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{}") [FAIL]
+[xUnit.net 00:00:01.85]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{\"projects\":[{\"path\":\"Sample.csproj\",\"frame"···) [FAIL]
+[xUnit.net 00:00:01.85]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 1, json: "{\"vulnerabilities\":{}}") [FAIL]
+[xUnit.net 00:00:01.86]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{\"vulnerabilities\":{\"incomplete\":{}}}") [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{\"projects\":{}}") [88 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{}") [21 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{\"vulnerabilities\":[]}") [6 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{\"projects\":[{}]}") [4 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 1, json: "{\"advisories\":{}}") [5 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{}") [3 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "dotnet", exitCode: 0, json: "{\"projects\":[{\"path\":\"Sample.csproj\",\"frame"···) [3 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 1, json: "{\"vulnerabilities\":{}}") [5 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{\"vulnerabilities\":{\"incomplete\":{}}}") [6 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.88]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{\"advisories\":[]}") [FAIL]
+[xUnit.net 00:00:02.01]     AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RequestsTransitiveNugetDependencies [FAIL]
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(ecosystem: "npm", exitCode: 0, json: "{\"advisories\":[]}") [6 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RejectsUnusableAuditEvidence(String ecosystem, Int32 exitCode, String json) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 104
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RequestsTransitiveNugetDependencies [11 ms]
+  Error Message:
+   Assert.Contains() Failure: Item not found in collection
+Collection: ["list", "C:\\Users\\rmisc\\AppData\\Local\\Temp\\quality-st"···, "package", "--vulnerable", "--format", ···]
+Not found:  "--include-transitive"
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.DependencyVulnerabilitySensorTests.RunAsync_RequestsTransitiveNugetDependencies() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\DependencyVulnerabilitySensorTests.cs:line 131
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:    11, Passed:     7, Skipped:     0, Total:    18, Duration: 380 ms - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)

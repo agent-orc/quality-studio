@@ -1,0 +1,27 @@
+{
+  "repositoryPath": "C:\\Projects\\quality-studio",
+  "repositoryId": "quality-studio",
+  "startedAt": "2026-09-19T21:35:34.1634548+00:00",
+  "completedAt": "2026-09-19T21:35:54.3014849+00:00",
+  "analyses": [
+    {
+      "name": "dependencies",
+      "version": "1.1.0",
+      "available": false,
+      "unavailableReason": "npm audit was unavailable: ENOLOCK: This command requires an existing lockfile.",
+      "findingCount": 0,
+      "provenance": {
+        "sensorId": "dependencies",
+        "sensorVersion": "1.1.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-19T21:35:54.3007984Z",
+        "toolVersions": {
+          "dotnet": "10.0.301",
+          "npm": "11.16.0"
+        }
+      }
+    }
+  ],
+  "findings": []
+}

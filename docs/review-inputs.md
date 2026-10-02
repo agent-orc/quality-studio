@@ -74,3 +74,23 @@ code. A current code manifest with a different effective input hash is reported 
 The guideline editor can dry-run an unsaved draft against one to ten sample files.
 It runs both current and draft policy through the reviewer, compares stable finding
 identities, and reports added and removed findings without writing review metadata.
+
+## Guidelines supplied by an in-process host
+
+`ReviewRequest.GlobalGuidelines` and `ProjectGuidelines` add request-specific guidance to the
+resolved repository policy. Their trimmed content digests participate in the effective input hash
+and are recorded as `qs-request-global-guidelines` / `qs-request-project-guidelines` standards with
+version `request-guidelines-v1`. Changing, adding or removing that guidance prevents a fresh-review
+skip. Existing v1 input hashes remain unchanged when no request-specific guidance is supplied.
+
+A standalone staleness scan has no new host request to compare. It checks the current repository
+policy in the **recorded request context**, retaining those stored digests; it cannot attest that an
+external host still supplies the same guidance. A subsequent host review compares its actual current
+request. Sidecars created before request guidance was fingerprinted are reviewed again when guidance
+is supplied. The request text itself is not copied into the sidecar.
+
+Review preparation captures the source manifest before assembling source excerpts and collecting
+sensor evidence, then checks it again before invoking the review agent. A mismatch fails the review,
+as changes detected after agent execution already do. This detects changes between those checks;
+it is not an immutable checkout snapshot. A transient edit restored before the next check can remain
+undetected. Hosts requiring an immutable review subject should provide an isolated, fixed checkout.

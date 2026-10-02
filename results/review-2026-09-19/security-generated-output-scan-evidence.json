@@ -1,0 +1,28 @@
+{
+  "baselineCommit": "a9c25aaf4cf94ce266f7a0dae7bd5f82a0c5977f",
+  "method": "Isolated temporary directories; actual pinned Gitleaks CLI invoked with the same dir . boundary as repository scanner; no application persistence or real secrets used",
+  "scannerVersion": "8.24.2",
+  "command": [
+    "gitleaks",
+    "dir",
+    ".",
+    "--redact=100",
+    "--no-banner",
+    "--no-color",
+    "--report-format",
+    "json",
+    "--report-path",
+    "<temporary report>"
+  ],
+  "repositoryScan": {
+    "exitCode": 0,
+    "findingCount": 0
+  },
+  "generatedReviewOutputScan": {
+    "exitCode": 1,
+    "findingCount": 1
+  },
+  "fixture": "Synthetically constructed AWS-format test identifier in generated/reviews outside repository",
+  "secretValuesPrinted": false,
+  "inference": "Repository-only scan cannot observe review artifacts relocated to external QualityDataRoot. Existing repository secret-scan pass does not assert generated outputs are secret-free."
+}

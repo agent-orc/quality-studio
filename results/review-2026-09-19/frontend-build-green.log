@@ -1,0 +1,15 @@
+                      | Initial total       | 318.18 kB |                89.22 kB
+Application bundle generation complete. [12.274 seconds] - 2026-09-19T21:03:22.579Z
+▲ [WARNING] NG8102: The left side of this nullish coalescing operation does not include 'null' or 'undefined' in its type, therefore the '??' operator can be safely removed. [plugin angular-compiler]
+▲ [WARNING] NG8102: The left side of this nullish coalescing operation does not include 'null' or 'undefined' in its type, therefore the '??' operator can be safely removed. [plugin angular-compiler]
+▲ [WARNING] Module 'prismjs' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-markup' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-css' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-scss' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-clike' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-csharp' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-javascript' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-typescript' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-json' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+▲ [WARNING] Module 'prismjs/components/prism-markdown' used by 'src/app/features/code/editor/syntax-tokenizer.ts' is not ESM
+Output location: C:\Projects\quality-studio\frontend\dist\frontend

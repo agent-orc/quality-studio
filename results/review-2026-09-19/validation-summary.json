@@ -1,0 +1,160 @@
+{
+  "generatedAtUtc": "2026-09-19T22:08:55.877143+00:00",
+  "repository": "C:/Projects/quality-studio",
+  "branch": "main",
+  "baselineCommit": "a9c25aaf4cf94ce266f7a0dae7bd5f82a0c5977f",
+  "reviewStartedAtUtc": "2026-09-19T20:30:27Z",
+  "hardStopAtUtc": "2026-09-19T22:30:27Z",
+  "workingTree": "local uncommitted changes; no push/deployment/external handover",
+  "dotnet": {
+    "sdk": "10.0.301",
+    "releaseBuild": {
+      "passed": true,
+      "warnings": 0,
+      "errors": 0
+    },
+    "portable": {
+      "core": {
+        "failed": 0,
+        "passed": 456,
+        "skipped": 0,
+        "total": 456
+      },
+      "api": {
+        "failed": 0,
+        "passed": 82,
+        "skipped": 0,
+        "total": 82
+      }
+    },
+    "toolBound": {
+      "core": {
+        "failed": 0,
+        "passed": 77,
+        "skipped": 3,
+        "total": 80
+      },
+      "api": {
+        "failed": 0,
+        "passed": 157,
+        "skipped": 0,
+        "total": 157
+      }
+    },
+    "combinedNonMachine": {
+      "core": {
+        "failed": 0,
+        "passed": 533,
+        "skipped": 3,
+        "total": 536
+      },
+      "api": {
+        "failed": 0,
+        "passed": 239,
+        "skipped": 0,
+        "total": 239
+      }
+    },
+    "machineLocal": {
+      "core": {
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "total": 1
+      },
+      "api": {
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "total": 1
+      }
+    },
+    "uniquePassedIncludingMachine": 774,
+    "uniqueSkipped": 3,
+    "skipReason": "Three POSIX-only process fixtures on Windows; Windows Node process fixtures passed.",
+    "formatVerifyExitCode": 0,
+    "nugetPackExitCode": 0,
+    "evidencePipelineExitCode": 0
+  },
+  "coverage": {
+    "AgentOrchestrator.CodeQuality.Tests": {
+      "coveredLines": 15993,
+      "totalLines": 19099,
+      "linePercent": 83.74,
+      "report": "results\\review-2026-09-19\\coverage-complete\\core\\2e351541-b38c-4172-a9a9-bbaa44a855c1\\coverage.cobertura.xml"
+    },
+    "QualityStudio.Api.Tests": {
+      "coveredLines": 12264,
+      "totalLines": 23868,
+      "linePercent": 51.38,
+      "report": "results\\review-2026-09-19\\coverage-complete\\api\\2d35871f-00fb-49ec-87dc-983cd05a4664\\coverage.cobertura.xml"
+    },
+    "frontend": {
+      "runtime": "22.23.1",
+      "linePercent": 74.88,
+      "baselinePercent": 60.82,
+      "floorPercent": 58.82
+    }
+  },
+  "frontend": {
+    "testsPassed": 215,
+    "pinnedNode": "22.23.1",
+    "additionalNode": "24.18.0",
+    "lintPassed": true,
+    "architectureAndTypographyTestsPassed": 30,
+    "browserResolverTestsPassed": 4,
+    "productionBuildPassed": true,
+    "referenceBuildPassed": true,
+    "existingBuildWarnings": [
+      "Angular NG8102",
+      "Prism CommonJS"
+    ]
+  },
+  "repositoryChecks": {
+    "nodeTestsPassed": 30,
+    "pythonCoverageValidatorTestsPassed": 17,
+    "rulesDomainsReferencePassed": true,
+    "catalogSnapshotIntegrityPassed": true,
+    "upstreamCatalogDriftChecked": false
+  },
+  "scans": {
+    "gitleaks": {
+      "passed": true,
+      "files": 961,
+      "newFindings": 0,
+      "version": "8.24.2",
+      "scope": "repository, external data root excluded"
+    },
+    "boundaries": {
+      "available": true,
+      "count": 27,
+      "severity": {
+        "high": 25,
+        "medium": 2
+      },
+      "interpretation": "mechanical review leads, not confirmed vulnerabilities"
+    },
+    "dependencySensor": {
+      "available": true,
+      "findingCount": 1,
+      "interpretation": "one High semver advisory in deliberately vulnerable test fixture; actual frontend/NuGet dependency audits are clean"
+    }
+  },
+  "realApiBrowser": {
+    "measuredAt": "2026-09-19T21:50:52.353Z",
+    "sourceFiles": 1600,
+    "allBudgetsPassed": true,
+    "note": "Release after Git hardening, before final npm/npx resolver extension; measured locally under Node 24"
+  },
+  "sarifRealApiProbes": {
+    "passed": 16,
+    "previouslyFalseCleanCasesCorrected": 7
+  },
+  "notRun": [
+    "Linux CI",
+    "external-live/provider lane",
+    "container/tenant isolation validation",
+    "designated release-canary host"
+  ],
+  "remainingReleaseBoundary": "Operator-trusted repositories only; hostile/multi-tenant execution still requires isolated workers."
+}

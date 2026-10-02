@@ -1,0 +1,17 @@
+
+> frontend@0.0.0 build:reference
+> ng build style-reference
+
+> Building...
+√ Building...
+Initial chunk files   | Names         |  Raw size | Estimated transfer size
+main-CURDZRHM.js      | main          | 107.36 kB |                31.89 kB
+polyfills-5CFQRCPP.js | polyfills     |  34.59 kB |                11.33 kB
+styles-222DDUED.css   | styles        |  13.13 kB |                 2.63 kB
+
+                      | Initial total | 155.07 kB |                45.86 kB
+
+Application bundle generation complete. [2.838 seconds] - 2026-09-19T21:05:14.221Z
+
+Output location: C:\Projects\quality-studio\frontend\dist\style-reference
+

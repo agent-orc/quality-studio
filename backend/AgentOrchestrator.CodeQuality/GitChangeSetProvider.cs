@@ -208,7 +208,7 @@ internal static class GitPlumbing
                 StandardErrorEncoding = Encoding.UTF8,
             },
         };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+        foreach (var argument in ReadOnlyGit.WithSafetyOptions(arguments)) process.StartInfo.ArgumentList.Add(argument);
         try
         {
             if (!process.Start()) throw new ChangeReviewException("Git did not start.");
