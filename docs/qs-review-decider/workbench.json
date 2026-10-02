@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "qs-review-decider",
+  "title": "Quality Studio as the review decider for Agent Studio",
+  "summary": "Decision template for QS-W6 follow-up: should Quality Studio become the source and decider for Agent Studio code reviews instead of the model review aspects? It compares QS as an advisory aspect (A), QS as the decider for the code-quality aspect only (B), and QS as the sole decider (C) on pipeline change, cost per review, determinism, blind spots and rollout risk, using the Remote Review journal and grade reports and the 2026-09-28 QS analysis wave QS-108 to QS-117. It recommends B, run as a two-week paired trial on Agent Studio after the listed QS gaps close, with review minutes, false blocks and escaped defects as the deciding metrics.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "pattern": "concept",
+  "updatedAt": "2026-09-29T12:00:00Z",
+  "sourceTaskKeys": [
+    "QS-118"
+  ],
+  "relatedTaskKeys": [
+    "QS-108",
+    "QS-109",
+    "QS-110",
+    "QS-111",
+    "QS-112",
+    "QS-113",
+    "QS-114",
+    "QS-115",
+    "QS-116",
+    "QS-117"
+  ],
+  "relatedDocumentKeys": [
+    "QS-W6"
+  ],
+  "implementationTasks": [
+    {
+      "title": "Package the diff-bound code-quality verdict as a pinned Review Plane step",
+      "promptMarkdown": "Implement the Quality Studio side of option B from \u0060docs/qs-review-decider/index.html\u0060 (Recommendation and Prerequisites sections) in the Quality Studio repository. Start after QS-117 (verdict contract and diff-bound rule review) is on \u0060main\u0060; reuse its verdict schema rather than defining a second one.\n\n## Scope\n\n1. Add a non-interactive CLI entry (for example \u0060quality verdict . --base \u003Csha\u003E --head \u003Csha\u003E --output \u003Cfile\u003E --repository \u003Cid\u003E --review-policy-hash \u003Csha256:...\u003E\u0060) that runs on a Linux review host without the QS API, the UI or a data root in the checkout, and writes one schema-valid verdict artifact.\n2. The verdict covers the code-quality aspect only. It may return \u0060block\u0060 only for findings anchored on changed lines or changed units that carry a catalogue rule id and a citation (\u0060evidence_checked\u0060, \u0060missing\u0060). Standing debt in untouched code, security findings (QS-90 policy) and the deterministic \u0060regression\u0060 flag for new endpoints are reported, never blocking.\n3. Map outcomes to Agent Studio\u0027s contract: \u0060pass\u0060, \u0060concerns\u0060, \u0060block\u0060, or an infrastructure result (\u0060provider-unavailable\u0060, \u0060unparseable\u0060, \u0060auth-failure\u0060, \u0060timeout\u0060) that the caller maps to \u0060ReviewInfra\u0060. An unparseable or missing model reply must never become \u0060pass\u0060.\n4. Record the QS version, rule-set hash, model, thinking level, token usage (QS-110 ledger fields including cache writes) and duration in the artifact.\n5. Accept Roslyn/ESLint SARIF paths produced by the caller\u0027s own build step instead of compiling again; with no SARIF supplied, run no build (QS-111 opt-in rule).\n6. Run the reviewer in the clean context from QS-116; repository instruction files are data, not instructions.\n\n## Acceptance\n\n- A temporary Git fixture proves: identical deterministic findings and verdict for two runs on the same base/head and rule-set hash; a finding in an untouched file does not block; a new endpoint alone does not block; an unparseable model reply yields the infrastructure result, not \u0060pass\u0060.\n- Exit codes are documented in \u0060docs/change-reviews.md\u0060 and covered by tests.\n- No write into the reviewed checkout other than the named output file."
+    },
+    {
+      "title": "Agent Studio: Quality Studio code-quality verdict step with off, shadow and decide modes",
+      "promptMarkdown": "Implement the Agent Studio side of option B from the Quality Studio Dossier \u0060docs/qs-review-decider/index.html\u0060 in the Agent Studio repository. This extends QS-W6 Slice 3 (shadow provider on the Review Plane) with a decide mode. Start after the QS task \u0027Package the diff-bound code-quality verdict as a pinned Review Plane step\u0027 is released.\n\n## Scope\n\n1. Add a versioned review-library step that runs the pinned QS verdict CLI against the materialized Result-SHA and the resolved merge-base, reusing SARIF from the plan\u0027s own build step; seal it like the other \u0060ReviewLibraryStepDto\u0060 steps (digest, capabilities, timeout).\n2. Per-project mode \u0060qualityStudioCodeQuality\u0060: \u0060off\u0060 (default), \u0060shadow\u0060 (QS runs, the model code-quality aspect decides), \u0060decide\u0060 (QS verdict is the code-quality aspect verdict; the model code-quality aspect still runs and is recorded as shadow), with the mode recorded on every review report.\n3. In \u0060decide\u0060 mode the QS verdict enters \u0060ReviewFollowUpPolicy\u0060 and the verdict citation contract exactly like a model aspect verdict; council, concern rounds, scoped re-review and lane authority are unchanged. A QS infrastructure result is \u0060ReviewInfra\u0060 with the existing 1/3/9-minute retry; there is no silent fallback to the model aspect.\n4. Persist the QS artifact as digest-checked review evidence and show both verdicts (deciding and shadow) side by side in the review report.\n5. Switching the mode back to \u0060off\u0060 takes effect for the next claimed attempt and never rewrites earlier reports.\n\n## Acceptance\n\n- Tests prove: \u0060shadow\u0060 never changes the outcome; \u0060decide\u0060 with a QS \u0060block\u0060 yields \u0060ProductFailure\u0060 and a fix round; a QS infrastructure failure yields \u0060ReviewInfra\u0060, not \u0060Pass\u0060; carried-over verdicts in scoped re-review follow the existing rules.\n- The added step\u0027s host minutes are visible per report."
+    },
+    {
+      "title": "Agent Studio: record per-aspect tokens and trial metrics on Remote Review",
+      "promptMarkdown": "Implement the measurement prerequisite from the Quality Studio Dossier \u0060docs/qs-review-decider/index.html\u0060 (Recommendation: trial metrics) in the Agent Studio repository.\n\n## Scope\n\n1. Remote Review aspect commands record input, cached input, cache-write and output tokens per aspect from the CLI\u0027s usage output in the report\u0027s command evidence; a missing value is recorded as missing, not zero.\n2. Add a read-only export (endpoint or script under \u0060scripts/\u0060) that produces, per project and date range: claim-to-report minutes per attempt (from the review attempt lifecycle, excluding \u0060ReviewInfra\u0060), outcome counts, review attempts per card, the deciding and shadow code-quality verdicts per attempt, and tokens per aspect.\n3. Add an operator adjudication field per blocking code-quality finding (\u0060valid\u0060, \u0060false-block\u0060, \u0060unsure\u0060) and a way to mark a later-found defect as escaped for a given delivery.\n\n## Acceptance\n\n- Tests cover token parsing for Claude and Codex usage output including a missing-usage case.\n- The export reproduces the baseline in the Dossier\u0027s Evidence section (median claim-to-report for Agent Studio, 15 to 25 September 2026) within one minute from recorded data."
+    },
+    {
+      "title": "QS: paired-trial adjudication and rule-effectiveness report",
+      "promptMarkdown": "Implement the trial report from \u0060docs/qs-review-decider/index.html\u0060 (Recommendation: acceptance criteria and metrics) in the Quality Studio repository, on top of QS-114 (rule effectiveness metrics).\n\n## Scope\n\n1. Import the Agent Studio trial export (deciding and shadow code-quality verdicts, operator adjudications, escaped-defect marks, minutes, tokens).\n2. Report per rule and overall: QS blocks, adjudicated false blocks, Claude-only valid blocks (QS misses), QS-only valid blocks, escaped defects, tokens and minutes per review, and verdict agreement between repeated runs on the same subject.\n3. Evaluate the Dossier\u0027s acceptance criteria and stop rules and print pass or fail per criterion with the numbers; write the report as HTML and JSON under the data root.\n\n## Acceptance\n\n- A fixture export with known counts produces the expected pass/fail per criterion, including the stop rules.\n- False-block and miss rates are computed only from adjudicated findings; unadjudicated findings are counted and shown separately."
+    }
+  ],
+  "key": "QS-W31",
+  "tags": [],
+  "taggingStatus": "tags-proposed"
+}

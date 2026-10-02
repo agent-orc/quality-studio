@@ -1,0 +1,848 @@
+{
+  "date": "2026-09-19",
+  "source": "backend/QualityStudio.Api/Program.cs",
+  "collectionMethod": "Static inventory of app.MapGet/Post/Put/Patch/Delete declarations; public static UI fallback excluded. Policies independently traced through middleware and handler services.",
+  "routes": [
+    {
+      "method": "GET",
+      "pattern": "/health",
+      "line": 255,
+      "repositorySelection": "none",
+      "policy": "public-health",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos",
+      "line": 257,
+      "repositorySelection": "collection",
+      "policy": "authenticated-filtered-repository-collection",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos",
+      "line": 278,
+      "repositorySelection": "registrar-global",
+      "policy": "registrar-and-matching-client-id",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/import-from-agent-studio",
+      "line": 286,
+      "repositorySelection": "registrar-global",
+      "policy": "registrar-and-matching-client-id",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/repos/{repoId}",
+      "line": 288,
+      "repositorySelection": "route",
+      "policy": "registrar-and-matching-client-id",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/repos/{repoId}",
+      "line": 296,
+      "repositorySelection": "route",
+      "policy": "registrar-and-matching-client-id",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/tree",
+      "line": 299,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/tree",
+      "line": 300,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/tree/v2",
+      "line": 301,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/tree/v2",
+      "line": 302,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/tree/v2/search",
+      "line": 303,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/tree/v2/search",
+      "line": 304,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/risk",
+      "line": 305,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/risk",
+      "line": 306,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project",
+      "line": 307,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/project",
+      "line": 308,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/file",
+      "line": 309,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/file",
+      "line": 310,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/inputs",
+      "line": 311,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/inputs",
+      "line": 312,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/rules",
+      "line": 313,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/rules",
+      "line": 314,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/guidelines",
+      "line": 315,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/guidelines",
+      "line": 316,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/guidelines",
+      "line": 317,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/guidelines",
+      "line": 318,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/guidelines/{guidelineId}",
+      "line": 319,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/repos/{repoId}/guidelines/{guidelineId}",
+      "line": 320,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/guidelines/{guidelineId}",
+      "line": 321,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/repos/{repoId}/guidelines/{guidelineId}",
+      "line": 322,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/guidelines/catalog/{catalogueId}/install",
+      "line": 323,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/guidelines/catalog/{catalogueId}/install",
+      "line": 324,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/guidelines/impact",
+      "line": 325,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/guidelines/impact",
+      "line": 326,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/scan",
+      "line": 327,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/scan",
+      "line": 328,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/security/scan",
+      "line": 329,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/security/scan",
+      "line": 330,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/security/attack-coverage",
+      "line": 331,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/security/attack-coverage",
+      "line": 332,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/security/attack-coverage/judgements",
+      "line": 333,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/security/attack-coverage/judgements",
+      "line": 334,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/sensors",
+      "line": 335,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/sensors",
+      "line": 336,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/sensors/{id}/scan",
+      "line": 337,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/sensors/{id}/scan",
+      "line": 338,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/usage",
+      "line": 339,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/usage",
+      "line": 340,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/report",
+      "line": 341,
+      "repositorySelection": "collection",
+      "policy": "authenticated-filtered-repository-collection",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/report",
+      "line": 342,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/quotas",
+      "line": 343,
+      "repositorySelection": "none",
+      "policy": "authenticated-host-global",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/models",
+      "line": 344,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/models/default",
+      "line": 345,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/scope/rules",
+      "line": 346,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/scope/rules",
+      "line": 347,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/scope/rules/preview",
+      "line": 348,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/scope/rules/preview",
+      "line": 349,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/scope/rules",
+      "line": 350,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/scope/rules",
+      "line": 351,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/scope/rules/{index:int}",
+      "line": 352,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/repos/{repoId}/scope/rules/{index:int}",
+      "line": 353,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/scope/rules/{index:int}",
+      "line": 354,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/repos/{repoId}/scope/rules/{index:int}",
+      "line": 355,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/review",
+      "line": 357,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/review",
+      "line": 358,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/review/estimate",
+      "line": 359,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/review/estimate",
+      "line": 360,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs",
+      "line": 361,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs",
+      "line": 362,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs/trend",
+      "line": 363,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs/trend",
+      "line": 364,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs/compare",
+      "line": 365,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs/compare",
+      "line": 366,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs/retention",
+      "line": 367,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs/retention",
+      "line": 368,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs/pins",
+      "line": 369,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs/pins",
+      "line": 370,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs/{id}",
+      "line": 371,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}",
+      "line": 372,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/review/runs/{id}/report",
+      "line": 373,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}/report",
+      "line": 374,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/review/runs/{id}/pause",
+      "line": 375,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}/pause",
+      "line": 376,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/review/runs/{id}/resume",
+      "line": 377,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}/resume",
+      "line": 378,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/review/runs/{id}",
+      "line": 379,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}",
+      "line": 380,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/review/runs/{id}/pin",
+      "line": 381,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}/pin",
+      "line": 382,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/review/runs/{id}/pin",
+      "line": 383,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/repos/{repoId}/review/runs/{id}/pin",
+      "line": 384,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/handover",
+      "line": 386,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/handover",
+      "line": 387,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/handover",
+      "line": 388,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/handover",
+      "line": 389,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/threads",
+      "line": 390,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/threads",
+      "line": 391,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/findings/state",
+      "line": 392,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/findings/state",
+      "line": 393,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/findings/suppressions",
+      "line": 394,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/repos/{repoId}/findings/suppressions",
+      "line": 395,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": false
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/findings/suppressions",
+      "line": 396,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/repos/{repoId}/findings/suppressions",
+      "line": 397,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/findings/suppressions/{id}",
+      "line": 398,
+      "repositorySelection": "default",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/repos/{repoId}/findings/suppressions/{id}",
+      "line": 399,
+      "repositorySelection": "route",
+      "policy": "authenticated-repository-membership",
+      "matchingClientIdRequired": true
+    }
+  ],
+  "repositorySelectionMeaning": "Repository context used by authorization, not a claim that every handler reads repository data."
+}

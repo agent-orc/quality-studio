@@ -1,0 +1,86 @@
+[
+  {
+    "args": [
+      "prefix"
+    ],
+    "exitCode": 0,
+    "stdout": "C:\\Projects\\quality-studio",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "--prefix",
+      "C:\\Projects\\quality-studio\\backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\Fixtures\\dependencies",
+      "prefix"
+    ],
+    "exitCode": 0,
+    "stdout": "C:\\Projects\\quality-studio\\backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\Fixtures\\dependencies",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "--prefix",
+      "C:\\Projects\\quality-studio\\backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\Fixtures\\dependencies",
+      "audit",
+      "--json"
+    ],
+    "exitCode": 1,
+    "stdout": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {
+        "semver": {
+          "name": "semver",
+          "severity": "high",
+          "isDirect": true,
+          "via": [
+            {
+              "source": 1112918,
+              "name": "semver",
+              "dependency": "semver",
+              "title": "semver vulnerable to Regular Expression Denial of Service",
+              "url": "https://github.com/advisories/GHSA-c2qf-rxjj-qqgw",
+              "severity": "high",
+              "cwe": [
+                "CWE-1333"
+              ],
+              "cvss": {
+                "score": 7.5,
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+              },
+              "range": ">=2.0.0-alpha <5.7.2"
+            }
+          ],
+          "effects": [],
+          "range": "2.0.0-alpha - 5.7.1",
+          "nodes": [
+            "node_modules/semver"
+          ],
+          "fixAvailable": {
+            "name": "semver",
+            "version": "5.7.2",
+            "isSemVerMajor": false
+          }
+        }
+      },
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 1,
+          "critical": 0,
+          "total": 1
+        },
+        "dependencies": {
+          "prod": 2,
+          "dev": 0,
+          "optional": 0,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 1
+        }
+      }
+    },
+    "stderr": ""
+  }
+]

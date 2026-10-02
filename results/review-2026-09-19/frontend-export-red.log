@@ -1,0 +1,25 @@
+Edge 153.0.0.0 (Windows 10) Hosted report exports fetches run HTML with bearer auth and downloads a non-executable blob, then releases its URL FAILED
+	Error: Expected one matching request for criteria "Match URL: /api/repos/default/review/runs/run%20%2F%201/report?format=html", found none.
+	    at _HttpClientTestingBackend.expectOne (node_modules/@angular/common/fesm2022/http/testing.mjs:273:19)
+	    at UserContext.<anonymous> (src/app/features/reviews/run-history/run-history-export.spec.ts:66:26)
+	    at UserContext.fakeAsyncFn (node_modules/zone.js/fesm2015/zone-testing.js:1715:26)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	    at _ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+	    at ZoneImpl.run (node_modules/zone.js/fesm2015/zone.js:113:43)
+	    at runInTestZone (node_modules/zone.js/fesm2015/zone-testing.js:216:38)
+	    at UserContext.<anonymous> (node_modules/zone.js/fesm2015/zone-testing.js:234:32)
+	    at <Jasmine>
+Edge 153.0.0.0 (Windows 10) Hosted report exports authenticates repository exports and shows failures without downloading error bodies FAILED
+	Error: Expected one matching request for criteria "Match URL: /api/repos/default/report?format=html", found none.
+	    at _HttpClientTestingBackend.expectOne (node_modules/@angular/common/fesm2022/http/testing.mjs:273:19)
+	    at UserContext.<anonymous> (src/app/features/reviews/run-history/run-history-export.spec.ts:80:26)
+	    at UserContext.fakeAsyncFn (node_modules/zone.js/fesm2015/zone-testing.js:1715:26)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	    at _ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+	    at ZoneImpl.run (node_modules/zone.js/fesm2015/zone.js:113:43)
+	    at runInTestZone (node_modules/zone.js/fesm2015/zone-testing.js:216:38)
+	    at UserContext.<anonymous> (node_modules/zone.js/fesm2015/zone-testing.js:234:32)
+	    at <Jasmine>
+TOTAL: 2 FAILED, 0 SUCCESS

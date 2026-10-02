@@ -1,0 +1,63 @@
+{
+  "repositoryPath": "C:\\Projects\\quality-studio",
+  "repositoryId": "quality-studio",
+  "startedAt": "2026-09-19T21:41:50.8224982+00:00",
+  "completedAt": "2026-09-19T21:42:11.3416236+00:00",
+  "analyses": [
+    {
+      "name": "dependencies",
+      "version": "1.1.0",
+      "available": true,
+      "findingCount": 1,
+      "provenance": {
+        "sensorId": "dependencies",
+        "sensorVersion": "1.1.0",
+        "scope": "repository",
+        "target": ".",
+        "scannedAt": "2026-09-19T21:42:11.3339241Z",
+        "toolVersions": {
+          "dotnet": "10.0.301",
+          "npm": "11.16.0"
+        }
+      }
+    }
+  ],
+  "findings": [
+    {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/quality-finding.v1.schema.json",
+      "schemaVersion": 1,
+      "subject": {
+        "type": "standing-unit",
+        "repository": "quality-studio",
+        "unitId": "quality-analysis/dependencies/6b9c6f9a9e09dc723447e620bad7562bd4d6229ac03c0e27785d5424aa659e75",
+        "path": "backend/tests/AgentOrchestrator.CodeQuality.Tests/Fixtures/dependencies/package-lock.json",
+        "kind": "security",
+        "reviewedHash": {
+          "algorithm": "sha256",
+          "canonicalization": "quality-studio-subject-manifest-v1",
+          "value": "6ea61b63ee991dd8d23ec572679c947c2ba5d75ec302f7a8669038551f7de6f1"
+        }
+      },
+      "id": "dependency-3c076b669d3e",
+      "aspect": "dependencies",
+      "severity": "high",
+      "title": "Vulnerable dependency: semver 5.7.1",
+      "description": "semver 5.7.1 is affected by advisory GHSA-c2qf-rxjj-qqgw.",
+      "recommendation": "Upgrade semver to 5.7.2 or later, subject to the advisory\u0027s version constraints.",
+      "locations": [
+        {
+          "path": "backend/tests/AgentOrchestrator.CodeQuality.Tests/Fixtures/dependencies/package-lock.json"
+        }
+      ],
+      "fingerprint": "sha256:3c076b669d3e5297e22fa869c8b7b9100d6ab3423100e9ac8e1f818ce859270c",
+      "fingerprintCanonicalization": "quality-studio-finding-v1",
+      "ruleId": "GHSA-c2qf-rxjj-qqgw",
+      "producer": {
+        "kind": "deterministic",
+        "id": "dependencies",
+        "version": "1.1.0"
+      },
+      "evidence": "{\u0022ecosystem\u0022:\u0022npm\u0022,\u0022package\u0022:\u0022semver\u0022,\u0022version\u0022:\u00225.7.1\u0022,\u0022advisoryId\u0022:\u0022GHSA-c2qf-rxjj-qqgw\u0022,\u0022fixedVersion\u0022:\u00225.7.2\u0022,\u0022advisoryUrl\u0022:\u0022https://github.com/advisories/GHSA-c2qf-rxjj-qqgw\u0022}"
+    }
+  ]
+}

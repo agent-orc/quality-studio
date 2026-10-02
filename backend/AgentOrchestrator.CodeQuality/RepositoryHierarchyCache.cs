@@ -372,7 +372,7 @@ public sealed class RepositoryHierarchyCache
                 CreateNoWindow = true,
             },
         };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+        foreach (var argument in ReadOnlyGit.WithSafetyOptions(arguments)) process.StartInfo.ArgumentList.Add(argument);
         try
         {
             if (!process.Start()) return null;

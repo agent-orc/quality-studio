@@ -10,6 +10,8 @@ namespace AgentOrchestrator.CodeQuality;
 
 public class GitleaksSecurityScanner : IReviewSensor
 {
+    internal const int MaximumReportBytes = 8 * 1024 * 1024;
+    private readonly ISensorCommandRunner _commandRunner;
     private readonly GitleaksBinaryResolver _resolver;
     private readonly HttpClient _httpClient;
     private readonly HierarchyUnitResolver _unitResolver;
@@ -18,7 +20,17 @@ public class GitleaksSecurityScanner : IReviewSensor
         GitleaksBinaryResolver? resolver = null,
         HttpClient? httpClient = null,
         HierarchyUnitResolver? unitResolver = null)
+        : this(resolver, httpClient, unitResolver, null)
     {
+    }
+
+    public GitleaksSecurityScanner(
+        GitleaksBinaryResolver? resolver,
+        HttpClient? httpClient,
+        HierarchyUnitResolver? unitResolver,
+        ISensorCommandRunner? commandRunner)
+    {
+        _commandRunner = commandRunner ?? new ProcessSensorCommandRunner();
         _httpClient = httpClient ?? new HttpClient();
         _resolver = resolver ?? new GitleaksBinaryResolver(_httpClient);
         _unitResolver = unitResolver ?? HierarchyUnitResolver.Shared;
@@ -409,41 +421,31 @@ public class GitleaksSecurityScanner : IReviewSensor
         };
 
         var reportPath = Path.Combine(Path.GetTempPath(), $"quality-studio-gitleaks-{Guid.NewGuid():N}.json");
-        var process = new Process
-        {
-            StartInfo = new ProcessStartInfo(gitleaksPath)
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-        process.StartInfo.ArgumentList.Add("--no-banner");
-        process.StartInfo.ArgumentList.Add("--no-color");
+        var arguments = new List<string>();
+        arguments.Add("--no-banner");
+        arguments.Add("--no-color");
         // gitleaks declares --redact as `uint[=100]` (an optional-value flag): passing the value as a
         // separate argv entry ("--redact", "100") makes Cobra treat "100" as an unrecognized
         // subcommand, so the process exits 1 before scanning and every scan silently reports zero
         // findings. The value must be attached with "=".
-        process.StartInfo.ArgumentList.Add("--redact=100");
-        process.StartInfo.ArgumentList.Add("--report-format");
-        process.StartInfo.ArgumentList.Add("json");
+        arguments.Add("--redact=100");
+        arguments.Add("--report-format");
+        arguments.Add("json");
         // gitleaks never writes its JSON report to stdout; without --report-path no report is produced
         // at all, so a fixed --redact would still parse as "no findings" every time.
-        process.StartInfo.ArgumentList.Add("--report-path");
-        process.StartInfo.ArgumentList.Add(reportPath);
-        process.StartInfo.ArgumentList.Add("--exit-code");
-        process.StartInfo.ArgumentList.Add("1");
+        arguments.Add("--report-path");
+        arguments.Add(reportPath);
+        arguments.Add("--exit-code");
+        arguments.Add("1");
         if (!string.IsNullOrWhiteSpace(configPath))
         {
-            process.StartInfo.ArgumentList.Add("--config");
-            process.StartInfo.ArgumentList.Add(configPath);
+            arguments.Add("--config");
+            arguments.Add(configPath);
         }
         if (!string.IsNullOrWhiteSpace(baselinePath))
         {
-            process.StartInfo.ArgumentList.Add("--baseline-path");
-            process.StartInfo.ArgumentList.Add(baselinePath);
+            arguments.Add("--baseline-path");
+            arguments.Add(baselinePath);
         }
 
         switch (request.Mode)
@@ -454,14 +456,14 @@ public class GitleaksSecurityScanner : IReviewSensor
                 // File values that NormalizeRelativePath cannot repair (it only strips a leading '/'
                 // and swaps separators). WorkingDirectory is already root, so "." yields repo-relative
                 // paths, matching what downstream sidecar/location binding expects.
-                process.StartInfo.ArgumentList.Add("dir");
-                process.StartInfo.ArgumentList.Add(".");
+                arguments.Add("dir");
+                arguments.Add(".");
                 break;
             case SecurityScanMode.Range:
-                process.StartInfo.ArgumentList.Add("git");
-                process.StartInfo.ArgumentList.Add("--log-opts");
-                process.StartInfo.ArgumentList.Add(request.Range ?? throw new ArgumentException("A git range is required for range scans.", nameof(request)));
-                process.StartInfo.ArgumentList.Add(root);
+                arguments.Add("git");
+                arguments.Add("--log-opts");
+                arguments.Add(request.Range ?? throw new ArgumentException("A git range is required for range scans.", nameof(request)));
+                arguments.Add(root);
                 break;
             case SecurityScanMode.Staged:
                 return await ScanStagedAsync(root, gitleaksPath, configPath, baselinePath, cancellationToken)
@@ -472,35 +474,47 @@ public class GitleaksSecurityScanner : IReviewSensor
 
         try
         {
-            try
-            {
-                if (!process.Start())
-                {
-                    throw new SecurityScannerUnavailableException("Gitleaks did not start.");
-                }
-            }
-            catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
-            {
-                throw new SecurityScannerUnavailableException("Gitleaks could not be launched.", exception);
-            }
+            var command = await _commandRunner.RunAsync(gitleaksPath, arguments, root, cancellationToken)
+                .ConfigureAwait(false);
+            if (command.ExitCode is not (0 or 1))
+                throw new SecurityScannerUnavailableException($"Gitleaks exited with code {command.ExitCode}.");
 
-            await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-            await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-            if (process.ExitCode is not (0 or 1))
-            {
-                throw new SecurityScannerUnavailableException($"Gitleaks exited with code {process.ExitCode}.");
-            }
-
-            var report = File.Exists(reportPath)
-                ? await File.ReadAllTextAsync(reportPath, cancellationToken).ConfigureAwait(false)
-                : string.Empty;
-            return ParseOutput(report) with { FilesScanned = scannedFiles };
+            var report = await ReadReportAsync(reportPath, cancellationToken).ConfigureAwait(false);
+            var output = ParseOutput(report);
+            if (command.ExitCode == 1 && output.Findings.Count == 0)
+                throw new SecurityScannerUnavailableException(
+                    "Gitleaks exited with the findings/error code but produced no findings.");
+            return output with { FilesScanned = scannedFiles };
         }
         finally
         {
             TryDeleteFile(reportPath);
         }
+    }
+
+    private static async Task<string> ReadReportAsync(string path, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+            throw new SecurityScannerUnavailableException("Gitleaks did not produce a report.");
+
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 4096, useAsync: true);
+        if (stream.Length > MaximumReportBytes)
+            throw new SecurityScannerUnavailableException("Gitleaks report exceeds the 8 MiB limit.");
+
+        using var content = new MemoryStream();
+        var buffer = new byte[4096];
+        int read;
+        while ((read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            if (content.Length + read > MaximumReportBytes)
+                throw new SecurityScannerUnavailableException("Gitleaks report exceeds the 8 MiB limit.");
+            content.Write(buffer, 0, read);
+        }
+        var report = Encoding.UTF8.GetString(content.GetBuffer(), 0, (int)content.Length);
+        if (string.IsNullOrWhiteSpace(report))
+            throw new SecurityScannerUnavailableException("Gitleaks produced an empty report.");
+        return report;
     }
 
     private static void TryDeleteFile(string path)
@@ -563,7 +577,7 @@ public class GitleaksSecurityScanner : IReviewSensor
         }
     }
 
-    private static async Task<IReadOnlyList<string>> ListStagedFilesAsync(string root, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> ListStagedFilesAsync(string root, CancellationToken cancellationToken)
     {
         var files = await RunGitAsync(root, cancellationToken, "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z")
             .ConfigureAwait(false);
@@ -572,7 +586,7 @@ public class GitleaksSecurityScanner : IReviewSensor
             .ToArray();
     }
 
-    private static async Task<IReadOnlyList<string>> ListDeletedStagedFilesAsync(string root, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> ListDeletedStagedFilesAsync(string root, CancellationToken cancellationToken)
     {
         var files = await RunGitAsync(root, cancellationToken, "diff", "--cached", "--name-only", "--diff-filter=D", "-z")
             .ConfigureAwait(false);
@@ -581,71 +595,38 @@ public class GitleaksSecurityScanner : IReviewSensor
             .ToArray();
     }
 
-    private static async Task<string> ReadIndexFileAsync(string root, string relativePath, CancellationToken cancellationToken)
+    private async Task<string> ReadIndexFileAsync(string root, string relativePath, CancellationToken cancellationToken)
     {
         return await RunGitAsync(root, cancellationToken, "show", $":{relativePath}")
             .ConfigureAwait(false);
     }
 
-    private static async Task<string> ReadDeletedFileAsync(string root, string relativePath, CancellationToken cancellationToken)
+    private async Task<string> ReadDeletedFileAsync(string root, string relativePath, CancellationToken cancellationToken)
     {
         return await RunGitAsync(root, cancellationToken, "show", $"HEAD:{relativePath}")
             .ConfigureAwait(false);
     }
 
-    private static async Task<int> CountRepositoryFilesAsync(string root, CancellationToken cancellationToken)
+    private async Task<int> CountRepositoryFilesAsync(string root, CancellationToken cancellationToken)
     {
         var files = await RunGitAsync(root, cancellationToken, "ls-files", "--cached", "--others", "--exclude-standard", "-z")
             .ConfigureAwait(false);
         return files.Split('\0', StringSplitOptions.RemoveEmptyEntries).Length;
     }
 
-    private static async Task<int> CountRangeFilesAsync(string root, string range, CancellationToken cancellationToken)
+    private async Task<int> CountRangeFilesAsync(string root, string range, CancellationToken cancellationToken)
     {
         var files = await RunGitAsync(root, cancellationToken, "diff", "--name-only", "--diff-filter=ACMRD", "-z", range)
             .ConfigureAwait(false);
         return files.Split('\0', StringSplitOptions.RemoveEmptyEntries).Length;
     }
 
-    private static async Task<string> RunGitAsync(string root, CancellationToken cancellationToken, params string[] arguments)
+    private async Task<string> RunGitAsync(string root, CancellationToken cancellationToken, params string[] arguments)
     {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo("git")
-            {
-                WorkingDirectory = root,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        try
-        {
-            if (!process.Start())
-            {
-                throw new SecurityScannerUnavailableException("Git did not start.");
-            }
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
-        {
-            throw new SecurityScannerUnavailableException("Git is required for staged scans.", exception);
-        }
-
-        var stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        if (process.ExitCode != 0)
-        {
-            throw new SecurityScannerUnavailableException($"Git command failed with exit code {process.ExitCode}.");
-        }
-
-        return stdout;
+        var command = await _commandRunner.RunAsync("git", ReadOnlyGit.WithSafetyOptions(arguments), root, cancellationToken).ConfigureAwait(false);
+        if (command.ExitCode != 0)
+            throw new SecurityScannerUnavailableException($"Git command failed with exit code {command.ExitCode}.");
+        return command.StandardOutput;
     }
 
     private static SecurityScanOutput ParseOutput(string output)
@@ -675,12 +656,10 @@ public class GitleaksSecurityScanner : IReviewSensor
         var findings = new List<SecurityFindingRecord>(findingNodes.Count);
         foreach (var node in findingNodes)
         {
-            var finding = node?.AsObject();
-            if (finding is null)
-            {
-                continue;
-            }
-
+            var finding = node as JsonObject
+                ?? throw new JsonException("Gitleaks report contains an invalid finding.");
+            if (string.IsNullOrWhiteSpace(finding["File"]?.GetValue<string>()))
+                throw new JsonException("Gitleaks finding has no file path.");
             findings.Add(ParseJsonFinding(finding));
         }
 
@@ -717,15 +696,17 @@ public class GitleaksSecurityScanner : IReviewSensor
     {
         var root = JsonNode.Parse(json)?.AsObject() ?? throw new JsonException("The Gitleaks SARIF report is invalid.");
         var rules = new Dictionary<string, string>(StringComparer.Ordinal);
-        var runs = root["runs"]?.AsArray() ?? new JsonArray();
+        if (root["version"]?.GetValue<string>() != "2.1.0" || root["runs"] is not JsonArray runs)
+            throw new JsonException("The Gitleaks SARIF report has no valid version and runs.");
         var findings = new List<SecurityFindingRecord>();
         foreach (var runNode in runs)
         {
-            var run = runNode?.AsObject();
-            if (run is null)
-            {
-                continue;
-            }
+            var run = runNode as JsonObject
+                ?? throw new JsonException("The Gitleaks SARIF report contains an invalid run.");
+            if (run["tool"] is not JsonObject runTool ||
+                runTool["driver"] is not JsonObject runDriver ||
+                string.IsNullOrWhiteSpace(runDriver["name"]?.GetValue<string>()))
+                throw new JsonException("The Gitleaks SARIF run has no tool identity.");
 
             JsonArray? rulesArray = null;
             if (run["tool"] is JsonObject tool &&
@@ -756,23 +737,20 @@ public class GitleaksSecurityScanner : IReviewSensor
             var results = run["results"]?.AsArray() ?? new JsonArray();
             foreach (var resultNode in results)
             {
-                var result = resultNode?.AsObject();
-                if (result is null)
-                {
-                    continue;
-                }
+                var result = resultNode as JsonObject
+                    ?? throw new JsonException("The Gitleaks SARIF report contains an invalid result.");
 
                 var ruleId = result["ruleId"]?.GetValue<string>() ?? "gitleaks";
                 var location = result["locations"]?.AsArray().FirstOrDefault()?.AsObject();
                 if (location is null)
-                {
-                    continue;
-                }
+                    throw new JsonException("The Gitleaks SARIF finding has no location.");
 
                 var physical = location["physicalLocation"]?.AsObject();
                 var artifact = physical?["artifactLocation"]?.AsObject();
                 var region = physical?["region"]?.AsObject();
                 var path = NormalizeRelativePath(artifact?["uri"]?.GetValue<string>() ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(path))
+                    throw new JsonException("The Gitleaks SARIF finding has no file path.");
                 var severity = ParseSeverity(result["level"]?.GetValue<string>(), FindingSeverity.High);
                 findings.Add(BuildFinding(
                     path,

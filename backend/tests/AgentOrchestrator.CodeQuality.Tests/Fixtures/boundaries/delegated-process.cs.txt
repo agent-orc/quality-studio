@@ -1,0 +1,9 @@
+public class ProcessSensorCommandRunner : ISensorCommandRunner
+{
+    public Task RunAsync(string executable, string[] arguments, string workingDirectory, CancellationToken token)
+    {
+        var process = new Process { StartInfo = new ProcessStartInfo(executable) };
+        process.Start();
+        return Task.CompletedTask;
+    }
+}

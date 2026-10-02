@@ -1,0 +1,15 @@
+{
+  "baselineCommit": "a9c25aaf4cf94ce266f7a0dae7bd5f82a0c5977f",
+  "method": "Fresh temporary Git repository, one fixture file staged, repo-local core.fsmonitor configured to a harmless shell hook creating an empty marker",
+  "command": [
+    "git",
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all"
+  ],
+  "repositoryOwnedFsmonitorExecuted": true,
+  "precondition": "Attacker controls local .git/config or imported working-copy settings; a normal remote commit alone does not provide that control",
+  "sourceCall": "backend/AgentOrchestrator.CodeQuality/RepositoryHierarchyCache.cs:225",
+  "fixtureCleanup": "Temporary repository and marker removed"
+}

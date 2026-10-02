@@ -103,10 +103,21 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             : ReviewModelSource.Explicit);
         _logger = logger;
         _attachTimeout = attachTimeout ?? DefaultAttachTimeout;
-        _runner = new CliRunner(options ?? new CliOptions(), logger);
+        _runner = new CliRunner(options ?? CreateCliOptions(), logger);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
+
+    /// <summary>
+    /// The runner options a review uses when the caller supplies none. Review prompts carry
+    /// whole files and folder aggregates, so Claude receives them over stdin instead of as a
+    /// command-line argument: Windows caps a whole command line at 32,767 characters and
+    /// Linux caps one argument at 128 KiB (see docs/review-runs.md). Codex needs no setting —
+    /// its runner descriptor always writes the prompt to stdin. A caller that supplies its own
+    /// options owns this choice; derive them from this method with <c>with</c> to keep it.
+    /// </summary>
+    public static CliOptions CreateCliOptions() =>
+        new() { ClaudePromptTransport = ClaudePromptTransport.Stdin };
 
     /// <summary>
     /// Builds the agent used when a caller supplies none. The model comes from the synchronized
@@ -197,18 +208,32 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
                 throw new ReviewAgentAttachTimeoutException(runId, _attachTimeout);
             }
             var hasCurrent = await attach.ConfigureAwait(false);
+            // A provider that rejects the login usually says so in a failed turn or an error
+            // diagnostic, while the terminal event only reports that the run failed. Carrying the
+            // last such explanation into the abort is what lets a sweep recognise an auth failure.
+            string? lastFailure = null;
             while (hasCurrent)
             {
                 var runEvent = enumerator.Current;
                 metrics.Observe(runEvent);
                 _eventObserver?.Invoke(_cliType, runEvent);
-                if (runEvent is CliRunEvent.OutputDelta delta)
+                switch (runEvent)
                 {
-                    output.Append(delta.Text);
-                }
-                if (runEvent is CliRunEvent.RunEnded ended && ended.Outcome != RunOutcome.Completed)
-                {
-                    throw new ReviewAgentRunAbortedException(runId, ended.Outcome, ended.Reason);
+                    case CliRunEvent.OutputDelta delta:
+                        output.Append(delta.Text);
+                        break;
+                    case CliRunEvent.TurnFailed failed when !string.IsNullOrWhiteSpace(failed.Reason):
+                        lastFailure = failed.Reason;
+                        break;
+                    case CliRunEvent.Diagnostic { Severity: DiagnosticSeverity.Error } diagnostic
+                        when !string.IsNullOrWhiteSpace(diagnostic.Summary):
+                        lastFailure ??= diagnostic.Summary;
+                        break;
+                    case CliRunEvent.RunEnded ended when ended.Outcome != RunOutcome.Completed:
+                        throw new ReviewAgentRunAbortedException(runId, ended.Outcome,
+                            string.IsNullOrWhiteSpace(ended.Reason) ? lastFailure
+                            : lastFailure is null || ended.Reason.Contains(lastFailure, StringComparison.Ordinal) ? ended.Reason
+                            : $"{ended.Reason}; {lastFailure}");
                 }
                 hasCurrent = await enumerator.MoveNextAsync().ConfigureAwait(false);
             }

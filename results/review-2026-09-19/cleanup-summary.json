@@ -1,0 +1,10 @@
+{
+  "checkedAtUtc": "2026-09-19T22:08:52.050655+00:00",
+  "taskOwnedServices": "Agents confirm API/frontend/browser harness processes completed shutdown; root CLI and final build/test pipeline exited. No unrelated process was stopped.",
+  "portableNode22": "Temporary checksum-verified runtime removed by its owner; global Node 24 unchanged.",
+  "rootIsolatedCliDataDirectory": "C:/Projects/agent-taskboard-devspace/.quality-studio-review-data",
+  "rootIsolatedCliDataDirectoryExists": false,
+  "evidence": "Review reports, logs, screenshots and regression traces retained. Raw coverage and package outputs remain local under the evidence .gitignore.",
+  "sourceCommitCreated": false,
+  "pushDeploymentExternalHandoverPerformed": false
+}

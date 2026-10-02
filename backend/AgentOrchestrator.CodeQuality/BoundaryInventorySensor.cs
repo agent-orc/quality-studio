@@ -60,7 +60,7 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 /// </summary>
 public sealed partial class BoundaryInventorySensor : IReviewSensor
 {
-    public const string SensorVersion = "1.0.0";
+    public const string SensorVersion = "1.1.0";
 
     /// <summary>The inventory, relative to the project's data root.</summary>
     public const string InventoryRelativePath = "boundaries/inventory.json";
@@ -282,8 +282,10 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 var signature = handler is null ? statement : MethodSignature(file.Content, handler);
                 var location = new BoundarySourceLocation(file.Path, line);
                 var isApi = fullRoute.StartsWith("/api", StringComparison.OrdinalIgnoreCase);
-                var explicitlyAuthorized = statement.Contains("RequireAuthorization", StringComparison.Ordinal) ||
-                                           groups.GetValueOrDefault(receiver)?.Authorized == true;
+                var allowsAnonymous = statement.Contains("AllowAnonymous", StringComparison.Ordinal);
+                var explicitlyAuthorized = !allowsAnonymous &&
+                    (statement.Contains("RequireAuthorization", StringComparison.Ordinal) ||
+                     groups.GetValueOrDefault(receiver)?.Authorized == true);
                 var middlewareAuthenticated = isApi &&
                     file.Content.Contains("StartsWithSegments(\"/api\")", StringComparison.Ordinal) &&
                     (file.Content.Contains("Authenticate(context)", StringComparison.Ordinal) ||
@@ -299,8 +301,11 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 }
                 var auth = authenticated
                     ? new BoundaryFact("required", reachability.DerivedFrom)
-                    : new BoundaryFact("none", [$"{file.Path}:{line} has no applicable authorization requirement"]);
-                var authorization = DeriveAuthorization(file, fullRoute, explicitlyAuthorized, middlewareAuthenticated);
+                    : allowsAnonymous
+                        ? new BoundaryFact("none", [$"{file.Path}:{line} route explicitly calls AllowAnonymous"])
+                        : new BoundaryFact("unknown", [$"{file.Path}:{line} has no mechanically recognized authentication requirement"]);
+                var authorization = DeriveAuthorization(
+                    file, fullRoute, explicitlyAuthorized, middlewareAuthenticated, allowsAnonymous);
                 var inputs = ParseDotNetInputs(signature, route);
                 var effects = SideEffects(handlerBody);
                 var rate = DeriveRateLimit(file, statement);
@@ -476,7 +481,8 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         SourceFile file,
         string route,
         bool explicitlyAuthorized,
-        bool middlewareAuthenticated)
+        bool middlewareAuthenticated,
+        bool allowsAnonymous)
     {
         if (middlewareAuthenticated &&
             (file.Content.Contains("CanAccess(repositoryId)", StringComparison.Ordinal) ||
@@ -490,7 +496,9 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         if (route.StartsWith("/api", StringComparison.OrdinalIgnoreCase) && middlewareAuthenticated)
             return new BoundaryFact("authenticated-only",
                 [$"{file.Path} authenticates /api routes; no finer authorization was derived"]);
-        return new BoundaryFact("none", [$"{file.Path} contains no applicable authorization check"]);
+        return allowsAnonymous
+            ? new BoundaryFact("none", [$"{file.Path} route explicitly calls AllowAnonymous"])
+            : new BoundaryFact("unknown", [$"{file.Path} has no mechanically recognized authorization policy"]);
     }
 
     private static IReadOnlyList<BoundaryInput> ParseDotNetInputs(string signature, string route)
@@ -942,6 +950,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         ICollection<BoundaryEntry> entries)
     {
         {
+            AnalyzeDelegatedSensorCommands(context, file, entries);
             foreach (Match match in ProcessRegex().Matches(file.Content))
             {
                 var line = Line(file.Content, match.Index);
@@ -1058,6 +1067,48 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         }
     }
 
+    /// <summary>
+    /// Keep the caller's executable and request context when a process start is delegated to the
+    /// shared sensor runner. The direct OS sink is inventoried separately; an unrelated RunAsync
+    /// method is not assumed to launch a process.
+    /// </summary>
+    private static void AnalyzeDelegatedSensorCommands(
+        AnalysisContext context, SourceFile file, ICollection<BoundaryEntry> entries)
+    {
+        if (!file.Path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) return;
+        var receivers = SensorCommandRunnerDeclarationRegex().Matches(file.Content)
+            .Select(match => match.Groups["name"].Value).ToHashSet(StringComparer.Ordinal);
+        if (receivers.Count == 0) return;
+        foreach (Match match in SensorCommandInvocationRegex().Matches(file.Content))
+        {
+            if (!receivers.Contains(match.Groups["receiver"].Value)) continue;
+            var open = file.Content.IndexOf('(', match.Index);
+            var close = FindMatching(file.Content, open, '(', ')');
+            if (close < 0) continue;
+            var arguments = SplitTopLevel(file.Content[(open + 1)..close]).Select(value => value.Trim()).ToArray();
+            if (arguments.Length < 3) continue;
+            var line = Line(file.Content, match.Index);
+            entries.Add(new BoundaryEntry(
+                StableId("process", file.Path, line.ToString()),
+                "process", "outbound", $"process {arguments[0]}", "subprocess",
+                new BoundarySourceLocation(file.Path, line),
+                new BoundaryFact("internal-callable", [$"{file.Path}:{line} delegates a process invocation to a typed sensor command runner"]),
+                new BoundaryFact("caller-dependent", [$"{file.Path}:{line} inherits caller authentication"]),
+                new BoundaryFact("caller-dependent", [$"{file.Path}:{line} inherits caller authorization"]),
+                [
+                    new BoundaryInput("executable", InferInputSource(arguments[0]), "string", null),
+                    new BoundaryInput("arguments", InferInputSource(arguments[1]), "string[]", null),
+                    new BoundaryInput("workingDirectory", InferInputSource(arguments[2]), "string", null),
+                ],
+                new BoundaryResponse("exit-code/stdout/stderr", null),
+                ["process"],
+                new BoundaryLimit("unknown", [$"{file.Path}:{line} delegates invocation bounds to the configured runner"]),
+                new BoundaryLimit("unknown", [$"{file.Path}:{line} delegates output bounds to the configured runner"]),
+                ProcessConsumers(context, file),
+                [file.Content[match.Index..(close + 1)]]));
+        }
+    }
+
     private static IReadOnlyList<ReviewFinding> MechanicalChecks(IReadOnlyList<BoundaryEntry> entries)
     {
         var findings = new List<ReviewFinding>();
@@ -1067,10 +1118,14 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
                 entry.Kind is "http" or "sse" or "webhook" or "hub" or "websocket" or "message-consumer" or "browser-message" &&
                 entry.Authentication.Value is "none" or "unknown")
             {
-                findings.Add(Finding(entry, "boundary/missing-authorization", FindingSeverity.High,
-                    "Inbound boundary has no derived authorization",
-                    $"{entry.Name} is externally callable, but the inventory could not derive an authentication and authorization requirement.",
-                    "Apply an explicit authentication and authorization policy, or document and mechanically encode the narrow public exception."));
+                var unknown = entry.Authentication.Value == "unknown";
+                findings.Add(Finding(entry, "boundary/missing-authorization",
+                    unknown ? FindingSeverity.Medium : FindingSeverity.High,
+                    unknown ? "Inbound boundary authorization is unverified" : "Inbound boundary has no derived authorization",
+                    unknown
+                        ? $"{entry.Name} is an inbound surface, but its effective authentication and authorization policy could not be verified from the analyzed source."
+                        : $"{entry.Name} is externally callable without a derived authentication requirement.",
+                    "Verify the effective authentication and authorization policy, or document and mechanically encode the narrow public exception."));
             }
 
             if (entry.Kind == "cors-policy" && entry.Authorization.Value == "permissive")
@@ -1092,10 +1147,22 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             if (entry.Direction == "inbound" && entry.SideEffects.Count > 0 &&
                 entry.Authentication.Value is "none" or "unknown")
             {
-                findings.Add(Finding(entry, "boundary/unauthenticated-side-effect", FindingSeverity.Critical,
-                    "Unauthenticated boundary has side effects",
-                    $"{entry.Name} has side effects ({string.Join(", ", entry.SideEffects)}) without derived authentication.",
-                    "Require authentication and least-privilege authorization before the side effect."));
+                var unknown = entry.Authentication.Value == "unknown";
+                var highImpact = entry.SideEffects.Any(effect => effect is
+                    "filesystem-write" or "process" or "state-mutation" or "spends-money-or-quota" or "third-party-call");
+                var severity = unknown
+                    ? highImpact ? FindingSeverity.High : FindingSeverity.Medium
+                    : highImpact ? FindingSeverity.Critical : FindingSeverity.High;
+                findings.Add(Finding(entry,
+                    unknown ? "boundary/unverified-side-effect-authorization" : "boundary/unauthenticated-side-effect",
+                    severity,
+                    unknown ? "Boundary side-effect authorization is unverified" : "Unauthenticated boundary has side effects",
+                    unknown
+                        ? $"{entry.Name} has derived effects ({string.Join(", ", entry.SideEffects)}), but its effective authentication policy is unknown."
+                        : $"{entry.Name} has side effects ({string.Join(", ", entry.SideEffects)}) with explicitly absent authentication.",
+                    unknown
+                        ? "Verify upstream and endpoint access controls and the intended public data scope before assessing exploitability."
+                        : "Require authentication and least-privilege authorization before the side effect, or verify the narrow intended public data scope."));
             }
 
             if (entry.Kind is "http" or "sse" or "webhook" or "hub" or "websocket" or "message-consumer")
@@ -1574,6 +1641,12 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
     [GeneratedRegex(@"\.ArgumentList\.Add\s*\(\s*(?<argument>[^\)\n]+)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex ProcessArgumentRegex();
+
+    [GeneratedRegex(@"\b(?:ISensorCommandRunner|ProcessSensorCommandRunner)\??\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
+    private static partial Regex SensorCommandRunnerDeclarationRegex();
+
+    [GeneratedRegex(@"\b(?<receiver>[A-Za-z_][A-Za-z0-9_]*)\.RunAsync\s*\(", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
+    private static partial Regex SensorCommandInvocationRegex();
 
     [GeneratedRegex(@"(?:\b(?:httpClient|_httpClient)\.(?:GetAsync|PostAsync|SendAsync|PutAsync|DeleteAsync)\s*\(\s*|\bfetch\s*\(\s*|\baxios\.(?:get|post|put|delete|patch)\s*\(\s*)(?<target>[^,\)\n]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: RegexTimeoutMilliseconds)]
     private static partial Regex OutboundRegex();

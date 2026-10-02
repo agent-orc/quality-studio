@@ -36,6 +36,8 @@ export class RunHistory {
   readonly runTrendCursor = signal<string | null>(null);
   readonly runDetailLoading = signal(false);
   readonly runDetailError = signal('');
+  readonly exporting = signal(false);
+  readonly exportError = signal('');
   readonly pinnedRunIds = signal<string[]>([]);
   readonly compareOpen = signal(false);
   readonly compareBaselineId = signal<string | null>(null);
@@ -159,7 +161,40 @@ export class RunHistory {
     if (run) await this.api.resumeReview(run.id, cap);
   }
 
-  reportUrl(runId: string, format: RunReportFormat): string { return this.api.runReportUrl(runId, format); }
+  exportRunReport(runId: string, format: RunReportFormat): Promise<void> {
+    return this.downloadReport(() => this.api.downloadRunReport(runId, format), this.reportFileName(runId, format));
+  }
+
+  exportRepositoryReport(): Promise<void> {
+    return this.downloadReport(() => this.api.downloadRepositoryReport('html'), 'quality-repository-report.html');
+  }
+
+  private async downloadReport(load: () => Promise<Blob>, fileName: string): Promise<void> {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.exportError.set('');
+    try {
+      const content = await load();
+      const link = document.createElement('a');
+      // Never open exported model/repository content as executable same-origin HTML.
+      const url = URL.createObjectURL(new Blob([content], { type: 'application/octet-stream' }));
+      try {
+        link.href = url;
+        link.download = fileName;
+        link.hidden = true;
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        link.remove();
+        // Let the browser claim the download before releasing the backing bytes.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (error) {
+      this.exportError.set(this.api.errorMessage(error));
+    } finally {
+      this.exporting.set(false);
+    }
+  }
 
   reportFileName(runId: string, format: RunReportFormat): string { return this.api.runReportFileName(runId, format); }
 

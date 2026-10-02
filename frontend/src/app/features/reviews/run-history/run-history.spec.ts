@@ -85,7 +85,7 @@ describe('RunHistory drawer', () => {
     expect(api.loadRunReport).toHaveBeenCalledWith('terminal');
     expect(api.loadRunTrend).toHaveBeenCalledWith('code', 'a', 'file');
     expect(fixture.nativeElement.querySelector('.run-detail-surface').textContent).toContain('complete snapshot');
-    expect(fixture.nativeElement.querySelectorAll('.run-exports a').length).toBe(4);
+    expect(fixture.nativeElement.querySelectorAll('.run-exports button').length).toBe(4);
     expect(fixture.nativeElement.querySelector('.commit-trend-note').textContent).toContain('Commit trend');
     expect(fixture.nativeElement.querySelector('.run-findings').textContent).toContain('Captured');
   });

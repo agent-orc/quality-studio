@@ -1,0 +1,2 @@
+quality security scan: pass | files 961 | new 0 | accepted 0 | block 0 | warn 0 | 2537 ms
+scanner gitleaks 8.24.2 | mode repository | scanned 2026-09-19T22:08:55.3866701Z

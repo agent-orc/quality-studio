@@ -1,0 +1,6 @@
+{
+  "command": "ProcessSensorCommandRunner.RunAsync(\"npx\", [\"--no-install\", \"tsc\", \"--version\"], frontend)",
+  "exitCode": 0,
+  "stdout": "{\"ExitCode\":0,\"StandardOutput\":\"Version 5.9.3\\r\\n\",\"StandardError\":\"\"}\r\n",
+  "stderr": ""
+}

@@ -28,7 +28,7 @@ public sealed class RepositoryOptions
                 ? configured
                 : Path.Combine(contentRootPath, configured));
 
-    public string[] AllowedOrigins { get; set; } = ["http://localhost:4200"];
+    public string[] AllowedOrigins { get; set; } = ["http://localhost:4200", "http://127.0.0.1:4200"];
 
     public string[] AllowedRoots { get; set; } = [];
 
@@ -119,6 +119,12 @@ public sealed class ApiSecurityOptions
     /// nobody, so this publishes an unauthenticated registrar API; see docs/deployment.md.
     /// </summary>
     public bool AllowNonLoopbackLocalMode { get; set; }
+
+    /// <summary>
+    /// Explicit reverse-proxy IPs allowed to forward scheme and client address in Hosted mode.
+    /// Empty disables forwarded-header handling; host names and network wildcards are not accepted.
+    /// </summary>
+    public string[] TrustedProxies { get; set; } = [];
 
     public bool RequireHttps { get; set; } = true;
     public long MaxRequestBodyBytes { get; set; } = 64 * 1024;

@@ -1,0 +1,19 @@
+> dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --filter "Category=ToolBound&Category!=MachineBound&Category!=ExternalLive" --verbosity quiet --no-build --list-tests
+> dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --filter "Category=ToolBound&Category!=MachineBound&Category!=ExternalLive" --verbosity quiet --no-build --list-tests
+lane inventory: tool-bound (controlled Git, .NET, browser, or native-tool integration); core=80, api=157
+> dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --configuration Release --filter "Category=ToolBound&Category!=MachineBound&Category!=ExternalLive" --verbosity minimal --no-build
+Test run for C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.63]     AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Timeout_kills_the_process_tree_and_returns_promptly [SKIP]
+  Skipped AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Timeout_kills_the_process_tree_and_returns_promptly [1 ms]
+[xUnit.net 00:00:01.77]     AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Cancellation_kills_the_process_tree [SKIP]
+[xUnit.net 00:00:01.77]     AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Completed_command_returns_exit_code_and_redirected_output [SKIP]
+  Skipped AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Cancellation_kills_the_process_tree [1 ms]
+  Skipped AgentOrchestrator.CodeQuality.Tests.ProcessSensorCommandRunnerTests.Completed_command_returns_exit_code_and_redirected_output [1 ms]
+
+Passed!  - Failed:     0, Passed:    77, Skipped:     3, Total:    80, Duration: 1 m 2 s - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)
+> dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --configuration Release --filter "Category=ToolBound&Category!=MachineBound&Category!=ExternalLive" --verbosity minimal --no-build
+Test run for C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   157, Skipped:     0, Total:   157, Duration: 41 s - QualityStudio.Api.Tests.dll (net10.0)

@@ -90,7 +90,9 @@
           <div class="run-report-state"><span class="status" [class.fresh]="report.run.completeness === 'complete'" [class.stale]="report.run.completeness === 'partial'"></span><b>{{ report.run.completeness }} snapshot</b><small>revision {{ report.run.revision }}</small></div>
           @if (report.summary.partialReason) { <p class="run-partial">{{ report.summary.partialReason }}</p> }
           <div class="run-summary-grid"><span><b>{{ report.summary.score ?? '—' }}</b><small>Score {{ report.summary.grade ?? 'unavailable' }}</small></span><span><b>{{ report.summary.findings.total }}</b><small>Active findings</small></span><span><b>{{ report.execution.reviewed }}</b><small>Reviewed</small></span><span><b>{{ report.execution.reusedFresh }}</b><small>Reused fresh</small></span></div>
-          <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <a [href]="reportUrl(report.run.id, format)" [attr.download]="reportFileName(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</a> }</nav>
+          <nav class="run-exports" aria-label="Export run report">@for (format of runFormats; track format) { <button class="studio-button" type="button" [disabled]="exporting()" (click)="exportRunReport(report.run.id, format)">{{ format === 'markdown' ? 'Markdown' : format.toUpperCase() }}</button> }</nav>
+          @if (exporting()) { <p class="run-detail-message" role="status">Preparing download...</p> }
+          @if (exportError()) { <p class="run-error" role="alert">{{ exportError() }}</p> }
 
           <div class="section-title"><span>Run trend</span><small>Same kind, scope, and level</small></div>
           <div class="run-trend" role="list" aria-label="Comparable run trend">
@@ -103,7 +105,7 @@
             } @empty { <p class="run-detail-message">No run trend points yet.</p> }
           </div>
           @if (runTrendCursor()) { <button class="studio-button trend-more" type="button" (click)="loadOlderTrend()">Load older snapshots</button> }
-          <div class="commit-trend-note"><div><b>Commit trend</b><span>Committed score history remains a separate repository curve.</span></div><a [href]="api.repositoryReportUrl('html')">Open repository report</a></div>
+          <div class="commit-trend-note"><div><b>Commit trend</b><span>Committed score history remains a separate repository curve.</span></div><button class="studio-button" type="button" [disabled]="exporting()" (click)="exportRepositoryReport()">Download repository report</button></div>
 
           <div class="section-title"><span>Unit outcomes</span><small>{{ report.observations.length }}</small></div>
           <div class="run-units">@for (observation of report.observations; track observation.unitId) { <article><span class="status" [class.fresh]="observation.outcome === 'done' || observation.outcome === 'skipped-fresh'" [class.stale]="observation.outcome === 'skipped'" [class.missing]="observation.outcome === 'failed' || observation.outcome === 'cancelled'"></span><div><b>{{ observation.path }}</b><small>{{ observation.level }} · {{ observation.outcome }} · {{ observation.producedByRun ? 'produced' : observation.outcome === 'skipped-fresh' ? 'reused' : 'no observation' }}</small></div><span>{{ observation.grade?.band ?? '—' }}</span></article> }</div>

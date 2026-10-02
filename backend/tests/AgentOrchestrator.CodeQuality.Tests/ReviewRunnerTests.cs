@@ -405,6 +405,27 @@ public sealed class ReviewRunnerTests
     }
 
     [Fact]
+    public async Task ReviewAsync_DoesNotAttributeFindingsToRulesOmittedFromThePrompt()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var response = ReviewResponseParserTests.ValidResponse.Replace(
+                "\"findings\": []", "\"findings\": [" +
+                ReviewResponseParserTests.ValidFinding.Replace("correctness.risk", "QS-GN-001", StringComparison.Ordinal) + "]",
+                StringComparison.Ordinal);
+            var agent = new FakeAgent(response: response);
+            var result = await new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Small.cs", RepositoryRoot: root, InputBudgetCharacters: 0),
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains(result.Inputs.Inputs, input => input.Id == "QS-GN-001" && input.IncludedContent.Length == 0);
+            Assert.DoesNotContain("## QS-GN-001", agent.Prompt!, StringComparison.Ordinal);
+            var finding = Assert.Single(ReviewMetaReader.Load(result.MetaPath).Document.Findings);
+            Assert.Equal("built-in:code", finding.RuleId);
+        });
+    }
+
+    [Fact]
     public async Task ReviewAsync_DropsARuleTheRepositoryDisabledAndSaysSoInTheHash()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -790,6 +811,64 @@ public sealed class ReviewRunnerTests
         });
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReviewIfNeededAsync_rereviews_when_supplied_guidelines_change(bool global)
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var agent = new FakeAgent();
+            var runner = new ReviewRunner(agent);
+            var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root,
+                GlobalGuidelines: global ? "Use the original global rule." : null,
+                ProjectGuidelines: global ? null : "Use the original project rule.");
+            var original = await runner.ReviewAsync(request, TestContext.Current.CancellationToken);
+            Assert.True((await runner.ReviewIfNeededAsync(request,
+                cancellationToken: TestContext.Current.CancellationToken)).SkippedFresh);
+
+            var changedRequest = global
+                ? request with { GlobalGuidelines = "Apply the revised global rule." }
+                : request with { ProjectGuidelines = "Apply the revised project rule." };
+            var changed = await runner.ReviewIfNeededAsync(changedRequest,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.False(changed.SkippedFresh);
+            Assert.NotNull(changed.Review);
+            Assert.NotEqual(JsonNode.Parse(original.Observation!.ReviewMetaJson)!["reviewInputs"]!["effectiveHash"]!["value"]!.GetValue<string>(),
+                JsonNode.Parse(changed.Review.Observation!.ReviewMetaJson)!["reviewInputs"]!["effectiveHash"]!["value"]!.GetValue<string>());
+            Assert.True((await runner.ReviewIfNeededAsync(changedRequest,
+                cancellationToken: TestContext.Current.CancellationToken)).SkippedFresh);
+            Assert.False((await runner.ReviewIfNeededAsync(new ReviewRequest("src/Small.cs", RepositoryRoot: root),
+                cancellationToken: TestContext.Current.CancellationToken)).SkippedFresh);
+            Assert.Equal(3, agent.RunCount);
+        });
+    }
+
+    [Fact]
+    public async Task ReviewIfNeededAsync_rereviews_legacy_metadata_when_request_guidelines_are_supplied()
+    {
+        await WithReviewFileAsync(async (root, _) =>
+        {
+            var token = TestContext.Current.CancellationToken;
+            var agent = new FakeAgent();
+            var runner = new ReviewRunner(agent);
+            var request = new ReviewRequest("src/Small.cs", RepositoryRoot: root);
+            var original = await runner.ReviewAsync(request, token);
+            // An older sidecar carries this hash and no request standards, even when its
+            // host supplied extra guidance that the old writer did not fingerprint.
+            Assert.Equal(original.Inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash("code")),
+                ReviewMetaReader.Load(original.MetaPath).Document.ReviewInputs.EffectiveHash.Value);
+            Assert.True((await runner.ReviewIfNeededAsync(request, cancellationToken: token)).SkippedFresh);
+
+            var revised = await runner.ReviewIfNeededAsync(request with { ProjectGuidelines = "Existing host guidance." },
+                cancellationToken: token);
+
+            Assert.False(revised.SkippedFresh);
+            Assert.Equal(2, agent.RunCount);
+        });
+    }
+
     [Fact]
     public async Task ReviewIfNeededAsync_rereviews_when_requested_model_changes()
     {
@@ -879,6 +958,37 @@ public sealed class ReviewRunnerTests
         });
     }
 
+    [Theory]
+    [InlineData(ReviewLevel.File)]
+    [InlineData(ReviewLevel.Project)]
+    public async Task ReviewAsync_RejectsTargetChangesDuringPromptPreparation(ReviewLevel level)
+    {
+        await WithReviewFileAsync(async (root, file) =>
+        {
+            var agent = new FakeAgent();
+            var sensorRan = false;
+            var sensor = new FakeSensor(true, null, [], () =>
+            {
+                sensorRan = true;
+                File.AppendAllText(file, "// changed by sensor\n");
+            });
+            var runner = new ReviewRunner(agent, sensorRegistry: new SensorRegistry([sensor]));
+            var request = new ReviewRequest(level == ReviewLevel.File ? "src/Small.cs" : ".",
+                Kind: "security", Level: level, RepositoryRoot: root,
+                SubjectFiles: level == ReviewLevel.File ? null : ["src/Small.cs"],
+                Sensors: [new ReviewSensorConfiguration(sensor.Id)]);
+
+            var failure = await Record.ExceptionAsync(() => runner.ReviewAsync(
+                request, TestContext.Current.CancellationToken));
+
+            Assert.True(sensorRan);
+            var exception = Assert.IsType<ReviewRunException>(failure);
+            Assert.Contains("changed", exception.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(0, agent.RunCount);
+            Assert.Empty(ReviewMetaPath.Enumerate(root));
+        });
+    }
+
     [Fact]
     public async Task ReviewAsync_PersistsAndReportsUsageWhenResponseValidationFails()
     {
@@ -891,14 +1001,16 @@ public sealed class ReviewRunnerTests
                 new ReviewRequest("src/Small.cs", RepositoryRoot: root, ReviewRunId: "review-sweep-test"),
                 TestContext.Current.CancellationToken));
 
-            Assert.Equal("run-test", Assert.Single(recorded).RunId);
-            Assert.Equal("review-sweep-test", recorded[0].ReviewRunId);
+            // The rejected answer and its one repair attempt both consumed tokens.
+            Assert.Equal(2, recorded.Count);
+            Assert.All(recorded, entry => Assert.Equal("run-test", entry.RunId));
+            Assert.All(recorded, entry => Assert.Equal("review-sweep-test", entry.ReviewRunId));
             Assert.Equal(UsageLedger.CurrentSchemaVersion, recorded[0].SchemaVersion);
             // The fake agent names its model, so the entry is attributed to an explicit choice.
             Assert.Equal(ReviewModelSource.Explicit, recorded[0].ModelSource);
             Assert.Equal(120, recorded[0].Tokens.InputTokens);
             var report = await UsageLedger.QueryAsync(root, cancellationToken: TestContext.Current.CancellationToken);
-            Assert.Equal("run-test", Assert.Single(report.Recent).RunId);
+            Assert.Equal(2, report.Recent.Count);
             Assert.Equal("review-sweep-test", Assert.Single(report.ByReviewRun).Key);
         });
     }
@@ -1003,7 +1115,7 @@ public sealed class ReviewRunnerTests
         });
     }
 
-    private static async Task WithReviewFileAsync(Func<string, string, Task> test)
+    internal static async Task WithReviewFileAsync(Func<string, string, Task> test)
     {
         var root = Path.Combine(Path.GetTempPath(), "quality-review-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, "src"));
@@ -1069,7 +1181,8 @@ public sealed class ReviewRunnerTests
     private sealed class FakeSensor(
         bool available,
         string? unavailableReason,
-        IReadOnlyList<ReviewFinding> findings) : IReviewSensor
+        IReadOnlyList<ReviewFinding> findings,
+        Action? onRun = null) : IReviewSensor
     {
         public string Id => "gitleaks";
         public string Version => "8.24.2";
@@ -1081,8 +1194,10 @@ public sealed class ReviewRunnerTests
 
         public Task<SensorScanResult> RunAsync(
             SensorScanRequest request,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(new SensorScanResult(
+            CancellationToken cancellationToken = default)
+        {
+            onRun?.Invoke();
+            return Task.FromResult(new SensorScanResult(
                 available,
                 unavailableReason,
                 findings,
@@ -1093,6 +1208,7 @@ public sealed class ReviewRunnerTests
                     ".",
                     "2026-07-25T10:00:00.000Z",
                     new Dictionary<string, string> { ["gitleaks"] = Version })));
+        }
 
         public static FakeSensor BlockingSecret() => new(
             true,

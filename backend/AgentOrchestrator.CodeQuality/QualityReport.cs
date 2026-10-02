@@ -130,7 +130,7 @@ public sealed class QualityReportBuilder
     public const string SchemaId = "https://agent-orchestrator.dev/quality/schemas/quality-report.v1.json";
     private static readonly string[] DefaultKinds = ["code", "security", "performance"];
     private static readonly string[] SeverityNames = ["critical", "high", "medium", "low", "info"];
-    private static readonly string[] StateNames = ["open", "accepted", "waived", "false-positive", "resolved"];
+    private static readonly string[] StateNames = ["open", "accepted", "waived", "false-positive", "resolved", "not-reobserved"];
     private readonly Func<DateTimeOffset> clock;
 
     public QualityReportBuilder(Func<DateTimeOffset>? clock = null) =>
@@ -499,7 +499,7 @@ public sealed class QualityReportBuilder
                 CreateNoWindow = true,
             },
         };
-        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+        foreach (var argument in ReadOnlyGit.WithSafetyOptions(arguments)) process.StartInfo.ArgumentList.Add(argument);
         try
         {
             process.Start();

@@ -1,0 +1,119 @@
+{
+  "runtime": "copied existing Release API; no build",
+  "cases": [
+    {
+      "case": "missing",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: 'probe.sarif' does not exist."
+    },
+    {
+      "case": "bare-object",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: Only SARIF 2.1.0 reports are supported."
+    },
+    {
+      "case": "empty-results",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "results-object",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF analysis results must be present as an array; missing or null results do not prove a completed scan."
+    },
+    {
+      "case": "failed-invocation",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF analyzer execution did not complete successfully."
+    },
+    {
+      "case": "metadata-only",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF analysis results must be present as an array; missing or null results do not prove a completed scan."
+    },
+    {
+      "case": "external-results",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF external results are unsupported; provide an inline report."
+    },
+    {
+      "case": "no-runs",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF report contains no analysis runs."
+    },
+    {
+      "case": "successful-invocation-nonzero",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "one-finding",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 1,
+      "reason": null
+    },
+    {
+      "case": "results-object",
+      "sensor": "roslyn",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF analysis results must be present as an array; missing or null results do not prove a completed scan."
+    },
+    {
+      "case": "results-object",
+      "sensor": "eslint",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: SARIF analysis results must be present as an array; missing or null results do not prove a completed scan."
+    },
+    {
+      "case": "missing",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": "No coverage reports matched the configured report paths."
+    },
+    {
+      "case": "unknown-xml",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "empty-cobertura",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "known-cobertura",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    }
+  ],
+  "coreDllSha256": "497cd5f6c81053763d8f06bdb73aa6a6386864b010def0978d1f446530ec2f40",
+  "cleanup": "Copied API process stopped; verified own temporary directory removed."
+}

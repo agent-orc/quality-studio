@@ -1,0 +1,198 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentOrchestrator.CodeQuality -> C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\bin\Release\net10.0\AgentOrchestrator.CodeQuality.dll
+  quality-cli -> C:\Projects\quality-studio\backend\quality-cli\bin\Release\net10.0\quality.dll
+  AgentOrchestrator.CodeQuality.Tests -> C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll
+Test run for C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Delegating_analyzers_reject_failed_sarif_execution(sensorId: "roslyn") [76 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Delegating_analyzers_reject_failed_sarif_execution(String sensorId) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 63
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Delegating_analyzers_reject_failed_sarif_execution(sensorId: "eslint") [6 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Delegating_analyzers_reject_failed_sarif_execution(String sensorId) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 63
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{}]}") [12 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [18 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [16 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [12 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":{}}") [18 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [15 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":null}") [11 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[null]}") [11 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{}") [10 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"externalPropertyFileReferences\""Â·Â·Â·) [11 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"externalPropertyFileReferences\""Â·Â·Â·) [10 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [4 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [10 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":\"not-an-array\"}") [10 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [9 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":{}}") [8 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"externalPropertyFileReferences\""Â·Â·Â·) [9 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(String properties) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 27
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Sarif_without_an_analysis_run_is_unavailable(document: "{\"version\":\"2.1.0\",\"runs\":[]}") [9 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Sarif_without_an_analysis_run_is_unavailable(String document) in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 38
+--- End of stack trace from previous location ---
+  Failed AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.One_failed_run_makes_a_multi_run_report_unavailable_without_partial_findings [11 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.One_failed_run_makes_a_multi_run_report_unavailable_without_partial_findings() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\SarifSensorTests.FalseClean.cs:line 77
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:    21, Passed:    14, Skipped:     0, Total:    35, Duration: 570 ms - AgentOrchestrator.CodeQuality.Tests.dll (net10.0)
+[xUnit.net 00:00:01.33]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Delegating_analyzers_reject_failed_sarif_execution(sensorId: "roslyn") [FAIL]
+[xUnit.net 00:00:01.34]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Delegating_analyzers_reject_failed_sarif_execution(sensorId: "eslint") [FAIL]
+[xUnit.net 00:00:01.35]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{}]}") [FAIL]
+[xUnit.net 00:00:01.37]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.39]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.40]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.42]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":{}}") [FAIL]
+[xUnit.net 00:00:01.47]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.47]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":null}") [FAIL]
+[xUnit.net 00:00:01.47]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[null]}") [FAIL]
+[xUnit.net 00:00:01.47]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{}") [FAIL]
+[xUnit.net 00:00:01.49]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"externalPropertyFileReferences\""Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.50]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"externalPropertyFileReferences\""Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.50]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.52]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.53]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":\"not-an-array\"}") [FAIL]
+[xUnit.net 00:00:01.54]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"invocations\":[{\"executionSucce"Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.55]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":{}}") [FAIL]
+[xUnit.net 00:00:01.56]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Incomplete_or_failed_sarif_is_unavailable_instead_of_clean(properties: "{\"results\":[],\"externalPropertyFileReferences\""Â·Â·Â·) [FAIL]
+[xUnit.net 00:00:01.60]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.Sarif_without_an_analysis_run_is_unavailable(document: "{\"version\":\"2.1.0\",\"runs\":[]}") [FAIL]
+[xUnit.net 00:00:01.76]     AgentOrchestrator.CodeQuality.Tests.SarifSensorTests.One_failed_run_makes_a_multi_run_report_unavailable_without_partial_findings [FAIL]

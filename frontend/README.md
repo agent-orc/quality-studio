@@ -43,8 +43,8 @@ ones that can fail a change.
 
 A locally started API accepts requests without credentials, and nothing has to be configured. A
 hosted API expects a bearer token: open **API access** from the repository menu, paste the token,
-and every request carries it in the `Authorization` header. The token is kept in `localStorage`
-under `qs-api-token`, is never logged, and is never sent anywhere else. A rejected request (HTTP
+and same-origin `/api` requests carry it in the `Authorization` header. The token is kept in `localStorage`
+under `qs-api-token`, is never logged, and is never attached to external URLs or other paths. A rejected request (HTTP
 401) opens the same dialog with the reason.
 
 ## Source ownership

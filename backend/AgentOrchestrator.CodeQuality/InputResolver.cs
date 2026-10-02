@@ -47,7 +47,9 @@ public sealed record ResolvedInputs(
             : string.Join("\n\n", selected.Select(input => $"## {input.Id}\n{input.IncludedContent}"));
     }
 
-    public string EffectiveHash(string promptTemplateHash)
+    public string EffectiveHash(string promptTemplateHash) => EffectiveHash(promptTemplateHash, null);
+
+    public string EffectiveHash(string promptTemplateHash, IReadOnlyList<StandardReference>? requestGuidelines)
     {
         var canonical = new StringBuilder("quality-studio-review-inputs-v1\0")
             .Append(Kind).Append('\0').Append(Level).Append('\0').Append(promptTemplateHash).Append('\0');
@@ -61,6 +63,15 @@ public sealed record ResolvedInputs(
         {
             canonical.Append(omission.Id).Append('\0').Append(omission.Reason).Append('\0')
                 .Append(omission.OmittedCharacters).Append('\0');
+        }
+        // An absent request context leaves the established v1 hash unchanged. Only explicitly
+        // supplied host guidance extends the preimage, using the digest also kept in standards.
+        if (requestGuidelines is { Count: > 0 })
+        {
+            canonical.Append("request-guidelines-v1\0");
+            foreach (var input in requestGuidelines.OrderBy(input => input.Id, StringComparer.Ordinal))
+                canonical.Append(input.Id).Append('\0').Append(input.Scope).Append('\0')
+                    .Append(input.ContentHash).Append('\0');
         }
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString())));
     }

@@ -1,0 +1,59 @@
+Edge 153.0.0.0 (Windows 10) App shell URL state restores a file and finding when browser history crosses repository boundaries FAILED
+	Expected '.' to be 'src/Restored.cs'.
+	    at <Jasmine>
+	    at src/app/shell/app.spec.ts:163:28
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	Expected spy open to have been called with:
+	  [ 'src/Restored.cs', false, true, true ]
+	but actual calls were:
+	  [ '.', false ].
+	
+	Call 0:
+	  Expected $.length = 2 to equal 4.
+	  Expected $[0] = '.' to equal 'src/Restored.cs'.
+	  Expected $[2] = undefined to equal true.
+	  Expected $[3] = undefined to equal true.
+	Error: Expected spy open to have been called with:
+	  [ 'src/Restored.cs', false, true, true ]
+	but actual calls were:
+	  [ '.', false ].
+	Call 0:
+	  Expected $.length = 2 to equal 4.
+	  Expected $[0] = '.' to equal 'src/Restored.cs'.
+	  Expected $[2] = undefined to equal true.
+	  Expected $[3] = undefined to equal true.
+	    at <Jasmine>
+	    at src/app/shell/app.spec.ts:167:18
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	Back must not create a new entry:
+	    Expected $.length = 1 to equal 0.
+	    Unexpected $[0] = '/context.html?repo=other&path=.&kind=security&finding=sha256%3Asaved&location=2' in array.
+	    at <Jasmine>
+	    at src/app/shell/app.spec.ts:168:68
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	Expected undefined to contain 'path=src%2FRestored.cs'.
+	    at <Jasmine>
+	    at src/app/shell/app.spec.ts:169:29
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	Expected undefined to contain 'finding=sha256%3Asaved'.
+	    at <Jasmine>
+	    at src/app/shell/app.spec.ts:170:29
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+Edge 153.0.0.0 (Windows 10) App shell URL state does not replace a newer selection when a repository switch finishes late FAILED
+	Expected spy open not to have been called.
+	    at <Jasmine>
+	    at src/app/shell/app.spec.ts:187:22
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+TOTAL: 2 FAILED, 12 SUCCESS

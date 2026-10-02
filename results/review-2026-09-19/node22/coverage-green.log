@@ -1,0 +1,7 @@
+> frontend@0.0.0 test:coverage
+> node ./tests/run-tests.mjs --coverage
+> Building...
+Application bundle generation complete. [8.548 seconds] - 2026-09-19T21:16:35.174Z
+Edge 153.0.0.0 (Windows 10): Executed 215 of 215 SUCCESS (0 secs / 7.358 secs)
+Edge 153.0.0.0 (Windows 10): Executed 215 of 215 SUCCESS (8.188 secs / 7.358 secs)
+TOTAL: 215 SUCCESS

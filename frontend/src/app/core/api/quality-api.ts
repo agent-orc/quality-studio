@@ -416,6 +416,8 @@ export class QualityApi {
   pauseReview(id: string): Promise<void> { return this.runsApi.pause(id); }
   resumeReview(id: string, cap: { tokenCap?: number | null; costCap?: number | null } = {}): Promise<void> { return this.runsApi.resume(id, cap); }
   loadRunReport(id: string): Promise<QualityRunReport> { return this.runsApi.loadReport(id); }
+  downloadRunReport(id: string, format: RunReportFormat): Promise<Blob> { return this.runsApi.downloadReport(id, format); }
+  downloadRepositoryReport(format: RunReportFormat = 'html'): Promise<Blob> { return this.runsApi.downloadRepositoryReport(format); }
   loadRunTrend(kind: ReviewKind, scopeUnitId: string, level: string, cursor?: string): Promise<QualityRunTrendPage> {
     return this.runsApi.loadTrend(kind, scopeUnitId, level, cursor);
   }

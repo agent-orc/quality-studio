@@ -1,0 +1,220 @@
+info: QualityStudio.Api.StaticUiHosting[1600]
+      No browser bundle found; the API serves /api only
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://127.0.0.1:57853
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\rmisc\AppData\Local\Temp\qs-sensor-report-probes-6b9aem5y\host
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 GET http://127.0.0.1:57853/health - - -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: GET /health'
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type '<>f__AnonymousType0`2' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: GET /health'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 GET http://127.0.0.1:57853/health - 200 - application/json;+charset=utf-8 375.5181ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=False, Findings=0, ElapsedMilliseconds=5
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 80.0270ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=False, Findings=0, ElapsedMilliseconds=8
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 16.2399ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=True, Findings=0, ElapsedMilliseconds=2
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 3.4821ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 1.1801ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 1.2513ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 1.0334ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 1.1706ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor sarif for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/sarif/scan - 200 - application/json;+charset=utf-8 1.1914ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/roslyn/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor roslyn for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/roslyn/scan - 200 - application/json;+charset=utf-8 1.2512ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/eslint/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor eslint for repository default; Available=True, Findings=0, ElapsedMilliseconds=0
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/eslint/scan - 200 - application/json;+charset=utf-8 1.3253ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor coverage for repository default; Available=True, Findings=0, ElapsedMilliseconds=325
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - 200 - application/json;+charset=utf-8 326.3071ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: QualityStudio.Api.RepositorySnapshotPrewarmer[1112]
+      {"event":"qs.repository.prewarm","repositoryId":"default","cache":"cold","durationMs":1450.79,"phases":{"gitStatusMs":124.9,"scanMs":47.44,"reviewMetaDiscoveryMs":2.11,"projectionMs":77.29,"treeProjectionMs":54.83,"sensorStateMs":0.15,"sensorInitMs":1044.24},"fileCount":1}
+info: Program[1202]
+      Ran sensor coverage for repository default; Available=True, Findings=0, ElapsedMilliseconds=703
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - 200 - application/json;+charset=utf-8 703.8219ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor coverage for repository default; Available=True, Findings=0, ElapsedMilliseconds=474
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - 200 - application/json;+charset=utf-8 475.5743ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - application/x-www-form-urlencoded 0
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Program[1202]
+      Ran sensor coverage for repository default; Available=True, Findings=0, ElapsedMilliseconds=90
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[1]
+      Setting HTTP status code 200.
+info: Microsoft.AspNetCore.Http.Result.OkObjectResult[3]
+      Writing value of type 'SensorScanResult' as Json.
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'HTTP: POST /api/repos/{repoId}/sensors/{id}/scan => SensorScan'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/1.1 POST http://127.0.0.1:57853/api/repos/default/sensors/coverage/scan - 200 - application/json;+charset=utf-8 91.0054ms
