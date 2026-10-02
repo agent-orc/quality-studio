@@ -14,7 +14,7 @@ import { AttackCoverage } from '../features/security/attack-coverage/attack-cove
 import { Editor } from '../features/code/editor/editor';
 import { Explorer } from '../features/code/explorer/explorer';
 import { QualityApi } from '../core/api/quality-api';
-import { AgentStudioImportResponse, Guideline, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from '../core/models/contracts';
+import { AgentStudioImportResponse, Guideline, ProviderAuthState, QuotaProvider, RepositoryRegistration, RepositoryRegistrationRequest, ReviewFinding, ReviewKind } from '../core/models/contracts';
 import { ReviewPanel } from '../features/reviews/review-panel/review-panel';
 import { ReviewActions } from '../features/reviews/review-actions/review-actions';
 import { ProjectDashboardView } from '../features/dashboard/project-dashboard/project-dashboard';
@@ -23,6 +23,16 @@ import { readFindingRoute, writeFindingRoute } from '../core/navigation/review-n
 import { reportUrlPreviewNavigation } from '../core/navigation/url-preview-embed';
 import { formatTokenCount } from '../shared/utils/format';
 import { RepositoryDialog } from '../features/repositories/repository-dialog/repository-dialog';
+
+// Browser storage can be denied in embedded/private contexts or run out of quota.
+// Preferences are optional: session state and workspace navigation must keep working.
+function readPreference(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function writePreference(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* Keep the current session usable. */ }
+}
 
 const LAST_REPOSITORY_STORAGE_KEY = 'qs-last-repository';
 /** Collapses a salvo of position changes into one history write. */
@@ -61,7 +71,7 @@ export class App implements OnDestroy {
   readonly explorer = viewChild<Explorer>('explorerPane');
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
-  readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (localStorage.getItem('qs-theme') as 'dark' | 'light') || 'dark');
+  readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (readPreference('qs-theme') as 'dark' | 'light') || 'dark');
   readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
@@ -177,11 +187,11 @@ export class App implements OnDestroy {
 
   private async initialize(): Promise<void> {
     const preferredRepository = new URLSearchParams(location.search).get('repo') ||
-      localStorage.getItem(LAST_REPOSITORY_STORAGE_KEY);
+      readPreference(LAST_REPOSITORY_STORAGE_KEY);
     const preferredPath = this.selected();
     await this.api.loadRepositories(preferredRepository);
     if (this.api.connectionState() === 'offline') return;
-    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
+    writePreference(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
     await this.api.loadModelCatalog();
     const dashboardLoading = this.api.loadProjectDashboard();
     await this.api.loadTree();
@@ -232,10 +242,34 @@ export class App implements OnDestroy {
     // The popped entry already exists, so the next sync must replace it rather than push again.
     this.historyPosition = { repository: repository ?? this.api.selectedRepositoryId(), path };
     if (repository && repository !== this.api.selectedRepositoryId()) {
-      void this.switchRepository(repository);
+      void this.switchRepository(repository, path);
       return;
     }
     this.open(path, false, true, true);
+  }
+
+  /** Login states for providers the quota strip has no chip for, so an auth failure is never hidden. */
+  readonly authWithoutQuota = computed(() => {
+    const quota = new Set(this.api.quotas().providers.map(provider => provider.provider.toLowerCase()));
+    return (this.api.quotas().auth ?? []).filter(auth => !quota.has(auth.provider.toLowerCase()));
+  });
+
+  authFor(provider: string): ProviderAuthState | null {
+    return (this.api.quotas().auth ?? []).find(auth => auth.provider.toLowerCase() === provider.toLowerCase()) ?? null;
+  }
+
+  authLabel(auth: ProviderAuthState): string {
+    return auth.state === 'ok' ? 'signed in' : auth.state === 'failed' ? 'auth failed' : 'auth unknown';
+  }
+
+  authTooltip(auth: ProviderAuthState): string {
+    const checked = auth.checkedAt ? ` · ${new Date(auth.checkedAt).toLocaleString()}` : '';
+    if (auth.state === 'ok') return `${auth.provider}: the last review reached the provider${checked}`;
+    if (auth.state === 'failed') {
+      const source = auth.source === 'quota-probe' ? 'quota probe' : 'review';
+      return `${auth.provider}: login refused by the ${source}${checked}\n${auth.detail ?? ''}\nSign in to ${auth.provider} again before starting a review.`;
+    }
+    return `${auth.provider}: no review has reached the provider since the API started`;
   }
 
   quotaRemaining(provider: QuotaProvider): number | null {
@@ -351,22 +385,31 @@ export class App implements OnDestroy {
 
   openTrace(path: string): void { this.guidelineDialogOpen.set(false); this.open(path); }
 
-  async switchRepository(id: string): Promise<void> {
+  private repositorySwitchSequence = 0;
+
+  async switchRepository(id: string, restoredPath?: string): Promise<void> {
     if (id === this.api.selectedRepositoryId()) {
       this.repositoryMenuOpen.set(false);
       return;
     }
     const started = performance.now();
+    const sequence = ++this.repositorySwitchSequence;
+    const openSequence = this.openSequence;
+    const initialPath = restoredPath ?? '.';
     this.repositoryMenuOpen.set(false);
-    localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, id);
-    this.selected.set('.');
-    this.selectedFinding.set(null);
+    writePreference(LAST_REPOSITORY_STORAGE_KEY, id);
+    this.selected.set(initialPath);
+    if (restoredPath === undefined) this.clearFindingSelection();
+    else this.selectedFinding.set(null);
     const switching = this.api.selectRepository(id);
     requestAnimationFrame(() => this.measure('qs.repository.transition-visible', started, 100));
     await switching;
+    if (sequence !== this.repositorySwitchSequence || openSequence !== this.openSequence
+      || this.api.selectedRepositoryId() !== id || this.selected() !== initialPath) return;
     requestAnimationFrame(() => this.measure('qs.repository.switch.usable', started, 500));
-    const path = this.selectionPathOrFirst('');
-    if (path) this.open(path, false);
+    // A history destination may live below an unloaded tree level; open() resolves it.
+    const path = restoredPath ?? this.selectionPathOrFirst('');
+    if (path) await this.open(path, false, restoredPath !== undefined, restoredPath !== undefined);
   }
 
   async openAttackCoverage(): Promise<void> {
@@ -432,7 +475,7 @@ export class App implements OnDestroy {
       await this.api.archiveRepository(repository.id);
       if (wasSelected) {
         await this.api.selectRepository(this.api.selectedRepositoryId());
-        localStorage.setItem(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
+        writePreference(LAST_REPOSITORY_STORAGE_KEY, this.api.selectedRepositoryId());
         const path = this.selectionPathOrFirst('');
         if (path) this.open(path, false);
         this.repositoryDialogOpen.set(false);
@@ -449,7 +492,7 @@ export class App implements OnDestroy {
   setTheme(): void {
     const next = this.theme() === 'dark' ? 'light' : 'dark';
     this.theme.set(next);
-    localStorage.setItem('qs-theme', next);
+    writePreference('qs-theme', next);
   }
 
   openApiAccess(): void {

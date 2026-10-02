@@ -69,6 +69,7 @@ public sealed class ReviewRunner
     private readonly SensorRegistry? _sensorRegistry;
     private readonly HierarchyUnitResolver _unitResolver;
     private readonly ReviewExecutionPipeline _pipeline;
+    private readonly Action<ReviewResponseRejection>? _responseRejected;
 
     public ReviewRunner(
         IReviewAgent? agent = null,
@@ -78,8 +79,10 @@ public sealed class ReviewRunner
         Action<ReviewUsageEntry>? usageRecorded = null,
         SensorRegistry? sensorRegistry = null,
         StalenessEvaluator? stalenessEvaluator = null,
-        HierarchyUnitResolver? unitResolver = null)
+        HierarchyUnitResolver? unitResolver = null,
+        Action<ReviewResponseRejection>? responseRejected = null)
     {
+        _responseRejected = responseRejected;
         _agent = agent ?? CodingAgentReviewAgent.CreateDefault();
         _promptBuilder = promptBuilder ?? new ReviewPromptBuilder();
         _responseParser = responseParser ?? new ReviewResponseParser();
@@ -105,12 +108,12 @@ public sealed class ReviewRunner
         ArgumentNullException.ThrowIfNull(request);
         var prepared = await PreparePromptAsync(request, cancellationToken).ConfigureAwait(false);
         var (root, relativePath, subjectPaths, files, fileContent, memberFindings, inputs, prompt, unitId,
-            metaPath, threads, sensorEvidence, deterministicEvidence) = prepared;
+            metaPath, threads, sensorEvidence, deterministicEvidence, initialSubject) = prepared;
         QualityStudioEventSource.Log.InputsResolved(relativePath, request.Kind, inputs.Inputs.Count,
             inputs.Omissions.Count, inputs.IncludedCharacters, inputs.BudgetCharacters);
-        var initialSubject = await PrepareSubjectAsync(root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        var requestGuidelines = RequestGuidelineInputs.ForRequest(request.GlobalGuidelines, request.ProjectGuidelines);
         var reviewedHash = ReviewSubjectHasher.ComputeManifestHash(unitId, initialSubject.Inputs);
-        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Level, request.Kind));
+        var reviewInputsHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(request.Level, request.Kind), requestGuidelines);
         if (!force)
         {
             var freshness = await _stalenessEvaluator.EvaluateReviewAsync(
@@ -129,9 +132,10 @@ public sealed class ReviewRunner
         {
             ReviewUsageEntry usage = null!;
             JsonObject response = null!;
-            // Every resolved input id is citable, whether or not the budget included its body: the
-            // agent can only have seen the included ones, and accepting the rest costs nothing.
-            var rulePolicy = new RuleIdPolicy(inputs.Inputs.Select(input => input.Id), request.Kind);
+            // A finding can cite only guidance whose body reached the prompt. A rule omitted by
+            // the budget is not evidence for this review, even when the catalogue knows its id.
+            var rulePolicy = new RuleIdPolicy(inputs.Inputs
+                .Where(input => input.IncludedContent.Length > 0).Select(input => input.Id), request.Kind);
             return await _pipeline.ExecuteAsync(new ReviewExecution<ReviewExecutionResult>(
                 prompt,
                 root,
@@ -158,11 +162,20 @@ public sealed class ReviewRunner
                 async (outcome, token) =>
                 {
                     var subjectContents = await ReadSubjectContentsAsync(subjectPaths, files, token).ConfigureAwait(false);
+                    var contentHashes = subjectContents.ToDictionary(
+                        pair => pair.Key, pair => FindingIdentity.ContentHash(pair.Value), StringComparer.Ordinal);
                     if (request.Kind == "security")
                     {
                         SecurityReviewCombiner.PrepareAgentResponse(response, sensorEvidence, request.Level);
                     }
-                    var findingIdentities = FindingIdentity.Assign(response, subjectContents).ToList();
+                    var stateStore = new FindingStateStore(root);
+                    var lifecycle = await stateStore.ReadAsync(token).ConfigureAwait(false);
+                    var unlisted = UnlistedFindings(lifecycle, contentHashes.Keys, rulePolicy);
+                    // Every lifecycle fingerprint is known: a finding that matches no earlier anchor
+                    // must not take over one of them by its text.
+                    var findingIdentities = FindingIdentity.Assign(
+                        response, subjectContents, [.. LoadFindingIdentities(metaPath), .. unlisted],
+                        [.. lifecycle.Keys]).ToList();
                     AggregateFindingRollup.Apply(response, request.Level, subjectContents, memberFindings);
                     if (request.Kind == "security")
                     {
@@ -175,9 +188,9 @@ public sealed class ReviewRunner
                     await writeLock.WaitAsync(token).ConfigureAwait(false);
                     try
                     {
-                        var previousFindings = LoadFindingIdentities(metaPath);
-                        var findingStates = await new FindingStateStore(root).MergeReviewAsync(
-                            findingIdentities, previousFindings, _agent.AgentName, token).ConfigureAwait(false);
+                        IReadOnlyList<FindingIdentityRecord> previousFindings = [.. LoadFindingIdentities(metaPath), .. unlisted];
+                        var findingStates = await stateStore.MergeReviewAsync(
+                            findingIdentities, previousFindings, _agent.AgentName, contentHashes, token).ConfigureAwait(false);
                         threads = ReviewThreadManager.MergeLatest(threads, metaPath, relativePath, fileContent);
                         ReviewThreadManager.HealFromFindingFingerprints(threads, response, relativePath, fileContent);
                         ReviewThreadManager.AppendAgentUpdates(threads, response, _agent.AgentName, usage.Model, DateTimeOffset.UtcNow);
@@ -193,6 +206,7 @@ public sealed class ReviewRunner
                             reviewedHash,
                             outcome.RunId,
                             inputs,
+                            requestGuidelines,
                             request.Level,
                             request.DisplayName,
                             usage,
@@ -213,6 +227,18 @@ public sealed class ReviewRunner
                         false,
                         new ReviewResult(metaPath, reviewedHash, outcome.RunId, inputs, usage, observation),
                         observation);
+                },
+                rejection =>
+                {
+                    QualityStudioEventSource.Log.ResponseRejected(relativePath, request.Kind, rejection.AgentRunId,
+                        rejection.Attempt, rejection.Retried, rejection.Error);
+                    _responseRejected?.Invoke(rejection with
+                    {
+                        Path = relativePath,
+                        Kind = request.Kind,
+                        Level = request.Level.ToString().ToLowerInvariant(),
+                    });
+                    return Task.CompletedTask;
                 }), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -309,13 +335,17 @@ public sealed class ReviewRunner
                     $"Review target '{subjectPaths[index]}' is excluded: {decision.Reason}", nameof(request));
         }
 
+        // Establish the subject manifest before any source is read into the prompt. Sensors can
+        // run for long enough that an edit during preparation must be treated like an edit during
+        // the agent run, rather than assigning the new hash to the old prompt content.
+        var unitId = request.UnitId ?? _unitResolver.ResolveUnitId(root, relativePath, request.Level)
+            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        var initialSubject = await PrepareSubjectAsync(
+            root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var subject = await BuildSubjectContentAsync(
             root, relativePath, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
         var fileContent = subject.Text;
-        // The unit identifies the technology, and the technology selects the named rules that
-        // reach this review, so it is resolved before the inputs rather than with the metadata.
-        var unitId = request.UnitId ?? _unitResolver.ResolveUnitId(root, relativePath, request.Level)
-            ?? $"qs-v1/{GetAdapter(files[0])}/{request.Level.ToString().ToLowerInvariant()}/{Sha256($"{GetAdapter(files[0])}\0{relativePath}")}";
+        // The unit identifies the technology and therefore the rules reaching this review.
         var inputs = _inputResolver.Resolve(root, request.Kind, request.Level,
             request.GlobalInputsDirectory, request.InputBudgetCharacters, AdapterFromUnitId(unitId));
         var globalGuidelines = Combine(inputs.Guidelines("global"), request.GlobalGuidelines);
@@ -341,8 +371,13 @@ public sealed class ReviewRunner
             request.Level,
             coverageEvidence,
             DeterministicEvidenceProjection.ToPromptJson(deterministicEvidence));
+        var preparedSubject = await PrepareSubjectAsync(
+            root, relativePath, unitId, request, subjectPaths, files, cancellationToken).ConfigureAwait(false);
+        if (!initialSubject.Inputs.SequenceEqual(preparedSubject.Inputs))
+            throw new ReviewRunException(
+                "The review target changed while the prompt was being prepared; no agent was run and no metadata was written.");
         return new PreparedPrompt(root, relativePath, subjectPaths, files, fileContent, subject.MemberFindings,
-            inputs, prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence);
+            inputs, prompt, unitId, metaPath, threads, sensorEvidence, deterministicEvidence, initialSubject);
     }
 
     private async Task<SecurityEvidenceBundle> CollectSensorEvidenceAsync(
@@ -411,6 +446,7 @@ public sealed class ReviewRunner
         string reviewedHash,
         string runId,
         ResolvedInputs inputs,
+        IReadOnlyList<StandardReference> requestGuidelines,
         ReviewLevel level,
         string? displayName,
         ReviewUsageEntry usage,
@@ -444,12 +480,12 @@ public sealed class ReviewRunner
             ReviewedHash = ManifestHash.Subject(reviewedHash),
             SubjectInputs = subjectInputs,
             ReviewInputs = new ReviewInputs(
-                ManifestHash.ReviewInput(inputs.EffectiveHash(promptHash)),
+                ManifestHash.ReviewInput(inputs.EffectiveHash(promptHash, requestGuidelines)),
                 inputs.Complete,
                 inputs.Inputs.Where(input => input.IncludedContent.Length > 0)
                     .Select(input => new StandardReference(
                         input.Id, ParseScope(input.Scope), input.Version, "sha256:" + Sha256(input.Content)))
-                    .ToArray(),
+                    .Concat(requestGuidelines).ToArray(),
                 inputs.Omissions.Select(omission => omission.Id).Distinct(StringComparer.Ordinal).ToArray(),
                 new PromptReference(ReviewPromptBuilder.TemplateId(level, kind), "1.0.0", promptHash)),
             Grade = Read<ReviewGrade>(response, "grade"),
@@ -559,18 +595,43 @@ public sealed class ReviewRunner
     }
 
     /// <summary>
-    /// The findings the previous review recorded, which the lifecycle compares against this run.
+    /// The findings the previous review recorded, which the lifecycle compares against this run,
+    /// each with its primary anchor so a re-reported finding can be recognised by its span.
     /// A sidecar that cannot be read yields none: the reader has reported the fault, and claiming
     /// no previous findings resolves nothing, where a guessed list would resolve the wrong ones.
     /// </summary>
     private static IReadOnlyList<FindingIdentityRecord> LoadFindingIdentities(string metaPath) =>
         ReviewMetaReader.TryLoad(metaPath, out var sidecar, out _)
-            ? sidecar.Document.Findings.Select(finding => new FindingIdentityRecord(
-                finding.Fingerprint,
-                finding.Id,
-                finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
-                finding.RuleId)).ToArray()
+            ? sidecar.Document.Findings.Select(finding =>
+            {
+                var anchor = finding.Anchors?.FirstOrDefault(item => item.Role == FindingAnchorRole.Primary);
+                return new FindingIdentityRecord(
+                    finding.Fingerprint,
+                    finding.Id,
+                    anchor?.Path ?? finding.Locations.FirstOrDefault()?.Path ?? string.Empty,
+                    finding.RuleId,
+                    anchor?.CapturedExcerpt.ContentHash,
+                    anchor?.Range);
+            }).ToArray()
             : [];
+
+    /// <summary>
+    /// Findings in this subject that an earlier review did not re-observe on unchanged code. Their
+    /// sidecar no longer lists them, so the lifecycle state carries the anchor they were last seen at,
+    /// and this review can still recognise them — or, once the code changed, resolve them. Only
+    /// findings under a rule this review was given are its to judge: a security review of the same
+    /// file cannot re-observe, or resolve, a code finding.
+    /// </summary>
+    private static IReadOnlyList<FindingIdentityRecord> UnlistedFindings(
+        IReadOnlyDictionary<string, FindingStateRecord> states, IEnumerable<string> subjectPaths, RuleIdPolicy rules)
+    {
+        var paths = subjectPaths.ToHashSet(StringComparer.Ordinal);
+        return states.Values
+            .Where(record => record.LastObservedRange is not null && paths.Contains(record.Path) &&
+                             rules.Canonicalize(record.RuleId) is not null)
+            .Select(record => record.ToIdentity())
+            .ToArray();
+    }
 
     private static async Task<IReadOnlyList<SubjectInputHash>> HashInputsAsync(
         IReadOnlyList<string> paths, IReadOnlyList<string> files, CancellationToken cancellationToken)
@@ -683,7 +744,8 @@ public sealed class ReviewRunner
         string MetaPath,
         JsonArray Threads,
         SecurityEvidenceBundle SensorEvidence,
-        IReadOnlyList<SensorScanResult> DeterministicEvidence);
+        IReadOnlyList<SensorScanResult> DeterministicEvidence,
+        PreparedSubject InitialSubject);
 }
 
 public sealed class ReviewRunException(string message) : Exception(message);

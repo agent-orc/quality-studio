@@ -266,7 +266,7 @@ export interface QualityRunReport {
   subject: { manifestHash: string; targets: { unitId: string; name: string; path: string; subjectHash: string }[] };
   execution: { reviewed: number; reusedFresh: number; failed: number; skipped: number; cancelled: number; aggregateOutcome: ReviewUnitState | null; errors: string[]; usage: TokenUsage & { operations: number; cost: number | null; currency: string | null; priceStatus: string; inputEstimateDeviationPercent: number | null; outputEstimateDeviationPercent: number | null; costEstimateDeviationPercent: number | null }; cap: { tokenLimit: number | null; costLimit: number | null; outcome: string; reason: string | null }; estimate: QualityRunEstimate | null };
   observations: QualityRunObservation[];
-  delta: { status: 'available' | 'unavailable'; priorRunId: string | null; reason: string | null; new: string[]; persisting: string[]; resolved: string[]; stateChanged: string[] };
+  delta: { status: 'available' | 'unavailable'; priorRunId: string | null; reason: string | null; new: string[]; persisting: string[]; resolved: string[]; stateChanged: string[]; notReobserved?: string[] };
   summary: { score: number | null; grade: string | null; findings: { total: number; bySeverity: Record<string, number>; byState: Record<string, number> }; highestSeverity: FindingSeverity | null; partialReason: string | null };
 }
 export interface QualityRunTrendPoint {
@@ -301,7 +301,9 @@ export interface UsageEntry { runId: string; reviewRunId?: string | null; timest
 export interface UsageReport { generatedAt: string; runs: number; inputTokens: number; outputTokens: number; cachedInputTokens: number; reasoningOutputTokens: number; durationMs: number; byModel: UsageAggregate[]; byKind: UsageAggregate[]; byDay: UsageAggregate[]; byReviewRun: UsageAggregate[]; recent: UsageEntry[]; estimatedCost?: number | null; costCurrency?: string | null; unpricedRuns?: number; }
 export interface QuotaWindow { label: string; usedPct: number | null; remainingPct: number | null; used: number | null; limit: number | null; unit: string | null; resetAt: string | null; resetLabel: string | null; }
 export interface QuotaProvider { provider: string; plan: string | null; fetchedAt: string; source: string | null; error: string | null; windows: QuotaWindow[]; }
-export interface QuotaReport { at: string; ttlSeconds: number; providers: QuotaProvider[]; }
+/** What the API last learned about a provider's login: from a review that reached it or was refused, or from the quota probe. */
+export interface ProviderAuthState { provider: string; state: 'ok' | 'failed' | 'unknown'; checkedAt: string | null; detail: string | null; source: 'review-run' | 'quota-probe' | 'none'; }
+export interface QuotaReport { at: string; ttlSeconds: number; providers: QuotaProvider[]; auth?: ProviderAuthState[]; }
 export interface ProjectGrade { kind: ReviewKind; state: ReviewState; score: number | null; band: string | null; path: string; }
 export interface ProjectFindings { open: number; bySeverity: Record<FindingSeverity, number>; byReviewState: Record<'fresh' | 'stale', number>; path: string; }
 export interface ProjectStaleness { fresh: number; stale: number; missing: number; total: number; path: string; }

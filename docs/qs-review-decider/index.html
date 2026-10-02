@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en" data-document-pattern="concept">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Studio as the review decider for Agent Studio | Article document</title>
+  <style data-article-template="v2">
+    :root {
+      color-scheme: light;
+      --article-paper: #fcfcfb;
+      --article-surface: #f2f1ee;
+      --article-surface-strong: #e9e8e3;
+      --article-ink: #151515;
+      --article-muted: #5f5e59;
+      --article-faint: #7c7a74;
+      --article-line: #d8d6cf;
+      --article-link: #1f67b2;
+      --article-link-soft: #eaf1fb;
+      --article-good: #18753a;
+      --article-good-soft: #eaf4ea;
+      --article-warn: #8b6100;
+      --article-warn-soft: #f8f0dd;
+      --article-bad: #b72f2f;
+      --article-bad-soft: #fbecec;
+      --article-serif: Georgia, "Times New Roman", serif;
+      --article-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --article-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --article-paper: #1a1a19;
+        --article-surface: #232322;
+        --article-surface-strong: #2c2c2a;
+        --article-ink: #f7f7f4;
+        --article-muted: #c3c2b7;
+        --article-faint: #9d9c94;
+        --article-line: #3d3d3a;
+        --article-link: #78aef0;
+        --article-link-soft: #1e2a3a;
+        --article-good: #67b867;
+        --article-good-soft: #1f2f1f;
+        --article-warn: #d9a63f;
+        --article-warn-soft: #33301e;
+        --article-bad: #e66767;
+        --article-bad-soft: #382222;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--article-paper); }
+    body {
+      margin: 0;
+      background: var(--article-paper);
+      color: var(--article-ink);
+      font: 17px/1.75 var(--article-serif);
+      text-rendering: optimizeLegibility;
+    }
+    main,
+    .article {
+      width: min(70ch, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 0 0 80px;
+    }
+    header.page {
+      margin-bottom: 12px;
+      padding: 48px 0 28px;
+      border-bottom: 1px solid var(--article-line);
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    .kicker,
+    .meta,
+    .number,
+    nav,
+    table,
+    figcaption,
+    .box,
+    .callout,
+    .evidence-figure,
+    .variant-grid,
+    .evidence-list {
+      font-family: var(--article-sans);
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      margin: 56px 0 10px;
+      font-size: 1.55rem;
+      line-height: 1.25;
+    }
+    h3 { margin: 34px 0 8px; font-size: 1.08rem; line-height: 1.35; }
+    h4 { margin: 0 0 8px; font-size: 0.94rem; }
+    p { margin: 0 0 18px; }
+    p:last-child { margin-bottom: 0; }
+    .kicker,
+    .number {
+      margin: 0 0 12px;
+      color: var(--article-faint);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .lede { margin: 0; color: var(--article-muted); font-size: 1.18rem; line-height: 1.6; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 20px; color: var(--article-faint); font-size: 0.78rem; }
+    .meta b { color: var(--article-muted); font-weight: 650; }
+    a { color: var(--article-link); text-underline-offset: 0.16em; }
+    a:focus-visible { outline: 2px solid var(--article-link); outline-offset: 3px; border-radius: 2px; }
+    code {
+      padding: 0.08em 0.34em;
+      border-radius: 4px;
+      background: var(--article-surface-strong);
+      font: 0.84em/1.5 var(--article-mono);
+      overflow-wrap: anywhere;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 24px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    pre code { padding: 0; background: transparent; }
+    ul,
+    ol { margin: 0 0 18px; padding-left: 24px; }
+    li + li { margin-top: 6px; }
+    table { width: 100%; margin: 24px 0; border-collapse: collapse; font-size: 0.88rem; line-height: 1.5; }
+    th,
+    td { padding: 10px 12px; border-bottom: 1px solid var(--article-line); text-align: left; vertical-align: top; }
+    th { color: var(--article-faint); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .box,
+    .callout {
+      margin: 24px 0;
+      padding: 18px 22px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+    .box.accent,
+    .callout[data-tone="accent"] { border-color: color-mix(in srgb, var(--article-link) 30%, var(--article-line)); background: var(--article-link-soft); }
+    .box.good,
+    .callout[data-tone="good"] { border-color: color-mix(in srgb, var(--article-good) 30%, var(--article-line)); background: var(--article-good-soft); }
+    .box.warn,
+    .callout[data-tone="warn"] { border-color: color-mix(in srgb, var(--article-warn) 35%, var(--article-line)); background: var(--article-warn-soft); }
+    .box.bad,
+    .callout[data-tone="bad"] { border-color: color-mix(in srgb, var(--article-bad) 30%, var(--article-line)); background: var(--article-bad-soft); }
+    figure { margin: 30px 0; }
+    figure > img,
+    figure > svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    figcaption { margin-top: 10px; color: var(--article-muted); font-size: 0.8rem; line-height: 1.5; }
+    .evidence-figure { margin-top: 38px; margin-bottom: 38px; }
+    .evidence-captures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+      gap: 12px;
+    }
+    .evidence-capture {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    .evidence-capture > img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .capture-theme,
+    .figure-annotation {
+      position: absolute;
+      z-index: 1;
+      border: 1px solid var(--article-line);
+      border-radius: 999px;
+      background: var(--article-surface);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      line-height: 1.35;
+    }
+    .capture-theme {
+      top: 10px;
+      left: 10px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+    }
+    .figure-annotation {
+      right: 12px;
+      bottom: 12px;
+      max-width: min(28ch, calc(100% - 24px));
+      padding: 5px 10px;
+      border-color: color-mix(in srgb, var(--article-link) 45%, var(--article-line));
+      background: var(--article-link-soft);
+      color: var(--article-link);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .figure-claim { display: block; color: var(--article-ink); font-size: 0.84rem; }
+    .figure-as-of {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 14px;
+      margin-top: 6px;
+      color: var(--article-faint);
+      font-size: 0.72rem;
+    }
+    .breakout,
+    .media-breakout {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+    }
+    .variant-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 24px 0; }
+    .variant {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    .variant h3 { margin: 0 0 8px; }
+    .variant img,
+    .variant svg { display: block; width: 100%; height: auto; margin-top: 12px; }
+    [data-document-pattern="ui"] .variant-grid {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    [data-document-pattern="ui"] .mockup { width: min(1120px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+    .evidence-list { display: grid; gap: 10px; margin: 24px 0; }
+    .evidence {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px 14px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--article-line);
+      border-radius: 9px;
+      background: var(--article-surface);
+      color: var(--article-ink);
+      text-decoration: none;
+    }
+    .evidence:hover { border-color: var(--article-link); background: var(--article-link-soft); }
+    .evidence-class {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--article-surface-strong);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="observed"] { background: var(--article-good-soft); color: var(--article-good); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="inferred"] { background: var(--article-warn-soft); color: var(--article-warn); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="proposed"] { background: var(--article-link-soft); color: var(--article-link); }
+    .evidence b { display: block; margin-bottom: 2px; font-size: 0.88rem; }
+    .evidence small { display: block; color: var(--article-muted); font-size: 0.78rem; line-height: 1.45; }
+    .dim { color: var(--article-muted); }
+
+    @media (max-width: 760px) {
+      main,
+      .article { width: min(100% - 28px, 70ch); padding-bottom: 52px; }
+      header.page { padding-top: 32px; }
+      .breakout,
+      .media-breakout,
+      [data-document-pattern="ui"] .variant-grid,
+      [data-document-pattern="ui"] .mockup { width: calc(100vw - 20px); }
+      [data-document-pattern="ui"] .variant-grid { grid-template-columns: 1fr; }
+      .evidence { grid-template-columns: 1fr; }
+      .evidence-captures { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }
+    }
+  </style>
+  <style data-dossier-local="svg-roles">
+    /* Diagram roles map onto the article tokens above; no separate colour system. */
+    :root { --chart-neutral: var(--article-faint); }
+    @media (prefers-color-scheme: dark) {
+      :root { --chart-neutral: color-mix(in srgb, var(--article-faint) 60%, var(--article-paper)); }
+    }
+    svg text { font-family: var(--article-sans); }
+    .s-box { fill: var(--article-surface); stroke: var(--article-line); stroke-width: 1; }
+    .s-qs { fill: var(--article-link-soft); stroke: var(--article-link); stroke-width: 1.5; }
+    .s-qs-dash { fill: var(--article-paper); stroke: var(--article-link); stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .s-gap { fill: var(--article-paper); stroke: var(--article-line); stroke-width: 1; stroke-dasharray: 3 4; }
+    .s-label { fill: var(--article-ink); font-size: 13px; font-weight: 650; }
+    .s-sub { fill: var(--article-muted); font-size: 11.5px; }
+    .s-tiny { fill: var(--article-faint); font-size: 11px; }
+    .s-row { fill: var(--article-muted); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+    .s-flow { stroke: var(--article-faint); stroke-width: 1.5; fill: none; }
+    .s-flow-dash { stroke: var(--article-link); stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+    .s-arrow { fill: var(--article-faint); }
+    .s-rule { stroke: var(--article-line); stroke-width: 1; }
+    .bar-verify { fill: var(--chart-neutral); }
+    .bar-aspects { fill: var(--article-link); }
+    .bar-rest { fill: url(#hatch); stroke: var(--article-line); stroke-width: 1; }
+    .hatch-line { stroke: var(--article-line); stroke-width: 2; }
+    .bar-seg:hover { opacity: .85; }
+    .decision-table td:first-child { white-space: nowrap; }
+    .callout > h3:first-child { margin-top: 0; }
+  </style>
+</head>
+<body>
+<main class="article">
+  <header class="page">
+    <p class="kicker">Decision template · QS-118 · 29 September 2026</p>
+    <h1>Quality Studio as the review decider for Agent Studio</h1>
+    <p class="lede">Should Quality Studio replace the model review aspects as the source and the decider for code reviews in the Agent Studio pipeline? This template compares three options with measured cost, names what Quality Studio must fix first, and defines a two-week trial whose numbers make the call.</p>
+    <div class="meta">
+      <span><b>Pattern</b> concept</span>
+      <span><b>Status</b> Decision pending</span>
+      <span><b>Phase</b> Decision-ready</span>
+      <span><b>Source</b> QS-118</span>
+      <span><b>Follows</b> QS-W6 (<a href="../operations/studio-integration/index.html">studio-integration</a>)</span>
+      <span><b>QS snapshot</b> <code>4ca5577b</code></span>
+      <span><b>Studio snapshot</b> <code>742936e05</code></span>
+    </div>
+  </header>
+
+  <section id="decision-summary">
+    <h2><span class="number">00</span> Decision summary</h2>
+    <div class="callout" data-tone="accent">
+      <h3>Recommendation: option B, proven by a paired trial</h3>
+      <p>Quality Studio decides the <b>code-quality</b> aspect only. The model aspects for requirement fit, tests and evidence, and documentation impact stay. Agent Studio's review policy, fix rounds and gates stay. Start on Agent Studio once the entry gate closes: QS-110, QS-111, QS-113 and QS-116 merged, QS-117 delivered. Run one week in shadow, then one week with QS deciding and the model aspect in reverse shadow.</p>
+    </div>
+    <p>Three measured facts carry the decision:</p>
+    <ol>
+      <li><b>The model aspects are not where review time goes.</b> On Agent Studio (15 to 25 September) the verify commands take a median 28.9 minutes per review. All four aspects together take 1.85 minutes. No option saves meaningful host minutes by replacing aspects.</li>
+      <li><b>The code-quality aspect is the model decider that matters.</b> It blocked in 50 of 83 Agent Studio <code>ProductFailure</code> reviews and was the only blocker in 38. Requirement fit and tests-and-evidence blocked in none; they raised concerns.</li>
+      <li><b>Quality Studio is not yet a safe decider.</b> Its standing grade and its deterministic "regression" flag are not bound to the change: 11 of 20 recent QS transitions were flagged as regressions, mostly for new endpoints. Isolation (D12), hidden builds (D7) and analyzer profiles (D8–D10) are still open on branches, and QS-117 has not started.</li>
+    </ol>
+    <p>What you approve today: option B as the target, the gap list in <a href="#prerequisites">Prerequisites</a> as the entry gate, and the trial design in <a href="#recommendation">Recommendation</a>. Option C is rejected for now: Quality Studio has no input for requirement fit.</p>
+  </section>
+
+  <section id="alternatives" data-concept-section="alternatives" data-document-section="alternatives">
+    <h2><span class="number">01</span> Alternatives</h2>
+    <p>Today every Agent Studio Remote Review materializes the exact Result-SHA, runs the verify commands (build, three .NET test suites, frontend build, tests and lint), then runs four model aspects on the diff: <code>code-quality</code>, <code>tests-and-evidence</code>, <code>requirement-fit</code> and <code>documentation-impact</code>. The outcome is <code>Pass</code>, <code>ProductFailure</code> or <code>ReviewInfra</code>. <code>ReviewFollowUpPolicy</code> turns a block into a fix round and a concern into one automatic concern round, then re-reviews in scope. The aspects are not all Claude: across 1,032 aspect runs since 15 September, 594 ran on Claude models and 438 on GPT models, per project routing.</p>
+    <p>Agent Studio also already runs Quality Studio's analysis core in-process as a local pipeline step (named-rule passes). Its medium-or-higher findings feed the steered-retry loop. That step is not part of Remote Review and has no verdict.</p>
+
+    <figure class="breakout" id="figure-options">
+      <svg viewBox="0 0 960 384" role="img" aria-labelledby="options-title options-desc">
+        <title id="options-title">Where Quality Studio sits in the review for each option</title>
+        <desc id="options-desc">Four rows. Today: verify commands, four model aspects, Studio review policy, outcome. Option A adds a dashed advisory Quality Studio box whose output goes to the report only. Option B replaces the code-quality aspect with a Quality Studio verdict. Option C replaces all four aspects with one Quality Studio verdict and leaves requirement fit without input.</desc>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-arrow" d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <!-- column heads -->
+        <text class="s-tiny" x="120" y="18">Deterministic gates</text>
+        <text class="s-tiny" x="290" y="18">Semantic aspects on the diff</text>
+        <text class="s-tiny" x="706" y="18">Studio policy (unchanged)</text>
+        <text class="s-tiny" x="866" y="18">Outcome</text>
+
+        <!-- Row: Today -->
+        <text class="s-row" x="8" y="62">TODAY</text>
+        <rect class="s-box" x="120" y="36" width="150" height="48" rx="8"/>
+        <text class="s-label" x="132" y="57">Verify commands</text><text class="s-sub" x="132" y="74">build · tests · lint</text>
+        <rect class="s-box" x="290" y="36" width="72" height="48" rx="8"/><text class="s-label" x="300" y="64">CQ</text>
+        <rect class="s-box" x="368" y="36" width="72" height="48" rx="8"/><text class="s-label" x="378" y="64">TE</text>
+        <rect class="s-box" x="446" y="36" width="72" height="48" rx="8"/><text class="s-label" x="456" y="64">RF</text>
+        <rect class="s-box" x="524" y="36" width="72" height="48" rx="8"/><text class="s-label" x="534" y="64">DI</text>
+        <rect class="s-box" x="706" y="36" width="140" height="48" rx="8"/><text class="s-label" x="718" y="57">Follow-up policy</text><text class="s-sub" x="718" y="74">fix / concern round</text>
+        <rect class="s-box" x="866" y="36" width="86" height="48" rx="8"/><text class="s-sub" x="876" y="57">Pass</text><text class="s-sub" x="876" y="74">ProductFailure</text>
+        <path class="s-flow" d="M270 60 H286" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M596 60 H702" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M846 60 H862" marker-end="url(#arrow)"/>
+
+        <line class="s-rule" x1="8" x2="952" y1="100" y2="100"/>
+
+        <!-- Row: A -->
+        <text class="s-row" x="8" y="142">OPTION A</text>
+        <rect class="s-box" x="120" y="116" width="150" height="48" rx="8"/><text class="s-label" x="132" y="145">Verify commands</text>
+        <rect class="s-box" x="290" y="116" width="72" height="48" rx="8"/><text class="s-label" x="300" y="144">CQ</text>
+        <rect class="s-box" x="368" y="116" width="72" height="48" rx="8"/><text class="s-label" x="378" y="144">TE</text>
+        <rect class="s-box" x="446" y="116" width="72" height="48" rx="8"/><text class="s-label" x="456" y="144">RF</text>
+        <rect class="s-box" x="524" y="116" width="72" height="48" rx="8"/><text class="s-label" x="534" y="144">DI</text>
+        <rect class="s-box" x="706" y="116" width="140" height="48" rx="8"/><text class="s-label" x="718" y="145">Follow-up policy</text>
+        <rect class="s-box" x="866" y="116" width="86" height="48" rx="8"/><text class="s-sub" x="876" y="145">unchanged</text>
+        <path class="s-flow" d="M270 140 H286" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M596 140 H702" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M846 140 H862" marker-end="url(#arrow)"/>
+        <rect class="s-qs-dash" x="290" y="174" width="306" height="36" rx="8"/>
+        <text class="s-label" x="300" y="197">QS change review</text><text class="s-sub" x="430" y="197">advisory, same diff</text>
+        <path class="s-flow-dash" d="M596 192 H909 V168" marker-end="url(#arrow)"/>
+        <text class="s-tiny" x="612" y="206">findings go to the report, never to the verdict</text>
+
+        <line class="s-rule" x1="8" x2="952" y1="224" y2="224"/>
+
+        <!-- Row: B -->
+        <text class="s-row" x="8" y="266">OPTION B</text>
+        <rect class="s-box" x="120" y="240" width="150" height="48" rx="8"/><text class="s-label" x="132" y="261">Verify commands</text><text class="s-sub" x="132" y="278">+ SARIF reused</text>
+        <rect class="s-qs" x="290" y="240" width="72" height="48" rx="8"/><text class="s-label" x="300" y="261">QS</text><text class="s-sub" x="300" y="278">CQ verdict</text>
+        <rect class="s-box" x="368" y="240" width="72" height="48" rx="8"/><text class="s-label" x="378" y="268">TE</text>
+        <rect class="s-box" x="446" y="240" width="72" height="48" rx="8"/><text class="s-label" x="456" y="268">RF</text>
+        <rect class="s-box" x="524" y="240" width="72" height="48" rx="8"/><text class="s-label" x="534" y="268">DI</text>
+        <rect class="s-box" x="706" y="240" width="140" height="48" rx="8"/><text class="s-label" x="718" y="269">Follow-up policy</text>
+        <rect class="s-box" x="866" y="240" width="86" height="48" rx="8"/><text class="s-sub" x="876" y="269">same contract</text>
+        <path class="s-flow" d="M270 264 H286" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M596 264 H702" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M846 264 H862" marker-end="url(#arrow)"/>
+
+        <line class="s-rule" x1="8" x2="952" y1="304" y2="304"/>
+
+        <!-- Row: C -->
+        <text class="s-row" x="8" y="346">OPTION C</text>
+        <rect class="s-box" x="120" y="320" width="150" height="48" rx="8"/><text class="s-label" x="132" y="349">Verify commands</text>
+        <rect class="s-qs" x="290" y="320" width="150" height="48" rx="8"/><text class="s-label" x="300" y="341">QS verdict</text><text class="s-sub" x="300" y="358">all code aspects</text>
+        <rect class="s-gap" x="446" y="320" width="150" height="48" rx="8"/><text class="s-sub" x="456" y="341">RF · DI: no input</text><text class="s-sub" x="456" y="358">QS never sees the card</text>
+        <rect class="s-box" x="706" y="320" width="140" height="48" rx="8"/><text class="s-label" x="718" y="349">Follow-up policy</text>
+        <rect class="s-box" x="866" y="320" width="86" height="48" rx="8"/><text class="s-sub" x="876" y="349">same contract</text>
+        <path class="s-flow" d="M270 344 H286" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M596 344 H702" marker-end="url(#arrow)"/>
+        <path class="s-flow" d="M846 344 H862" marker-end="url(#arrow)"/>
+      </svg>
+      <figcaption>CQ code-quality, TE tests-and-evidence, RF requirement-fit, DI documentation-impact. Agent Studio's follow-up policy, fix rounds, gates and lane authority are the same in every option; only the producer of the aspect verdict changes.</figcaption>
+    </figure>
+
+    <div class="variant-grid">
+      <article class="variant" id="option-a">
+        <h3>A · Quality Studio as an additional advisory aspect</h3>
+        <p><b>Pipeline change.</b> One more review-library step runs the QS change review on the fenced Result-SHA and attaches its findings to the report. The verdict, fix rounds and gates are unchanged. This is QS-W6 Slice 3, already approved on 11 August and not yet built in Agent Studio.</p>
+        <p><b>Cost per review.</b> Host time rises by one diff-bound QS agent call plus cached sensors. The code-quality aspect is the comparable call at 0.95 minutes median and 2.2 minutes p90, so expect +1 to +3 minutes (inferred). Model tokens rise by roughly one aspect's worth. Before QS-111 lands, every QS run also re-runs all sensors on the whole repository, including a full Release build when the build sensor is on (D7).</p>
+        <p><b>Determinism.</b> The outcome does not change, because nothing QS says can block.</p>
+        <p><b>Blind spots.</b> The current ones remain. Advisory findings in a report with many rows tend to go unread; the 09-28 run produced 470 findings, of which six were genuine highs.</p>
+        <p><b>Rollout risk.</b> Low. Cost rises; there is no effect on throughput or quality. On its own it does not answer Robert's question.</p>
+      </article>
+      <article class="variant" id="option-b">
+        <h3>B · Quality Studio decides the code-quality aspect</h3>
+        <p><b>Pipeline change.</b> A QS verdict step replaces the model code-quality aspect as the producer of the <code>code-quality</code> verdict (<code>pass</code>, <code>concerns</code>, <code>block</code> with citation). The other three aspects stay model-based. The verdict enters <code>ReviewFollowUpPolicy</code> and the citation contract unchanged. A QS failure is <code>ReviewInfra</code>, never <code>Pass</code>. Per-project switch: off, shadow, decide.</p>
+        <p><b>Cost per review.</b> Neutral: one model call is replaced by one diff-bound QS call. Deterministic rule findings cost no tokens. SARIF from the plane's own build step avoids a second build. The real lever is fix rounds. <code>ProductFailure</code> was 142 of 277 decided Agent Studio reviews since 22 September. Each avoidable code-quality block costs a coding round and a full re-review (median 54 minutes of host time).</p>
+        <p><b>Determinism.</b> Better than today for the deciding findings. Rule findings are reproducible for the same subject SHA, rule-set hash and QS version. Model-judged QS findings may block only with a rule id, a changed-line anchor and a citation.</p>
+        <p><b>Blind spots.</b> Code-quality defects outside the rule catalogue now depend on the QS agent judgement: only 8 of 33 rules were cited across 526 findings. Standing debt in untouched code is never blocking; it stays with QS sweeps and handover cards.</p>
+        <p><b>Rollout risk.</b> Medium and bounded. It changes the decider behind 46% of Agent Studio product failures, but shadow, reverse shadow and the per-project switch make it reversible within one attempt.</p>
+      </article>
+      <article class="variant" id="option-c">
+        <h3>C · Quality Studio as the sole decider with a verdict contract</h3>
+        <p><b>Pipeline change.</b> All four model aspects are removed; one QS verdict decides the semantic part of the review. The verify commands stay: QS does not run test suites.</p>
+        <p><b>Cost per review.</b> Saves at most the four aspect calls: 1.85 minutes median of a 37-minute review, and about 1.9% of pipeline tokens in the July corpus. The 80 to 140 minutes named on the card are verify-command time and queue time; they are unchanged.</p>
+        <p><b>Determinism.</b> No better than B. Requirement fit and documentation impact would still need a model judgement, now inside QS.</p>
+        <p><b>Blind spots.</b> QS reviews code, not the card. It has no task text or acceptance criteria, so "did the delivery do what was asked" has no input. Its change aspects are risk, test evidence, scope discipline and architecture drift. There is no coverage data for Agent Studio yet, so risk scores are empty (QS-115).</p>
+        <p><b>Rollout risk.</b> High. It is one point of failure for every review. It contradicts the QS-W6 boundary that Studio owns task policy and QS never moves a task. It cannot be run as a like-for-like shadow for the aspects QS does not model.</p>
+      </article>
+    </div>
+
+    <h3>Comparison</h3>
+    <table class="decision-table">
+      <thead><tr><th>Criterion</th><th>A · advisory</th><th>B · QS decides CQ</th><th>C · QS sole</th></tr></thead>
+      <tbody>
+        <tr><td>Host minutes per review</td><td>+1 to +3 (inferred)</td><td>about 0; fewer fix rounds if QS blocks less falsely</td><td>−1.85 at most, then + QS call</td></tr>
+        <tr><td>Model tokens per review</td><td>+1 call</td><td>±0 (1 call replaced)</td><td>−3 calls, + requirement input QS lacks</td></tr>
+        <tr><td>Deciding findings deterministic</td><td>unchanged (model)</td><td>rule findings yes; model findings cited and diff-bound</td><td>as B, plus model-judged requirement fit</td></tr>
+        <tr><td>Main blind spot</td><td>advisory noise ignored</td><td>defects outside the 33-rule catalogue</td><td>requirement fit, documentation impact</td></tr>
+        <tr><td>Rollout risk</td><td>low</td><td>medium, reversible per project</td><td>high, single decider</td></tr>
+        <tr><td>Answers "QS as decider"</td><td>no</td><td>yes, for the aspect QS models</td><td>yes, beyond what QS models</td></tr>
+      </tbody>
+    </table>
+
+    <figure id="figure-minutes">
+      <svg viewBox="0 0 960 150" role="img" aria-labelledby="minutes-title minutes-desc">
+        <title id="minutes-title">Where Agent Studio review host minutes go</title>
+        <desc id="minutes-desc">One horizontal bar, 37.2 minutes median claim-to-report for Agent Studio reviews from 15 to 25 September 2026. Verify commands 28.9 minutes, four model aspects 1.85 minutes, the rest 6.4 minutes not itemized.</desc>
+        <defs>
+          <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch-line" x1="0" y1="0" x2="0" y2="8"/></pattern>
+        </defs>
+        <text class="s-label" x="20" y="24">Median Agent Studio review, claim to accepted report: 37.2 min</text>
+        <!-- scale: 900px = 37.2 min -> 24.19 px/min, origin x=20 -->
+        <g class="bar-seg"><title>Verify commands: median 28.9 min (build, tests, lint)</title>
+          <path class="bar-verify" d="M20 44 H715 V84 H20 Z"/></g>
+        <g class="bar-seg"><title>Four model aspects together: median 1.85 min</title>
+          <path class="bar-aspects" d="M717 44 H760 V84 H717 Z"/></g>
+        <g class="bar-seg"><title>Not itemized (materialization, baseline comparison, report): about 6.4 min</title>
+          <rect class="bar-rest" x="762" y="44" width="158" height="40" rx="0"/></g>
+        <line class="s-rule" x1="20" x2="920" y1="92" y2="92"/>
+        <text class="s-tiny" x="20" y="106">0</text>
+        <text class="s-tiny" x="262" y="106" text-anchor="middle">10</text>
+        <text class="s-tiny" x="504" y="106" text-anchor="middle">20</text>
+        <text class="s-tiny" x="746" y="106" text-anchor="middle">30</text>
+        <text class="s-tiny" x="920" y="106" text-anchor="end">37.2 min</text>
+        <text class="s-sub" x="20" y="130">Verify commands 28.9 min</text>
+        <text class="s-sub" x="600" y="130">Four aspects 1.85 min</text>
+        <text class="s-sub" x="780" y="130">Not itemized ≈ 6.4 min</text>
+        <path class="s-flow" d="M738 120 V88"/>
+      </svg>
+      <figcaption>Medians from 295 Agent Studio remote grade reports and 308 journal attempts in the same window (15 to 25 September 2026, <code>ReviewInfra</code> excluded). Medians of parts do not add exactly. The same table in numbers is in <a href="#evidence-measurements">Evidence</a>.</figcaption>
+    </figure>
+  </section>
+
+  <section id="recommendation" data-concept-section="recommendation" data-document-section="recommendation">
+    <h2><span class="number">02</span> Recommendation</h2>
+    <div class="callout" data-tone="accent">
+      <h3>Recommended default: B, entered through a two-week paired trial on Agent Studio</h3>
+      <p>Quality Studio becomes the source and decider for the code-quality aspect. Agent Studio keeps requirement fit, tests and evidence, documentation impact, the verify gates, and every policy that turns a verdict into a fix round or a lane move. The trial decides whether B is extended to every project and whether the model code-quality aspect is retired (QS-W6 Slice 5).</p>
+    </div>
+    <h3>Reasoning</h3>
+    <ul>
+      <li><b>B targets where the model decides.</b> The code-quality aspect is the only model aspect that blocks in practice: 50 of 83 product failures, 38 as the only blocker. Replacing the others would change almost nothing about decisions.</li>
+      <li><b>B keeps the parts QS cannot see.</b> Requirement fit needs the card text and the results inventory; QS has neither. C would give the decision to a component that has no input for part of it.</li>
+      <li><b>The time argument is fix rounds, not aspect minutes.</b> Aspects are about 5% of review host time. Each avoided false block saves a whole re-review and a coding round. Agent Studio cards take a median 2 and a p90 6 remote grades.</li>
+      <li><b>B fits the QS-W6 boundary.</b> QS produces an immutable, cited verdict; Studio policy applies it. No second scheduler, and QS never moves a task.</li>
+      <li><b>A is the first week of B, not an alternative.</b> The shadow week is option A with a paired measurement attached.</li>
+    </ul>
+
+    <h3>Trial design</h3>
+    <table>
+      <thead><tr><th>Item</th><th>Working decision</th></tr></thead>
+      <tbody>
+        <tr><td>Project</td><td>Agent Studio (<code>agent-taskboard</code>). It has the volume (313 review attempts from 22 to 29 September), the measured baseline, and the 09-28 analysis. The Quality Studio repository had 49 attempts in the same week, too few to measure false blocks.</td></tr>
+        <tr><td>Week 1 · shadow</td><td>The model code-quality aspect decides; QS runs on the same subject and is recorded. This is option A with pairing.</td></tr>
+        <tr><td>Week 2 · decide</td><td>QS decides code-quality; the model aspect runs in reverse shadow on the same subject, so misses stay measurable.</td></tr>
+        <tr><td>What can block</td><td>A QS finding anchored on changed lines or changed units, with a catalogue rule id, severity high or above, and a citation. Medium is <code>concerns</code>. Standing debt, new endpoints alone and security findings (QS-90 policy) never block.</td></tr>
+        <tr><td>Pinning</td><td>One QS version, one rule-set hash and one model and thinking level for the whole trial, recorded in every verdict.</td></tr>
+        <tr><td>Failure mapping</td><td>A QS infrastructure failure is <code>ReviewInfra</code> with the existing 1/3/9-minute retry. No automatic fallback to the model aspect, so the metrics stay attributable.</td></tr>
+        <tr><td>Adjudication</td><td>The operator labels every QS block in week 2 and every disagreement in both weeks as valid, false block or unsure. Budget: about 15 minutes a day.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Acceptance criteria</h3>
+    <p><b>Entry gate (before day 1).</b> QS-108, QS-109 (both on <code>main</code>), QS-110, QS-111, QS-113 and QS-116 are merged to <code>main</code>. QS-117 is delivered. The first three implementation tasks of this Dossier are delivered. A dry run on ten historical Agent Studio subjects produces ten schema-valid verdicts, and a rerun of each gives identical deterministic findings.</p>
+    <p><b>Success at the end of week 2</b>, measured on at least 150 reviewed subjects with at least 30 adjudicated QS blocks:</p>
+    <ol>
+      <li><b>Review minutes.</b> The median claim-to-report of decided reviews rises by no more than 3 minutes over the week-1 median. Review attempts per card do not rise over week 1.</li>
+      <li><b>False blocks.</b> At most 10% of adjudicated QS blocks are false blocks, and the QS rate is not higher than the model code-quality aspect's rate on the same adjudicated subjects.</li>
+      <li><b>Escaped defects.</b> No high-severity defect that the reverse-shadow model aspect blocked validly and QS passed. At most two such defects of lower severity. No trial delivery is the cause of a bug card or gate failure filed within 14 days of its integration.</li>
+      <li><b>Reliability.</b> The QS step yields <code>ReviewInfra</code> in no more than 2% of reviews. 100% of verdicts are schema-valid and bind the reviewed Result-SHA. An unparseable reply never becomes <code>Pass</code>.</li>
+      <li><b>Cost.</b> QS tokens per review are recorded with cache writes. Their median is no more than 1.5 times the week-1 median of the replaced aspect.</li>
+    </ol>
+    <p><b>Stop rules</b> (switch the project back to <code>off</code> the same day): QS <code>ReviewInfra</code> above 5% on any day; one confirmed high-severity escape; false-block rate above 25% after the first 20 adjudicated blocks.</p>
+    <p><b>After the trial.</b> If it passes, enable B project by project and retire the model code-quality aspect under QS-W6 Slice 5 with its rollback window. If it fails, stay on shadow (A), fix the named rules or gaps, and repeat. C is not revisited until QS models requirement input and Agent Studio coverage exists.</p>
+
+    <h3>Metrics that decide the trial</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Definition</th><th>Baseline</th></tr></thead>
+      <tbody>
+        <tr><td>Review minutes</td><td>Claim to accepted report per attempt, <code>ReviewInfra</code> excluded, plus remote grades per card.</td><td>Median 54, p90 92 minutes (22 to 29 Sep, n = 277); grades per card median 2, p90 6.</td></tr>
+        <tr><td>False blocks</td><td>A deciding code-quality block the operator labels as not a defect of this delivery (standing debt, rule noise, wrong anchor, out of diff).</td><td>Not measured today; week 1 measures the model aspect.</td></tr>
+        <tr><td>Escaped defects</td><td>An operator-confirmed defect in a trial delivery that the deciding arm passed. Found by the shadow arm, a later gate, a bug card within 14 days, or the end-of-trial QS sweep.</td><td>Not measured today; week 1 gives the model-aspect figure.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="prerequisites" data-document-section="prerequisites">
+    <h2><span class="number">03</span> Prerequisites</h2>
+    <p>These are the Quality Studio gaps that must close before QS may decide, from the D-list of the 09-28 analysis and the wave that followed. States are as of <code>main</code> at <code>4ca5577b</code> and the runner branches on 29 September 2026.</p>
+    <div class="breakout">
+    <table>
+      <thead><tr><th>Gap</th><th>Defect</th><th>Card</th><th>State</th><th>Needed for</th></tr></thead>
+      <tbody>
+        <tr><td>Large prompts failed to launch on Windows: 5 of 5 folder reviews, 23 of 124 file attempts above about 20 KB.</td><td>D1</td><td>QS-108</td><td>On <code>main</code>. The Windows rerun with <code>claude-opus-5-5</code> is still pending; the Linux review host is unaffected.</td><td>A, B, C</td></tr>
+        <tr><td>6 of 101 replies rejected without retry; text matching marked 23 existing findings resolved; auth failures did not stop the run.</td><td>D2–D4</td><td>QS-109</td><td>On <code>main</code> (<code>fec3d980</code>).</td><td>A, B, C</td></tr>
+        <tr><td>Ledger dropped cache writes (USD 12.50 shown, USD 22.53 true); the preflight estimated USD 56.59 for a USD 10.61 run.</td><td>D5–D6</td><td>QS-110</td><td>Delivered on a branch, not on <code>main</code>.</td><td>B trial (cost metric)</td></tr>
+        <tr><td>Every run re-executes all sensors on the whole repository, with a full Release build when the build sensor is on.</td><td>D7</td><td>QS-111</td><td>Delivered on a branch.</td><td>A, B, C (host minutes)</td></tr>
+        <tr><td>Roslyn, ESLint and tsc profiles are brittle; SARIF suppressions are ignored; analyzer ids are not mapped to rules.</td><td>D8–D10</td><td>QS-113</td><td>Delivered on a branch.</td><td>B, C (deterministic blocks need rule ids)</td></tr>
+        <tr><td>The reviewer inherits operator skills and MCP and reads the repository's instruction files, so a repository could steer its grade.</td><td>D12</td><td>QS-116</td><td>In a fix round: "unobserved CLI context is accepted instead of refusing the review".</td><td>B, C (disqualifying for a decider)</td></tr>
+        <tr><td>No verdict contract. The standing grade and the deterministic regression flag are not bound to the change (F · 55 on the Agent Studio review folder; 11 of 20 QS transitions flagged).</td><td>D13–D14 (inferred)</td><td>QS-117</td><td>Not started.</td><td>B, C (the integration point)</td></tr>
+        <tr><td>No rule effectiveness data (hits, accepted, dismissed, false positives), so false blocks cannot be counted per rule.</td><td>D11 (inferred)</td><td>QS-114</td><td>Not started.</td><td>B trial report, C</td></tr>
+        <tr><td>Rule management is file-only; 8 of 33 rules were cited in 526 findings. Tuning the Agent Studio profile needs overrides with reasons.</td><td>none</td><td>QS-112</td><td>Delivered on a branch.</td><td>B (profile tuning), C</td></tr>
+        <tr><td>No coverage data for Agent Studio (every risk score empty) and no complexity metric.</td><td>none</td><td>QS-115</td><td>Delivered on a branch.</td><td>C only</td></tr>
+        <tr><td>QS cannot run as a pinned, non-interactive Review Plane step that reuses the plane's build output and maps failures to <code>ReviewInfra</code>.</td><td>none</td><td>New: implementation task 1</td><td>Proposed here.</td><td>B, C</td></tr>
+        <tr><td>Agent Studio records no tokens per aspect on Remote Review, and has no adjudication field for blocks.</td><td>none</td><td>New (Agent Studio): implementation task 3</td><td>Proposed here.</td><td>B trial</td></tr>
+        <tr><td>QS has no input for requirement fit or documentation impact.</td><td>none</td><td>No card; the reason C is rejected.</td><td>n/a</td><td>C</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="dim">The texts of D11, D13 and D14 are only in the operator's evaluation file (<code>qs-evaluation-2026-09-28.md</code>, section (d)), which is not on the runner host. Their mapping above follows the card order QS-108 to QS-117, in which the known D numbers rise monotonically. See <a href="#open-decisions">Open decisions</a>, item 6.</p>
+  </section>
+
+  <section id="evidence" data-concept-section="evidence" data-document-section="evidence">
+    <h2><span class="number">04</span> Evidence</h2>
+    <p>Each item is classed as observed (counted from a named source), inferred (derived from observed facts) or proposed (this Dossier's design).</p>
+    <div class="evidence-list">
+      <a class="evidence" href="#evidence-measurements"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Review host minutes on Agent Studio</b><small>Runner journal <code>agent-runner-review</code>, "claimed remote review" to "review report accepted", attempts mapped to the Agent Studio repository by their expected Result-SHA. From 22 to 29 September: 313 attempts, 142 ProductFailure, 133 Pass, 36 ReviewInfra, 2 IntegrationBranchDefect. Median 54, p75 78, p90 92 minutes; median 4,040 CPU seconds.</small></span></a>
+      <a class="evidence" href="#evidence-measurements"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Step split and deciding aspect</b><small>295 Agent Studio remote grade reports, 15 to 25 September (frozen workspace of 25 September). Verify commands median 28.9, p90 56.7 minutes; four aspects together median 1.85, p90 4.4. In the 83 ProductFailure reports, code-quality blocked in 50 (sole blocker 38) and build-tests in 37 (sole 25). Lint blocked in 5, documentation-impact in 4, requirement-fit and tests-and-evidence in 0.</small></span></a>
+      <a class="evidence" href="#evidence-limits"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>The 09-28 Quality Studio analysis</b><small>Card context of QS-108 to QS-116 and AGT-2988 to AGT-2991: QS on the Agent Studio dev checkout (3,450 files), seven sensors, eight agent reviews with <code>claude-opus-5-5</code>. The operator-verified highs became AGT-2988 (scoped-operator authorization), AGT-2989 (data boundary on review-to-implementer), AGT-2990 (acceptance-rail correctness) and AGT-2991 (runtime advisories, secret-scan baseline, unbounded reads). All six genuine highs sat in code that was already merged.</small></span></a>
+      <a class="evidence" href="#figure-qs-grade"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>QS cost on Agent Studio code</b><small>QS-108 rerun <code>review-d967167888de4162bd487a37f2389f0f</code>: standing review of <code>backend/Features/Review</code>, 14 files, 15 operations, <code>gpt-5.6-sol</code> medium. 316,875 input tokens (163,584 cached), 55,281 output tokens, USD 1.78, 24 minutes. Grade 52 / F; after rerun 55 / F.</small></span></a>
+      <a class="evidence" href="#alternatives"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>QS deterministic change verdict is not a gate yet</b><small><code>docs/change-reviews.md</code>: a new or changed boundary makes the deterministic verdict a regression. 11 of the 20 sample transitions are regressions, mostly new endpoints. Diff-scoped evidence was 72.48% smaller than a full sweep.</small></span></a>
+      <a class="evidence" href="#alternatives"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Existing integration and prior decision</b><small>QS-W6 (<code>docs/operations/studio-integration/workbench.json</code>): decided 11 August 2026; Slices 1 and 2 delivered (QS-74); Slice 3 is an external dependency in Agent Studio. Agent Studio <code>docs/system/domains/pipeline.md</code>: the in-process QS analysis step with named-rule passes feeds the steered-retry loop; security findings do not block (QS-90).</small></span></a>
+      <a class="evidence" href="#option-c"><span class="evidence-class" data-evidence-class="inferred">Inferred</span><span><b>Aspect tokens per review</b><small>Remote Review records no tokens per aspect. The Agent Studio pipeline-time-economy corpus (25 July 2026, 2,396 attempts) counts about 36 M tokens for the four aspects, about 15k per review and 1.9% of pipeline tokens. The remote plane now appends the full diff to each aspect prompt, so the current figure is probably higher. Implementation task 3 measures it.</small></span></a>
+      <a class="evidence" href="#option-a"><span class="evidence-class" data-evidence-class="inferred">Inferred</span><span><b>Added minutes for a QS step</b><small>One diff-bound QS agent call is sized like the code-quality aspect (median 0.95, p90 2.2 minutes). With cached sensors (QS-111) and reused SARIF that gives +1 to +3 minutes; without QS-111 a full Release build is added.</small></span></a>
+      <a class="evidence" href="#recommendation"><span class="evidence-class" data-evidence-class="proposed">Proposed</span><span><b>Trial design, acceptance criteria, stop rules and implementation tasks</b><small>Designed in this Dossier; thresholds are working values for the operator to confirm.</small></span></a>
+    </div>
+
+    <figure class="evidence-figure media-breakout" id="figure-qs-grade">
+      <div class="evidence-captures">
+        <div class="evidence-capture">
+          <span class="capture-theme">Dark</span>
+          <img src="assets/qs-explorer-agent-studio-review-folder-code-f55-dark.png" alt="Quality Studio Explorer with repository agent-studio-dev selected, folder backend/Features/Review open. The folder header shows the Code grade F 55. The risk view lists 14 files with code grades between F 48 and B 84, and every file shows coverage Unknown. The top bar shows Claude Unavailable and Codex 45%.">
+          <span class="figure-annotation">Folder grade F · 55, coverage Unknown</span>
+        </div>
+      </div>
+      <figcaption>
+        <span class="figure-claim"><b>Evidence.</b> The Quality Studio Explorer shows the Agent Studio folder <code>backend/Features/Review</code> (14 files) with the folder grade <code>Code F · 55</code>, and every listed file shows coverage "Unknown".</span>
+        <span class="figure-as-of">
+          <span><b>Dark:</b> captured <time datetime="2026-09-28T22:51Z">28 September 2026, 22:51 UTC</time> by the QS-108 fix-round run on the Linux runner (branch <code>runner/agent-runner-01/QS-108</code>) against a clone of the Agent Studio dev checkout at <code>65b268d59</code>, run <code>review-c00ef314684f43029b6db19d30a08bb1</code>. Copied unchanged from the QS-108 task results. Theme is not part of the claim, so no light capture was made.</span>
+        </span>
+      </figcaption>
+    </figure>
+    <p>The graded files are on the Agent Studio development line, so each of them already passed Agent Studio's per-change review. A standing grade of F on reviewed code shows why a standing grade cannot be a per-change verdict (QS-117). The "Unknown" column shows that QS has no Agent Studio coverage input yet (QS-115).</p>
+
+    <h3 id="evidence-measurements">Measurements</h3>
+    <table>
+      <thead><tr><th>Quantity</th><th>Value</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td>Claim to report, Agent Studio, 15–25 Sep</td><td>median 37.2, p90 80.9 min (n = 308)</td><td>runner journal</td></tr>
+        <tr><td>Claim to report, Agent Studio, 22–29 Sep</td><td>median 54.4, p90 91.8 min (n = 277)</td><td>runner journal</td></tr>
+        <tr><td>Claim to report, Quality Studio repo, 22–29 Sep</td><td>median 9.4, p90 14.7 min (n = 49)</td><td>runner journal</td></tr>
+        <tr><td>Verify commands per review</td><td>median 28.9, p90 56.7 min</td><td>295 grade reports</td></tr>
+        <tr><td>Four aspects per review</td><td>median 1.85, p90 4.4 min</td><td>295 grade reports</td></tr>
+        <tr><td>code-quality / tests-and-evidence / requirement-fit / documentation-impact</td><td>median 0.95 / 0.48 / 0.38 / 0.39 min</td><td>grade reports</td></tr>
+        <tr><td>Remote grades per card</td><td>median 2, p90 6, max 16 (95 cards)</td><td>grade reports, since 15 Sep</td></tr>
+        <tr><td>Card figure for review duration</td><td>80 to 140 min</td><td>QS-118 card; fits the p75–p90 band plus queue time</td></tr>
+        <tr><td>QS true cost of the 09-28 run</td><td>USD 22.53 for eight agent reviews (ledger showed USD 12.50)</td><td>QS-110 card</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="evidence-limits">Limits</h3>
+    <ul>
+      <li>The operator's evaluation file of 28 September is on the operator machine, not on the runner host. The counts "470 findings" and "six genuine highs" come from the QS-118 card; QS-112 names 526 findings for its rule count. Both are quoted, not reconciled. D11, D13 and D14 are unverified here.</li>
+      <li>QS-114 and QS-117 have no card text on the runner host. The QS-117 scope used here (verdict contract, diff-bound rule review) is taken from the QS-118 card.</li>
+      <li>No labeled data for false blocks or escaped defects exists for either the model aspects or QS. That is why the recommendation is a paired trial rather than a switch.</li>
+      <li>Journal durations include worker overhead; medians of steps and totals come from overlapping but not identical attempt sets.</li>
+      <li>The canonical article template <code>docs/app/templates/article-document-v2.html</code> and the fallback style are absent from this repository. The v2 style block was copied from the Agent Studio repository at <code>742936e05</code>.</li>
+    </ul>
+  </section>
+
+  <section id="open-decisions" data-concept-section="open-decisions" data-document-section="open-decisions">
+    <h2><span class="number">05</span> Open decisions</h2>
+    <p>Each row has a recommended working option; implementation proceeds on it unless the operator records another choice.</p>
+    <table>
+      <thead><tr><th>#</th><th>Decision</th><th>Recommended option</th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Target role of Quality Studio in review</td><td>B: decider for code-quality only; A as its shadow phase; C rejected for now.</td><td>Model aspects for requirement fit, evidence and documentation stay; one model call is replaced after the trial.</td></tr>
+        <tr><td>2</td><td>Trial project</td><td>Agent Studio.</td><td>Enough volume in two weeks; the busiest pipeline carries the risk, bounded by the stop rules.</td></tr>
+        <tr><td>3</td><td>What may block</td><td>Diff-anchored, rule-backed, cited findings of severity high or above; medium becomes concerns.</td><td>Standing debt, new endpoints and security posture never block; they stay with sweeps and cards.</td></tr>
+        <tr><td>4</td><td>Security findings in the verdict</td><td>Keep the QS-90 policy: visible, not blocking, during the trial.</td><td>A separate security decision can follow with trial data.</td></tr>
+        <tr><td>5</td><td>QS failure during review</td><td><code>ReviewInfra</code> with the plane's normal retry; no automatic fallback.</td><td>Infrastructure and product outcomes stay separable; the per-project switch is the manual fallback.</td></tr>
+        <tr><td>6</td><td>D11, D13, D14 mapping</td><td>Work on the inferred mapping (D11 → QS-114, D13–D14 → QS-117); the operator confirms from section (d) of the evaluation file.</td><td>If a D item is not covered by these cards, one new QS card is added to the entry gate.</td></tr>
+        <tr><td>7</td><td>Amendment of QS-W6</td><td>Amend: the QS verdict may be authoritative for the code-quality aspect status; Studio policy still acts on it.</td><td>The QS-W6 boundary (QS never moves a task) holds.</td></tr>
+        <tr><td>8</td><td>Model for the QS agent part in the trial</td><td>One pinned model and thinking level, per Agent Studio's model-routing policy, recorded in each verdict.</td><td>Differences between the arms come from rules and contract, not from a model switch mid-trial.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- agent-studio:implementation-section:start -->
+  <section id="implementation" data-document-section="implementation">
+    <h2><span class="number">06</span> Implementation</h2>
+    <p>Four slices, in order, as <code>workbench.json</code> <code>implementationTasks</code>: (1) QS: package the diff-bound code-quality verdict as a pinned Review Plane step, after QS-117; (2) Agent Studio: QS code-quality verdict step with off, shadow and decide modes; (3) Agent Studio: per-aspect tokens and trial metrics on Remote Review; (4) QS: paired-trial adjudication and rule-effectiveness report, after QS-114. The existing cards QS-110, QS-111, QS-113 and QS-116 must reach <code>main</code> first; they are not duplicated here.</p>
+    <ol class="implementation-log">
+<!-- agent-studio:implementation-log:start -->
+<!-- agent-studio:implementation-log:end -->
+    </ol>
+  </section>
+  <!-- agent-studio:implementation-section:end -->
+</main>
+</body>
+</html>

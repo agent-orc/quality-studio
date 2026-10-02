@@ -1,0 +1,11 @@
+  AgentOrchestrator.CodeQuality -> C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\bin\Release\net10.0\AgentOrchestrator.CodeQuality.dll
+  quality-cli -> C:\Projects\quality-studio\backend\quality-cli\bin\Release\net10.0\quality.dll
+  AgentOrchestrator.CodeQuality.Tests -> C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll
+  QualityStudio.Api -> C:\Projects\quality-studio\backend\QualityStudio.Api\bin\Release\net10.0\QualityStudio.Api.dll
+  QualityStudio.Api.Tests -> C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.13

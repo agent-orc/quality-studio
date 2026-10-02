@@ -12,7 +12,8 @@ services:
       context: .
       dockerfile: Dockerfile
     # Loopback publish only. Put a TLS reverse proxy in front before exposing this beyond the host
-    # and then set QualityStudio__Security__RequireHttps=true.
+    # and then set RequireHttps=true plus Security__TrustedProxies to the actual proxy IP.
+    # See docs/deployment.md for the exact environment keys and forwarded-header contract.
     ports:
       - "127.0.0.1:8080:8080"
     environment:

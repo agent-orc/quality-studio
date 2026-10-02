@@ -36,11 +36,28 @@ also the way to run scans on an air-gapped host or on a platform without a track
 
 ## Threat model
 
-- Secret values are never written to logs, UI text, task handover prompts, or persisted reports.
+- This sensor redacts secret values and does not place them in its logs, finding text, or persisted sensor reports. This is not a system-wide guarantee for model-authored output.
 - The scanner only stores file paths, rule ids, fingerprints, and safe line ranges.
 - A missing or failed scanner is reported as `unavailable`; it is never treated as a clean pass.
 - Baselines and allowlists are repository-owned so accepted placeholders stay auditable.
 - High-confidence new findings are treated as a blocking security verdict.
+
+## Process and report limits
+
+Scanning and supporting Git commands use the shared bounded process runner: stdout and stderr are
+drained concurrently, each pipe is limited to 1,000,000 characters, and the command deadline is five
+minutes per command, not per complete scan job. Version probes use a 30-second deadline. Overflow, cancellation and timeout terminate the
+process tree and do not return partial output as successful evidence.
+
+The JSON or SARIF report has an independent 8 MiB byte limit, enforced before allocation and while
+reading. This bounds report ingestion, not the disk space a child process can write before it exits.
+Missing, blank, malformed or structurally invalid reports are unavailable. Exit code 1 is
+accepted only with valid findings; a scanner/configuration failure that exits 1 without findings
+cannot become a clean result. A successful clean JSON scan must produce a valid empty array.
+
+These are application-level limits. They do not isolate the scanner, Git configuration or repository
+build processes from the host; the [security review](../results/review-2026-09-19/security-review.md)
+describes the additional worker boundary needed for hostile repositories.
 
 ## Commands
 
@@ -49,3 +66,15 @@ also the way to run scans on an air-gapped host or on a platform without a track
 - `quality security scan . --mode staged`
 
 These diagnostic scan commands report evidence but do not write review sidecars. Run a normal `security` review to persist the combined statement.
+
+## Scan boundary and generated data
+
+Repository mode scans the selected checkout; range and staged modes scan their respective Git
+inputs. None of these modes includes the external project data root. After the data-root migration,
+review sidecars, model prose, reports and handover drafts stored there therefore need a separate
+generated-output scan and redaction boundary. A clean repository scan does not certify those outputs.
+
+The [September 2026 security review](../results/review-2026-09-19/security-review.md) demonstrates this
+gap using only a synthetic secret in isolated directories. It reopens the historical F-04
+scan-coverage claim. The old in-checkout review directory remains eligible for scanning; no blanket
+exclusion for review output is added.

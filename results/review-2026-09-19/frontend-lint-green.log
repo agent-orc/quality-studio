@@ -1,0 +1,4 @@
+
+> frontend@0.0.0 lint
+> eslint src style-reference tests lint --config eslint.config.mjs
+

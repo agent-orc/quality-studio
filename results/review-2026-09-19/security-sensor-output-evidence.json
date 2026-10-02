@@ -1,0 +1,37 @@
+{
+  "baselineCommit": "a9c25aaf4cf94ce266f7a0dae7bd5f82a0c5977f",
+  "platform": "Windows, .NET 10, Node process fixtures",
+  "before": {
+    "source": "Observed tool transcript before production fix; summarized, not a raw saved log",
+    "selectedClass": "ProcessSensorCommandRunnerTests",
+    "passed": 1,
+    "failed": 4,
+    "skipped": 3,
+    "failures": [
+      "Output beyond stderr limit returned successful truncated result",
+      "Output beyond stdout limit returned successful truncated result",
+      "Default runner accepted 2,000,000 output characters",
+      "Continuous output ended only at the 10-second timeout, not at the output limit"
+    ]
+  },
+  "after": {
+    "command": [
+      "dotnet",
+      "test",
+      "backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj",
+      "--configuration",
+      "Release",
+      "--filter",
+      "FullyQualifiedName~ProcessSensorCommandRunnerTests|FullyQualifiedName~DotNetBuildSensorTests|FullyQualifiedName~DependencyVulnerabilitySensorTests|FullyQualifiedName~AngularCompilerSensorTests|FullyQualifiedName~SarifSensorTests",
+      "--verbosity",
+      "minimal"
+    ],
+    "exitCode": 0,
+    "passed": 24,
+    "failed": 0,
+    "skipped": 3,
+    "rawLog": "security-sensor-regression-green.log",
+    "skipReason": "Existing POSIX process fixtures skip on Windows; new Node fixtures execute on Windows"
+  },
+  "behavior": "Finite default 1,000,000 characters per stdout/stderr pipe; overflow cancels wait and kills process tree, yields unavailable, never partial clean evidence"
+}

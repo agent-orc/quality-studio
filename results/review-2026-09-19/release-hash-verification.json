@@ -1,0 +1,17 @@
+{
+  "reason": "generic-api-key matched an artifact name adjacent to a SHA256; evidence format changed to explicit artifact/sha256 fields, without scanner allowlist changes",
+  "artifacts": [
+    {
+      "artifact": "QualityStudio.Api.dll",
+      "recordedSha256": "9eb8a8d374755cd33e75d13587f5b904fb5cfa53266c25402d3b945a6df6c494",
+      "currentSha256": "1b00e42f27b0c363dbdcd34783036e4835fb68ce35c83e6e30ecd10b21268cdd",
+      "matchesCurrentBuild": false
+    },
+    {
+      "artifact": "AgentOrchestrator.CodeQuality.dll",
+      "recordedSha256": "497cd5f6c81053763d8f06bdb73aa6a6386864b010def0978d1f446530ec2f40",
+      "currentSha256": "e1310f763a19d836d3481d4c90291152e0e4690c0fefeb7c54831fbd7731602b",
+      "matchesCurrentBuild": false
+    }
+  ]
+}

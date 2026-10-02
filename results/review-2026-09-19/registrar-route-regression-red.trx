@@ -1,0 +1,230 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="77e1c360-c6c4-4a20-aead-ac3338ee34d8" name="rmisc@TUFI2 2026-09-19 22:46:58" runUser="TUFI2\rmisc" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-19T22:46:59.0037901+02:00" queuing="2026-09-19T22:46:59.0037904+02:00" start="2026-09-19T22:46:55.2100981+02:00" finish="2026-09-19T22:47:32.8812322+02:00" />
+  <TestSettings name="default" id="307b4017-bcd4-4a4c-a9c9-cdf0739384ff">
+    <Deployment runDeploymentRoot="rmisc_TUFI2_2026-09-19_22_46_58" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="7c5a1933-a451-47e2-97c7-3252da06f15c" testId="08679f93-b618-d6f8-9707-a609b325a263" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;10.20.30.40&quot;, configureProxy: True, forwardedScheme: &quot;https&quot;, expected: OK)" computerName="TUFI2" duration="00:00:00.8980712" startTime="2026-09-19T22:47:05.7011600+02:00" endTime="2026-09-19T22:47:06.5993078+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7c5a1933-a451-47e2-97c7-3252da06f15c" />
+    <UnitTestResult executionId="6bb49afc-1c54-4752-9300-4d433c23ee8b" testId="cf85b5f8-af03-f438-e09e-4310ea8d8d78" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;10.20.30.41&quot;, configureProxy: True, forwardedScheme: &quot;https&quot;, expected: BadRequest)" computerName="TUFI2" duration="00:00:00.9667732" startTime="2026-09-19T22:47:02.8528821+02:00" endTime="2026-09-19T22:47:03.8197419+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6bb49afc-1c54-4752-9300-4d433c23ee8b" />
+    <UnitTestResult executionId="c50844f7-2395-478f-beab-aa31d752b781" testId="d4c207d8-ef4d-25f2-bff9-3d19826dd6bb" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_is_explicitly_credential_free" computerName="TUFI2" duration="00:00:01.1724976" startTime="2026-09-19T22:47:31.4944906+02:00" endTime="2026-09-19T22:47:32.6670579+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c50844f7-2395-478f-beab-aa31d752b781" />
+    <UnitTestResult executionId="fa2ed21f-a042-4d0d-9ebd-97bf02bf611b" testId="e331adff-8c16-67e9-48f4-9b80858a6aad" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://attacker.example&quot;, origin: null)" computerName="TUFI2" duration="00:00:00.9228805" startTime="2026-09-19T22:47:00.0125158+02:00" endTime="2026-09-19T22:47:00.9354874+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fa2ed21f-a042-4d0d-9ebd-97bf02bf611b" />
+    <UnitTestResult executionId="b465c040-2edd-401e-8c72-b982786b96dc" testId="b67751f8-0ca9-c082-cb39-231e28cd5785" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;::ffff:10.20.30.40&quot;, configureProxy: True, forwardedScheme: &quot;https&quot;, expected: OK)" computerName="TUFI2" duration="00:00:00.9361764" startTime="2026-09-19T22:47:03.8203984+02:00" endTime="2026-09-19T22:47:04.7566625+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b465c040-2edd-401e-8c72-b982786b96dc" />
+    <UnitTestResult executionId="383308ed-c802-4a43-99d2-e385a0905809" testId="9bddd16a-cc7c-2874-4e74-447ac290b31f" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;127.0.0.1&quot;, configureProxy: False, forwardedScheme: &quot;https&quot;, expected: BadRequest)" computerName="TUFI2" duration="00:00:01.0097138" startTime="2026-09-19T22:47:01.8417793+02:00" endTime="2026-09-19T22:47:02.8515748+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="383308ed-c802-4a43-99d2-e385a0905809" />
+    <UnitTestResult executionId="2e256f0e-ed14-4ccc-91e9-bb5358aba32c" testId="623ed190-04b0-9365-0cfb-9184592070a5" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(origin: null)" computerName="TUFI2" duration="00:00:01.4407768" startTime="2026-09-19T22:47:12.0223537+02:00" endTime="2026-09-19T22:47:13.4632379+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2e256f0e-ed14-4ccc-91e9-bb5358aba32c" />
+    <UnitTestResult executionId="4fe992a1-de88-4860-98c8-52ff243b8a9c" testId="7ca64d1a-84fb-0c13-6c16-8e6d7f7f1be0" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_identity_cannot_list_or_read_a_foreign_repository" computerName="TUFI2" duration="00:00:02.0139775" startTime="2026-09-19T22:47:17.6899066+02:00" endTime="2026-09-19T22:47:19.7039680+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4fe992a1-de88-4860-98c8-52ff243b8a9c" />
+    <UnitTestResult executionId="fe28e7df-a8da-4b6f-adcf-f5a649caa676" testId="3adc040c-cf71-5c3f-ca16-9dba26253d49" testName="QualityStudio.Api.Tests.ApiSecurityTests.A_persisted_analyzer_command_is_dropped_when_the_registry_is_loaded" computerName="TUFI2" duration="00:00:01.3538067" startTime="2026-09-19T22:47:07.9913344+02:00" endTime="2026-09-19T22:47:09.3452273+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fe28e7df-a8da-4b6f-adcf-f5a649caa676" />
+    <UnitTestResult executionId="3bd5b2c8-b91d-47f3-90c6-ce170e545495" testId="3fc4c365-6e8b-a600-bff9-84fe1740763b" testName="QualityStudio.Api.Tests.ApiSecurityTests.Registrar_cannot_configure_an_analyzer_command_and_must_name_a_host_profile" computerName="TUFI2" duration="00:00:01.2461752" startTime="2026-09-19T22:47:20.9489483+02:00" endTime="2026-09-19T22:47:22.1952094+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3bd5b2c8-b91d-47f3-90c6-ce170e545495" />
+    <UnitTestResult executionId="e0f07036-c21d-4add-847b-85eb8fcea0a2" testId="7f187f81-95b9-dea5-2201-d2abbbf5313f" testName="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_update_or_archive_its_repository" computerName="TUFI2" duration="00:00:01.2474208" startTime="2026-09-19T22:47:22.1962283+02:00" endTime="2026-09-19T22:47:23.4437405+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e0f07036-c21d-4add-847b-85eb8fcea0a2" />
+    <UnitTestResult executionId="6a238220-654b-4eb3-a467-69131ee049f6" testId="2cbd18d5-0329-af1d-ee33-5fdb398e522a" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(origin: &quot;http://localhost&quot;)" computerName="TUFI2" duration="00:00:01.2642682" startTime="2026-09-19T22:47:10.7570130+02:00" endTime="2026-09-19T22:47:12.0213658+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6a238220-654b-4eb3-a467-69131ee049f6" />
+    <UnitTestResult executionId="382b29b3-b38c-4beb-8788-148b4a1f1000" testId="dccb7a48-b5fc-f27e-e708-cc3676851b21" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_mode_refuses_unauthenticated_mutation_and_requires_matching_client_id" computerName="TUFI2" duration="00:00:01.5590628" startTime="2026-09-19T22:47:28.0655017+02:00" endTime="2026-09-19T22:47:29.6246495+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="382b29b3-b38c-4beb-8788-148b4a1f1000" />
+    <UnitTestResult executionId="4454e820-93d4-41ca-9930-adf1b8c516fc" testId="1f418ac2-62a0-74bd-582e-eb1a6834cc7d" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids" computerName="TUFI2" duration="00:00:01.2413199" startTime="2026-09-19T22:47:19.7059641+02:00" endTime="2026-09-19T22:47:20.9473541+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4454e820-93d4-41ca-9930-adf1b8c516fc" />
+    <UnitTestResult executionId="26b5f608-4e0c-4163-a189-0aa2b5843453" testId="ac60efc0-457f-4677-754c-7bef494a3f32" testName="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: &quot;/api/repos&quot;)" computerName="TUFI2" duration="00:00:01.4902838" startTime="2026-09-19T22:47:15.0621553+02:00" endTime="2026-09-19T22:47:16.5525621+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="26b5f608-4e0c-4163-a189-0aa2b5843453" />
+    <UnitTestResult executionId="e738f63c-fb0a-4a75-b446-ba8c0257e211" testId="b7680f28-ea2f-d04d-406c-1f1d55122b83" testName="QualityStudio.Api.Tests.ApiSecurityTests.Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure" computerName="TUFI2" duration="00:00:01.2543106" startTime="2026-09-19T22:47:24.7077645+02:00" endTime="2026-09-19T22:47:25.9621559+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e738f63c-fb0a-4a75-b446-ba8c0257e211" />
+    <UnitTestResult executionId="28041383-0615-41c6-8bb8-3d26c3be68b6" testId="7e523d38-b27b-07ba-a0b4-b36bff43f893" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(origin: &quot;http://localhost:4200&quot;)" computerName="TUFI2" duration="00:00:01.4089894" startTime="2026-09-19T22:47:09.3462425+02:00" endTime="2026-09-19T22:47:10.7553110+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="28041383-0615-41c6-8bb8-3d26c3be68b6" />
+    <UnitTestResult executionId="ac060123-70d5-4f61-bfbb-6bf60cfa236c" testId="2a86310e-0b17-5cc5-eeba-6017aa9cf718" testName="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;10.20.30.40&quot;, configureProxy: True, forwardedScheme: &quot;http&quot;, expected: BadRequest)" computerName="TUFI2" duration="00:00:00.9426083" startTime="2026-09-19T22:47:04.7573072+02:00" endTime="2026-09-19T22:47:05.6999914+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ac060123-70d5-4f61-bfbb-6bf60cfa236c" />
+    <UnitTestResult executionId="ab7b7d34-49cd-46fa-bcc2-c7de59cbcd00" testId="2088f039-4f8f-8533-0dad-2e9343d9fd7a" testName="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_retains_read_and_review_access" computerName="TUFI2" duration="00:00:01.2617964" startTime="2026-09-19T22:47:23.4448438+02:00" endTime="2026-09-19T22:47:24.7067156+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ab7b7d34-49cd-46fa-bcc2-c7de59cbcd00" />
+    <UnitTestResult executionId="46d04409-4b93-452e-b8ed-3b1254e8d76d" testId="01ecf052-c93b-0903-4800-a467bc71b8bd" testName="QualityStudio.Api.Tests.ApiSecurityTests.Registrar_identity_can_update_and_archive_a_repository" computerName="TUFI2" duration="00:00:01.3901879" startTime="2026-09-19T22:47:06.6000883+02:00" endTime="2026-09-19T22:47:07.9903455+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="46d04409-4b93-452e-b8ed-3b1254e8d76d" />
+    <UnitTestResult executionId="3d5e0360-ed0a-46f7-9e6a-1bb3e10b88b0" testId="14640590-d348-79b5-f378-8d332ad7f406" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://localhost&quot;, origin: &quot;http://localhost:4200.attacker.example&quot;)" computerName="TUFI2" duration="00:00:00.9009024" startTime="2026-09-19T22:47:00.9363351+02:00" endTime="2026-09-19T22:47:01.8373373+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3d5e0360-ed0a-46f7-9e6a-1bb3e10b88b0" />
+    <UnitTestResult executionId="35dad915-67fa-41ee-bb4a-dffa1c27c298" testId="0fba8664-d6aa-1a13-31b0-cb3da909a524" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://localhost&quot;, origin: &quot;https://attacker.example&quot;)" computerName="TUFI2" duration="00:00:01.8321544" startTime="2026-09-19T22:46:57.1152235+02:00" endTime="2026-09-19T22:46:58.9608362+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="35dad915-67fa-41ee-bb4a-dffa1c27c298" />
+    <UnitTestResult executionId="5f3e9777-8c4a-4807-93af-120309627cc1" testId="7d0e6d88-9d40-26ce-9814-8f5cf035e8f9" testName="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: &quot;/API/REPOS/&quot;)" computerName="TUFI2" duration="00:00:01.1341186" startTime="2026-09-19T22:47:16.5532935+02:00" endTime="2026-09-19T22:47:17.6884420+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5f3e9777-8c4a-4807-93af-120309627cc1">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: Forbidden&#xD;
+Actual:   Created</Message>
+          <StackTrace>   at QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(String route) in C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs:line 430&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="883f8f22-9c66-45f9-8a40-0f4c44b559f1" testId="e502b20a-b19f-1326-54e5-0407e9f9bae8" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_cross_site_browser_requests_without_an_origin" computerName="TUFI2" duration="00:00:02.1012943" startTime="2026-09-19T22:47:25.9633216+02:00" endTime="2026-09-19T22:47:28.0646981+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="883f8f22-9c66-45f9-8a40-0f4c44b559f1" />
+    <UnitTestResult executionId="c6bc3e45-c385-41cb-b16c-674c4b27b100" testId="99748a2e-439e-7f2d-7056-6cb3fa335c5f" testName="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://localhost&quot;, origin: &quot;null&quot;)" computerName="TUFI2" duration="00:00:01.0409057" startTime="2026-09-19T22:46:58.9699156+02:00" endTime="2026-09-19T22:47:00.0110569+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c6bc3e45-c385-41cb-b16c-674c4b27b100" />
+    <UnitTestResult executionId="c295f5a9-e62f-4226-8db6-df5cdf5889a1" testId="0fde83f2-67f2-3c02-5751-173d3538ccba" testName="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: &quot;/api/repos/&quot;)" computerName="TUFI2" duration="00:00:01.5759250" startTime="2026-09-19T22:47:13.4641695+02:00" endTime="2026-09-19T22:47:15.0602136+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c295f5a9-e62f-4226-8db6-df5cdf5889a1">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: Forbidden&#xD;
+Actual:   Created</Message>
+          <StackTrace>   at QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(String route) in C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs:line 430&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5f5bccff-fcc7-4628-bf1b-807ab4b153bd" testId="02292c0c-879b-8385-b5c9-b0dd62c61ea1" testName="QualityStudio.Api.Tests.ApiSecurityTests.Review_and_handover_have_per_client_spend_rate_limits" computerName="TUFI2" duration="00:00:01.8656892" startTime="2026-09-19T22:47:29.6272850+02:00" endTime="2026-09-19T22:47:31.4930643+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5f5bccff-fcc7-4628-bf1b-807ab4b153bd" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_mode_refuses_unauthenticated_mutation_and_requires_matching_client_id" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="dccb7a48-b5fc-f27e-e708-cc3676851b21">
+      <Execution id="382b29b3-b38c-4beb-8788-148b4a1f1000" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_mode_refuses_unauthenticated_mutation_and_requires_matching_client_id" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_cross_site_browser_requests_without_an_origin" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="e502b20a-b19f-1326-54e5-0407e9f9bae8">
+      <Execution id="883f8f22-9c66-45f9-8a40-0f4c44b559f1" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_refuses_cross_site_browser_requests_without_an_origin" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="1f418ac2-62a0-74bd-582e-eb1a6834cc7d">
+      <Execution id="4454e820-93d4-41ca-9930-adf1b8c516fc" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_mode_protects_quota_data_and_rejects_unsafe_model_ids" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_update_or_archive_its_repository" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="7f187f81-95b9-dea5-2201-d2abbbf5313f">
+      <Execution id="e0f07036-c21d-4add-847b-85eb8fcea0a2" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Repository_scoped_identity_cannot_update_or_archive_its_repository" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(origin: &quot;http://localhost:4200&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="7e523d38-b27b-07ba-a0b4-b36bff43f893">
+      <Execution id="28041383-0615-41c6-8bb8-3d26c3be68b6" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: &quot;/api/repos&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="ac60efc0-457f-4677-754c-7bef494a3f32">
+      <Execution id="26b5f608-4e0c-4163-a189-0aa2b5843453" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Repository_scoped_identity_cannot_register_through_route_variants" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Registrar_identity_can_update_and_archive_a_repository" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="01ecf052-c93b-0903-4800-a467bc71b8bd">
+      <Execution id="46d04409-4b93-452e-b8ed-3b1254e8d76d" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Registrar_identity_can_update_and_archive_a_repository" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://attacker.example&quot;, origin: null)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="e331adff-8c16-67e9-48f4-9b80858a6aad">
+      <Execution id="fa2ed21f-a042-4d0d-9ebd-97bf02bf611b" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_refuses_untrusted_hosts_and_browser_origins" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;10.20.30.41&quot;, configureProxy: True, forwardedScheme: &quot;https&quot;, expected: BadRequest)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="cf85b5f8-af03-f438-e09e-4310ea8d8d78">
+      <Execution id="6bb49afc-1c54-4752-9300-4d433c23ee8b" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_retains_read_and_review_access" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="2088f039-4f8f-8533-0dad-2e9343d9fd7a">
+      <Execution id="ab7b7d34-49cd-46fa-bcc2-c7de59cbcd00" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Repository_scoped_identity_retains_read_and_review_access" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;::ffff:10.20.30.40&quot;, configureProxy: True, forwardedScheme: &quot;https&quot;, expected: OK)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="b67751f8-0ca9-c082-cb39-231e28cd5785">
+      <Execution id="b465c040-2edd-401e-8c72-b982786b96dc" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(origin: null)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="623ed190-04b0-9365-0cfb-9184592070a5">
+      <Execution id="2e256f0e-ed14-4ccc-91e9-bb5358aba32c" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.A_persisted_analyzer_command_is_dropped_when_the_registry_is_loaded" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="3adc040c-cf71-5c3f-ca16-9dba26253d49">
+      <Execution id="fe28e7df-a8da-4b6f-adcf-f5a649caa676" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="A_persisted_analyzer_command_is_dropped_when_the_registry_is_loaded" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: &quot;/api/repos/&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="0fde83f2-67f2-3c02-5751-173d3538ccba">
+      <Execution id="c295f5a9-e62f-4226-8db6-df5cdf5889a1" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Repository_scoped_identity_cannot_register_through_route_variants" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;127.0.0.1&quot;, configureProxy: False, forwardedScheme: &quot;https&quot;, expected: BadRequest)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="9bddd16a-cc7c-2874-4e74-447ac290b31f">
+      <Execution id="383308ed-c802-4a43-99d2-e385a0905809" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;10.20.30.40&quot;, configureProxy: True, forwardedScheme: &quot;http&quot;, expected: BadRequest)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="2a86310e-0b17-5cc5-eeba-6017aa9cf718">
+      <Execution id="ac060123-70d5-4f61-bfbb-6bf60cfa236c" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_identity_cannot_list_or_read_a_foreign_repository" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="7ca64d1a-84fb-0c13-6c16-8e6d7f7f1be0">
+      <Execution id="4fe992a1-de88-4860-98c8-52ff243b8a9c" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_identity_cannot_list_or_read_a_foreign_repository" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://localhost&quot;, origin: &quot;null&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="99748a2e-439e-7f2d-7056-6cb3fa335c5f">
+      <Execution id="c6bc3e45-c385-41cb-b16c-674c4b27b100" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_refuses_untrusted_hosts_and_browser_origins" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Registrar_cannot_configure_an_analyzer_command_and_must_name_a_host_profile" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="3fc4c365-6e8b-a600-bff9-84fe1740763b">
+      <Execution id="3bd5b2c8-b91d-47f3-90c6-ce170e545495" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Registrar_cannot_configure_an_analyzer_command_and_must_name_a_host_profile" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests(origin: &quot;http://localhost&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="2cbd18d5-0329-af1d-ee33-5fdb398e522a">
+      <Execution id="6a238220-654b-4eb3-a467-69131ee049f6" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_accepts_non_browser_same_origin_and_configured_frontend_requests" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="b7680f28-ea2f-d04d-406c-1f1d55122b83">
+      <Execution id="e738f63c-fb0a-4a75-b446-ba8c0257e211" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Traversal_and_paths_outside_allowed_roots_are_refused_without_path_disclosure" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Review_and_handover_have_per_client_spend_rate_limits" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="02292c0c-879b-8385-b5c9-b0dd62c61ea1">
+      <Execution id="5f5bccff-fcc7-4628-bf1b-807ab4b153bd" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Review_and_handover_have_per_client_spend_rate_limits" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: &quot;/API/REPOS/&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="7d0e6d88-9d40-26ce-9814-8f5cf035e8f9">
+      <Execution id="5f3e9777-8c4a-4807-93af-120309627cc1" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Repository_scoped_identity_cannot_register_through_route_variants" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://localhost&quot;, origin: &quot;http://localhost:4200.attacker.example&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="14640590-d348-79b5-f378-8d332ad7f406">
+      <Execution id="3d5e0360-ed0a-46f7-9e6a-1bb3e10b88b0" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_refuses_untrusted_hosts_and_browser_origins" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_refuses_untrusted_hosts_and_browser_origins(address: &quot;http://localhost&quot;, origin: &quot;https://attacker.example&quot;)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="0fba8664-d6aa-1a13-31b0-cb3da909a524">
+      <Execution id="35dad915-67fa-41ee-bb4a-dffa1c27c298" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_refuses_untrusted_hosts_and_browser_origins" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Local_mode_is_explicitly_credential_free" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="d4c207d8-ef4d-25f2-bff9-3d19826dd6bb">
+      <Execution id="c50844f7-2395-478f-beab-aa31d752b781" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Local_mode_is_explicitly_credential_free" />
+    </UnitTest>
+    <UnitTest name="QualityStudio.Api.Tests.ApiSecurityTests.Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy(remoteAddress: &quot;10.20.30.40&quot;, configureProxy: True, forwardedScheme: &quot;https&quot;, expected: OK)" storage="c:\projects\quality-studio\backend\tests\qualitystudio.api.tests\bin\release\net10.0\qualitystudio.api.tests.dll" id="08679f93-b618-d6f8-9707-a609b325a263">
+      <Execution id="7c5a1933-a451-47e2-97c7-3252da06f15c" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="QualityStudio.Api.Tests.ApiSecurityTests" name="Hosted_https_accepts_forwarded_scheme_only_from_explicitly_trusted_proxy" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="08679f93-b618-d6f8-9707-a609b325a263" executionId="7c5a1933-a451-47e2-97c7-3252da06f15c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf85b5f8-af03-f438-e09e-4310ea8d8d78" executionId="6bb49afc-1c54-4752-9300-4d433c23ee8b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d4c207d8-ef4d-25f2-bff9-3d19826dd6bb" executionId="c50844f7-2395-478f-beab-aa31d752b781" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e331adff-8c16-67e9-48f4-9b80858a6aad" executionId="fa2ed21f-a042-4d0d-9ebd-97bf02bf611b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b67751f8-0ca9-c082-cb39-231e28cd5785" executionId="b465c040-2edd-401e-8c72-b982786b96dc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9bddd16a-cc7c-2874-4e74-447ac290b31f" executionId="383308ed-c802-4a43-99d2-e385a0905809" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="623ed190-04b0-9365-0cfb-9184592070a5" executionId="2e256f0e-ed14-4ccc-91e9-bb5358aba32c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ca64d1a-84fb-0c13-6c16-8e6d7f7f1be0" executionId="4fe992a1-de88-4860-98c8-52ff243b8a9c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3adc040c-cf71-5c3f-ca16-9dba26253d49" executionId="fe28e7df-a8da-4b6f-adcf-f5a649caa676" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3fc4c365-6e8b-a600-bff9-84fe1740763b" executionId="3bd5b2c8-b91d-47f3-90c6-ce170e545495" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7f187f81-95b9-dea5-2201-d2abbbf5313f" executionId="e0f07036-c21d-4add-847b-85eb8fcea0a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2cbd18d5-0329-af1d-ee33-5fdb398e522a" executionId="6a238220-654b-4eb3-a467-69131ee049f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dccb7a48-b5fc-f27e-e708-cc3676851b21" executionId="382b29b3-b38c-4beb-8788-148b4a1f1000" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1f418ac2-62a0-74bd-582e-eb1a6834cc7d" executionId="4454e820-93d4-41ca-9930-adf1b8c516fc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ac60efc0-457f-4677-754c-7bef494a3f32" executionId="26b5f608-4e0c-4163-a189-0aa2b5843453" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b7680f28-ea2f-d04d-406c-1f1d55122b83" executionId="e738f63c-fb0a-4a75-b446-ba8c0257e211" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e523d38-b27b-07ba-a0b4-b36bff43f893" executionId="28041383-0615-41c6-8bb8-3d26c3be68b6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2a86310e-0b17-5cc5-eeba-6017aa9cf718" executionId="ac060123-70d5-4f61-bfbb-6bf60cfa236c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2088f039-4f8f-8533-0dad-2e9343d9fd7a" executionId="ab7b7d34-49cd-46fa-bcc2-c7de59cbcd00" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="01ecf052-c93b-0903-4800-a467bc71b8bd" executionId="46d04409-4b93-452e-b8ed-3b1254e8d76d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="14640590-d348-79b5-f378-8d332ad7f406" executionId="3d5e0360-ed0a-46f7-9e6a-1bb3e10b88b0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0fba8664-d6aa-1a13-31b0-cb3da909a524" executionId="35dad915-67fa-41ee-bb4a-dffa1c27c298" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7d0e6d88-9d40-26ce-9814-8f5cf035e8f9" executionId="5f3e9777-8c4a-4807-93af-120309627cc1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e502b20a-b19f-1326-54e5-0407e9f9bae8" executionId="883f8f22-9c66-45f9-8a40-0f4c44b559f1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="99748a2e-439e-7f2d-7056-6cb3fa335c5f" executionId="c6bc3e45-c385-41cb-b16c-674c4b27b100" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0fde83f2-67f2-3c02-5751-173d3538ccba" executionId="c295f5a9-e62f-4226-8db6-df5cdf5889a1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="02292c0c-879b-8385-b5c9-b0dd62c61ea1" executionId="5f5bccff-fcc7-4628-bf1b-807ab4b153bd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="27" executed="27" passed="25" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.9)&#xD;
+[xUnit.net 00:00:00.31]   Discovering: QualityStudio.Api.Tests&#xD;
+[xUnit.net 00:00:00.80]   Discovered:  QualityStudio.Api.Tests&#xD;
+[xUnit.net 00:00:01.19]   Starting:    QualityStudio.Api.Tests&#xD;
+[xUnit.net 00:00:19.25]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:19.25]       Expected: Forbidden&#xD;
+[xUnit.net 00:00:19.25]       Actual:   Created&#xD;
+[xUnit.net 00:00:19.25]       Stack Trace:&#xD;
+[xUnit.net 00:00:19.25]         C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs(430,0): at QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(String route)&#xD;
+[xUnit.net 00:00:19.25]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:21.86]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:21.86]       Expected: Forbidden&#xD;
+[xUnit.net 00:00:21.86]       Actual:   Created&#xD;
+[xUnit.net 00:00:21.86]       Stack Trace:&#xD;
+[xUnit.net 00:00:21.86]         C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\ApiSecurityTests.cs(430,0): at QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(String route)&#xD;
+[xUnit.net 00:00:21.86]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:36.86]   Finished:    QualityStudio.Api.Tests (ID = '81e9e491149fd2251d3a2bf22450009a088796416418c6acecfba7aa8e0b1a67')&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T22:47:15.0724297+02:00">
+        <Text>[xUnit.net 00:00:19.24]     QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: "/api/repos/") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T22:47:17.6893470+02:00">
+        <Text>[xUnit.net 00:00:21.86]     QualityStudio.Api.Tests.ApiSecurityTests.Repository_scoped_identity_cannot_register_through_route_variants(route: "/API/REPOS/") [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

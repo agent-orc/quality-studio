@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentOrchestrator.CodeQuality -> C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\bin\Release\net10.0\AgentOrchestrator.CodeQuality.dll
+  QualityStudio.Api -> C:\Projects\quality-studio\backend\QualityStudio.Api\bin\Release\net10.0\QualityStudio.Api.dll
+  QualityStudio.Api.Tests -> C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll
+Test run for C:\Projects\quality-studio\backend\tests\QualityStudio.Api.Tests\bin\Release\net10.0\QualityStudio.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 6 s - QualityStudio.Api.Tests.dll (net10.0)

@@ -20,6 +20,55 @@ Before every file and aggregate operation, the runner compares the current subje
 
 A run may use one token cap or one cost cap. Omitting both inherits the repository's default. Enforcement happens in `ReviewJobService` at durable review-operation boundaries: once recorded usage reaches the cap, no next file or aggregate operation starts. The operation that crosses the threshold is allowed to finish cleanly, so actual spend can exceed the cap by at most that operation. Remaining files are persisted as `skipped`, the aggregate is reported as `skipped` when applicable, and the run ends as `capped` with a stop reason and complete reviewed, failed, and skipped counts.
 
+### Answers the parser refuses
+
+Every review prompt carries the answer contract,
+[`review-response.v1.schema.json`](../schemas/review-response.v1.schema.json), after the output
+format section of its template. The runner reads the **first complete JSON object** in the answer
+(`AgentJsonReader`): it walks from an opening brace to the brace that closes it, treating everything
+inside JSON strings as data, so a recommendation that quotes a fenced snippet no longer breaks the
+read, and prose or a second block after the object is ignored. A `json` fence is only a hint where to
+start. The schema sits outside the template on purpose: it states the shape the parser already
+enforced, so it is not part of the template hash and adding it made no stored review stale.
+
+When the parser still refuses an answer, the same prompt is sent **once more** with the refusal
+reason appended ("Your previous answer was rejected"). Both runs are recorded in the usage ledger. A
+second refusal fails the unit with the reason and a note that the repair attempt was refused too.
+Each refused answer is appended to `runs/<runId>/rejections.jsonl` with the agent run id, attempt,
+whether it was retried, the reason, the unit, and the raw answer capped at 32,768 characters (head
+and tail, with a marker and the original length when cut). The one-line file error says why an
+answer was refused; the journal shows what the agent actually returned.
+
+The CodingAgentRunner 0.7 request has no structured-output channel, so the schema is requested in
+the prompt and enforced by the parser. When the runner gains a native schema parameter, the same
+embedded schema is what it should pass.
+
+### Provider and login failures
+
+A failed operation is classified before the sweep moves on. Only a failure of the agent run itself
+counts — a CLI that ended without completing, failed to attach, or threw while streaming; a refused
+answer, an edited file, or an unreadable path does not. A failure is an **authentication** failure
+when its message says so (`401`/`403`, unauthorized, not logged in, expired or refreshed token,
+invalid API key, credentials); otherwise it is a provider failure. Run ids, GUIDs and timestamps are
+removed from the message, so the same fault on two files compares equal. To make that message
+available, `CodingAgentReviewAgent` carries the last failed turn or error diagnostic into the abort
+reason when the CLI's terminal event does not say why.
+
+After `ReviewJobs:ProviderFailureStopThreshold` (default `3`) **consecutive identical** failures the
+run stops: it ends as `failed` with a stop reason naming the CLI and the provider's message, every
+file not yet started is persisted as `skipped` with that reason, in-flight operations are cancelled
+and also recorded as `skipped`, the aggregate is `skipped`, and the terminal report is published.
+Any operation that reached the provider — a review written, or an answer refused — restarts the
+count, as does a different failure. The run is not resumable; starting the review again is cheap
+because every file already reviewed is `skipped-fresh`.
+
+The same evidence feeds the provider login state that `GET /api/quotas` returns in `auth` and the
+top bar shows next to each provider's quota: `signed in` once a review reached the provider,
+`auth failed` after an authentication failure (from a review, or from the quota probe's own error
+when no review has succeeded since), otherwise `auth unknown`. A provider with a login state but no
+quota chip still gets its own badge, so a refused login is never hidden. The state is in memory and
+starts as unknown after an API restart.
+
 A capped run is resumable without repeating completed files. `POST /api/review/runs/{id}/resume` accepts a higher `{ "tokenCap": ... }` or `{ "costCap": ... }`. Skipped units return to `queued`, while done and failed units remain durable. The server rejects a replacement cap already below current spend. Repository defaults are configured with `defaultReviewTokenCap` or `defaultReviewCostCap` (mutually exclusive) in the repository registration UI or API.
 
 ## Module and project passes
@@ -93,6 +142,43 @@ status is `observed` when it matched and `unverified` when it did not, and
 removes the array before writing. `review-meta.v3` findings allow no additional
 property, and none is needed.
 
+## Prompt transport
+
+Every file and aggregate prompt reaches the reviewer CLI over standard input, never
+on the command line. A file prompt is its template plus the whole file, and an
+aggregate prompt carries a digest of up to 80,000 characters, so both routinely
+exceed what an operating system accepts as a process argument:
+
+| OS | Limit on a prompt passed as an argument | Consequence |
+| --- | --- | --- |
+| Windows | `CreateProcess` accepts a whole command line of at most 32,767 characters; through `cmd.exe` the limit is 8,191 | A file of roughly 20 KB plus its template, or any aggregate digest, cannot launch |
+| Linux | One argument may be at most 128 KiB (`MAX_ARG_STRLEN`); all arguments plus the environment share `ARG_MAX`, usually 2 MiB | Very large file prompts fail with `E2BIG` |
+| macOS | All arguments plus the environment share `ARG_MAX`, 1 MiB | Only extreme prompts fail |
+
+Standard input has no such limit: the runner writes the prompt to the child's pipe
+and closes it. It also keeps the full source out of process listings such as `ps`
+and `/proc/<pid>/cmdline`.
+
+`CodingAgentReviewAgent.CreateCliOptions()` is the default `CodingAgentRunner`
+configuration of the review agent. It sets `ClaudePromptTransport.Stdin`, because
+the library's Claude default is still `Argv`. Codex needs no setting: the runner
+always launches `codex exec` with `-` and writes the prompt to stdin. A caller that
+passes its own `CliOptions` owns the choice, so derive them with
+`CodingAgentReviewAgent.CreateCliOptions() with { ... }` to keep stdin.
+
+Before this was set, every folder-level review on Windows and 23 of 124 file
+attempts above about 20 KB failed to launch in the 2026-09-28 Agent Studio
+evaluation (defect D1). `CodingAgentReviewAgentLargePromptTests` guards against a
+regression on both CI legs, ubuntu and windows. It launches the fake CLI in
+`backend/tests/TestSupport/FakeCodingAgentCli` as `claude` and as `codex` with a
+100 KiB multi-line prompt. The fake takes its dialect from its file name, as the
+real CLIs do, so the test runs a copy named `claude[.exe]` or `codex[.exe]`; the
+argv-less `--version` probe therefore answers as the CLI under test, which a second
+test asserts. The large-prompt test asserts three things: the prompt arrived intact at
+the start of stdin, it does not appear in argv, and argv stays below cmd.exe's
+8,191 characters. The runner appends its own subagent-delegation note after the
+prompt, so stdin is slightly longer than the prompt itself.
+
 ## Durable state
 
 Run orchestration is durable under `runs/<runId>/` in the project's data root:
@@ -107,6 +193,8 @@ Run orchestration is durable under `runs/<runId>/` in the project's data root:
 - `observations.json` is the orchestration checkpoint for exact file and aggregate
   observations. It is replaced atomically before the corresponding progress
   transition is appended, allowing recovery to publish the same captured evidence.
+- `rejections.jsonl` is present only when the parser refused an agent answer. Each line keeps one
+  refused answer, capped, with its reason; see [Answers the parser refuses](#answers-the-parser-refuses).
 
 At every terminal transition the API projects these immutable inputs into
 `reports/runs/<runId>.json`, again in the data root. This canonical,

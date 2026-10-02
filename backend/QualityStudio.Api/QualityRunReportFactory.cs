@@ -71,7 +71,7 @@ public static class QualityRunReportFactory
             manifest.ThinkingLevel ?? "model-default",
             manifest.CliType,
             manifest.Force);
-        var delta = BuildDelta(identity, observations, complete, priorReports);
+        var delta = BuildDelta(identity, observations, complete, priorReports, snapshots.Values);
         return new QualityRunReportDocument(
             QualityRunReportJson.SchemaId,
             1,
@@ -170,7 +170,8 @@ public static class QualityRunReportFactory
         QualityRunIdentity run,
         IReadOnlyList<QualityRunObservation> observations,
         bool complete,
-        IReadOnlyList<QualityRunReportDocument> priorReports)
+        IReadOnlyList<QualityRunReportDocument> priorReports,
+        IEnumerable<ReviewObservationSnapshot> snapshots)
     {
         if (!complete)
             return UnavailableDelta("Partial runs are not comparable.");
@@ -192,15 +193,22 @@ public static class QualityRunReportFactory
         var baseline = ActiveFindingStates(prior.Observations);
         var currentKeys = current.Keys.ToHashSet(StringComparer.Ordinal);
         var baselineKeys = baseline.Keys.ToHashSet(StringComparer.Ordinal);
+        // The lifecycle captured with this run's observations says why a prior finding is missing:
+        // a finding the merge kept as not re-observed sits on unchanged code and was not fixed.
+        var lifecycle = snapshots.SelectMany(snapshot => snapshot.FindingStates)
+            .GroupBy(pair => pair.Key, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.Ordinal);
+        var missing = baselineKeys.Except(currentKeys).Order(StringComparer.Ordinal).ToArray();
         return new QualityRunDelta(
             "available",
             prior.Run.Id,
             null,
             currentKeys.Except(baselineKeys).Order(StringComparer.Ordinal).ToArray(),
             currentKeys.Intersect(baselineKeys).Order(StringComparer.Ordinal).ToArray(),
-            baselineKeys.Except(currentKeys).Order(StringComparer.Ordinal).ToArray(),
+            missing.Where(key => !IsNotReobserved(lifecycle, key)).ToArray(),
             currentKeys.Intersect(baselineKeys).Where(key => current[key] != baseline[key])
-                .Order(StringComparer.Ordinal).ToArray());
+                .Order(StringComparer.Ordinal).ToArray(),
+            missing.Where(key => IsNotReobserved(lifecycle, key)).ToArray());
     }
 
     private static Dictionary<string, string> ActiveFindingStates(IEnumerable<QualityRunObservation> observations) =>
@@ -208,6 +216,10 @@ public static class QualityRunReportFactory
             .Where(finding => finding.State != "resolved")
             .GroupBy(finding => finding.Fingerprint, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last().State, StringComparer.Ordinal);
+
+    private static bool IsNotReobserved(IReadOnlyDictionary<string, string> lifecycle, string fingerprint) =>
+        lifecycle.TryGetValue(fingerprint, out var state) &&
+        state == FindingStateStore.StateName(FindingState.NotReobserved);
 
     private static QualityRunDelta UnavailableDelta(string reason) =>
         new("unavailable", null, reason, [], [], [], []);
@@ -282,6 +294,8 @@ public static class QualityRunReportFactory
         var fingerprint = finding["fingerprint"]?.GetValue<string>();
         if (id is null || fingerprint is null) return null;
         states.TryGetValue(fingerprint, out var state);
+        // A finding this observation lists was observed, whatever another review last concluded.
+        if (state == FindingStateStore.StateName(FindingState.NotReobserved)) state = "open";
         var locations = (finding["locations"]?.AsArray().OfType<JsonObject>() ?? []).Select(location =>
         {
             var range = location["range"]?.AsObject();

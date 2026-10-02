@@ -1,0 +1,11 @@
+{
+  "command": "Node parent waits until child ready, then exits; child inherits pipes; runner deadline 3s",
+  "exitCode": 0,
+  "result": {
+    "outcome": "success",
+    "output": "parent exiting\n stderr:",
+    "childWasReady": true,
+    "childAliveAfterRunnerReturned": false
+  },
+  "limitations": "Temporary fixture only, known fixture PID explicitly cleaned."
+}

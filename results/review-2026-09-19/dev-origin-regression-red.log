@@ -1,0 +1,57 @@
+
+> test:dev-stack
+> node --test tests/dev-stack.test.mjs
+
+✔ the relocated API defaults to the complete repository and permits its root (9.2314ms)
+✔ launcher bootstraps a clean checkout, starts both services, and can restart cleanly (2207.755ms)
+✖ launcher gives the API the exact custom frontend origin (1056.8834ms)
+✖ default local frontend origins cover both loopback host spellings (3.3335ms)
+✔ launcher reinstalls when node_modules is present but incomplete (1008.4141ms)
+✔ launcher fails if API never becomes ready (733.755ms)
+✔ launcher fails if frontend exits before ready (723.8848ms)
+✔ embedded shell loads in an iframe and shows the live connection badge (961.6606ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6938.9345
+
+✖ failing tests:
+
+test at tests\dev-stack.test.mjs:65:1
+✖ launcher gives the API the exact custom frontend origin (1056.8834ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(result.stdout.includes('frontend-origin:http://127.0.0.1:' + webPort))
+  
+      at TestContext.<anonymous> (file:///C:/Projects/quality-studio/tests/dev-stack.test.mjs:81:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\dev-stack.test.mjs:85:1
+✖ default local frontend origins cover both loopback host spellings (3.3335ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(settings.QualityStudio.AllowedOrigins.includes('http://127.0.0.1:4200'))
+  
+      at TestContext.<anonymous> (file:///C:/Projects/quality-studio/tests/dev-stack.test.mjs:88:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

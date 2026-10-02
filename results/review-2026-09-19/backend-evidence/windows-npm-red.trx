@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="b0975b2e-8c17-408c-b9d7-fd7d417e8f46" name="rmisc@TUFI2 2026-09-19 23:29:45" runUser="TUFI2\rmisc" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-19T23:29:45.6662072+02:00" queuing="2026-09-19T23:29:45.6662077+02:00" start="2026-09-19T23:29:42.2575341+02:00" finish="2026-09-19T23:29:45.6735222+02:00" />
+  <TestSettings name="default" id="8a8eef86-6c21-4402-afdc-52a6dce9ed78">
+    <Deployment runDeploymentRoot="rmisc_TUFI2_2026-09-19_23_29_45" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="fa219cf2-5552-439c-9b83-a93c307f9ee7" testId="cc0f67b7-d7f0-7ca4-f267-8e2cc6f13c1a" testName="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_runner_can_launch_installed_npm_without_a_command_shell" computerName="TUFI2" duration="00:00:00.0443520" startTime="2026-09-19T23:29:44.4633737+02:00" endTime="2026-09-19T23:29:44.5600209+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fa219cf2-5552-439c-9b83-a93c307f9ee7">
+      <Output>
+        <ErrorInfo>
+          <Message>AgentOrchestrator.CodeQuality.SecurityScannerUnavailableException : npm could not be launched.&#xD;
+---- System.ComponentModel.Win32Exception : An error occurred trying to start process 'npm' with working directory 'C:\Users\rmisc\AppData\Local\Temp\quality-windows-npm-fnqodyf5.r25'. The system cannot find the file specified.</Message>
+          <StackTrace>   at AgentOrchestrator.CodeQuality.ProcessSensorCommandRunner.RunAsync(String executable, IReadOnlyList`1 arguments, String workingDirectory, CancellationToken cancellationToken) in C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\DependencyVulnerabilitySensor.cs:line 80&#xD;
+   at AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_runner_can_launch_installed_npm_without_a_command_shell() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\WindowsNpmCommandTests.cs:line 15&#xD;
+--- End of stack trace from previous location ---&#xD;
+----- Inner Stack Trace -----&#xD;
+   at System.Diagnostics.Process.StartWithCreateProcess(ProcessStartInfo startInfo)&#xD;
+   at AgentOrchestrator.CodeQuality.ProcessSensorCommandRunner.RunAsync(String executable, IReadOnlyList`1 arguments, String workingDirectory, CancellationToken cancellationToken) in C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\DependencyVulnerabilitySensor.cs:line 73</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="977f949a-551b-479e-84e2-f21ca6c65ea0" testId="b9081cb9-8f30-b2fa-5de9-ae59dc8c22f1" testName="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_dependency_probe_recognizes_installed_windows_npm" computerName="TUFI2" duration="00:00:00.9520711" startTime="2026-09-19T23:29:44.5704704+02:00" endTime="2026-09-19T23:29:45.5252844+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="977f949a-551b-479e-84e2-f21ca6c65ea0">
+      <Output>
+        <ErrorInfo>
+          <Message>npm is unavailable: npm could not be launched.</Message>
+          <StackTrace>   at AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_dependency_probe_recognizes_installed_windows_npm() in C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\WindowsNpmCommandTests.cs:line 35&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_runner_can_launch_installed_npm_without_a_command_shell" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="cc0f67b7-d7f0-7ca4-f267-8e2cc6f13c1a">
+      <Execution id="fa219cf2-5552-439c-9b83-a93c307f9ee7" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests" name="Default_runner_can_launch_installed_npm_without_a_command_shell" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_dependency_probe_recognizes_installed_windows_npm" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="b9081cb9-8f30-b2fa-5de9-ae59dc8c22f1">
+      <Execution id="977f949a-551b-479e-84e2-f21ca6c65ea0" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests" name="Default_dependency_probe_recognizes_installed_windows_npm" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="cc0f67b7-d7f0-7ca4-f267-8e2cc6f13c1a" executionId="fa219cf2-5552-439c-9b83-a93c307f9ee7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b9081cb9-8f30-b2fa-5de9-ae59dc8c22f1" executionId="977f949a-551b-479e-84e2-f21ca6c65ea0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="2" executed="2" passed="0" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.9)&#xD;
+[xUnit.net 00:00:00.36]   Discovering: AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.03]   Discovered:  AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.38]   Starting:    AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.61]       AgentOrchestrator.CodeQuality.SecurityScannerUnavailableException : npm could not be launched.&#xD;
+[xUnit.net 00:00:01.61]       ---- System.ComponentModel.Win32Exception : An error occurred trying to start process 'npm' with working directory 'C:\Users\rmisc\AppData\Local\Temp\quality-windows-npm-fnqodyf5.r25'. The system cannot find the file specified.&#xD;
+[xUnit.net 00:00:01.61]       Stack Trace:&#xD;
+[xUnit.net 00:00:01.62]         C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\DependencyVulnerabilitySensor.cs(80,0): at AgentOrchestrator.CodeQuality.ProcessSensorCommandRunner.RunAsync(String executable, IReadOnlyList`1 arguments, String workingDirectory, CancellationToken cancellationToken)&#xD;
+[xUnit.net 00:00:01.62]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\WindowsNpmCommandTests.cs(15,0): at AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_runner_can_launch_installed_npm_without_a_command_shell()&#xD;
+[xUnit.net 00:00:01.62]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:01.62]         ----- Inner Stack Trace -----&#xD;
+[xUnit.net 00:00:01.62]            at System.Diagnostics.Process.StartWithCreateProcess(ProcessStartInfo startInfo)&#xD;
+[xUnit.net 00:00:01.62]         C:\Projects\quality-studio\backend\AgentOrchestrator.CodeQuality\DependencyVulnerabilitySensor.cs(73,0): at AgentOrchestrator.CodeQuality.ProcessSensorCommandRunner.RunAsync(String executable, IReadOnlyList`1 arguments, String workingDirectory, CancellationToken cancellationToken)&#xD;
+[xUnit.net 00:00:02.56]       npm is unavailable: npm could not be launched.&#xD;
+[xUnit.net 00:00:02.56]       Stack Trace:&#xD;
+[xUnit.net 00:00:02.56]         C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\WindowsNpmCommandTests.cs(35,0): at AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_dependency_probe_recognizes_installed_windows_npm()&#xD;
+[xUnit.net 00:00:02.57]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:02.59]   Finished:    AgentOrchestrator.CodeQuality.Tests (ID = '8a53d804e00b4efa9f51a3eb276cfe4ed05fec6a1c98e718a1afbd857257950e')&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T23:29:44.5725390+02:00">
+        <Text>[xUnit.net 00:00:01.61]     AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_runner_can_launch_installed_npm_without_a_command_shell [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="TUFI2" outcome="Error" timestamp="2026-09-19T23:29:45.5263077+02:00">
+        <Text>[xUnit.net 00:00:02.56]     AgentOrchestrator.CodeQuality.Tests.WindowsNpmCommandTests.Default_dependency_probe_recognizes_installed_windows_npm [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

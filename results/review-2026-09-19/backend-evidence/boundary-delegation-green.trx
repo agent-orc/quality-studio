@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="1f0ec827-4df8-4255-8949-ef1e8546bc2a" name="rmisc@TUFI2 2026-09-19 23:05:50" runUser="TUFI2\rmisc" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-19T23:05:50.3431293+02:00" queuing="2026-09-19T23:05:50.3431297+02:00" start="2026-09-19T23:05:48.2879211+02:00" finish="2026-09-19T23:05:53.1347398+02:00" />
+  <TestSettings name="default" id="0f867615-6d15-44d3-80f0-04e26cf5503e">
+    <Deployment runDeploymentRoot="rmisc_TUFI2_2026-09-19_23_05_50" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="d5ef5a1c-505c-4118-869c-cc2b1e56b5ff" testId="e9075bd1-386a-5a70-c38c-d647b9984a47" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Delegated_sensor_commands_keep_process_boundaries_and_request_context" computerName="TUFI2" duration="00:00:00.0083005" startTime="2026-09-19T23:05:52.3790017+02:00" endTime="2026-09-19T23:05:52.3873566+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d5ef5a1c-505c-4118-869c-cc2b1e56b5ff" />
+    <UnitTestResult executionId="19bcb87e-33a2-483a-b499-7c0ba4b4744b" testId="6a9ee366-268d-d8a3-fcf1-d71a0fdcd55c" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Adding_an_endpoint_changes_the_repository_owned_inventory" computerName="TUFI2" duration="00:00:00.0955068" startTime="2026-09-19T23:05:50.1842666+02:00" endTime="2026-09-19T23:05:50.2798219+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="19bcb87e-33a2-483a-b499-7c0ba4b4744b" />
+    <UnitTestResult executionId="ff610609-7a59-4bca-9157-434230ca9da1" testId="e21db90e-a2dc-d3bf-b771-30dab09d9223" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.AspNet_inventory_derives_middleware_configuration_and_mechanical_findings" computerName="TUFI2" duration="00:00:00.0235543" startTime="2026-09-19T23:05:52.4074533+02:00" endTime="2026-09-19T23:05:52.4310963+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ff610609-7a59-4bca-9157-434230ca9da1" />
+    <UnitTestResult executionId="97eb2d7c-b0ab-4a4e-9b79-99aadd75e806" testId="46d1bb1b-6080-1ad4-f70d-9d46e0cad829" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Unknown_static_file_authentication_is_not_a_critical_unauthenticated_mutation" computerName="TUFI2" duration="00:00:00.0134722" startTime="2026-09-19T23:05:52.3878367+02:00" endTime="2026-09-19T23:05:52.4013737+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="97eb2d7c-b0ab-4a4e-9b79-99aadd75e806" />
+    <UnitTestResult executionId="76fb5f70-d6c9-4d10-a55b-0815a6e022f6" testId="cdc85267-4abf-8616-6e4e-308a52d59750" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking" computerName="TUFI2" duration="00:00:00.0816974" startTime="2026-09-19T23:05:50.1018854+02:00" endTime="2026-09-19T23:05:50.1837355+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="76fb5f70-d6c9-4d10-a55b-0815a6e022f6" />
+    <UnitTestResult executionId="f150a288-109f-41f4-93c9-3b7f24942e21" testId="add641a6-4065-2c37-6a0a-eaa6523d2ad5" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Node_and_browser_boundaries_are_inventoried" computerName="TUFI2" duration="00:00:00.0087778" startTime="2026-09-19T23:05:52.4321431+02:00" endTime="2026-09-19T23:05:52.4409926+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f150a288-109f-41f4-93c9-3b7f24942e21" />
+    <UnitTestResult executionId="def7abaa-1a62-49b5-bf97-a4adb0328508" testId="6941b353-80bb-6978-60e8-1b88fbc6d679" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.QualityStudio_inventory_covers_registered_routes_loopback_cors_and_gitleaks" computerName="TUFI2" duration="00:00:02.0774933" startTime="2026-09-19T23:05:50.2803035+02:00" endTime="2026-09-19T23:05:52.3578630+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="def7abaa-1a62-49b5-bf97-a4adb0328508" />
+    <UnitTestResult executionId="1b57781e-9e46-413d-85ab-782bc0bafb58" testId="5359131f-5499-a62c-4a90-9f337d011dfc" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Exhausted_time_budget_produces_an_honest_partial_result" computerName="TUFI2" duration="00:00:00.0187427" startTime="2026-09-19T23:05:52.3597121+02:00" endTime="2026-09-19T23:05:52.3785245+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1b57781e-9e46-413d-85ab-782bc0bafb58" />
+    <UnitTestResult executionId="dc7ba023-f2ab-4357-a0fd-aec13bfae4d8" testId="3d15c776-6963-6128-6ba2-2cebfdaa8143" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Missing_endpoint_authentication_evidence_remains_unknown_even_with_external_policy_configuration" computerName="TUFI2" duration="00:00:00.0050876" startTime="2026-09-19T23:05:52.4018645+02:00" endTime="2026-09-19T23:05:52.4070087+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dc7ba023-f2ab-4357-a0fd-aec13bfae4d8" />
+    <UnitTestResult executionId="a9bb5ec0-31d4-4c4d-9765-a8b942340ef2" testId="984f7189-b512-b575-94ba-045757e06c5e" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Explicit_anonymous_process_execution_still_receives_a_critical_finding" computerName="TUFI2" duration="00:00:00.1262092" startTime="2026-09-19T23:05:49.9553180+02:00" endTime="2026-09-19T23:05:50.0925589+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a9bb5ec0-31d4-4c4d-9765-a8b942340ef2" />
+    <UnitTestResult executionId="89bf02e0-1d8d-469e-979c-4a4bf79c876b" testId="8859f563-490a-bb42-a3c7-f1c517872dff" testName="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Scan_of_many_files_and_routes_stays_within_a_linear_time_budget" computerName="TUFI2" duration="00:00:00.5845869" startTime="2026-09-19T23:05:52.4415272+02:00" endTime="2026-09-19T23:05:53.0261918+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="89bf02e0-1d8d-469e-979c-4a4bf79c876b" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Missing_endpoint_authentication_evidence_remains_unknown_even_with_external_policy_configuration" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="3d15c776-6963-6128-6ba2-2cebfdaa8143">
+      <Execution id="dc7ba023-f2ab-4357-a0fd-aec13bfae4d8" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Missing_endpoint_authentication_evidence_remains_unknown_even_with_external_policy_configuration" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Delegated_sensor_commands_keep_process_boundaries_and_request_context" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="e9075bd1-386a-5a70-c38c-d647b9984a47">
+      <Execution id="d5ef5a1c-505c-4118-869c-cc2b1e56b5ff" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Delegated_sensor_commands_keep_process_boundaries_and_request_context" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Adding_an_endpoint_changes_the_repository_owned_inventory" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="6a9ee366-268d-d8a3-fcf1-d71a0fdcd55c">
+      <Execution id="19bcb87e-33a2-483a-b499-7c0ba4b4744b" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Adding_an_endpoint_changes_the_repository_owned_inventory" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="cdc85267-4abf-8616-6e4e-308a52d59750">
+      <Execution id="76fb5f70-d6c9-4d10-a55b-0815a6e022f6" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Exhausted_time_budget_produces_an_honest_partial_result" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="5359131f-5499-a62c-4a90-9f337d011dfc">
+      <Execution id="1b57781e-9e46-413d-85ab-782bc0bafb58" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Exhausted_time_budget_produces_an_honest_partial_result" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.QualityStudio_inventory_covers_registered_routes_loopback_cors_and_gitleaks" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="6941b353-80bb-6978-60e8-1b88fbc6d679">
+      <Execution id="def7abaa-1a62-49b5-bf97-a4adb0328508" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="QualityStudio_inventory_covers_registered_routes_loopback_cors_and_gitleaks" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Explicit_anonymous_process_execution_still_receives_a_critical_finding" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="984f7189-b512-b575-94ba-045757e06c5e">
+      <Execution id="a9bb5ec0-31d4-4c4d-9765-a8b942340ef2" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Explicit_anonymous_process_execution_still_receives_a_critical_finding" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Scan_of_many_files_and_routes_stays_within_a_linear_time_budget" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="8859f563-490a-bb42-a3c7-f1c517872dff">
+      <Execution id="89bf02e0-1d8d-469e-979c-4a4bf79c876b" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Scan_of_many_files_and_routes_stays_within_a_linear_time_budget" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.AspNet_inventory_derives_middleware_configuration_and_mechanical_findings" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="e21db90e-a2dc-d3bf-b771-30dab09d9223">
+      <Execution id="ff610609-7a59-4bca-9157-434230ca9da1" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="AspNet_inventory_derives_middleware_configuration_and_mechanical_findings" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Node_and_browser_boundaries_are_inventoried" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="add641a6-4065-2c37-6a0a-eaa6523d2ad5">
+      <Execution id="f150a288-109f-41f4-93c9-3b7f24942e21" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Node_and_browser_boundaries_are_inventoried" />
+    </UnitTest>
+    <UnitTest name="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests.Unknown_static_file_authentication_is_not_a_critical_unauthenticated_mutation" storage="c:\projects\quality-studio\backend\tests\agentorchestrator.codequality.tests\bin\release\net10.0\agentorchestrator.codequality.tests.dll" id="46d1bb1b-6080-1ad4-f70d-9d46e0cad829">
+      <Execution id="97eb2d7c-b0ab-4a4e-9b79-99aadd75e806" />
+      <TestMethod codeBase="C:\Projects\quality-studio\backend\tests\AgentOrchestrator.CodeQuality.Tests\bin\Release\net10.0\AgentOrchestrator.CodeQuality.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="AgentOrchestrator.CodeQuality.Tests.BoundaryInventorySensorTests" name="Unknown_static_file_authentication_is_not_a_critical_unauthenticated_mutation" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="e9075bd1-386a-5a70-c38c-d647b9984a47" executionId="d5ef5a1c-505c-4118-869c-cc2b1e56b5ff" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a9ee366-268d-d8a3-fcf1-d71a0fdcd55c" executionId="19bcb87e-33a2-483a-b499-7c0ba4b4744b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e21db90e-a2dc-d3bf-b771-30dab09d9223" executionId="ff610609-7a59-4bca-9157-434230ca9da1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="46d1bb1b-6080-1ad4-f70d-9d46e0cad829" executionId="97eb2d7c-b0ab-4a4e-9b79-99aadd75e806" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cdc85267-4abf-8616-6e4e-308a52d59750" executionId="76fb5f70-d6c9-4d10-a55b-0815a6e022f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="add641a6-4065-2c37-6a0a-eaa6523d2ad5" executionId="f150a288-109f-41f4-93c9-3b7f24942e21" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6941b353-80bb-6978-60e8-1b88fbc6d679" executionId="def7abaa-1a62-49b5-bf97-a4adb0328508" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5359131f-5499-a62c-4a90-9f337d011dfc" executionId="1b57781e-9e46-413d-85ab-782bc0bafb58" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3d15c776-6963-6128-6ba2-2cebfdaa8143" executionId="dc7ba023-f2ab-4357-a0fd-aec13bfae4d8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="984f7189-b512-b575-94ba-045757e06c5e" executionId="a9bb5ec0-31d4-4c4d-9765-a8b942340ef2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8859f563-490a-bb42-a3c7-f1c517872dff" executionId="89bf02e0-1d8d-469e-979c-4a4bf79c876b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="11" executed="11" passed="11" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.9)&#xD;
+[xUnit.net 00:00:00.27]   Discovering: AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:00.80]   Discovered:  AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:01.04]   Starting:    AgentOrchestrator.CodeQuality.Tests&#xD;
+[xUnit.net 00:00:04.20]   Finished:    AgentOrchestrator.CodeQuality.Tests (ID = '8a53d804e00b4efa9f51a3eb276cfe4ed05fec6a1c98e718a1afbd857257950e')&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

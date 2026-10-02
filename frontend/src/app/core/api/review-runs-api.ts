@@ -154,6 +154,14 @@ export class ReviewRunsApi {
       { params: { format: 'json' } }));
   }
 
+  downloadReport(id: string, format: RunReportFormat): Promise<Blob> {
+    return firstValueFrom(this.http.get(this.reportUrl(id, format), { responseType: 'blob' }));
+  }
+
+  downloadRepositoryReport(format: RunReportFormat = 'html'): Promise<Blob> {
+    return firstValueFrom(this.http.get(this.repositoryReportUrl(format), { responseType: 'blob' }));
+  }
+
   async loadTrend(kind: ReviewKind, scopeUnitId: string, level: string, cursor?: string): Promise<QualityRunTrendPage> {
     const params: Record<string, string> = { kind, scopeUnitId, level, limit: '30' };
     if (cursor) params['cursor'] = cursor;

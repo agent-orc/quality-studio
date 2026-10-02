@@ -15,11 +15,16 @@ public sealed class ApiSecurity
     public const string ClientIdHeader = "X-Client-Id";
     private const string IdentityItem = "QualityStudio.Api.Identity";
     private readonly ApiSecurityOptions options;
+    private readonly HashSet<string> allowedOrigins;
     private readonly IReadOnlyList<(ApiClientIdentity Identity, byte[] CredentialHash)> clients;
 
     public ApiSecurity(IOptions<RepositoryOptions> configured)
     {
         options = configured.Value.Security;
+        allowedOrigins = configured.Value.AllowedOrigins
+            .Select(origin => TryOrigin(origin, out var parsed) ? parsed!.GetLeftPart(UriPartial.Authority) : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (options.Mode is not (ApiSecurityOptions.LocalMode or ApiSecurityOptions.HostedMode))
             throw new InvalidOperationException("QualityStudio:Security:Mode must be Local or Hosted.");
         if (options.MaxRequestBodyBytes is < 1024 or > 10 * 1024 * 1024)
@@ -69,6 +74,39 @@ public sealed class ApiSecurity
     public long MaxRequestBodyBytes => options.MaxRequestBodyBytes;
     public int MaxConcurrentRequests => options.MaxConcurrentRequests;
     public int SpendRequestsPerMinute => options.SpendRequestsPerMinute;
+
+    /// <summary>
+    /// Loopback binding does not stop a browser on this machine from reaching the API through
+    /// a foreign page or a rebinding hostname. Check the actual authority and browser origin
+    /// before granting Local mode's registrar identity. Non-browser local clients remain supported.
+    /// </summary>
+    public bool IsLocalRequestTrusted(HttpContext context)
+    {
+        if (!IsLocal) return true;
+        var request = context.Request;
+        if (!TryOrigin($"{request.Scheme}://{request.Host.Value}", out var target)) return false;
+        if (!options.AllowNonLoopbackLocalMode && !target!.IsLoopback) return false;
+
+        var origins = request.Headers.Origin;
+        if (origins.Count == 0)
+            return !string.Equals(request.Headers["Sec-Fetch-Site"].ToString(), "cross-site",
+                StringComparison.OrdinalIgnoreCase);
+        if (origins.Count != 1 || !TryOrigin(origins[0], out var origin)) return false;
+        var authority = origin!.GetLeftPart(UriPartial.Authority);
+        return string.Equals(authority, target!.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase)
+            || allowedOrigins.Contains(authority);
+    }
+
+    private static bool TryOrigin(string? value, out Uri? origin)
+    {
+        origin = null;
+        return Uri.TryCreate(value, UriKind.Absolute, out origin)
+            && (origin.Scheme == Uri.UriSchemeHttp || origin.Scheme == Uri.UriSchemeHttps)
+            && origin.UserInfo.Length == 0
+            && origin.AbsolutePath == "/"
+            && origin.Query.Length == 0
+            && origin.Fragment.Length == 0;
+    }
 
     public ApiClientIdentity? Authenticate(HttpContext context)
     {

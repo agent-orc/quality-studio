@@ -1,0 +1,8 @@
+# Bulky generated artifacts are retained locally; review summaries remain versionable.
+/coverage/
+/coverage-final/
+/coverage-release/
+/nuget/
+/performance/isolated-data/
+/performance-final/isolated-data/
+/coverage-complete/

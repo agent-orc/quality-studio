@@ -1,0 +1,91 @@
+> node --test tests/dev-stack.test.mjs tests/release-canary-workflow.test.mjs tests/test-lanes.test.mjs tests/rule-catalogue.test.mjs tests/review-reference.test.mjs tests/quality-domains.test.mjs
+✔ the relocated API defaults to the complete repository and permits its root (8.5416ms)
+✔ launcher bootstraps a clean checkout, starts both services, and can restart cleanly (1844.4249ms)
+✔ launcher gives the API the exact custom frontend origin (914.5943ms)
+✔ default local frontend origins cover both loopback host spellings (1.2735ms)
+✔ launcher reinstalls when node_modules is present but incomplete (916.775ms)
+✔ launcher fails if API never becomes ready (713.0785ms)
+✔ launcher fails if frontend exits before ready (712.0843ms)
+✔ embedded shell loads in an iframe and shows the live connection badge (929.9073ms)
+quality domains: 13 domains, 23 checks, 6 existing metrics; verified.
+✔ the generated Angular catalogue matches all authored domains and existing metrics (10.2598ms)
+✔ status cannot turn planned work or reviewer judgment into a measured product capability (4.2421ms)
+✔ references reject missing rules, metrics, sources, duplicate IDs and unsafe links (3.9112ms)
+✔ property declarations remain local, explicit and documentation-only (4.6587ms)
+quality domains: 13 domains, 23 checks, 6 existing metrics; generated.
+quality domains: 13 domains, 23 checks, 6 existing metrics; verified.
+✔ drift checks tolerate checkout CRLF but still reject changed generated content (47.2157ms)
+✔ release canary retains every sample before enforcing its classified result (6.3272ms)
+review reference: 6 metrics, 33 rules, tool and website match.
+✔ the tool and website match the authored methodology and rule library (16.4027ms)
+✔ every method references existing rules and authoritative HTTPS sources (1.4139ms)
+✔ website reference escapes rule prose and worked examples instead of creating active HTML (1.6623ms)
+✔ every metric has a formula, interpretation, limitations and a real implementation (5.9816ms)
+✔ generation is deterministic and matches the committed catalogue (349.0749ms)
+✔ every authored rule reaches the catalogue with its routing fields (4.221ms)
+✔ --check reports drift after a rule changes (410.5192ms)
+✔ a rule missing a required section fails before anything is written (184.416ms)
+✔ a rule whose id contradicts its directory fails validation (209.5403ms)
+✔ the generator writes nothing time- or checkout-dependent (1.8359ms)
+✔ lane filters are mutually explicit and keep live checks out of required runs (2.2378ms)
+✔ required and canary workflows select named lanes and retain all-lane evidence (8.1124ms)
+✖ real process fixtures are centralized and every consumer declares ToolBound (63.8174ms)
+✔ fixture classification recognizes attributed partial classes without accepting unclassified classes (0.9808ms)
+✔ dev-stack tests consume the shared platform-neutral process fixture (1.5642ms)
+✔ pre-review builds once and runs only the portable lane without rebuilding (1.4241ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 29
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6168.8784
+
+✖ failing tests:
+
+test at tests\test-lanes.test.mjs:35:1
+✖ real process fixtures are centralized and every consumer declares ToolBound (63.8174ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\BoundaryInventorySensorTests.cs',
+  +   'backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\ReviewRunnerTests.cs'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///C:/Projects/quality-studio/tests/test-lanes.test.mjs:52:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\BoundaryInventorySensorTests.cs', 'backend\\tests\\AgentOrchestrator.CodeQuality.Tests\\ReviewRunnerTests.cs' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+> npm.cmd run rules:check
+
+> rules:check
+> node scripts/sync-rule-catalogue.mjs --check && node scripts/sync-review-reference.mjs --check && npm run domains:check
+
+rules: catalogue 1.5.0 matches 33 authored rules.
+review reference: 6 metrics, 33 rules, tool and website match.
+
+> domains:check
+> node scripts/sync-quality-domains.mjs --check
+
+quality domains: 13 domains, 23 checks, 6 existing metrics; verified.
+> npm.cmd run catalog:check
+
+> catalog:check
+> node scripts/sync-token-economy-model-catalog.mjs --check
+
+Catalog snapshot integrity is valid at Token Economy 98ddcc91fba414919231e242de01dc022aed74dd; set TOKEN_ECONOMY_REPOSITORY for upstream drift comparison.
+> python .github/scripts/test_validate_coverage.py
+.................
+----------------------------------------------------------------------
+Ran 17 tests in 0.078s
+
+OK

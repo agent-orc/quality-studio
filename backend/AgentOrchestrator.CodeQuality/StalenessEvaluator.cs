@@ -146,7 +146,8 @@ public sealed class StalenessEvaluator
             RuleCatalogueResolver.AdapterFromUnitId(metadata.UnitId));
         // The writer hashes the template of the reviewed level; module and project sidecars would
         // otherwise read as policy drift forever against the file template.
-        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Level, metadata.Kind));
+        var currentInputHash = inputs.EffectiveHash(ReviewPromptBuilder.TemplateHash(metadata.Level, metadata.Kind),
+            metadata.RequestGuidelines);
         return string.Equals(currentInputHash, metadata.ReviewInputHash, StringComparison.Ordinal)
             ? StalenessState.Fresh
             : StalenessState.PolicyDrift;
@@ -199,7 +200,8 @@ public sealed class StalenessEvaluator
                     .ToArray(),
                 reviewKind,
                 document.Unit.Level,
-                document.ReviewInputs.EffectiveHash.Value);
+                document.ReviewInputs.EffectiveHash.Value,
+                RequestGuidelineInputs.FromStored(document.ReviewInputs));
             if (!result.TryAdd(metadata.SubjectPath, metadata))
             {
                 throw new StalenessScanException(
@@ -225,11 +227,9 @@ public sealed class StalenessEvaluator
                 CreateNoWindow = true,
             },
         };
-        process.StartInfo.ArgumentList.Add("ls-files");
-        process.StartInfo.ArgumentList.Add("--cached");
-        process.StartInfo.ArgumentList.Add("--others");
-        process.StartInfo.ArgumentList.Add("--exclude-standard");
-        process.StartInfo.ArgumentList.Add("-z");
+        foreach (var argument in ReadOnlyGit.WithSafetyOptions(
+                     ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]))
+            process.StartInfo.ArgumentList.Add(argument);
 
         try
         {
@@ -339,7 +339,8 @@ public sealed class StalenessEvaluator
         IReadOnlyList<StoredSubjectInput> Inputs,
         string Kind,
         ReviewLevel Level,
-        string? ReviewInputHash);
+        string? ReviewInputHash,
+        IReadOnlyList<StandardReference> RequestGuidelines);
 }
 
 [EventSource(Name = "AgentOrchestrator-CodeQuality")]
@@ -394,4 +395,8 @@ internal sealed class QualityStudioEventSource : EventSource
     [Event(12, Level = EventLevel.Error)]
     public void ReviewMetaUnreadable(string source, string failure, string reason) =>
         WriteEvent(12, source, failure, reason);
+
+    [Event(13, Level = EventLevel.Warning)]
+    public void ResponseRejected(string filePath, string kind, string runId, int attempt, bool retried, string reason) =>
+        WriteEvent(13, filePath, kind, runId, attempt, retried, reason);
 }

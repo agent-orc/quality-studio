@@ -1,0 +1,10 @@
+[
+  {
+    "artifact": "QualityStudio.Api.dll",
+    "sha256": "9eb8a8d374755cd33e75d13587f5b904fb5cfa53266c25402d3b945a6df6c494"
+  },
+  {
+    "artifact": "AgentOrchestrator.CodeQuality.dll",
+    "sha256": "497cd5f6c81053763d8f06bdb73aa6a6386864b010def0978d1f446530ec2f40"
+  }
+]

@@ -1,0 +1,33 @@
+Edge 153.0.0.0 (Windows 10) App shell without persistent storage keeps theme changes and repository switching usable when storage writes fail FAILED
+	Expected function not to throw, but it threw Error: Storage quota exceeded.
+	    at <Jasmine>
+	    at src/app/shell/app-storage.spec.ts:59:38
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	Expected a promise to be resolved but it was rejected with Error: Storage quota exceeded.
+	    at <Jasmine>
+	    at src/app/shell/app-storage.spec.ts:61:64
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+	    at _ProxyZoneSpec.onInvoke (node_modules/zone.js/fesm2015/zone-testing.js:2132:39)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:397:34)
+	    at ZoneImpl.run (node_modules/zone.js/fesm2015/zone.js:113:43)
+	    at node_modules/zone.js/fesm2015/zone.js:2537:40
+	Expected spy selectRepository to have been called with:
+	  [ 'next-repository' ]
+	but it was never called.
+	    at <Jasmine>
+	    at src/app/shell/app-storage.spec.ts:62:20
+	    at Generator.next (<anonymous>)
+	    at fulfilled (chunk-3FMBEB3S.js:44:24)
+	    at _ZoneDelegate.invoke (node_modules/zone.js/fesm2015/zone.js:398:28)
+Edge 153.0.0.0 (Windows 10) App shell without persistent storage starts and loads the workspace when browser storage is blocked FAILED
+	Expected function not to throw, but it threw Error: Storage denied.
+	    at <Jasmine>
+	    at src/app/shell/app-storage.spec.ts:39:67
+	    at Generator.next (<anonymous>)
+	    at chunk-3FMBEB3S.js:57:61
+	    at new ZoneAwarePromise (node_modules/zone.js/fesm2015/zone.js:2701:25)
+TOTAL: 2 FAILED, 0 SUCCESS

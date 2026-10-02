@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Reflection;
@@ -33,12 +32,21 @@ public sealed class GitleaksBinaryResolver
     private static readonly Lazy<IReadOnlyDictionary<string, string>> PinnedArchiveDigests =
         new(LoadPinnedArchiveDigests, LazyThreadSafetyMode.ExecutionAndPublication);
 
+    private readonly ISensorCommandRunner _commandRunner;
     private readonly HttpClient _httpClient;
     private readonly string _cacheDirectory;
     private readonly string _downloadRoot;
 
     public GitleaksBinaryResolver(HttpClient? httpClient = null, string? cacheDirectory = null)
+        : this(httpClient, cacheDirectory, null)
     {
+    }
+
+    public GitleaksBinaryResolver(HttpClient? httpClient, string? cacheDirectory,
+        ISensorCommandRunner? commandRunner)
+    {
+        _commandRunner = commandRunner ?? new ProcessSensorCommandRunner(
+            timeout: TimeSpan.FromSeconds(30), maximumOutputCharacters: 1_000_000);
         _httpClient = httpClient ?? SharedHttpClient;
         _cacheDirectory = cacheDirectory ?? GetDefaultCacheDirectory();
         _downloadRoot = $"https://github.com/gitleaks/gitleaks/releases/download/v{PinnedVersion}";
@@ -115,6 +123,10 @@ public sealed class GitleaksBinaryResolver
             return string.Equals(result.Trim(), $"v{PinnedVersion}", StringComparison.Ordinal) ||
                    string.Equals(result.Trim(), PinnedVersion, StringComparison.Ordinal);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch
         {
             return false;
@@ -123,40 +135,12 @@ public sealed class GitleaksBinaryResolver
 
     private async Task<string> RunVersionAsync(string executable, CancellationToken cancellationToken)
     {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo(executable)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
-        };
-        process.StartInfo.ArgumentList.Add("version");
-
-        try
-        {
-            if (!process.Start())
-            {
-                throw new SecurityScannerUnavailableException("Gitleaks version check did not start.");
-            }
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            throw new SecurityScannerUnavailableException("Gitleaks could not be executed.", exception);
-        }
-
-        var output = await process.StandardOutput.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        var error = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        if (process.ExitCode != 0)
-        {
+        var command = await _commandRunner.RunAsync(
+            executable, ["version"], Directory.GetCurrentDirectory(), cancellationToken).ConfigureAwait(false);
+        if (command.ExitCode != 0)
             throw new SecurityScannerUnavailableException(
-                $"Gitleaks version check failed: {error.Trim()}".Trim());
-        }
-
-        return output.Trim();
+                $"Gitleaks version check failed with exit code {command.ExitCode}.");
+        return command.StandardOutput.Trim();
     }
 
     private async Task DownloadPinnedBinaryAsync(string destination, CancellationToken cancellationToken)

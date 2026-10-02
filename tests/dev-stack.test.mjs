@@ -62,6 +62,32 @@ test('launcher bootstraps a clean checkout, starts both services, and can restar
   await assertPortsReleased([secondApiPort, secondWebPort]);
 });
 
+test('launcher gives the API the exact custom frontend origin', async t => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'qs-dev-stack-origin-'));
+  t.after(() => rm(sandbox, { recursive: true, force: true }));
+  const apiScript = join(sandbox, 'api.mjs');
+  const webScript = join(sandbox, 'web.mjs');
+  const installScript = join(sandbox, 'install.mjs');
+  const [apiPort, webPort] = await freePorts(2);
+  await writeFile(apiScript, serviceScript('api-ready') +
+    '\nconsole.log("frontend-origin:" + process.env.QualityStudio__AllowedOrigins__0);');
+  await writeFile(webScript, serviceScript('web-ready'));
+  await writeFile(installScript, 'process.exit(0);');
+
+  const result = await runLauncher({
+    args: ['--api-script', apiScript, '--web-script', webScript, '--install-script', installScript,
+      '--api-port', String(apiPort), '--web-port', String(webPort)],
+  });
+  assert.ok(result.stdout.includes('frontend-origin:http://127.0.0.1:' + webPort));
+  await assertPortsReleased([apiPort, webPort]);
+});
+
+test('default local frontend origins cover both loopback host spellings', async () => {
+  const settings = JSON.parse(await readFile(join(repoRoot, 'backend/QualityStudio.Api/appsettings.json'), 'utf8'));
+  assert.ok(settings.QualityStudio.AllowedOrigins.includes('http://localhost:4200'));
+  assert.ok(settings.QualityStudio.AllowedOrigins.includes('http://127.0.0.1:4200'));
+});
+
 test('launcher reinstalls when node_modules is present but incomplete', async t => {
   const sandbox = await mkdtemp(join(tmpdir(), 'qs-dev-stack-partial-'));
   t.after(() => rm(sandbox, { recursive: true, force: true }));

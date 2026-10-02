@@ -49,6 +49,39 @@ describe('API access token', () => {
     await loading;
   });
 
+  it('attaches the token only to same-origin API endpoints', async () => {
+    access.setToken('hosted-token');
+    const origin = location.origin;
+    const allowed = ['/api/repos', '/api?ready=1', `${origin}/api/repos?limit=1`];
+    const excluded = [
+      'https://external.example/api/repos', `//${location.host}/api/repos`,
+      `${origin}/apiary/repos`, '/apiary/repos', '/assets/help.json', '/api/../assets/help.json',
+      '/api/%2e%2e/assets/help.json', `${origin}@external.example/api/repos`,
+    ];
+    for (const url of [...allowed, ...excluded]) {
+      const loading = firstValueFrom(http.get(url));
+      const request = backend.expectOne(url);
+      expect(request.request.headers.get('Authorization')).withContext(url)
+        .toBe(allowed.includes(url) ? 'Bearer hosted-token' : null);
+      request.flush({});
+      await loading;
+    }
+    backend.verify();
+  });
+
+  it('preserves other requests and ignores their authentication failures', async () => {
+    access.setToken('hosted-token');
+    const before = access.unauthorizedAt();
+    const url = 'https://external.example/api/repos';
+    const loading = firstValueFrom(http.get(url, { headers: { Authorization: 'Bearer external-token' } }));
+    const request = backend.expectOne(url);
+    expect(request.request.headers.get('Authorization')).toBe('Bearer external-token');
+    request.flush('denied', { status: 401, statusText: 'Unauthorized' });
+    await expectAsync(loading).toBeRejected();
+    expect(access.unauthorizedAt()).toBe(before);
+    backend.verify();
+  });
+
   it('persists the token under qs-api-token and restores it', () => {
     access.setToken('persisted');
     expect(localStorage.getItem(TOKEN_STORAGE_KEY)).toBe('persisted');

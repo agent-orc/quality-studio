@@ -1,0 +1,105 @@
+{
+  "runtime": "copied existing Release API; no build",
+  "cases": [
+    {
+      "case": "missing",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: 'probe.sarif' does not exist."
+    },
+    {
+      "case": "bare-object",
+      "sensor": "sarif",
+      "available": false,
+      "findingCount": 0,
+      "reason": "SARIF report is unavailable: Only SARIF 2.1.0 reports are supported."
+    },
+    {
+      "case": "empty-results",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "results-object",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "failed-invocation",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "metadata-only",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "external-results",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "no-runs",
+      "sensor": "sarif",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "results-object",
+      "sensor": "roslyn",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "results-object",
+      "sensor": "eslint",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "missing",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": "No coverage reports matched the configured report paths."
+    },
+    {
+      "case": "unknown-xml",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "empty-cobertura",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    },
+    {
+      "case": "known-cobertura",
+      "sensor": "coverage",
+      "available": true,
+      "findingCount": 0,
+      "reason": null
+    }
+  ],
+  "coreDllSha256": "1af6bb515a0a83f366339bff2c0fe0a0feb08f99e6021f95f16229b30f5eeda1",
+  "cleanup": "Copied API process stopped; verified own temporary directory removed."
+}

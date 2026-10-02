@@ -247,6 +247,9 @@
           "Microsoft.CodeAnalysis.CSharp": "[5.6.0, )"
         }
       },
+      "fake-coding-agent": {
+        "type": "Project"
+      },
       "quality": {
         "type": "Project",
         "dependencies": {

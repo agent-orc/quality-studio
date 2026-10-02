@@ -594,7 +594,7 @@ public sealed class CoverageSensor : IReviewSensor
                     CreateNoWindow = true,
                 },
             };
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+            foreach (var argument in ReadOnlyGit.WithSafetyOptions(arguments)) process.StartInfo.ArgumentList.Add(argument);
             if (!process.Start()) return null;
             // Drain stderr concurrently; an unread redirected stream blocks git once its pipe is full.
             process.ErrorDataReceived += static (_, _) => { };

@@ -59,6 +59,7 @@ public static class CoreTerms
         public const string Waived = "waived";
         public const string FalsePositive = "false-positive";
         public const string Resolved = "resolved";
+        public const string NotReobserved = "not-reobserved";
     }
 
     public static class EvidenceKind
@@ -200,6 +201,7 @@ public static class QualityTaxonomyLegacyMap
             "waived" => CoreTerms.Lifecycle.Waived,
             "false-positive" or "falsePositive" => CoreTerms.Lifecycle.FalsePositive,
             "resolved" => CoreTerms.Lifecycle.Resolved,
+            "not-reobserved" or "notReobserved" => CoreTerms.Lifecycle.NotReobserved,
             _ => string.Empty,
         };
         return lifecycle.Length > 0;
@@ -212,6 +214,7 @@ public static class QualityTaxonomyLegacyMap
         CodeQuality.FindingState.Waived => CoreTerms.Lifecycle.Waived,
         CodeQuality.FindingState.FalsePositive => CoreTerms.Lifecycle.FalsePositive,
         CodeQuality.FindingState.Resolved => CoreTerms.Lifecycle.Resolved,
+        CodeQuality.FindingState.NotReobserved => CoreTerms.Lifecycle.NotReobserved,
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown finding state."),
     };
 

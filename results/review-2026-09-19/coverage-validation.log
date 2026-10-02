@@ -1,0 +1,4 @@
+Validated cobertura coverage report: results\review-2026-09-19\coverage-complete\core\2e351541-b38c-4172-a9a9-bbaa44a855c1\coverage.cobertura.xml
+Line coverage of 'AgentOrchestrator.CodeQuality.Tests' is 83.74% (baseline 79.07%, floor 77.07%).
+Validated cobertura coverage report: results\review-2026-09-19\coverage-complete\api\2d35871f-00fb-49ec-87dc-983cd05a4664\coverage.cobertura.xml
+Line coverage of 'QualityStudio.Api.Tests' is 51.38% (baseline 43.26%, floor 41.26%).

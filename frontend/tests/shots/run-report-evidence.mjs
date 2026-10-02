@@ -94,7 +94,7 @@ for (const capture of [
   await page.locator('.commit-trend-note').waitFor();
   const fileName = `qs-73-run-report-${capture.name}.png`;
   await page.screenshot({ path: join(output, fileName), fullPage: true });
-  evidence.push({ ...capture, fileName, exportActions: await page.locator('.run-exports a').count(), keyboardOpened: await page.locator('.run-detail-surface').isVisible() });
+  evidence.push({ ...capture, fileName, exportActions: await page.locator('.run-exports button').count(), keyboardOpened: await page.locator('.run-detail-surface').isVisible() });
   await page.close();
 }
 
