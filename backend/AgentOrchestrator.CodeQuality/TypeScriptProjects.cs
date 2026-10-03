@@ -8,7 +8,8 @@ namespace AgentOrchestrator.CodeQuality;
 /// An Angular or Vite workspace ships a <em>solution-style</em> <c>tsconfig.json</c>: <c>"files": []</c> plus
 /// <c>references</c> to <c>tsconfig.app.json</c> and <c>tsconfig.spec.json</c>. <c>tsc -p</c> on that file
 /// compiles no source and exits 0, a false clean. Such a file is therefore replaced by the projects it
-/// references, each checked with its own <c>tsc -p</c>; <c>tsc -b</c> would emit build output and
+/// references, each checked with its own <c>tsc -p</c>. Configs with their own source files are checked
+/// alongside their references, so no referenced project is silently omitted. <c>tsc -b</c> would emit build output and
 /// <c>.tsbuildinfo</c> files into the analysed checkout.
 /// </para>
 /// </summary>
@@ -83,16 +84,22 @@ public static class TypeScriptProjects
         }
         using (document)
         {
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                throw new ArgumentException(
+                    $"'{Relative(repositoryRoot, configPath)}' must contain a TypeScript project configuration object.");
             if (!IsSolutionStyle(document.RootElement))
             {
                 if (projects.Count >= MaximumProjects)
                     throw new ArgumentException(
                         $"TypeScript project reference count exceeds the limit of {MaximumProjects}.");
                 projects.Add(configPath);
-                return;
             }
+            if (!document.RootElement.TryGetProperty("references", out var references)) return;
+            if (references.ValueKind != JsonValueKind.Array)
+                throw new ArgumentException(
+                    $"'{Relative(repositoryRoot, configPath)}' has a TypeScript project references value that is not an array.");
             var directory = Path.GetDirectoryName(configPath)!;
-            foreach (var reference in document.RootElement.GetProperty("references").EnumerateArray())
+            foreach (var reference in references.EnumerateArray())
             {
                 if (reference.ValueKind != JsonValueKind.Object ||
                     !reference.TryGetProperty("path", out var pathElement) ||

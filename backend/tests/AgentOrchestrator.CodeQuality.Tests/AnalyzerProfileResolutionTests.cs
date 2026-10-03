@@ -301,6 +301,63 @@ public sealed class AnalyzerProfileResolutionTests
     }
 
     [Fact]
+    public async Task Tsc_checks_references_when_the_root_config_also_has_sources()
+    {
+        var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"), """
+                { "include": ["src/main.ts"], "references": [{ "path": "./tsconfig.lib.json" }] }
+                """);
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.lib.json"), """{ "include": ["lib/**/*.ts"] }""");
+            var invocations = new List<IReadOnlyList<string>>();
+            var runner = new CallbackRunner((executable, args, _) =>
+            {
+                invocations.Add([executable, .. args]);
+                return new SensorCommandResult(0, string.Empty, string.Empty);
+            });
+
+            var result = await new TypeScriptAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(result.Available, result.UnavailableReason);
+            Assert.Equal(2, invocations.Count);
+            Assert.Equal(Path.Combine(root, "frontend", "tsconfig.json"), invocations[0][3]);
+            Assert.Equal(Path.Combine(root, "frontend", "tsconfig.lib.json"), invocations[1][3]);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task Tsc_reports_a_missing_reference_when_the_root_config_also_has_sources()
+    {
+        var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"), """
+                { "include": ["src/main.ts"], "references": [{ "path": "./missing.json" }] }
+                """);
+            var runner = new CallbackRunner((_, _, _) => throw new InvalidOperationException("must not run"));
+
+            var result = await new TypeScriptAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("frontend/missing.json", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
     public async Task Tsc_reports_a_missing_solution_reference_even_when_other_projects_exist()
     {
         var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");
