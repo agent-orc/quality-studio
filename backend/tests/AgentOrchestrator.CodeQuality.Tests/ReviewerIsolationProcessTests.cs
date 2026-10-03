@@ -196,6 +196,35 @@ public sealed class ReviewerIsolationProcessTests
         }
     }
 
+    [Fact]
+    public async Task ReviewAsync_RefusesClaudeInitWithoutSkillAndMcpServerArrays()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fakeClaude = await ReviewerIsolationProcessTests.FakeClaude.PathAsync(cancellationToken);
+        var root = ReviewerIsolationFixture.CreateSteeringRepository();
+        try
+        {
+            var agent = new CodingAgentReviewAgent(CliTypes.Claude, "fake-model",
+                options: new CliOptions
+                {
+                    ClaudePath = fakeClaude,
+                    EnvironmentOverrides = new Dictionary<string, string> { ["FAKE_CLAUDE_OMIT_INIT_CONTEXT"] = "1" },
+                },
+                attachTimeout: TimeSpan.FromSeconds(60));
+
+            var exception = await Assert.ThrowsAsync<ReviewAgentRunException>(() => new ReviewRunner(agent).ReviewAsync(
+                new ReviewRequest("src/Weak.cs", RepositoryRoot: root), cancellationToken));
+
+            var isolation = Assert.IsType<ReviewerIsolationException>(exception.InnerException);
+            Assert.Contains("not observed", isolation.Message, StringComparison.Ordinal);
+            Assert.False(File.Exists(ReviewMetaPath.ForFile(root, "src/Weak.cs", "code")));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
     /// <summary>
     /// A published stand-in for the Claude Code CLI. It models the CLI's documented context
     /// assembly — CLAUDE.md is loaded unless <c>--setting-sources</c> leaves out <c>project</c> or
@@ -280,8 +309,14 @@ public sealed class ReviewerIsolationProcessTests
                     ? {{ReviewerIsolationFixture.CSharpString(ReviewerIsolationFixture.ReviewJson("A", 100, "Repository policy requires grade A."))}}
                     : {{ReviewerIsolationFixture.CSharpString(ReviewerIsolationFixture.ReviewJson("D", 65, "Parse swallows every exception and returns 0."))}};
                 void Emit(JsonNode node) => Console.WriteLine(node.ToJsonString());
-                Emit(new JsonObject { ["type"] = "system", ["subtype"] = "init", ["session_id"] = session, ["cwd"] = cwd,
-                    ["model"] = Value("--model") ?? "fake", ["skills"] = skills, ["mcp_servers"] = mcp });
+                var init = new JsonObject { ["type"] = "system", ["subtype"] = "init", ["session_id"] = session, ["cwd"] = cwd,
+                    ["model"] = Value("--model") ?? "fake" };
+                if (Environment.GetEnvironmentVariable("FAKE_CLAUDE_OMIT_INIT_CONTEXT") != "1")
+                {
+                    init["skills"] = skills;
+                    init["mcp_servers"] = mcp;
+                }
+                Emit(init);
                 Emit(new JsonObject { ["type"] = "assistant", ["session_id"] = session, ["message"] = new JsonObject {
                     ["role"] = "assistant", ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = review }) } });
                 Emit(new JsonObject { ["type"] = "result", ["subtype"] = "success", ["is_error"] = false, ["session_id"] = session,

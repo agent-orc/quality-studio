@@ -208,8 +208,9 @@ public sealed class ReviewerIsolationException(string message) : Exception(messa
 /// <param name="Mode">The runner context mode (<c>clean</c>).</param>
 /// <param name="RepositoryInstructions">What happened to repository instruction files (<c>excluded</c>).</param>
 /// <param name="Observed">Whether the CLI's own transcript was found, read, well-formed and held
-/// its system-prompt record. When false, the loaded lists and the system-prompt size are unknown
-/// rather than empty, so the run is refused; an accepted review always records true.</param>
+/// its system-prompt record and, for Claude, an init frame with skills and MCP server arrays.
+/// When false, the loaded lists cannot be trusted to be empty, so the run is refused; an accepted
+/// review always records true.</param>
 /// <param name="LoadedInstructionFiles">Instruction files the CLI reported loading. Always empty for
 /// an accepted review; repository-relative, or <c>external:&lt;name&gt;</c> outside the checkout.</param>
 /// <param name="ExcludedInstructionFiles">Instruction and agent-configuration files present in the
@@ -242,6 +243,7 @@ internal sealed class ReviewerContextObservation
     private readonly List<string> _loaded = [];
     private readonly SortedSet<string> _skills = new(StringComparer.Ordinal);
     private readonly SortedSet<string> _mcpServers = new(StringComparer.Ordinal);
+    private bool _claudeInitObserved;
 
     public bool Observed { get; private set; }
     public IReadOnlyList<string> LoadedInstructionFiles => _loaded.Distinct(StringComparer.Ordinal).ToArray();
@@ -259,14 +261,25 @@ internal sealed class ReviewerContextObservation
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object ||
                 !IsString(root, "type", "system") || !IsString(root, "subtype", "init")) return;
-            if (root.TryGetProperty("skills", out var skills) && skills.ValueKind == JsonValueKind.Array)
-                foreach (var skill in skills.EnumerateArray())
-                    if (skill.ValueKind == JsonValueKind.String) _skills.Add(skill.GetString()!);
-            if (root.TryGetProperty("mcp_servers", out var servers) && servers.ValueKind == JsonValueKind.Array)
-                foreach (var server in servers.EnumerateArray())
-                    if (server.ValueKind == JsonValueKind.Object && server.TryGetProperty("name", out var name) &&
-                        name.ValueKind == JsonValueKind.String)
-                        _mcpServers.Add(name.GetString()!);
+            if (!root.TryGetProperty("skills", out var skills) || skills.ValueKind != JsonValueKind.Array ||
+                !root.TryGetProperty("mcp_servers", out var servers) || servers.ValueKind != JsonValueKind.Array)
+                return;
+            var skillNames = new List<string>();
+            foreach (var skill in skills.EnumerateArray())
+            {
+                if (skill.ValueKind != JsonValueKind.String) return;
+                skillNames.Add(skill.GetString()!);
+            }
+            var serverNames = new List<string>();
+            foreach (var server in servers.EnumerateArray())
+            {
+                if (server.ValueKind != JsonValueKind.Object || !server.TryGetProperty("name", out var name) ||
+                    name.ValueKind != JsonValueKind.String) return;
+                serverNames.Add(name.GetString()!);
+            }
+            foreach (var skill in skillNames) _skills.Add(skill);
+            foreach (var server in serverNames) _mcpServers.Add(server);
+            _claudeInitObserved = true;
         }
         catch (JsonException)
         {
@@ -275,9 +288,10 @@ internal sealed class ReviewerContextObservation
 
     /// <summary>
     /// Reads the CLI's session record from <paramref name="home"/>; a no-op when it is absent. The
-    /// record counts as observed only when every line is a JSON object and it holds the system-prompt
-    /// record every run writes: a malformed line could have hidden an instructions attachment, and a
-    /// record without the system prompt is not the session the CLI ran.
+    /// record counts as observed only when every line is a JSON object, it holds the system-prompt
+    /// record every run writes, and Claude's init frame established skills and MCP server values:
+    /// a malformed line could have hidden an instructions attachment, and a record without the
+    /// system prompt or init context cannot establish what the CLI loaded.
     /// </summary>
     public void ReadSessionRecord(string cliType, string? home, string? sessionId, string workingDirectory)
     {
@@ -298,7 +312,8 @@ internal sealed class ReviewerContextObservation
                 if (cliType == CliTypes.Claude) ReadClaudeTranscriptRecord(document.RootElement, workingDirectory);
                 else ReadCodexRolloutRecord(document.RootElement, workingDirectory);
             }
-            Observed = SystemPromptCharacters is not null;
+            Observed = SystemPromptCharacters is not null &&
+                (cliType != CliTypes.Claude || _claudeInitObserved);
         }
         catch (Exception exception) when (exception is IOException or JsonException)
         {

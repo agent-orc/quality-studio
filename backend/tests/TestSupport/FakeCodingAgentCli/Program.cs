@@ -54,7 +54,7 @@ string[] frames = isCodex
     ]
     :
     [
-        $$"""{"type":"system","subtype":"init","session_id":"{{ClaudeSession}}","model":"claude-fake"}""",
+        $$"""{"type":"system","subtype":"init","session_id":"{{ClaudeSession}}","model":"claude-fake","skills":[],"mcp_servers":[]}""",
         $$$"""{"type":"assistant","message":{"content":[{"type":"text","text":"{{{Reply}}}"}]}}""",
         $$$"""{"type":"result","subtype":"success","is_error":false,"result":"{{{Reply}}}","session_id":"{{{ClaudeSession}}}","usage":{"input_tokens":1,"output_tokens":1}}""",
     ];
