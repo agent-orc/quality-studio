@@ -323,7 +323,8 @@ internal sealed class ClaudeCacheWriteCounter(string runId, bool enabled)
                    root.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String &&
                    type.GetString() == "result" &&
                    root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object &&
-                   usage.TryGetProperty("cache_creation_input_tokens", out var value) && value.TryGetInt64(out var tokens) &&
+                   usage.TryGetProperty("cache_creation_input_tokens", out var value) &&
+                   value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var tokens) &&
                    tokens >= 0
                 ? tokens
                 : null;

@@ -56,11 +56,41 @@ public sealed class ReviewAgentUsageTests
     [InlineData(ClaudeResultLine, 50_000L)]
     [InlineData("""{"type":"assistant","message":{"usage":{"cache_creation_input_tokens":7}}}""", null)]
     [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":-3}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":null}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":"50000"}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":true}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":{}}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":[]}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":1.5}}""", null)]
+    [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":9223372036854775808}}""", null)]
     [InlineData("""{"type":"result","usage":{"cache_creation_input_tokens":""", null)]
     [InlineData("plain text mentioning cache_creation_input_tokens", null)]
     [InlineData("", null)]
     public void OnlyResultLinesContributeCacheWrites(string line, long? expected) =>
         Assert.Equal(expected, ClaudeCacheWriteCounter.TryReadCacheWrite(line));
+
+    [Fact]
+    public async Task MalformedCacheWriteValueDoesNotFailReview()
+    {
+        var driver = new RawOutputDriver("claude", runId =>
+        [
+            new CliOutputLine { Stream = "stdout", Text = """{"type":"result","usage":{"cache_creation_input_tokens":null}}""" },
+            new CliOutputLine { Stream = "stdout", Text = """{"type":"result","usage":{"cache_creation_input_tokens":"50000"}}""" },
+        ], runId =>
+        [
+            new CliRunEvent.TurnCompleted("input=1000 output=200 cache_read=400000") { RunId = runId },
+            new CliRunEvent.RunEnded(RunOutcome.Completed, null, 0, 1.5) { RunId = runId },
+        ]);
+        var agent = new CodingAgentReviewAgent("claude", driver, model: "claude-opus-5",
+            attachTimeout: TimeSpan.FromSeconds(30));
+
+        var result = await agent.RunAsync("review", Directory.GetCurrentDirectory(), TestContext.Current.CancellationToken);
+
+        var usage = Assert.IsType<TokenUsage>(result.Usage);
+        Assert.Equal(401_000, usage.InputTokens);
+        Assert.Equal(0, usage.CacheWriteInputTokens);
+        Assert.Equal(0, driver.OutputSubscribers);
+    }
 
     [Fact]
     public void TheCounterIgnoresOtherRunsStderrAndNonClaudeClis()
