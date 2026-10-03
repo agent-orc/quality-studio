@@ -70,7 +70,7 @@ public sealed class ReviewProviderFailureTests
         await using var application = fixture.CreateApplication(executor);
         using var client = application.CreateClient();
 
-        var run = await StartAndWaitAsync(client, "done", cancellationToken);
+        var run = await StartAndWaitAsync(client, "partial", cancellationToken);
 
         // Failures 1-2, then an answered request, then failures 4-5: never three identical in a row.
         Assert.Equal(6, executor.Calls);
