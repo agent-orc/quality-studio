@@ -985,7 +985,7 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         var timestamp = new DateTimeOffset(2026, 9, 22, 0, 0, 0, TimeSpan.Zero);
         await UsageLedger.AppendAsync(repositoryRoot, new ReviewUsageEntry("usage-reprice-sol", timestamp,
             "gpt-6-sol", "codex", new TokenUsage(1_000_000, 100_000, 200_000, 0, 1000),
-            "reprice-test", "file", "Sample.cs", null, UsageLedger.CurrentSchemaVersion,
+            "reprice-test", "file", "Sample.cs", null, 3,
             ReviewModelSource.Explicit, new UsageCost(null, null, "unknownModel")),
             TestContext.Current.CancellationToken);
 

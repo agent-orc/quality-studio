@@ -6,14 +6,9 @@ The review UI does not maintain a second hand-written model list.
 
 ## Integration decision
 
-The preferred long-term integration is a `TokenEconomy` .NET package reference. The
-project is packable, but the currently published `0.2.0` package predates
-`ModelRoutingKnowledgeBase` and does not contain the required routing-policy API or
-embedded `model-routing-policy.json`. Consuming that package would therefore expose
-pricing but not the required capability and retirement facts.
-
-Until a package containing the routing knowledge base is released, Quality Studio uses
-the defined snapshot path:
+Quality Studio synchronizes the TokenEconomy `0.3.5` release through the existing
+snapshot boundary. A future migration to the .NET package API is separate work;
+this release keeps pricing and routing provenance reviewable together:
 
 - `token-economy-model-routing-policy.json` and `token-economy-model-prices.json` under
   `backend/AgentOrchestrator.CodeQuality/catalogues/` are exact Token Economy files;
@@ -33,9 +28,42 @@ npm run catalog:check -- --source ../token-economy
 
 `TOKEN_ECONOMY_REPOSITORY` is the equivalent automation input. The sync refuses dirty
 upstream catalog files. A catalog update is complete only when both JSON files, the
-snapshot manifest, affected tests, and UI behavior change together. Once a released
-Token Economy package exposes `ModelRoutingKnowledgeBase`, replace this sync boundary
-with the package API and remove the snapshot as one migration.
+snapshot manifest, affected tests, and UI behavior change together. A future package
+migration must replace this sync boundary and remove the snapshot in one change.
+
+## September 2026 model and CLI contract
+
+The synchronized release makes these canonical IDs selectable for explicit reviews.
+Prices are standard API estimates in USD per million tokens, effective from
+2026-09-22 UTC; earlier operations return `noPriceForDate`.
+
+| Model | Canonical ID | Review CLI | Minimum installed CLI | Input / cached input / output |
+| --- | --- | --- | --- | --- |
+| Claude Opus 5.5 | `claude-opus-5-5` | `claude` | Claude Code `2.1.281` | 4 / 0.20 / 20 |
+| GPT-6 Sol | `gpt-6-sol` | `codex` | Codex CLI `0.155.0` | 2 / 0.20 / 10 |
+| GPT-6 Luna | `gpt-6-luna` | `codex` | Codex CLI `0.155.0` | 0.10 / 0.01 / 0.50 |
+
+The CLI minimums are operational requirements carried in catalog notes, not an
+installed-version check performed by the picker. Upgrade the runner host before
+selecting these models. Operator probes on 2026-09-24 confirmed Sol execution on
+Codex CLI 0.155.0 and Opus 5.5 execution on Claude Code 2.1.281. Luna was discovered
+by Codex CLI 0.155.0, but successful execution remains **unverified**. Codex CLI
+0.154.0 rejected the new OpenAI IDs on ChatGPT accounts; Claude Code 2.1.270 silently
+fell back to Haiku after an unrecognized-model warning for Opus 5.5.
+
+`GET /api/models` exposes these rows with `routingStatus: selectable`,
+`availableForNewRuns: true`, and `priceAvailable: true`. The picker filters Opus to
+Claude reviews and Sol/Luna to Codex reviews. Selectability and price availability
+do not establish provider/account availability. Explicit selections retain
+`modelSource: explicit`; adding these entries does not change the policy default
+or relax its correctness floors. GPT-6 Astra remains priced at 10 / 1 / 50 from
+2026-09-03.
+
+These are standard-tariff estimates; this integration does not select batch, flex,
+fast-mode, or long-context tariffs from usage telemetry. Upstream price provenance
+is recorded in the synchronized price JSON, including the Anthropic release notes
+and pricing page and the OpenAI changelog and pricing page. Historical repricing is
+defined in [the usage contract](usage-telemetry.md#query-time-repricing).
 
 ## Picker and validation behavior
 

@@ -6,7 +6,7 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ### Added — September 2026 model prices (QS-104)
 
-- Synchronized TokenEconomy prices and routing for Claude Opus 5.5, GPT-6 Sol, and GPT-6 Luna, effective 2026-09-22. The model picker exposes them for explicit reviews. Claude Code 2.1.281 is the observed minimum for Opus 5.5; Codex CLI 0.155.0 is the observed minimum for Sol and the discovery minimum for Luna. Luna execution remains unverified.
+- Synchronized TokenEconomy 0.3.5 prices and routing for Claude Opus 5.5, GPT-6 Sol, and GPT-6 Luna, effective 2026-09-22. The model picker exposes them for explicit reviews. Claude Code 2.1.281 is the observed minimum for Opus 5.5; Codex CLI 0.155.0 is the observed minimum for Sol and the discovery minimum for Luna. Luna execution remains unverified.
 - Usage queries now reprice historical v3 ledger entries saved with `unknownModel` when a catalog price becomes available. The original ledger lines remain append-only.
 
 ### Fixed — Claude usage accounting, caps and cost estimates (QS-110)
