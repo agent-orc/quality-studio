@@ -245,6 +245,67 @@ public sealed class ReviewerIsolationTests
         }
     }
 
+    [Theory]
+    [InlineData(CliTypes.Claude, "")]
+    [InlineData(CliTypes.Claude, "   ")]
+    [InlineData(CliTypes.Codex, "")]
+    [InlineData(CliTypes.Codex, "   ")]
+    public void Observation_RefusesBlankOrWhitespaceLineBetweenValidRecords(string cliType, string blankLine)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var systemPrompt = cliType == CliTypes.Claude
+                ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
+                : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            var other = new JsonObject { ["type"] = "user", ["message"] = "review src/Weak.cs" }.ToJsonString();
+            var path = cliType == CliTypes.Claude ? "projects/-repo/session-1.jsonl" : "sessions/2026/09/29/rollout-2026-09-29T10-00-00-session-1.jsonl";
+            ReviewerIsolationFixture.Write(home, path, string.Join('\n', systemPrompt, blankLine, other));
+            var observation = new ReviewerContextObservation();
+
+            observation.ReadSessionRecord(cliType, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+            Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null, new ReviewerContext("clean", "excluded",
+                observation.Observed, observation.LoadedInstructionFiles, [], observation.Skills, observation.McpServers,
+                observation.SystemPromptCharacters, 20)));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    [Theory]
+    [InlineData(CliTypes.Claude)]
+    [InlineData(CliTypes.Codex)]
+    public void Observation_AcceptsSingleTrailingNewline(string cliType)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var systemPrompt = cliType == CliTypes.Claude
+                ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
+                : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            var path = cliType == CliTypes.Claude ? "projects/-repo/session-1.jsonl" : "sessions/2026/09/29/rollout-2026-09-29T10-00-00-session-1.jsonl";
+            ReviewerIsolationFixture.Write(home, path, systemPrompt + "\n");
+            var observation = new ReviewerContextObservation();
+
+            observation.ReadSessionRecord(cliType, home, "session-1", repository);
+
+            Assert.True(observation.Observed);
+            Assert.Equal(3, observation.SystemPromptCharacters);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
     /// <summary>
     /// The system-prompt size is part of the observation the metadata promises; a context that
     /// claims to be observed without it is incomplete and refused.

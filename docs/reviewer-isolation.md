@@ -74,9 +74,11 @@ Every review run gets three layers. None is optional and none depends on the oth
    clean home could not be created, or whose transcript / rollout was not observed
    (`observed: false`) is refused with `ReviewerIsolationException` (wrapped in
    `ReviewAgentRunException`). A record is observed only when it was found and read to the end,
-   every line is a JSON object, and it holds the system-prompt record every run writes
-   (`prompt_snapshot` / `session_meta.base_instructions`): a malformed line could have hidden an
-   `instructions` attachment, and a record without the system prompt is incomplete. A context
+   every line is a JSON object, and it holds the system-prompt record every run writes.
+   Interior blank or whitespace-only lines are malformed; a single trailing newline adds no line.
+   The required system-prompt record is `prompt_snapshot` / `session_meta.base_instructions`.
+   A malformed line could have hidden an `instructions` attachment, and a record without the
+   system prompt is incomplete. A context
    without a system-prompt size is refused even if it claims to be observed. The tokens are still
    recorded in the usage ledger; no sidecar is written, so no steered grade reaches a report. This is what protects against a future CLI
    release that stops honouring one of the flags. The observation fails closed: an unobserved run
@@ -140,7 +142,8 @@ a `SessionStart` hook in `.claude/settings.json`, `sub/CLAUDE.md`, `AGENTS.md`, 
   flags and environment per CLI, refusal of CLIs without a recipe, the excluded-file inventory,
   transcript and rollout parsing, and the refusal rules — including
   `Observation_AMalformedOrIncompleteRecordIsNotObserved` (malformed lines, a malformed line among
-  valid ones, or no system-prompt record, for Claude and Codex) and
+  valid ones, or no system-prompt record), `Observation_RefusesBlankOrWhitespaceLineBetweenValidRecords`
+  (blank and whitespace-only lines for Claude and Codex), `Observation_AcceptsSingleTrailingNewline`, and
   `IsolationViolation_RefusesAnObservedRunWithoutASystemPromptSize`.
 - `ReviewerIsolationProcessTests` (`Category=ToolBound`, same folder), driving the real runner,
   spawner and review pipeline with a published fake `claude` that models the CLI's context assembly

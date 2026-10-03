@@ -293,7 +293,6 @@ internal sealed class ReviewerContextObservation
         {
             foreach (var line in File.ReadLines(file))
             {
-                if (string.IsNullOrWhiteSpace(line)) continue;
                 using var document = JsonDocument.Parse(line);
                 if (document.RootElement.ValueKind != JsonValueKind.Object) return;
                 if (cliType == CliTypes.Claude) ReadClaudeTranscriptRecord(document.RootElement, workingDirectory);
