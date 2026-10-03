@@ -78,6 +78,31 @@ public sealed class RulePoolGlobalScopeTests : IAsyncLifetime
         Assert.Single(ruleSet.GetProperty("overrides").EnumerateArray());
     }
 
+    [Fact]
+    public async Task A_global_rule_cannot_collide_with_a_registered_repository_rule()
+    {
+        var custom = Path.Combine(SecondRepositoryRoot, ".quality", "rules", "custom");
+        Directory.CreateDirectory(custom);
+        await File.WriteAllTextAsync(Path.Combine(custom, "HOST-GN-001.md"), HostRule(), TestContext.Current.CancellationToken);
+        using var client = application!.CreateClient();
+        using var registered = await client.PostAsJsonAsync("/api/repos", new
+        {
+            id = "second", displayName = "Second", rootPath = SecondRepositoryRoot,
+            inputBudgetCharacters = 8000, enabledReviewKinds = new[] { "code" },
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
+
+        using var response = await client.PutAsJsonAsync("/api/rules/custom/HOST-GN-001?scope=global", new
+        {
+            content = HostRule(), reason = "Share this rule.",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(File.Exists(Path.Combine(GlobalRules, "custom", "HOST-GN-001.md")));
+        var second = await client.GetFromJsonAsync<JsonElement>("/api/repos/second/rules", TestContext.Current.CancellationToken);
+        Assert.True(second.GetProperty("valid").GetBoolean());
+    }
+
     private static string HostRule() => """
         ---
         id: HOST-GN-001

@@ -255,7 +255,14 @@ internal static class RulePoolEndpoints
         var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
             ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
             : registration.GlobalInputsDirectory;
-        return new RulePoolStore(repository.Root, string.IsNullOrWhiteSpace(globalDirectory) ? null : globalDirectory);
+        var registered = registry.List(includeArchived: true)
+            .Select(entry => new RulePoolRepository(entry.Id, entry.RootPath,
+                string.IsNullOrWhiteSpace(entry.GlobalInputsDirectory)
+                    ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+                    : entry.GlobalInputsDirectory))
+            .ToArray();
+        return new RulePoolStore(repository.Root, string.IsNullOrWhiteSpace(globalDirectory) ? null : globalDirectory,
+            repositories: registered);
     }
 
     private static object View(ResolvedRuleCatalogue catalogue, string? kind, string? adapter, ApiClientIdentity identity)

@@ -105,6 +105,8 @@ Open **Review policy → Criteria & metrics → Rules & rationale**.
 Every write needs a reason. The API validates the change against the complete pool before it touches
 a file; a change that would add a configuration problem is rejected with its diagnostics and nothing
 is written. A change that repairs an existing problem, or leaves it as it is, is accepted.
+For a global write, validation covers every available registered repository, including archived
+repositories, so a shared rule cannot introduce a collision in another project's pool.
 
 ## Import and export
 

@@ -1,0 +1,71 @@
+{
+  "baseUrl": "http://127.0.0.1:4200/",
+  "steps": [
+    {
+      "step": "01-house-style-default",
+      "screenshot": "rule-pool-01-house-style-default.png"
+    },
+    {
+      "step": "02-packs-selection",
+      "screenshot": "rule-pool-02-packs-selection.png"
+    },
+    {
+      "step": "03-packs-saved",
+      "screenshot": "rule-pool-03-packs-saved.png"
+    },
+    {
+      "step": "04-rule-override",
+      "screenshot": "rule-pool-04-rule-override.png"
+    },
+    {
+      "step": "05-custom-rule-invalid",
+      "screenshot": "rule-pool-05-custom-rule-invalid.png"
+    },
+    {
+      "step": "06-custom-rule-saved",
+      "screenshot": "rule-pool-06-custom-rule-saved.png"
+    },
+    {
+      "step": "export",
+      "file": "rule-pool-exported-rule-set.json",
+      "suggestedName": "rule-set-default-20261003.json"
+    },
+    {
+      "step": "07-import-preview",
+      "screenshot": "rule-pool-07-import-preview.png"
+    },
+    {
+      "step": "08-audit-trail",
+      "screenshot": "rule-pool-08-audit-trail.png"
+    },
+    {
+      "step": "09-broken-config-dark",
+      "screenshot": "rule-pool-09-broken-config-dark.png"
+    }
+  ],
+  "files": {
+    "applicability": {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-applicability.v1.schema.json",
+      "schemaVersion": 1,
+      "packs": [
+        "dotnet-service",
+        "public-website"
+      ],
+      "reason": "Sample .NET service that also publishes its public product pages."
+    },
+    "overrides": {
+      "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-config.v1.schema.json",
+      "schemaVersion": 1,
+      "overrides": [
+        {
+          "id": "QS-CS-004",
+          "severity": "low",
+          "reason": "Snapshot tests here share one fixture by design."
+        }
+      ]
+    },
+    "customRules": [
+      "TEAM-GN-001.md"
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://agent-orchestrator.dev/quality/schemas/rule-set.v1.schema.json",
+  "schemaVersion": 1,
+  "name": "default",
+  "libraryVersion": "1.6.0",
+  "exportedAt": "2026-10-03T01:19:00.5601165+00:00",
+  "scope": "project",
+  "digest": "sha256:0dd5531c84daafe865420b6a8798b4315e010f56e416859d940b010870b9ca20",
+  "applicability": {
+    "packs": [
+      "dotnet-service",
+      "public-website"
+    ],
+    "reason": "Sample .NET service that also publishes its public product pages."
+  },
+  "overrides": [
+    {
+      "id": "QS-CS-004",
+      "severity": "low",
+      "reason": "Snapshot tests here share one fixture by design."
+    }
+  ],
+  "customRules": [
+    {
+      "id": "TEAM-GN-001",
+      "version": "1.0.0",
+      "title": "Name every exported symbol after its domain concept",
+      "technology": "generic",
+      "category": "maintainability",
+      "kinds": [
+        "code"
+      ],
+      "statement": "Exported types and functions use the domain term from the glossary, never an implementation detail.",
+      "rationale": "Why it matters in this codebase: the concrete cost of not doing it.",
+      "detection": "What a reviewer looks at, and what does not count as a violation.",
+      "goodExample": "code that follows the rule",
+      "badExample": "code that violates the rule",
+      "severity": "medium",
+      "defaultOn": true,
+      "autofixable": false,
+      "deterministicRuleIds": [],
+      "relatedGuideline": null,
+      "since": "1.0.0",
+      "changeHistory": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-03",
+          "change": "Initial rule."
+        }
+      ],
+      "enabled": true
+    }
+  ],
+  "packs": []
+}

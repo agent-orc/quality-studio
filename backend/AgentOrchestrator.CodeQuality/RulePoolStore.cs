@@ -63,6 +63,9 @@ public sealed class RulePoolValidationException(string message, IReadOnlyList<Ru
 /// <summary>A custom rule, pack or override that the change names does not exist in the scope.</summary>
 public sealed class RulePoolEntryNotFoundException(string message) : Exception(message);
 
+/// <summary>A registered repository whose pool can be affected by a global rule change.</summary>
+public sealed record RulePoolRepository(string Id, string Root, string? GlobalInputsDirectory = null);
+
 /// <summary>
 /// The only write path into the rule pool. Every change is applied to an in-memory copy of the
 /// pool first and resolved with <see cref="RuleCatalogueResolver.Build"/>; a change that would add
@@ -84,16 +87,19 @@ public sealed class RulePoolStore
     private static readonly ConcurrentDictionary<string, object> Gates = new(StringComparer.OrdinalIgnoreCase);
     private readonly RuleCatalogueResolver resolver;
     private readonly TimeProvider time;
+    private readonly IReadOnlyList<RulePoolRepository> repositories;
 
     public RulePoolStore(
         string repositoryRoot,
         string? globalInputsDirectory = null,
         string? globalRulesDirectory = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IReadOnlyList<RulePoolRepository>? repositories = null)
     {
         resolver = new RuleCatalogueResolver(globalRulesDirectory);
         Locations = resolver.Locate(repositoryRoot, globalInputsDirectory);
         time = timeProvider ?? TimeProvider.System;
+        this.repositories = repositories ?? [];
     }
 
     public RulePoolLocations Locations { get; }
@@ -332,7 +338,7 @@ public sealed class RulePoolStore
 
             var changes = PlanChanges(current, next, currentOverrides, nextOverrides);
             var candidate = sources.With(next);
-            var introduced = Introduced(sources, candidate, out var catalogue);
+            var introduced = Introduced(scope, sources, candidate, out var catalogue);
             if (introduced.Count > 0)
             {
                 if (dryRun) return new RuleImportResult(false, false, modified, changes, introduced, catalogue);
@@ -417,7 +423,7 @@ public sealed class RulePoolStore
             var current = sources.Scope(scope);
             var (next, before, after) = change(current);
             var candidate = sources.With(next);
-            var introduced = Introduced(sources, candidate, out var catalogue);
+            var introduced = Introduced(scope, sources, candidate, out var catalogue);
             if (introduced.Count > 0)
                 throw new RulePoolValidationException("The change would make the rule pool invalid.", introduced);
             if (dryRun || Same(current, next)) return catalogue;
@@ -427,12 +433,30 @@ public sealed class RulePoolStore
         }
     }
 
-    private static List<RuleDiagnostic> Introduced(RulePoolSources current, RulePoolSources candidate,
+    private List<RuleDiagnostic> Introduced(string scope, RulePoolSources current, RulePoolSources candidate,
         out ResolvedRuleCatalogue catalogue)
     {
         var existing = RuleCatalogueResolver.Build(current).Diagnostics.ToHashSet();
         catalogue = RuleCatalogueResolver.Build(candidate);
-        return catalogue.Diagnostics.Where(diagnostic => !existing.Contains(diagnostic)).ToList();
+        var introduced = catalogue.Diagnostics.Where(diagnostic => !existing.Contains(diagnostic)).ToList();
+        if (scope != RuleScopes.Global) return introduced;
+
+        // A global file is shared by every registered repository. Compare each repository's
+        // diagnostics before and after the proposed change while the global write lock is held.
+        foreach (var repository in repositories)
+        {
+            var locations = resolver.Locate(repository.Root, repository.GlobalInputsDirectory);
+            if (!string.Equals(locations.GlobalDirectory, Locations.GlobalDirectory, StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(locations.RepositoryRoot, Locations.RepositoryRoot, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(locations.SharedOverridesPath, Locations.SharedOverridesPath, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            var other = RulePoolSources.Read(locations);
+            var prior = RuleCatalogueResolver.Build(other).Diagnostics.ToHashSet();
+            var proposed = RuleCatalogueResolver.Build(other with { Global = candidate.Global });
+            introduced.AddRange(proposed.Diagnostics.Where(diagnostic => !prior.Contains(diagnostic))
+                .Select(diagnostic => diagnostic with { Source = $"repository {repository.Id}: {diagnostic.Source}" }));
+        }
+        return introduced;
     }
 
     private void Write(RuleScopeSources current, RuleScopeSources next)

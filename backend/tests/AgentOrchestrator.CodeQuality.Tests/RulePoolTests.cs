@@ -341,6 +341,45 @@ public sealed class RulePoolTests : IDisposable
     }
 
     [Fact]
+    public void Global_custom_rule_write_cannot_invalidate_another_registered_repository()
+    {
+        var other = Path.Combine(root, "other");
+        Write(Path.Combine(other, ".quality", "rules"), "custom/ACME-CS-001.md", CustomRule());
+        var store = new RulePoolStore(Repository, globalRulesDirectory: Global,
+            repositories: [new RulePoolRepository("other", other)]);
+
+        var rejected = Assert.Throws<RulePoolValidationException>(() => store.PutCustomRule(RuleScopes.Global,
+            "ACME-CS-001", CustomRule(), "Share the rule.", "admin"));
+
+        Assert.Contains(rejected.Diagnostics, diagnostic => diagnostic.Message.Contains("already defined", StringComparison.Ordinal));
+        Assert.False(File.Exists(Path.Combine(Global, "custom", "ACME-CS-001.md")));
+        Assert.Empty(store.ReadAudit(RuleScopes.Global));
+        Assert.True(new RuleCatalogueResolver(Global).Resolve(other).IsValid);
+    }
+
+    [Fact]
+    public void Global_import_preview_and_apply_reject_a_collision_in_another_registered_repository()
+    {
+        var other = Path.Combine(root, "other");
+        Write(Path.Combine(other, ".quality", "rules"), "custom/ACME-CS-001.md", CustomRule());
+        var store = new RulePoolStore(Repository, globalRulesDirectory: Global,
+            repositories: [new RulePoolRepository("other", other)]);
+        var rule = RuleMarkdown.ParseCustom(CustomRule(), "ACME-CS-001.md", new List<string>())!;
+        var set = new RuleSetDocument(RuleSetDocument.SchemaId, 1, "collision", null, null, null, null,
+            null, [], [rule], []);
+
+        var preview = store.Import(RuleScopes.Global, set, "merge", dryRun: true, "", "admin");
+        var rejected = Assert.Throws<RulePoolValidationException>(() =>
+            store.Import(RuleScopes.Global, set, "merge", dryRun: false, "Share the rule.", "admin"));
+
+        Assert.False(preview.Valid);
+        Assert.Contains(preview.Diagnostics, diagnostic => diagnostic.Message.Contains("already defined", StringComparison.Ordinal));
+        Assert.Contains(rejected.Diagnostics, diagnostic => diagnostic.Message.Contains("already defined", StringComparison.Ordinal));
+        Assert.False(File.Exists(Path.Combine(Global, "custom", "ACME-CS-001.md")));
+        Assert.Empty(store.ReadAudit(RuleScopes.Global));
+    }
+
+    [Fact]
     public void An_exported_rule_set_round_trips_into_another_repository()
     {
         var store = Store();
