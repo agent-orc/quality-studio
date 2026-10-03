@@ -132,15 +132,13 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
                 suppressed += parsed.SuppressedFindings;
             }
             var merged = Order(findings);
-            // A failed solution build leaves the projects it never compiled without a log. Unless the
-            // failure is explained by the compiler errors it reported, the logs present cannot prove
-            // the rest of the solution clean.
-            if (reportDirectoryMode && commandOutput is { ExitCode: not 0 } &&
-                !merged.Any(finding => finding.Severity is FindingSeverity.High or FindingSeverity.Critical))
+            // A failed solution build may leave projects it never compiled without a log. Even an
+            // error in one project's log cannot prove the other projects were analysed.
+            if (reportDirectoryMode && commandOutput is { ExitCode: not 0 })
             {
                 return Unavailable(request,
-                    $"The analyzer command exited with code {commandOutput.ExitCode} without reporting an error, " +
-                    $"so the SARIF logs it left are incomplete. {AnalyzerCommand.OutputDetail(commandOutput)}");
+                    $"The analyzer command exited with code {commandOutput.ExitCode}, " +
+                    $"so the SARIF logs it left may be incomplete. {AnalyzerCommand.OutputDetail(commandOutput)}");
             }
             var versions = merged
                 .Where(finding => finding.Source is not null)

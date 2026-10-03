@@ -111,8 +111,10 @@ public sealed class AnalyzerProfileResolutionTests
         }
     }
 
-    [Fact]
-    public async Task A_failed_build_without_reported_errors_is_unavailable_rather_than_partially_clean()
+    [Theory]
+    [InlineData("warning")]
+    [InlineData("error")]
+    public async Task A_failed_build_is_unavailable_regardless_of_partial_log_severity(string level)
     {
         var root = CreateRepository("src/A/A.cs");
         try
@@ -121,7 +123,8 @@ public sealed class AnalyzerProfileResolutionTests
             var runner = new CallbackRunner((_, _, _) =>
             {
                 Directory.CreateDirectory(reports);
-                File.WriteAllText(Path.Combine(reports, "A-1-net10.0.sarif"), Log("CA1822", "src/A/A.cs", 3));
+                File.WriteAllText(Path.Combine(reports, "A-1-net10.0.sarif"),
+                    Log("CA1822", "src/A/A.cs", 3).Replace("\"level\":\"warning\"", $"\"level\":\"{level}\"", StringComparison.Ordinal));
                 return new SensorCommandResult(1, "error MSB4019: imported project not found", string.Empty);
             });
 
