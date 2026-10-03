@@ -224,25 +224,26 @@ public sealed class CoverageReportParser
                 ParseXmlCoverage(root, fullPath, accumulator);
             }
         }
-        var files = accumulator.Values.Select(value => value.Build());
-        if (!string.IsNullOrWhiteSpace(sourceBase)) files = RebaseRelativeSources(root, System.IO.Path.GetFullPath(sourceBase), files);
+        var files = string.IsNullOrWhiteSpace(sourceBase)
+            ? accumulator.Values.Select(value => value.Build())
+            : RebaseRelativeSources(root, System.IO.Path.GetFullPath(sourceBase), accumulator);
         return files.OrderBy(file => file.Path, StringComparer.Ordinal).ToArray();
     }
 
-    private static IEnumerable<CoverageFile> RebaseRelativeSources(string root, string sourceBase, IEnumerable<CoverageFile> files)
+    private static IEnumerable<CoverageFile> RebaseRelativeSources(
+        string root, string sourceBase, IReadOnlyDictionary<string, MutableCoverageFile> files)
     {
-        var rebased = new Dictionary<string, CoverageFile>(StringComparer.Ordinal);
-        foreach (var file in files)
+        var rebased = new Dictionary<string, MutableCoverageFile>(StringComparer.Ordinal);
+        foreach (var (originalPath, file) in files)
         {
-            var path = file.Path;
+            var path = originalPath;
             var inRoot = System.IO.Path.Combine(root, path.Replace('/', System.IO.Path.DirectorySeparatorChar));
             var inBase = System.IO.Path.GetFullPath(System.IO.Path.Combine(sourceBase, path.Replace('/', System.IO.Path.DirectorySeparatorChar)));
             if (!File.Exists(inRoot) && File.Exists(inBase) && AnalyzerCommand.IsWithin(root, inBase))
                 path = System.IO.Path.GetRelativePath(root, inBase).Replace('\\', '/');
-            // Two reports naming one source through different spellings keep the first; paths are sorted later.
-            rebased.TryAdd(path, file with { Path = path });
+            Get(rebased, path).MergeFrom(file);
         }
-        return rebased.Values;
+        return rebased.Values.Select(value => value.Build());
     }
 
     private static void ParseTrx(
@@ -523,6 +524,11 @@ public sealed class CoverageReportParser
         private readonly List<(int Line, bool Covered)> branches = [];
         public void Line(int number, int hits) => lines[number] = Math.Max(hits, lines.GetValueOrDefault(number));
         public void Branch(int line, bool covered) => branches.Add((line, covered));
+        public void MergeFrom(MutableCoverageFile other)
+        {
+            foreach (var (number, hits) in other.lines) Line(number, hits);
+            branches.AddRange(other.branches);
+        }
         public void Branches(int line, int covered, int total)
         {
             for (var index = 0; index < total; index++) branches.Add((line, index < covered));
