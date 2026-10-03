@@ -22,6 +22,29 @@ public sealed class CoverageSensorTests
     }
 
     [Fact]
+    public void Rebased_producer_path_merges_with_repository_report_for_the_same_source()
+    {
+        using var fixture = new CoverageFixture();
+        var frontend = Path.Combine(fixture.Root, "frontend");
+        Directory.CreateDirectory(Path.Combine(frontend, "src"));
+        File.WriteAllText(Path.Combine(frontend, "src", "sample.ts"), "export const sample = true;\n");
+        var repositoryReport = Path.Combine(fixture.Root, "repository.info");
+        var producerReport = Path.Combine(fixture.Root, "producer.info");
+        File.WriteAllText(repositoryReport, "SF:frontend/src/sample.ts\nDA:1,0\nDA:2,0\nBRDA:1,0,0,0\nend_of_record\n");
+        File.WriteAllText(producerReport, "SF:src/sample.ts\nDA:1,1\nDA:2,0\nBRDA:1,0,0,1\nend_of_record\n");
+
+        var file = Assert.Single(new CoverageReportParser().Parse(
+            fixture.Root, [repositoryReport, producerReport], sourceBase: frontend));
+
+        Assert.Equal("frontend/src/sample.ts", file.Path);
+        Assert.Equal(1, file.CoveredLines);
+        Assert.Equal(2, file.TotalLines);
+        Assert.Equal([2], file.UncoveredLines);
+        Assert.Equal(1, file.CoveredBranches);
+        Assert.Equal(2, file.TotalBranches);
+    }
+
+    [Fact]
     public async Task Missing_reports_are_persisted_and_projected_as_unknown_not_zero()
     {
         using var fixture = new CoverageFixture();

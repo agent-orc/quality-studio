@@ -33,15 +33,25 @@ public sealed class CodingAgentReviewAgentWatchdogTests
         var cancellationToken = TestContext.Current.CancellationToken;
         var driver = new FakeCliDriver(NeverAttachAsync);
         var agent = new CodingAgentReviewAgent("codex", driver, attachTimeout: AttachTimeout);
-        var stopwatch = Stopwatch.StartNew();
-
         var exception = await Assert.ThrowsAsync<ReviewAgentRunException>(
             () => agent.RunAsync("review this", Directory.GetCurrentDirectory(), cancellationToken));
 
-        stopwatch.Stop();
         var timeout = Assert.IsType<ReviewAgentAttachTimeoutException>(exception.InnerException);
         Assert.Equal(AttachTimeout, timeout.Timeout);
-        // Bounded, not hung: well under the driver's infinite delay.
+    }
+
+    [Fact]
+    [Trait("Category", "MachineBound")]
+    public async Task RunAsync_AttachTimeoutReturnsPromptly()
+    {
+        var driver = new FakeCliDriver(NeverAttachAsync);
+        var agent = new CodingAgentReviewAgent("codex", driver, attachTimeout: AttachTimeout);
+        var stopwatch = Stopwatch.StartNew();
+
+        await Assert.ThrowsAsync<ReviewAgentRunException>(
+            () => agent.RunAsync("review this", Directory.GetCurrentDirectory(), TestContext.Current.CancellationToken));
+
+        stopwatch.Stop();
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
             $"Expected the attach timeout to fire quickly; took {stopwatch.Elapsed}.");
     }

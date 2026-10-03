@@ -10,7 +10,7 @@ import {
 } from '../models/contracts';
 
 const POLL_INTERVAL_MS = 1_500;
-const TERMINAL_STATES = ['done', 'failed', 'cancelled', 'capped'];
+const TERMINAL_STATES = ['done', 'partial', 'failed', 'cancelled', 'capped'];
 const ACTIVE_STATES = ['queued', 'running'];
 
 export const emptyUsageReport = (): UsageReport => ({

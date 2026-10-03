@@ -97,6 +97,8 @@ public sealed partial class ApiSmokeTests
         var projected = index.GetExplorer(repositoryRoot, roots, () => loaded).Root;
         Assert.Equal("fresh", projected.Kinds["code"].Direct);
         Assert.Equal(95, projected.Kinds["code"].Score);
+        // A directory with an aggregate review of its own shows that grade, not a projection.
+        Assert.Null(projected.Kinds["code"].Projection);
 
         await File.WriteAllTextAsync(Path.Combine(repositoryRoot, "Added.cs"),
             "namespace Sample; public class Added {}", TestContext.Current.CancellationToken);

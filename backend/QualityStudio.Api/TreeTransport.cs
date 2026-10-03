@@ -145,6 +145,19 @@ public sealed class TreeProjectionIndex
             pair => pair.Key.ToString().ToLowerInvariant(),
             pair => KindStateResponse.From(node, pair.Value, states),
             StringComparer.Ordinal);
+        var rollups = aggregations.Keys.ToDictionary(kind => kind, kind => node.Level == ReviewLevel.File
+            ? GradeRollup.ForFile(kinds[kind.ToString().ToLowerInvariant()].Score, node.LineCount, node.SizeBytes)
+            : children.Aggregate(default(GradeRollup), (sum, child) => sum + child.Rollups[kind]));
+        if (node.Level is not (ReviewLevel.File or ReviewLevel.Function))
+        {
+            // A container without its own grade shows its files' grades as a projection instead.
+            foreach (var (kind, rollup) in rollups)
+            {
+                var key = kind.ToString().ToLowerInvariant();
+                if (kinds[key].Score is null && rollup.ToProjection() is { } projection)
+                    kinds[key] = kinds[key] with { Projection = projection };
+            }
+        }
 
         var directSummary = DirectReviewSummary(node, states);
         var counts = children.Aggregate(directSummary.Counts, (current, child) => current + child.FindingCounts);
@@ -171,7 +184,7 @@ public sealed class TreeProjectionIndex
             coverage, currentCommit, coverageFiles, coveragePaths, node.Level == ReviewLevel.File);
 
         var result = new NodeFacts(parentId, aggregations, kinds, findingsCount, counts,
-            reviewedAt, coveragePaths, coverageAggregate);
+            reviewedAt, coveragePaths, coverageAggregate, rollups);
         facts[node] = result;
         return result;
     }
@@ -248,7 +261,8 @@ public sealed class TreeProjectionIndex
         FindingStateCounts FindingCounts,
         DateTimeOffset? ReviewedAt,
         IReadOnlySet<string> CoveragePaths,
-        CoverageAggregate Coverage);
+        CoverageAggregate Coverage,
+        IReadOnlyDictionary<ReviewKind, GradeRollup> Rollups);
 }
 
 /// <summary>Retains exactly one derived tree projection per repository and hierarchy state.</summary>
