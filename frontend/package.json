@@ -15,6 +15,7 @@
     "browser:install": "node node_modules/playwright-core/cli.js install chromium",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
+    "evidence:metrics": "node tests/metrics-evidence.mjs evidence",
     "evidence:exact-span": "node tests/exact-span-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:repository-modal": "node tests/repository-modal-evidence.mjs",
@@ -23,6 +24,7 @@
     "evidence:ignore-list": "node tests/ignore-list-evidence.mjs",
     "evidence:rule-pool": "node tests/rule-pool-evidence.mjs",
     "shots:run-report": "node tests/shots/run-report-evidence.mjs",
+    "shots:run-state": "node tests/shots/run-state-evidence.mjs",
     "test:architecture": "node --test tests/architecture.test.mjs tests/typography.test.mjs",
     "reference": "ng serve style-reference --host 127.0.0.1 --port 4226",
     "build:reference": "ng build style-reference"

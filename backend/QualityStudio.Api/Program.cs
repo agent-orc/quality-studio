@@ -33,6 +33,7 @@ builder.Services.AddSingleton<ApiSecurity>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
+builder.Services.AddSingleton<ComplexityCache>();
 builder.Services.AddSingleton<ProjectDashboardService>();
 builder.Services.AddSingleton<RepositorySnapshotStore>();
 builder.Services.AddSingleton<RepositorySensorAvailabilityCache>();
@@ -305,6 +306,8 @@ app.MapGet("/api/tree/v2/search", TreeSearch);
 app.MapGet("/api/repos/{repoId}/tree/v2/search", TreeSearch);
 app.MapGet("/api/risk", Risk);
 app.MapGet("/api/repos/{repoId}/risk", Risk);
+app.MapGet("/api/complexity", Complexity);
+app.MapGet("/api/repos/{repoId}/complexity", Complexity);
 app.MapGet("/api/project", ProjectDashboard);
 app.MapGet("/api/repos/{repoId}/project", ProjectDashboard);
 app.MapGet("/api/file", FileContent);
@@ -848,8 +851,21 @@ static int TrimToCharacterBoundary(ReadOnlySpan<byte> bytes)
     return end - 1 + expected <= bytes.Length ? end - 1 + expected : end - 1;
 }
 
+static IResult Complexity(HttpContext context, string? path, RepositoryRegistry registry, ComplexityCache complexity)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var relative = repository.NormalizeRelativePath(path);
+    repository.ResolveFile(relative);
+    if (!ComplexityAnalyzer.Supports(relative))
+        throw new ArgumentException("Complexity is measured for C#, TypeScript and JavaScript source files only.");
+    var file = complexity.Get(repository.Root, relative) ??
+               throw new ArgumentException($"Complexity could not be measured for '{relative}'; the file may exceed {ComplexityCache.MaximumFileBytes:N0} bytes.");
+    return Results.Ok(new FileComplexityResponse(ComplexityAnalyzer.Version, FileComplexity.CognitiveThreshold, file));
+}
+
 static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegistry registry,
-    RepositoryHierarchyCache hierarchyCache, InputResolver inputResolver, CancellationToken cancellationToken)
+    RepositoryHierarchyCache hierarchyCache, InputResolver inputResolver, ComplexityCache complexityCache,
+    CancellationToken cancellationToken)
 {
     var window = days ?? 90;
     if (window is < 1 or > 3650) throw new ArgumentException("Risk churn window must be between 1 and 3,650 days.");
@@ -868,21 +884,16 @@ static async Task<IResult> Risk(HttpContext context, int? days, RepositoryRegist
     var files = Flatten(roots).Where(node => node.Level == ReviewLevel.File)
         .DistinctBy(node => node.Path, StringComparer.Ordinal).ToArray();
     var maxChanges = Math.Max(1, files.Select(file => churn.GetValueOrDefault(file.Path)).DefaultIfEmpty().Max());
+    var complexities = complexityCache.GetMany(repository.Root, files.Select(file => file.Path));
     var rows = files.Select(file =>
     {
         var kind = KindStateResponse.From(file, file.AggregatedStates[ReviewKind.Code], states, riskSuppressions);
         var fileCoverage = CoverageProjection.ForPath(snapshot, currentCommit, file.Path, file: true);
         var changes = churn.GetValueOrDefault(file.Path);
-        decimal? score = kind.Score.HasValue && fileCoverage.LinePercent.HasValue
-            ? Math.Round(
-                (100 - kind.Score.Value) * 0.4m +
-                (100 - fileCoverage.LinePercent.Value) * 0.4m +
-                changes * 20m / maxChanges,
-                2,
-                MidpointRounding.AwayFromZero)
-            : null;
+        var complexity = complexities.GetValueOrDefault(file.Path);
+        var score = RiskScore.Combine(kind.Score, fileCoverage.LinePercent, complexity?.Pressure, changes, maxChanges);
         return new RiskRowResponse(file.Path, file.Name, kind.Score, kind.Band, kind.Overall,
-            fileCoverage, changes, score);
+            fileCoverage, changes, score, complexity is null ? null : ComplexitySummaryResponse.From(complexity));
     }).OrderByDescending(row => row.RiskScore.HasValue).ThenByDescending(row => row.RiskScore)
         .ThenByDescending(row => row.Changes).ThenBy(row => row.Path, StringComparer.Ordinal).ToArray();
     var matrix = rows.GroupBy(row => new

@@ -1,18 +1,24 @@
 import { WORKSPACE_METRICS } from '../../../shared/ui/layout-metrics';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 
-import { CoverageFact, ReviewKind, RiskRow } from '../../../core/models/contracts';
+import { CoverageFact, KindState, ReviewKind, RiskRow } from '../../../core/models/contracts';
 import { formatDateTime, formatOptionalBytes } from '../../../shared/utils/format';
 import { QualityApi } from '../../../core/api/quality-api';
 import { SortDirection, bySortValue } from '../../../shared/utils/sorting';
 import { FlatNode } from '../../../shared/utils/tree-utils';
 
 type FolderSortColumn = 'name' | ReviewKind | 'coverage' | 'state' | 'findings' | 'reviewedAt' | 'size' | 'lines';
-type RiskSortColumn = 'path' | 'grade' | 'coverage' | 'changes' | 'risk';
+type RiskSortColumn = 'path' | 'grade' | 'coverage' | 'complexity' | 'changes' | 'risk';
+
+/** What a grade cell shows: the unit's own grade, or a projection from its files marked as such. */
+interface GradeView { band: string; score: string; projected: boolean; title: string | null; }
+
+/** The per-function cognitive complexity above which a function counts as hard to follow (see ComplexityMetrics.cs). */
+const COGNITIVE_THRESHOLD = 15;
 
 /**
  * What a folder or project shows instead of source: its direct children, their rolled-up review
- * state, and the risk view over grade, coverage, and churn.
+ * state, and the risk view over grade, coverage, complexity, and churn.
  *
  * Deferred, because a container is never on the file-open path: the editor's first-content budget
  * pays for the code view only, and this component's markup and styles stay out of the entry bundle.
@@ -83,6 +89,37 @@ export class ContainerView {
 
   riskLabel(row: RiskRow): string { return row.riskScore == null ? 'Unknown' : row.riskScore.toFixed(1); }
 
+  /** A container without a grade of its own shows its files' size-weighted grade, marked as a projection. */
+  grade(state: KindState | undefined): GradeView {
+    if (state?.band) return { band: state.band, score: state.score == null ? '-' : `${state.score}`, projected: false, title: null };
+    const projection = state?.projection;
+    if (!projection) return { band: '-', score: '-', projected: false, title: null };
+    return {
+      band: `≈${projection.band}`,
+      score: `${projection.score}`,
+      projected: true,
+      title: `Projection, not a review: line-weighted mean of ${projection.gradedFiles} graded of ${projection.files} files ` +
+        `(${projection.weightedLines} lines). An aggregate review of this directory replaces it.`,
+    };
+  }
+
+  complexityLabel(row: RiskRow): string {
+    return row.complexity ? `${row.complexity.maxCognitive} · Σ${row.complexity.cyclomatic}` : '—';
+  }
+
+  complexityTitle(row: RiskRow): string {
+    const complexity = row.complexity;
+    if (!complexity) return 'Complexity is measured for C#, TypeScript and JavaScript files only';
+    const hotspots = complexity.hotspots
+      .map(item => `${item.name} (line ${item.line}): cognitive ${item.cognitive}, cyclomatic ${item.cyclomatic}`)
+      .join('\n');
+    return `Most complex function: cognitive ${complexity.maxCognitive} (threshold ${COGNITIVE_THRESHOLD}); ` +
+      `cyclomatic Σ${complexity.cyclomatic} over ${complexity.functions} functions; ` +
+      `risk pressure ${complexity.pressure}/100${hotspots ? '\n' + hotspots : ''}`;
+  }
+
+  overThreshold(row: RiskRow): boolean { return (row.complexity?.maxCognitive ?? 0) > COGNITIVE_THRESHOLD; }
+
   formatBytes(value: number | null | undefined): string { return formatOptionalBytes(value); }
 
   reviewedOrDash(value: string | null | undefined): string { return value ? formatDateTime(value) : '—'; }
@@ -104,7 +141,7 @@ export class ContainerView {
 
   private sortValue(node: FlatNode['children'][number], column: FolderSortColumn): string | number | null | undefined {
     if (column === 'name') return node.name;
-    if (column === 'code' || column === 'security' || column === 'performance') return node.kinds[column]?.score;
+    if (column === 'code' || column === 'security' || column === 'performance') return node.kinds[column]?.score ?? node.kinds[column]?.projection?.score;
     if (column === 'coverage') return node.coverage?.linePercent ?? null;
     if (column === 'state') return Math.max(...Object.values(node.kinds).map(kind => kind.overall === 'missing' ? 3 : kind.overall === 'stale' ? 2 : kind.overall === 'policy-drift' ? 1 : 0), 0);
     if (column === 'findings') return node.findingsCount ?? 0;
@@ -117,6 +154,7 @@ export class ContainerView {
     if (column === 'path') return row.path;
     if (column === 'grade') return row.gradeScore;
     if (column === 'coverage') return row.coverage.linePercent;
+    if (column === 'complexity') return row.complexity?.maxCognitive ?? null;
     if (column === 'changes') return row.changes;
     return row.riskScore;
   }

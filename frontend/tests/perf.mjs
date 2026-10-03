@@ -85,7 +85,7 @@ await page.route(/\/api\/(?:repos\/[^/]+\/)?project(?:\?|$)/, route => route.ful
   contentType: 'application/json',
   body: JSON.stringify(project),
 }));
-await page.goto(process.env.QS_URL ?? 'http://127.0.0.1:4200/?theme=dark&path=backend%2Fsrc%2FQualityStudio.Api%2FProgram.cs');
+await page.goto(process.env.QS_URL ?? 'http://127.0.0.1:4200/?theme=dark&path=backend%2FQualityStudio.Api%2FProgram.cs');
 await Promise.race([
   initialFileRequested,
   new Promise((_, reject) => setTimeout(() => reject(new Error('The performance fixture did not request its selected file within 15 seconds.')), 15_000)),
