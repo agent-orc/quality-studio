@@ -24,6 +24,14 @@ predicted USD 56.59 for a USD 10.61 run (defects D5-D6).
   carries its `basis` (`history` or `prompt-size`) and cache classes, and the preflight sheet shows
   the basis.
 
+### Changed — keep host-dependent tests out of the Windows pre-main gate (QS-120)
+
+The 15-second boundary inventory scale budget is `MachineBound`, matching the
+QS-115 change. The fake Codex 100 KiB stdin transport is `MachineBound` only on
+Windows, where the QS-97 pre-main gate failed it under load; it remains in the
+Linux gate, and the fake Claude transport remains in both gates. The test-lane
+guideline now classifies timing budgets and host-dependent live-process transports.
+
 ### Changed — review output contract, finding identity and failure handling (QS-109)
 
 From the 2026-09-28 evaluation of the Agent Studio checkout (defects D2-D4):

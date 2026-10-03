@@ -259,13 +259,24 @@ public sealed class RepositoryHierarchyCache
                 continue;
             }
 
-            using var stream = File.OpenRead(absolutePath);
-            var buffer = new byte[16 * 1024];
-            int read;
-            while ((read = stream.Read(buffer)) > 0)
+            try
             {
-                hash.AppendData(buffer, 0, read);
-                if (affectsStructure) structureHash.AppendData(buffer, 0, read);
+                using var stream = File.OpenRead(absolutePath);
+                var buffer = new byte[16 * 1024];
+                int read;
+                while ((read = stream.Read(buffer)) > 0)
+                {
+                    hash.AppendData(buffer, 0, read);
+                    if (affectsStructure) structureHash.AppendData(buffer, 0, read);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // A file locked by another process (e.g. a running dev server holding a log open) or
+                // one this process can't read must not fail the whole repository view; fold in a
+                // marker instead so the fingerprint still tracks that this path is unstable.
+                Append(hash, "unavailable");
+                if (affectsStructure) Append(structureHash, "unavailable");
             }
         }
         // Generated reviews live outside Git; an unchanged checkout can still gain, replace,

@@ -389,7 +389,10 @@ public sealed class BoundaryInventorySensorTests
         }
     }
 
+    // QS-115: the 15 s budget depends on host load; QS-104, QS-110, QS-111,
+    // QS-112 and QS-116 pre-main gates measured 15.7–31 s on Windows.
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
     {
         // QS-95: HostReachability and KnownConsumers used to redo work proportional to the
