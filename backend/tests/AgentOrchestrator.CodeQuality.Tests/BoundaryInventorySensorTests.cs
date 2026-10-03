@@ -389,7 +389,9 @@ public sealed class BoundaryInventorySensorTests
         }
     }
 
+    // The 15 s budget depends on host speed; the Windows gate host has taken 16–31 s.
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
     {
         // QS-95: HostReachability and KnownConsumers used to redo work proportional to the
