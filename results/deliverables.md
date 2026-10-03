@@ -1,7 +1,8 @@
-# QS-59 deliverables
+# QS-112 deliverables
 
-- QS-59's cost-block analysis and recommendation are preserved and cited, not lost: `PERF.md` (repo root, "QS-82 lazy tree transport" section) states its `/api/tree/v2` re-measurement was taken "on the same 3,927-file Agent Studio repository used by the QS-59 dossier" and quotes the QS-59 baseline directly (`QS-59: 10,004.99 ms median` restart-to-usable).
-- The operator-facing artifact this card was chartered to produce, `docs/operations/performance/index.html` / `workbench.json`, is on `origin/main` (this branch is currently identical to `origin/main`, commit `5b90eed3`). It is authored under card `QS-82` (`sourceTaskKeys: ["QS-59","QS-54","QS-78","QS-82"]`) rather than as a standalone `QS-59` document — see `results/status.md` for why redelivering a separate document at that same path is not safe.
-- Section 2 of that dossier ("QS-59 cost blocks and selection") lists all three cost blocks this card was asked to find, each with the evidence numbers and current disposition: external model execution (18.202 s of 18.742 s, still open), cold hierarchy/projection (8.98–11.07 s prewarm, closed by QS-78/QS-82), and terminal notification/refresh (1,725.92 ms, still open). The large-repository transport risk this card flagged as the top block is recorded as QS-59's first approved and now-implemented slice.
-- No new files were added under `docs/operations/performance/` by this delivery; the existing, already-verified content there was left untouched to avoid overwriting shipped, gate-passed work with a stale draft.
-- Collected mirror for the reviewer: `/home/agent/runner-work/tasks/QS-59/results/deliverables.md`, `/home/agent/runner-work/tasks/QS-59/results/status.md`.
+- Reviewed rule-pool management delivery retained from commit `2a28f397937797feb63b3c6f4b8052ad7079a370`: repository and global overrides with audit trail, custom rules and packs, versioned import/export, management UI, tests, and documentation.
+- Current `origin/main` merged into the task branch as `1164cee174b0c6810f745f1aea60abdc0ff67a5c`, without conflicts or changes to the reviewed feature scope.
+- Four requested verification gates passed on the merged tree. Counts and environment details are in `status.md`; full execution logs are in the collected task results directory.
+- Earlier failed stage: `merge-into-develop` / integration into `main`. The delivery branch now contains both the reviewed commit and the current main tip. No push to `main` was made.
+
+Collected result files: `/home/agent/runner-work/tasks/QS-112/results/`.
