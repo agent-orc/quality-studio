@@ -9,7 +9,7 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 - **Coverage producer.** The `coverage` sensor can run a host-owned, time-boxed profile before it
   ingests: `dotnet-test-coverage` (`dotnet test --collect "Code Coverage;Format=cobertura"`, 900 s),
   `vitest-frontend-coverage` and `vitest-root-coverage` (600 s). Opt-in per repository through
-  `configuration.profile`; reports go to `coverage/produced/<profile>/` in the data root, never the
+  `configuration.profile`; each run writes to `coverage/produced/<profile>/<run-id>/` in the data root, never the
   checkout. A failed producer keeps the last snapshot. Analyzer profiles gained `timeoutSeconds`.
 - **Complexity.** Cyclomatic and cognitive complexity per function and file for C# (Roslyn syntax) and
   TypeScript/JavaScript, in every risk row (`complexity`), in a new `GET /api/repos/{repoId}/complexity`

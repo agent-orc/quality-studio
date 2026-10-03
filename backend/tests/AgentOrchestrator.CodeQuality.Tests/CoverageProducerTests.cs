@@ -124,7 +124,7 @@ public sealed class CoverageProducerTests
     }
 
     [Fact]
-    public async Task Only_a_host_profile_can_produce_and_a_stale_report_never_survives_a_run()
+    public async Task Only_a_host_profile_can_produce_and_a_stale_report_is_never_ingested()
     {
         using var fixture = new Fixture();
         var runner = new FakeRunner((_, _) => new SensorCommandResult(0, string.Empty, string.Empty));
@@ -147,8 +147,43 @@ public sealed class CoverageProducerTests
         Assert.Contains("host-owned", inline.Refusal, StringComparison.Ordinal);
         Assert.Contains("inside the repository", escaping.Refusal, StringComparison.Ordinal);
         Assert.Empty(fresh.Reports);
-        Assert.False(Directory.Exists(stale));
+        Assert.True(Directory.Exists(stale));
+        Assert.NotEqual(Path.GetDirectoryName(stale), fresh.Production!.OutputDirectory);
         Assert.Equal(1, runner.Calls);
+    }
+
+    [Fact]
+    public async Task Concurrent_runs_of_the_same_profile_keep_their_reports_isolated()
+    {
+        using var fixture = new Fixture();
+        var bothStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = 0;
+        var runner = new FakeRunner(async (arguments, _) =>
+        {
+            var output = arguments[arguments.IndexOf("--results-directory") + 1];
+            var run = Interlocked.Increment(ref started);
+            var project = Directory.CreateDirectory(Path.Combine(output, "project")).FullName;
+            File.WriteAllText(Path.Combine(project, "coverage.cobertura.xml"),
+                Cobertura.Replace("{0}", $"src/Run{run}.cs"));
+            if (run == 2) bothStarted.SetResult();
+            await bothStarted.Task;
+            return new SensorCommandResult(0, string.Empty, string.Empty);
+        }, asynchronous: true);
+        var producer = new CoverageProducer(runnerFactory: runner.Create);
+        var config = new Dictionary<string, string> { ["profile"] = "dotnet-test-coverage" };
+
+        var first = producer.ProduceAsync(fixture.Root, config, TestContext.Current.CancellationToken);
+        var second = producer.ProduceAsync(fixture.Root, config, TestContext.Current.CancellationToken);
+        var results = await Task.WhenAll(first, second);
+
+        Assert.NotEqual(results[0].Production!.OutputDirectory, results[1].Production!.OutputDirectory);
+        Assert.All(results, result =>
+        {
+            var report = Assert.Single(result.Reports);
+            Assert.StartsWith(result.Production!.OutputDirectory, report, StringComparison.Ordinal);
+            Assert.True(File.Exists(report));
+        });
+        Assert.NotEqual(File.ReadAllText(results[0].Reports[0]), File.ReadAllText(results[1].Reports[0]));
     }
 
     [Fact]
@@ -183,8 +218,16 @@ public sealed class CoverageProducerTests
         }
     }
 
-    private sealed class FakeRunner(Func<List<string>, string, SensorCommandResult> behaviour) : ISensorCommandRunner
+    private sealed class FakeRunner : ISensorCommandRunner
     {
+        private readonly Func<List<string>, string, Task<SensorCommandResult>> behaviour;
+
+        public FakeRunner(Func<List<string>, string, SensorCommandResult> behaviour) =>
+            this.behaviour = (arguments, workingDirectory) => Task.FromResult(behaviour(arguments, workingDirectory));
+
+        public FakeRunner(Func<List<string>, string, Task<SensorCommandResult>> behaviour, bool asynchronous) =>
+            this.behaviour = behaviour;
+
         public TimeSpan? Timeout { get; private set; }
         public string? Executable { get; private set; }
         public List<string>? Arguments { get; private set; }
@@ -202,7 +245,7 @@ public sealed class CoverageProducerTests
             Calls++;
             Executable = executable;
             Arguments = [.. arguments];
-            return Task.FromResult(behaviour(Arguments, workingDirectory));
+            return behaviour(Arguments, workingDirectory);
         }
     }
 }

@@ -41,8 +41,9 @@ declares can be selected ([`deployment.md`](deployment.md#analyzer-profiles)):
 | `vitest-root-coverage` | the same vitest command in the repository root | 600 s |
 
 `target` (default: the repository root) and `workingDirectory` stay confined to the repository.
-`{outputDirectory}` is `coverage/produced/<profile>/` below the project's data root, emptied before each
-run so an earlier report can never pass for this one; the checkout stays clean. When the time-box
+`{outputDirectory}` is a unique `coverage/produced/<profile>/<run-id>/` directory below the project's
+data root. Each scan reads only its own reports, so overlapping runs cannot delete or ingest each
+other's output; earlier reports remain in the data root for snapshot provenance. When the time-box
 expires the process tree is killed and the scan is unavailable. A producer that fails - timed out, not
 launchable, or writing no report - leaves the previous snapshot in place: measured coverage is never
 replaced by unknown. Failing tests still produce coverage, so a non-zero exit code with reports is

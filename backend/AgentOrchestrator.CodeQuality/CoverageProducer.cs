@@ -87,9 +87,9 @@ public sealed class CoverageProducer
             return Refused($"Coverage profile '{profileId}' runs in '{Relative(root, workingDirectory)}', " +
                            "which is not a directory of this repository.");
 
-        // A fresh directory per run: a report left by an earlier run must never pass for this one.
-        var outputDirectory = QualityDataRoot.Combine(root, [.. ProducedDirectory.Split('/'), profileId]);
-        if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        // Each run owns its reports; overlapping scans must not delete or ingest each other's output.
+        var outputDirectory = QualityDataRoot.Combine(root,
+            [.. ProducedDirectory.Split('/'), profileId, Guid.NewGuid().ToString("N")]);
         Directory.CreateDirectory(outputDirectory);
 
         var command = AnalyzerCommand.Expand(invocation.Command, root, target, outputDirectory)
