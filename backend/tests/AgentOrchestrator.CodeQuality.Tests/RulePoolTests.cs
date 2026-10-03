@@ -196,6 +196,52 @@ public sealed class RulePoolTests : IDisposable
     }
 
     [Fact]
+    public void A_linked_override_file_fails_closed_even_after_a_valid_pool_was_cached()
+    {
+        Write(ProjectRules, "overrides.json", """
+            { "schemaVersion": 1, "overrides": [ { "id": "QS-CS-004", "enabled": false, "reason": "No tests." } ] }
+            """);
+        var resolver = Resolver();
+        Assert.False(Assert.Single(resolver.Resolve(Repository).Rules, rule => rule.Rule.Id == "QS-CS-004").EffectiveEnabled);
+        var before = resolver.SourceState(Repository);
+        var outside = Path.Combine(root, "outside-overrides.json");
+        File.Move(Path.Combine(ProjectRules, "overrides.json"), outside);
+        File.CreateSymbolicLink(Path.Combine(ProjectRules, "overrides.json"), outside);
+
+        Assert.NotEqual(before, resolver.SourceState(Repository));
+        Assert.Contains(resolver.Inspect(Repository).Diagnostics, diagnostic =>
+            diagnostic.Source == ".quality/rules/overrides.json" && diagnostic.Message.Contains("symbolic link", StringComparison.Ordinal));
+        Assert.Throws<RuleConfigurationException>(() => resolver.Resolve(Repository));
+    }
+
+    [Theory]
+    [InlineData("custom", ".md", false)]
+    [InlineData("custom", ".md", true)]
+    [InlineData("packs", ".json", false)]
+    [InlineData("packs", ".json", true)]
+    public void Linked_rule_sources_fail_closed(string folder, string extension, bool linkFolder)
+    {
+        var target = Path.Combine(root, "outside-" + folder);
+        Directory.CreateDirectory(target);
+        var fileName = "linked" + extension;
+        File.WriteAllText(Path.Combine(target, fileName), "{}");
+        var sourceFolder = Path.Combine(ProjectRules, folder);
+        Directory.CreateDirectory(ProjectRules);
+        if (linkFolder)
+            Directory.CreateSymbolicLink(sourceFolder, target);
+        else
+        {
+            Directory.CreateDirectory(sourceFolder);
+            File.CreateSymbolicLink(Path.Combine(sourceFolder, fileName), Path.Combine(target, fileName));
+        }
+
+        var source = ".quality/rules/" + folder + (linkFolder ? "/" : "/" + fileName);
+        Assert.Contains(Resolver().Inspect(Repository).Diagnostics, diagnostic =>
+            diagnostic.Source == source && diagnostic.Message.Contains("symbolic link", StringComparison.Ordinal));
+        Assert.Throws<RuleConfigurationException>(() => Resolver().Resolve(Repository));
+    }
+
+    [Fact]
     public void The_source_state_changes_when_a_global_rule_file_changes()
     {
         var before = Resolver().SourceState(Repository);

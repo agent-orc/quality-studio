@@ -178,10 +178,22 @@ public sealed record RuleScopeSources(
     {
         var errors = new List<RuleDiagnostic>();
         var empty = Empty(scope, directory);
+        if (IsDirectoryLink(directory))
+        {
+            errors.Add(new RuleDiagnostic(scope, empty.Display(""), null,
+                "is a symbolic link; rule-pool configuration must be stored in a regular directory."));
+            return empty with { ReadErrors = errors };
+        }
         string? ReadConfiguration(string relative)
         {
             var path = Path.Combine(directory, relative);
-            if (!File.Exists(path) || IsLink(path)) return null;
+            if (IsFileLink(path))
+            {
+                errors.Add(new RuleDiagnostic(scope, empty.Display(relative), null,
+                    "is a symbolic link; rule-pool configuration must be stored in a regular file."));
+                return null;
+            }
+            if (!File.Exists(path)) return null;
             if (new FileInfo(path).Length > MaxConfigurationBytes)
             {
                 errors.Add(new RuleDiagnostic(scope, empty.Display(relative), null,
@@ -194,9 +206,14 @@ public sealed record RuleScopeSources(
         {
             var files = new Dictionary<string, string>(StringComparer.Ordinal);
             var path = Path.Combine(directory, folder);
-            if (!System.IO.Directory.Exists(path) || IsLink(path)) return files;
+            if (IsDirectoryLink(path))
+            {
+                errors.Add(new RuleDiagnostic(scope, empty.Display(folder + "/"), null,
+                    "is a symbolic link; rule-pool configuration must be stored in a regular directory."));
+                return files;
+            }
+            if (!System.IO.Directory.Exists(path)) return files;
             var candidates = System.IO.Directory.EnumerateFiles(path, "*" + extension, SearchOption.TopDirectoryOnly)
-                .Where(file => !IsLink(file))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
             if (candidates.Length > limit)
@@ -205,6 +222,12 @@ public sealed record RuleScopeSources(
             foreach (var file in candidates.Take(limit))
             {
                 var name = Path.GetFileName(file);
+                if (IsFileLink(file))
+                {
+                    errors.Add(new RuleDiagnostic(scope, empty.Display(folder + "/" + name), null,
+                        "is a symbolic link; rule-pool configuration must be stored in a regular file."));
+                    continue;
+                }
                 if (new FileInfo(file).Length > maxBytes)
                 {
                     errors.Add(new RuleDiagnostic(scope, empty.Display(folder + "/" + name), null,
@@ -233,11 +256,13 @@ public sealed record RuleScopeSources(
     internal static void AppendFingerprint(StringBuilder builder, string directory)
     {
         builder.Append(directory).Append('\n');
+        AppendDirectoryLink(builder, directory);
         foreach (var name in new[] { OverridesFileName, ApplicabilityFileName })
             AppendFile(builder, Path.Combine(directory, name));
         foreach (var (folder, extension) in new[] { (CustomDirectoryName, ".md"), (PacksDirectoryName, ".json") })
         {
             var path = Path.Combine(directory, folder);
+            AppendDirectoryLink(builder, path);
             if (!System.IO.Directory.Exists(path)) continue;
             foreach (var file in System.IO.Directory.EnumerateFiles(path, "*" + extension, SearchOption.TopDirectoryOnly)
                          .Order(StringComparer.Ordinal))
@@ -249,12 +274,22 @@ public sealed record RuleScopeSources(
     {
         if (path is null) return;
         var info = new FileInfo(path);
+        if (info.LinkTarget is { } target)
+            builder.Append(path).Append("|link|").Append(target).Append('\n');
         if (!info.Exists) return;
         builder.Append(path).Append('|').Append(info.Length.ToString(CultureInfo.InvariantCulture)).Append('|')
             .Append(info.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture)).Append('\n');
     }
 
-    private static bool IsLink(string path) => File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint);
+    private static void AppendDirectoryLink(StringBuilder builder, string path)
+    {
+        if (new DirectoryInfo(path).LinkTarget is { } target)
+            builder.Append(path).Append("|link|").Append(target).Append('\n');
+    }
+
+    private static bool IsFileLink(string path) => new FileInfo(path).LinkTarget is not null;
+
+    private static bool IsDirectoryLink(string path) => new DirectoryInfo(path).LinkTarget is not null;
 }
 
 /// <summary>Everything one repository's rule pool is resolved from.</summary>

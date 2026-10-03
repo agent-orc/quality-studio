@@ -4,24 +4,24 @@ Result: Done
 
 ## Integration recovery
 
-- Continued from the latest reviewed delivery `9660e52911bc18e9883dd5978e799e2cafc39b9b` on the task branch, preserving the earlier delivery commits. That delivery received `ProductFailure` at review `review_ad52189298564a5bab917782f432e3b9`.
-- Fetched current `origin/main` at `c0b3739ba016d4e623eac05986a23bb6701f4932`. It was already merged into the task branch by `1164cee174b0c6810f745f1aea60abdc0ff67a5c`; `git merge origin/main` reported “Already up to date.” No conflict remained. The earlier failed stage was `merge-into-develop` into `main`; this delivery remains on the task branch and does not push `main`.
-- Retained the delivered option: one `rule-set.v1` file for import/export, project and global writable scopes, and project applicability selecting packs in place of the house-style default.
+- Continued from reviewed delivery `890a727989457541902aab34a2271c73cf888d92`, preserving its delivery commits. Remote review `review_8ee1fda29aba4a5d9e0df769f5108ccf` reported `ProductFailure` for linked rule-pool configuration.
+- Fetched current `origin/main` at `c0b3739ba016d4e623eac05986a23bb6701f4932` and merged it into the task branch. It was already an ancestor; `git merge --no-edit origin/main` reported “Already up to date.” No conflicts or unrelated changes were needed. The branch retains the delivered `rule-set.v1` import/export, writable global and project scopes, and pack applicability in place of the house-style default.
+- The earlier integration failure was at `merge-into-develop` into `main` (see the supplied `pipeline-execution.json` reference). This delivery stays on the task branch; `main` was not pushed.
 
 ## Review findings addressed
 
-- **code-quality — “Global rule writes can invalidate other repositories.”** Global `Mutate` and `Import` now compare diagnostics before and after the candidate write for every available registered repository (including archived registrations) while holding the global write lock. A new diagnostic rejects the write before any file or audit entry is written. `Global_custom_rule_write_cannot_invalidate_another_registered_repository`, `Global_import_preview_and_apply_reject_a_collision_in_another_registered_repository`, and `A_global_rule_cannot_collide_with_a_registered_repository_rule` prove the store and API paths.
-- **tests-and-evidence — “The rule-pool UI has no shipped screenshot evidence.”** A live API and Angular UI against an isolated sample repository produced nine PNG screenshots, `rule-pool-evidence.json`, the exported rule set, and `rule-pool-evidence.log` in the collected task results directory. The screenshots show pack selection, overrides, custom rule validation and save, import preview, audit history, and a broken configuration in dark mode. The nine PNGs and evidence manifest are also committed under `results/` for direct review.
-- **requirement-fit — “The required review-findings resolution mapping is missing from the redelivery status report.”** This section maps each open finding to its change and evidence. `deliverables.md` now identifies the latest ProductFailure and this fix round instead of claiming that review passed.
-- **documentation-impact — pass.** The rule-pool guide remains indexed in `docs/start/README.md` and now states that global writes validate all available registered repositories.
+- **code-quality — “Linked rule-pool configuration is silently ignored, allowing disabled rules to become active.”** `RuleScopeSources.Read` now reports linked scope folders, `overrides.json`, `applicability.json`, custom-rule and pack folders, and linked files inside those folders as diagnostics. `Resolve` rejects the invalid pool. The fingerprint records links so a cached valid pool is reloaded after a file or folder becomes linked. `A_linked_override_file_fails_closed_even_after_a_valid_pool_was_cached` and the four cases of `Linked_rule_sources_fail_closed` failed before the fix and pass after it.
+- **requirement-fit — pass.** This status records the reviewed SHA, integration state, finding resolution, and verification counts.
+- **tests-and-evidence — pass.** Nine rule-pool UI screenshots, the evidence manifest, execution log, and exported rule set are in the collected `/home/agent/runner-work/tasks/QS-112/results/` directory and committed under `results/`.
+- **documentation-impact — pass.** The indexed rule-pool guide now describes diagnostics for linked rule-pool sources.
 
 ## Verification
 
 | Command | Result |
 | --- | --- |
 | `dotnet build QualityStudio.slnx --configuration Release` | Passed; 0 warnings, 0 errors. |
-| `dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"` | Passed; 255 API and 578 CodeQuality tests, 9 platform skips, 0 failures. |
+| `dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"` | Passed; 255 API tests and 583 CodeQuality tests, 9 platform skips, 0 failures. |
 | `npm --prefix frontend run build -- --configuration development` | Passed. |
 | `npm --prefix frontend test` | Passed; 230 browser tests, 0 failures. |
 
-The two new store tests were first run against the old validation path and failed because no exception was thrown; they passed after the fix. An initial full run had one transient, unrelated cleanup failure in `CodingAgentReviewAgentLargePromptTests.A_100_KB_prompt_reaches_the_cli_intact_over_stdin(codex)`; the test file is identical to `origin/main`, and the exact full command passed on the final run. The first-run and final logs, plus UI evidence, are in `/home/agent/runner-work/tasks/QS-112/results/`.
+Full command logs are in the collected results directory. The five focused linked-source cases were run before the fix and failed, then passed after it.

@@ -83,6 +83,8 @@ the pool invalid. Reviews, the tree and the inputs endpoint then refuse to run (
 review with a rule set the repository did not intend. `GET /api/repos/{repoId}/rules` still answers
 and lists every problem under `diagnostics`, located by a scope-relative path, so the problem can be
 seen and repaired from the tool.
+Linked rule folders or configuration files also produce diagnostics. The loader does not silently
+skip them, including when a regular file is replaced by a link after the pool was cached.
 
 ## Managing the pool in the tool
 
