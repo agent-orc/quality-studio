@@ -94,9 +94,12 @@ public static class TypeScriptProjects
                     continue;
                 var referenced = Path.GetFullPath(Path.Combine(directory, pathElement.GetString()!));
                 if (Directory.Exists(referenced)) referenced = Path.Combine(referenced, ConfigFileName);
-                // A reference must stay in the repository and exist; tsc would fail on a missing one,
-                // but that failure belongs to the project, not to the sensor's choice of files.
-                if (!AnalyzerCommand.IsWithin(repositoryRoot, referenced) || !File.Exists(referenced)) continue;
+                if (!AnalyzerCommand.IsWithin(repositoryRoot, referenced))
+                    throw new ArgumentException(
+                        $"'{Relative(repositoryRoot, configPath)}' references a project outside the repository: '{pathElement.GetString()}'.");
+                if (!File.Exists(referenced))
+                    throw new ArgumentException(
+                        $"'{Relative(repositoryRoot, configPath)}' references a missing TypeScript project: '{Relative(repositoryRoot, referenced)}'.");
                 Collect(repositoryRoot, referenced, projects, visited, depth + 1);
             }
         }

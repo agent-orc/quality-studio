@@ -258,7 +258,6 @@ public sealed class AnalyzerProfileResolutionTests
                   "references": [
                     { "path": "./tsconfig.app.json" },
                     { "path": "./tsconfig.spec.json" },
-                    { "path": "./missing.json" },
                   ]
                 }
                 """);
@@ -291,6 +290,40 @@ public sealed class AnalyzerProfileResolutionTests
             var finding = Assert.Single(result.Findings);
             Assert.Equal("TS2322", finding.RuleId);
             Assert.Equal("frontend/src/main.ts", finding.Locations[0].Path);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task Tsc_reports_a_missing_solution_reference_even_when_other_projects_exist()
+    {
+        var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"), """
+                { "files": [], "references": [
+                    { "path": "./tsconfig.app.json" },
+                    { "path": "./missing.json" }
+                ] }
+                """);
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.app.json"), """{ "files": ["src/main.ts"] }""");
+            var runner = new CallbackRunner((_, _, _) => throw new InvalidOperationException("must not run"));
+
+            var result = await new TypeScriptAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+            var probe = await new TypeScriptAnalyzerSensor(runner).ProbeAvailabilityAsync(
+                root, Profile("tsc-frontend"), TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("missing TypeScript project", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Contains("frontend/missing.json", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Empty(result.Findings);
+            Assert.False(probe.Available);
+            Assert.Contains("frontend/missing.json", probe.UnavailableReason, StringComparison.Ordinal);
         }
         finally
         {
