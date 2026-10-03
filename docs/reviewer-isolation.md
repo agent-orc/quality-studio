@@ -77,6 +77,9 @@ Every review run gets three layers. None is optional and none depends on the oth
    every line is a JSON object, it holds the system-prompt record every run writes, and a Claude
    `system/init` frame explicitly reports both `skills` and `mcp_servers` as arrays. Missing or
    malformed init fields leave the run unobserved; empty arrays establish that none were loaded.
+   A Claude `instructions` attachment must have a `files` array whose entries each have a
+   nonempty string `path`; an incomplete attachment leaves the run unobserved. An explicit empty
+   array establishes that the attachment reports no instruction files.
    Interior blank or whitespace-only lines are malformed; a single trailing newline adds no line.
    The required system-prompt record is `prompt_snapshot` / `session_meta.base_instructions`.
    A malformed line could have hidden an `instructions` attachment, and a record without the

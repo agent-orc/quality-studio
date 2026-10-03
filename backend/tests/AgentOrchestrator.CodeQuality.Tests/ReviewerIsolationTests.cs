@@ -194,6 +194,75 @@ public sealed class ReviewerIsolationTests
         }
     }
 
+    [Theory]
+    [InlineData("missing-files")]
+    [InlineData("null-files")]
+    [InlineData("object-files")]
+    [InlineData("missing-path")]
+    [InlineData("non-string-path")]
+    [InlineData("empty-path")]
+    [InlineData("non-object-file")]
+    public void Observation_RefusesIncompleteClaudeInstructionAttachment(string shape)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var instructions = new JsonObject { ["type"] = "instructions" };
+            switch (shape)
+            {
+                case "null-files": instructions["files"] = null; break;
+                case "object-files": instructions["files"] = new JsonObject(); break;
+                case "missing-path": instructions["files"] = new JsonArray(new JsonObject()); break;
+                case "non-string-path": instructions["files"] = new JsonArray(new JsonObject { ["path"] = 42 }); break;
+                case "empty-path": instructions["files"] = new JsonArray(new JsonObject { ["path"] = "" }); break;
+                case "non-object-file": instructions["files"] = new JsonArray("CLAUDE.md"); break;
+            }
+            ReviewerIsolationFixture.Write(home, "projects/-repo/session-1.jsonl", string.Join('\n',
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") }),
+                ReviewerIsolationFixture.Attachment(instructions)));
+            var observation = new ReviewerContextObservation();
+            observation.ObserveClaudeInitFrame("""{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""");
+
+            observation.ReadSessionRecord(CliTypes.Claude, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+            Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null,
+                new ReviewerContext("clean", "excluded", observation.Observed, observation.LoadedInstructionFiles,
+                    [], observation.Skills, observation.McpServers, observation.SystemPromptCharacters, 20)));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    [Fact]
+    public void Observation_AcceptsClaudeInstructionAttachmentWithExplicitEmptyFilesArray()
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            ReviewerIsolationFixture.Write(home, "projects/-repo/session-1.jsonl", string.Join('\n',
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") }),
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "instructions", ["files"] = new JsonArray() })));
+            var observation = new ReviewerContextObservation();
+            observation.ObserveClaudeInitFrame("""{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""");
+
+            observation.ReadSessionRecord(CliTypes.Claude, home, "session-1", repository);
+
+            Assert.True(observation.Observed);
+            Assert.Empty(observation.LoadedInstructionFiles);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
     [Fact]
     public void Observation_ReadsWhatCodexLoadedFromItsRollout()
     {

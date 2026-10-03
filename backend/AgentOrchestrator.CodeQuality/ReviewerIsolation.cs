@@ -327,12 +327,17 @@ internal sealed class ReviewerContextObservation
             !attachment.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String) return;
         switch (type.GetString())
         {
-            case "instructions" when attachment.TryGetProperty("files", out var files) &&
-                                     files.ValueKind == JsonValueKind.Array:
+            case "instructions":
+                if (!attachment.TryGetProperty("files", out var files) || files.ValueKind != JsonValueKind.Array)
+                    throw new JsonException("Claude instructions attachment has no files array.");
                 foreach (var instruction in files.EnumerateArray())
-                    if (instruction.ValueKind == JsonValueKind.Object &&
-                        instruction.TryGetProperty("path", out var path) && path.ValueKind == JsonValueKind.String)
-                        _loaded.Add(Describe(path.GetString()!, workingDirectory));
+                {
+                    if (instruction.ValueKind != JsonValueKind.Object ||
+                        !instruction.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.String ||
+                        string.IsNullOrWhiteSpace(path.GetString()))
+                        throw new JsonException("Claude instructions attachment has a file without a path.");
+                    _loaded.Add(Describe(path.GetString()!, workingDirectory));
+                }
                 break;
             case "nested_memory" when attachment.TryGetProperty("path", out var nested) &&
                                       nested.ValueKind == JsonValueKind.String:
