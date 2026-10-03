@@ -209,7 +209,22 @@ Model options come from the governed Token Economy snapshot described in
 thinking-level override are persisted in the manifest before enqueue and passed to the
 same CodingAgentRunner request used for every file and aggregate operation.
 
-At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
+At startup the API scans the registered repositories for durable runs. `queued` and formerly `running` runs are enqueued again; a file recorded as `done`, `failed`, or `skipped-fresh` is not reviewed again. A file that was `running` when the process stopped is returned to `queued`, because its sidecar write cannot be assumed to have completed. `paused` runs are restored but remain idle. Terminal `done`, `partial`, `failed`, `cancelled`, and `capped` runs are loaded into recent history without being resumed.
+
+### Review-run API state
+
+`GET /api/review/runs` returns `{ "runs": [...] }`; `GET /api/review/runs/{id}` returns one run. Their repository-scoped equivalents return the same run shape. Each run has a `state`, `completedFiles`, `failedFiles`, and per-file `files[].state`. `completedFiles` counts terminal file attempts including failed files, so it can equal `totalFiles` even when `failedFiles` is positive.
+
+| `state` | Meaning |
+| --- | --- |
+| `queued`, `running`, `paused` | The run has not reached a terminal outcome. |
+| `done` | The run finished its scope with no failed files. |
+| `partial` | The run finished its scope, but at least one file failed (`failedFiles > 0`). This is terminal. |
+| `failed` | The run itself stopped on an error, including a provider failure stop; it may also contain failed files. This is terminal. |
+| `cancelled` | The run was cancelled. This is terminal. |
+| `capped` | The run stopped at a token or cost cap. It is terminal for the current attempt and can be resumed with a higher cap. |
+
+Consumers should use `state` to distinguish these outcomes; `completedFiles` alone does not indicate success. The run history and detail views show `done`, `partial`, and `failed` as separate labels.
 
 The UI polls `GET /api/review/runs` every 1.5 seconds only while a run is queued or running. Each operation's recorded input/output usage is priced and persisted immediately, so the run row shows live tokens or cost spent against the cap. A terminal transition refreshes the hierarchy and the open file, so sidecar grades and staleness decorations update without a page reload. `POST /api/review/runs/{id}/pause` stops active work at the cancellation boundary while preserving completed files. Repository-scoped forms of all routes are also available. `DELETE /api/review/runs/{id}` permanently cancels queued, paused, or active work.
 
