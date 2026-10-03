@@ -16,6 +16,10 @@ are documented in [quality-reports.md](quality-reports.md). Use
 `GET /api/repos/{repoId}/report` for one repository. JSON is the default;
 `?format=markdown|html|json|sarif` selects another representation.
 
+The `GET /api/review/runs` and `GET /api/review/runs/{id}` response states,
+including terminal `partial`, are documented in
+[review-runs.md](review-runs.md#review-run-api-state).
+
 Run the development host from the repository root:
 
 ```powershell

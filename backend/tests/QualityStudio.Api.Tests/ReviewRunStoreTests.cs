@@ -484,9 +484,12 @@ public sealed class ReviewRunStoreTests
 
             await using var application = fixture.CreateApplication();
             using var client = application.CreateClient();
-            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+            // The sole file ends in "failed", so the run's honest terminal state is "partial",
+            // never the plain "done" a reader would read as a clean review.
+            var run = await WaitForStateAsync(client, stored.Manifest.RunId, "partial", cancellationToken);
 
             Assert.Equal("failed", Assert.Single(run.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
+            Assert.Equal(1, run.GetProperty("failedFiles").GetInt32());
             var transitions = fixture.Store.LoadAll().Single().Progress.Select(progress => progress.State).ToArray();
             Assert.Equal(["queued", "running", "queued", "running", "failed"], transitions);
         }
@@ -635,7 +638,7 @@ public sealed class ReviewRunStoreTests
             using var response = await client.PostAsJsonAsync(
                 $"/api/review/runs/{stored.Manifest.RunId}/resume", new { }, cancellationToken);
             response.EnsureSuccessStatusCode();
-            var resumed = await WaitForStateAsync(client, stored.Manifest.RunId, "done", cancellationToken);
+            var resumed = await WaitForStateAsync(client, stored.Manifest.RunId, "partial", cancellationToken);
             Assert.Equal("failed", Assert.Single(resumed.GetProperty("files").EnumerateArray()).GetProperty("state").GetString());
         }
         finally
