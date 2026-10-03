@@ -331,6 +331,84 @@ public sealed class AnalyzerProfileResolutionTests
         }
     }
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("{ \"path\": 42 }")]
+    [InlineData("{ \"path\": \" \" }")]
+    public async Task Tsc_reports_a_malformed_solution_reference_even_when_other_projects_exist(string invalidReference)
+    {
+        var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"),
+                $$"""{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, {{invalidReference}}] }""");
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.app.json"), """{ "files": ["src/main.ts"] }""");
+            var runner = new CallbackRunner((_, _, _) => throw new InvalidOperationException("must not run"));
+
+            var result = await new TypeScriptAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("reference without a valid path", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public void Tsc_reports_the_project_count_limit_instead_of_omitting_projects()
+    {
+        var root = CreateRepository();
+        try
+        {
+            var references = Enumerable.Range(0, 33)
+                .Select(index => $"{{ \"path\": \"./tsconfig.{index}.json\" }}");
+            File.WriteAllText(Path.Combine(root, "tsconfig.json"),
+                "{ \"files\": [], \"references\": [" + string.Join(",", references) + "] }");
+            foreach (var index in Enumerable.Range(0, 33))
+                File.WriteAllText(Path.Combine(root, $"tsconfig.{index}.json"), """{ "include": ["src"] }""");
+
+            var error = Assert.Throws<ArgumentException>(() => TypeScriptProjects.Resolve(root, root));
+
+            Assert.Contains("reference count exceeds the limit of 32", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public void Tsc_reports_the_reference_depth_limit_instead_of_omitting_projects()
+    {
+        var root = CreateRepository();
+        try
+        {
+            for (var depth = 0; depth <= 9; depth++)
+            {
+                var config = depth == 0 ? "tsconfig.json" : $"tsconfig.{depth}.json";
+                var content = depth == 9
+                    ? """{ "include": ["src"] }"""
+                    : "{ \"files\": [], \"references\": [{ \"path\": \"./tsconfig." + (depth + 1) + ".json\" }] }";
+                File.WriteAllText(Path.Combine(root, config), content);
+            }
+
+            var error = Assert.Throws<ArgumentException>(() => TypeScriptProjects.Resolve(root, root));
+
+            Assert.Contains("reference depth limit of 8", error.Message, StringComparison.Ordinal);
+            Assert.Contains("tsconfig.9.json", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
     [Fact]
     public async Task Tsc_without_a_tsconfig_in_the_working_directory_is_unavailable_instead_of_printing_help()
     {

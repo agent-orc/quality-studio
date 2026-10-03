@@ -16,6 +16,7 @@ public static class TypeScriptProjects
 {
     public const string ConfigFileName = "tsconfig.json";
     private const int MaximumProjects = 32;
+    private const int MaximumReferenceDepth = 8;
     private const int MaximumConfigBytes = 1_000_000;
 
     private static readonly JsonDocumentOptions ConfigOptions = new()
@@ -64,7 +65,10 @@ public static class TypeScriptProjects
     private static void Collect(
         string repositoryRoot, string configPath, List<string> projects, HashSet<string> visited, int depth)
     {
-        if (depth > 8 || projects.Count >= MaximumProjects || !visited.Add(Path.GetFullPath(configPath))) return;
+        if (depth > MaximumReferenceDepth)
+            throw new ArgumentException(
+                $"'{Relative(repositoryRoot, configPath)}' exceeds the TypeScript project reference depth limit of {MaximumReferenceDepth}.");
+        if (!visited.Add(Path.GetFullPath(configPath))) return;
         if (new FileInfo(configPath).Length > MaximumConfigBytes)
             throw new ArgumentException($"'{Relative(repositoryRoot, configPath)}' is too large to be a tsconfig.");
         JsonDocument document;
@@ -81,6 +85,9 @@ public static class TypeScriptProjects
         {
             if (!IsSolutionStyle(document.RootElement))
             {
+                if (projects.Count >= MaximumProjects)
+                    throw new ArgumentException(
+                        $"TypeScript project reference count exceeds the limit of {MaximumProjects}.");
                 projects.Add(configPath);
                 return;
             }
@@ -91,7 +98,8 @@ public static class TypeScriptProjects
                     !reference.TryGetProperty("path", out var pathElement) ||
                     pathElement.ValueKind != JsonValueKind.String ||
                     string.IsNullOrWhiteSpace(pathElement.GetString()))
-                    continue;
+                    throw new ArgumentException(
+                        $"'{Relative(repositoryRoot, configPath)}' has a TypeScript project reference without a valid path.");
                 var referenced = Path.GetFullPath(Path.Combine(directory, pathElement.GetString()!));
                 if (Directory.Exists(referenced)) referenced = Path.Combine(referenced, ConfigFileName);
                 if (!AnalyzerCommand.IsWithin(repositoryRoot, referenced))
