@@ -60,6 +60,8 @@ public sealed record BoundaryLimit(string Value, IReadOnlyList<string> DerivedFr
 /// </summary>
 public sealed partial class BoundaryInventorySensor : IReviewSensor
 {
+    // Test-only operation counts for the expensive repository-wide and per-route work.
+    internal BoundaryScanWork? Work { get; set; }
     public const string SensorVersion = "1.1.0";
 
     /// <summary>The inventory, relative to the project's data root.</summary>
@@ -135,7 +137,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         var target = ResolveTarget(root, request);
         var sources = await ReadSourcesAsync(root, target, cancellationToken).ConfigureAwait(false);
         var budget = new AnalysisBudget(ResolveTimeBudget(request.Configuration));
-        var context = new AnalysisContext(root, sources, budget, HostReachability(sources));
+        var context = new AnalysisContext(root, sources, budget, HostReachability(sources, Work), Work);
         var entries = new List<BoundaryEntry>();
         AnalyzeAspNet(context, entries);
         AnalyzeJavaScript(context, entries);
@@ -1304,11 +1306,15 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
             [],
             evidence);
 
-    private static BoundaryFact HostReachability(IReadOnlyList<SourceFile> sources)
+    private static BoundaryFact HostReachability(IReadOnlyList<SourceFile> sources, BoundaryScanWork? work)
     {
-        var listeners = sources.SelectMany(file => UrlBindingRegex().Matches(file.Content).Cast<Match>()
+        var listeners = sources.SelectMany(file =>
+        {
+            if (work is not null) work.HostBindingFileVisits++;
+            return UrlBindingRegex().Matches(file.Content).Cast<Match>()
             .Where(match => IsHostBinding(file.Content, match.Index))
-            .Select(match => match.Groups["url"].Value)).ToArray();
+            .Select(match => match.Groups["url"].Value);
+        }).ToArray();
         if (listeners.Length == 0)
             return new BoundaryFact("unknown", ["No literal host binding was joined to this route"]);
         if (listeners.All(value => value.Contains("127.0.0.1", StringComparison.Ordinal) ||
@@ -1332,13 +1338,14 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         // method patterns depend only on these two arguments, so building them here instead of
         // inside the per-line loop turns an O(routes * files * lines) regex-compile cost into
         // O(routes).
-        var candidateRegexes = ClientRouteMentionRegexes(route);
+        var candidateRegexes = ClientRouteMentionRegexes(route, context.Work);
         var methodRegex = new Regex($@"\.{Regex.Escape(method.ToLowerInvariant())}(?:<[^>]+>)?\s*\(",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(RegexTimeoutMilliseconds));
+        if (context.Work is not null) context.Work.ConsumerRegexBuilds++;
         var result = new List<BoundarySourceLocation>();
         foreach (var file in context.Sources.Where(IsJavaScript))
         {
-            foreach (var (line, text) in file.Lines())
+            foreach (var (line, text) in file.Lines(context.Work))
             {
                 if (candidateRegexes.Any(candidate => candidate.IsMatch(text)) && methodRegex.IsMatch(text))
                     result.Add(new BoundarySourceLocation(file.Path, line));
@@ -1347,7 +1354,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         return result.Distinct().OrderBy(location => location.Path, StringComparer.Ordinal).ThenBy(location => location.Line).ToArray();
     }
 
-    private static IReadOnlyList<Regex> ClientRouteMentionRegexes(string route)
+    private static IReadOnlyList<Regex> ClientRouteMentionRegexes(string route, BoundaryScanWork? work)
     {
         var candidates = new List<string> { route };
         if (route.StartsWith("/api/", StringComparison.Ordinal)) candidates.Add(route[4..]);
@@ -1356,6 +1363,7 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         if (repositoryPrefix.Success) candidates.Add(repositoryPrefix.Groups["tail"].Value);
         return candidates.Distinct(StringComparer.Ordinal).Select(candidate =>
         {
+            if (work is not null) work.ConsumerRegexBuilds++;
             var pattern = Regex.Replace(
                 Regex.Escape(candidate),
                 @"\\\{[^}]+\\\}",
@@ -1540,9 +1548,14 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
 
         /// <summary>Splits on first use; repeated calls for the same file (once per candidate
         /// route) reuse the array instead of re-splitting the whole file every time.</summary>
-        public IEnumerable<(int Line, string Text)> Lines()
+        public IEnumerable<(int Line, string Text)> Lines(BoundaryScanWork? work)
         {
-            var lines = _lines ??= Content.Split('\n');
+            if (_lines is null)
+            {
+                if (work is not null) work.ClientLineSplits++;
+                _lines = Content.Split('\n');
+            }
+            var lines = _lines;
             for (var index = 0; index < lines.Length; index++) yield return (index + 1, lines[index]);
         }
     }
@@ -1551,7 +1564,15 @@ public sealed partial class BoundaryInventorySensor : IReviewSensor
         string Root,
         IReadOnlyList<SourceFile> Sources,
         AnalysisBudget Budget,
-        BoundaryFact HostFact);
+        BoundaryFact HostFact,
+        BoundaryScanWork? Work);
+
+    internal sealed class BoundaryScanWork
+    {
+        internal int HostBindingFileVisits { get; set; }
+        internal int ConsumerRegexBuilds { get; set; }
+        internal int ClientLineSplits { get; set; }
+    }
 
     /// <summary>
     /// Bounds a scan to a wall-clock budget so one pathological or unexpectedly large file
