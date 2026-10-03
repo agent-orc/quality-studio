@@ -42,7 +42,7 @@ model was chosen:
 Ledger lines written before this version keep `runner-default` where the model
 was never named; they are historical evidence and are not rewritten.
 
-## Cost transparency and budgets
+## Cost transparency
 
 Every review operation is priced when it is recorded: the ledger entry carries
 `cost` with `total`, `currency`, and `status` at the catalog price valid at the
@@ -52,9 +52,36 @@ silent zero, when the model is unknown to the price catalog (`unknownModel`) or
 the catalog has no price for that date (`noPriceForDate`). Entries written
 before costs were recorded are priced at query time, so `GET /api/usage`
 returns `estimatedCost`, `costCurrency`, and `unpricedRuns` over the whole
-history. The synchronized Token Economy price snapshot is the only price source;
-when its validity window ends, operations become unpriced until the catalog is
-synchronized again (`npm run catalog:sync`).
+history. The synchronized Token Economy price snapshot is the only price source.
+Prices resolve from the latest applicable `validFrom` at the operation timestamp;
+an operation before a model's first price returns `noPriceForDate`.
+
+### Query-time repricing
+
+`GET /api/usage` and the repository-scoped endpoint also recompute a recorded
+`cost.status: unknownModel` against the current snapshot, using the original
+model ID, token counts, and operation timestamp. This includes schema-v3 lines
+for `claude-opus-5-5`, `gpt-6-sol`, and `gpt-6-luna` from 2026-09-22 onward.
+The returned `recent` entry has `cost.status: resolved` (the wire value for
+successfully priced), a numeric `cost.total`, and `cost.currency: USD`. Its cost
+contributes to `estimatedCost` and it no longer contributes to `unpricedRuns`.
+The model ID, `modelSource`, run identifiers, timestamp, and tokens are preserved.
+
+This is a read projection: the monthly JSONL file remains byte-for-byte unchanged.
+Previously resolved costs and recorded `noPriceForDate` costs are retained.
+A still-unknown model remains `unknownModel`; a newly recognized model with an
+operation before its first price becomes `noPriceForDate`. Both remain unpriced
+with a null total. Historical entries with no `cost` continue to be estimated for
+aggregate totals; this does not add a stored cost to those lines.
+
+For example, a v3 Sol line from 2026-09-22 with 1,000,000 input tokens (including
+200,000 cached) and 100,000 output tokens previously marked `unknownModel` is
+returned with `cost: { "total": 2.64, "currency": "USD", "status": "resolved" }`.
+The same tokens from before that date have no applicable price. See the
+[model and CLI contract](model-catalog-integration.md#september-2026-model-and-cli-contract)
+for model-selection requirements.
+
+## Budget enforcement
 
 Budgets are cost budgets, not time budgets. A review run can carry a token cap
 and a cost cap (`tokenCap`, `costCap` on the start request; the repository's
