@@ -344,7 +344,7 @@ public sealed class RulePoolStore
                 if (dryRun) return new RuleImportResult(false, false, modified, changes, introduced, catalogue);
                 throw new RulePoolValidationException("The rule set would make the rule pool invalid.", introduced);
             }
-            if (dryRun || changes.All(change => change.Change == "unchanged"))
+            if (dryRun || Same(current, next))
                 return new RuleImportResult(true, false, modified, changes, [], catalogue);
 
             Write(current, next);

@@ -491,6 +491,29 @@ public sealed class RulePoolTests : IDisposable
     }
 
     [Fact]
+    public void Replace_import_with_empty_overrides_repairs_an_unreadable_override_file()
+    {
+        var path = Path.Combine(ProjectRules, "overrides.json");
+        Write(ProjectRules, "overrides.json", "{ invalid json");
+        var store = Store();
+        var empty = new RuleSetDocument(RuleSetDocument.SchemaId, 1, "empty", null, null, null, null,
+            null, [], [], []);
+        Assert.False(store.Inspect().IsValid);
+
+        var preview = store.Import(RuleScopes.Project, empty, "replace", dryRun: true, "", "operator");
+        Assert.True(preview.Valid);
+        Assert.False(preview.Applied);
+        Assert.True(File.Exists(path));
+
+        var imported = store.Import(RuleScopes.Project, empty, "replace", dryRun: false, "Repair overrides.", "operator");
+
+        Assert.True(imported.Applied);
+        Assert.False(File.Exists(path));
+        Assert.True(store.Inspect().IsValid);
+        Assert.Equal("rule-set.import", Assert.Single(store.ReadAudit(RuleScopes.Project)).Action);
+    }
+
+    [Fact]
     public void An_invalid_rule_set_is_reported_by_a_dry_run_and_rejected_on_apply()
     {
         var store = Store();
