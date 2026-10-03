@@ -210,6 +210,12 @@
   font: var(--studio-font-size-label) var(--font-mono);
 }
 
+/* A projection from file grades is not a review: muted and italic so it never reads as one. */
+.grade-cell.projected b,.rollups .projected small {
+  color: var(--studio-fg-muted);
+  font-style: italic;
+}
+
 .state-cell {
   display: flex;
   gap: 6px;
@@ -291,13 +297,13 @@
 }
 
 .risk-table {
-  min-width: 620px;
+  min-width: 730px;
   border-top: 1px solid var(--studio-border-soft);
 }
 
 .risk-columns,.risk-row {
   display: grid;
-  grid-template-columns: minmax(250px,2fr) 90px 100px 80px 80px;
+  grid-template-columns: minmax(250px,2fr) 90px 100px 110px 80px 80px;
   align-items: center;
 }
 
@@ -334,7 +340,7 @@
   font-family: var(--font-mono);
 }
 
-.stale-coverage {
+.stale-coverage,.risk-row .complex {
   color: var(--status-stale);
 }
 

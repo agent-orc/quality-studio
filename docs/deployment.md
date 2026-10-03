@@ -194,7 +194,10 @@ stays confined to the repository. A profile can also ask for the analysed reposi
 repository root), `{eslintConfig}` (the nearest ESLint flat config), `{tsconfig}` (the tsc sensor's project
 file, one invocation per referenced project) and `{roslynErrorLogTargets}` (the per-project ErrorLog import).
 A placeholder that cannot be resolved makes the scan unavailable with the reason instead of running a
-command bound to fail. A `reportPath` ending in `/` names a directory whose `*.sarif` files are merged. A host file **replaces** the embedded defaults rather than extending them, so a
+command bound to fail. A `reportPath` ending in `/` names a directory whose `*.sarif` files are merged.
+A `coverage` profile also receives `{outputDirectory}` — a fresh directory below the project's data root —
+and its `reportPath` is a glob of the reports it writes there. `timeoutSeconds` (1–3600) time-boxes a
+profile; the process tree is killed when it expires. A host file **replaces** the embedded defaults rather than extending them, so a
 deployment that names its own profiles cannot silently fall back to a shipped command. A registration
 that names a profile the host does not offer is refused with `400 Unknown analyzer profile`, and a
 registration carrying a `command` with `400 Analyzer commands are host-owned` — for registrars too,

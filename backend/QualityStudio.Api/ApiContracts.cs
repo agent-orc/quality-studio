@@ -135,13 +135,18 @@ public sealed record TreeNodeResponse(
     }
 }
 
+/// <param name="Projection">
+/// Present on a directory or other container without a grade of its own: the size-weighted mean of its
+/// descendant files' grades. A projection, not a review - see <see cref="GradeProjectionResponse"/>.
+/// </param>
 public sealed record KindStateResponse(
     string Direct,
     string Descendants,
     string Overall,
     int? Score,
     string? Band,
-    string? MetaPath)
+    string? MetaPath,
+    GradeProjectionResponse? Projection = null)
 {
     public static KindStateResponse From(
         HierarchyNode node,
@@ -183,6 +188,57 @@ public sealed record KindStateResponse(
     };
 }
 
+/// <summary>
+/// A directory grade projected from its files until an aggregate review grades the directory itself:
+/// each graded descendant file weighs by its line count, so a 2,000-line file moves the projection
+/// more than a 20-line one. <see cref="GradedFiles"/> of <see cref="Files"/> says how much of the
+/// directory the projection actually rests on; ungraded files neither count as zero nor as passing.
+/// </summary>
+public sealed record GradeProjectionResponse(
+    int Score,
+    string Band,
+    int GradedFiles,
+    int Files,
+    long WeightedLines,
+    string Basis = GradeProjectionResponse.SizeWeightedFileGrades)
+{
+    public const string SizeWeightedFileGrades = "size-weighted-file-grades";
+}
+
+/// <summary>The running sums behind a <see cref="GradeProjectionResponse"/>, added up the tree.</summary>
+public readonly record struct GradeRollup(decimal WeightedScore, long Weight, int Graded, int Files)
+{
+    /// <summary>Approximate characters per line, for a file whose line count is unknown.</summary>
+    private const long BytesPerLine = 40;
+
+    public static GradeRollup ForFile(int? score, int? lineCount, long? sizeBytes)
+    {
+        var weight = lineCount is > 0 ? lineCount.Value : Math.Max(1, (sizeBytes ?? 0) / BytesPerLine);
+        return score is int graded ? new(graded * (decimal)weight, weight, 1, 1) : new(0, 0, 0, 1);
+    }
+
+    public static GradeRollup operator +(GradeRollup left, GradeRollup right) => new(
+        left.WeightedScore + right.WeightedScore, left.Weight + right.Weight,
+        left.Graded + right.Graded, left.Files + right.Files);
+
+    public GradeProjectionResponse? ToProjection()
+    {
+        if (Graded == 0 || Weight == 0) return null;
+        var score = (int)Math.Round(WeightedScore / Weight, MidpointRounding.AwayFromZero);
+        return new GradeProjectionResponse(score, BandOf(score), Graded, Files, Weight);
+    }
+
+    /// <summary>The band scale review grades use (see <c>FindingStateProjection</c>).</summary>
+    public static string BandOf(int score) => score switch
+    {
+        >= 90 => "A",
+        >= 80 => "B",
+        >= 70 => "C",
+        >= 60 => "D",
+        _ => "F",
+    };
+}
+
 public sealed record FileResponse(
     string Path,
     string Content,
@@ -212,7 +268,40 @@ public sealed record RiskRowResponse(
     string ReviewState,
     CoverageAggregate Coverage,
     int Changes,
-    decimal? RiskScore);
+    decimal? RiskScore,
+    ComplexitySummaryResponse? Complexity = null);
+
+/// <summary>
+/// A file's complexity as the risk view shows it: sums and maxima over its functions, the complexity
+/// pressure that enters the risk score, and the few functions that drive it.
+/// </summary>
+public sealed record ComplexitySummaryResponse(
+    string Language,
+    int Cyclomatic,
+    int Cognitive,
+    int MaxCyclomatic,
+    int MaxCognitive,
+    int Functions,
+    int Pressure,
+    IReadOnlyList<FunctionComplexity> Hotspots)
+{
+    /// <summary>How many of the most complex functions a risk row carries.</summary>
+    public const int HotspotCount = 3;
+
+    public static ComplexitySummaryResponse From(FileComplexity file) => new(
+        file.Language, file.Cyclomatic, file.Cognitive, file.MaxCyclomatic, file.MaxCognitive,
+        file.Functions.Count, file.Pressure,
+        file.Functions.OrderByDescending(function => function.Cognitive)
+            .ThenByDescending(function => function.Cyclomatic)
+            .ThenBy(function => function.Line)
+            .Take(HotspotCount).ToArray());
+}
+
+/// <summary>Every function of one file, for <c>GET /api/repos/{repoId}/complexity?path=</c>.</summary>
+public sealed record FileComplexityResponse(
+    string AnalyzerVersion,
+    int CognitiveThreshold,
+    FileComplexity File);
 
 public sealed record RiskMatrixCellResponse(
     string Grade,

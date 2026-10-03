@@ -3,7 +3,9 @@
  * The file holds types only: it emits no runtime code, so importing it never pulls a service in.
  */
 export type ReviewState = 'fresh' | 'stale' | 'policy-drift' | 'missing' | 'invalid';
-export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; }
+export interface KindState { direct: ReviewState; descendants: ReviewState; overall: ReviewState; score: number | null; band: string | null; metaPath: string | null; projection?: GradeProjection | null; }
+/** A container grade projected from its files' grades, weighted by line count, until an aggregate review grades it. */
+export interface GradeProjection { score: number; band: string; gradedFiles: number; files: number; weightedLines: number; basis: 'size-weighted-file-grades'; }
 export interface ScopeExclusion { path: string; reason: string; }
 export interface ScopeRuleView { index: number; action: 'include' | 'exclude'; pattern: string; reason: string | null; matchedFiles: string[]; widerPattern: boolean; }
 export interface ScopeRulesResponse { schema: string; rules: ScopeRuleView[]; }
@@ -167,7 +169,10 @@ export interface AnalyzerSensorSummary { sensorId: string; available: boolean; u
 /** Persisted deterministic analyzer results (Roslyn, ESLint, tsc, SARIF) for one path. */
 export interface AnalyzerFileView { sensors: AnalyzerSensorSummary[]; findings: AnalyzerFileFinding[]; }
 export interface AnalyzerCountsResponse { files: Record<string, number>; }
-export interface RiskRow { path: string; name: string; gradeScore: number | null; gradeBand: string | null; reviewState: ReviewState; coverage: CoverageFact; changes: number; riskScore: number | null; }
+export interface RiskRow { path: string; name: string; gradeScore: number | null; gradeBand: string | null; reviewState: ReviewState; coverage: CoverageFact; changes: number; riskScore: number | null; complexity?: ComplexitySummary | null; }
+export interface FunctionComplexity { name: string; line: number; endLine: number; cyclomatic: number; cognitive: number; }
+/** Sums and maxima over a file's functions; `pressure` (0-100) is what enters the risk score. */
+export interface ComplexitySummary { language: string; cyclomatic: number; cognitive: number; maxCyclomatic: number; maxCognitive: number; functions: number; pressure: number; hotspots: FunctionComplexity[]; }
 export interface RiskMatrixCell { grade: string; coverage: string; files: number; changes: number; }
 export interface RiskReport { days: number; currentCommit: string | null; rows: RiskRow[]; matrix: RiskMatrixCell[]; }
 export interface ScanFile { relativePath: string; state: ReviewState; reviewKind: string; metaRelativePath?: string | null; }
@@ -217,7 +222,7 @@ export interface AgentStudioImportResult {
   reason: string | null;
 }
 export interface AgentStudioImportResponse { results: AgentStudioImportResult[]; imported: number; skipped: number; failed: number; }
-export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled' | 'capped';
+export type ReviewRunState = 'queued' | 'running' | 'paused' | 'done' | 'partial' | 'failed' | 'cancelled' | 'capped';
 export type ReviewUnitState = ReviewRunState | 'skipped' | 'skipped-fresh';
 export type ModelCapabilityTier = 'light' | 'balanced' | 'frontier';
 export type ModelRoutingStatus = 'selectable' | 'fallbackOnly' | 'unsupported' | 'restricted' | 'deprecated';

@@ -6,7 +6,10 @@ namespace AgentOrchestrator.CodeQuality;
 /// <summary>
 /// One host-owned analyzer invocation. Repository configuration selects it by <see cref="Id"/> and can
 /// never supply the command itself, so an API client cannot turn sensor configuration into arbitrary
-/// host execution. <c>{repositoryRoot}</c>, <c>{target}</c> and <c>{reportPath}</c> are expanded at run time.
+/// host execution. <c>{repositoryRoot}</c>, <c>{target}</c> and <c>{reportPath}</c> are expanded at run time;
+/// a <c>coverage</c> profile also receives <c>{outputDirectory}</c>, a fresh directory below the project's
+/// data root, and its <see cref="ReportPath"/> is a pattern of the reports it writes there.
+/// <see cref="TimeoutSeconds"/> time-boxes the command; the process tree is killed when it expires.
 /// </summary>
 public sealed record AnalyzerProfile(
     string Id,
@@ -14,7 +17,8 @@ public sealed record AnalyzerProfile(
     string Command,
     string? WorkingDirectory = null,
     string? ReportPath = null,
-    string? Description = null);
+    string? Description = null,
+    int? TimeoutSeconds = null);
 
 /// <summary>The analyzer profiles this host offers, and whether it still accepts inline commands at all.</summary>
 public sealed class AnalyzerProfileCatalog
@@ -77,6 +81,33 @@ public sealed class AnalyzerProfileCatalog
             WorkingDirectory: ".",
             ReportPath: ".quality/preflight/roslyn/",
             Description: "Roslyn analyzer diagnostics from a forced build, one SARIF 2.1 log per project."),
+        new AnalyzerProfile(
+            "dotnet-test-coverage",
+            "coverage",
+            "dotnet test {target} --nologo --verbosity minimal " +
+            "--collect \"Code Coverage;Format=cobertura\" --results-directory {outputDirectory}",
+            WorkingDirectory: ".",
+            ReportPath: "**/*.cobertura.xml",
+            Description: "Runs the .NET tests with the Microsoft Code Coverage collector and ingests its Cobertura reports.",
+            TimeoutSeconds: 900),
+        new AnalyzerProfile(
+            "vitest-frontend-coverage",
+            "coverage",
+            "npx --no-install vitest run --coverage.enabled=true --coverage.reporter=lcov " +
+            "--coverage.reportsDirectory={outputDirectory}",
+            WorkingDirectory: "frontend",
+            ReportPath: "lcov.info",
+            Description: "Runs vitest with coverage for a repository whose Node workspace lives in frontend/.",
+            TimeoutSeconds: 600),
+        new AnalyzerProfile(
+            "vitest-root-coverage",
+            "coverage",
+            "npx --no-install vitest run --coverage.enabled=true --coverage.reporter=lcov " +
+            "--coverage.reportsDirectory={outputDirectory}",
+            WorkingDirectory: ".",
+            ReportPath: "lcov.info",
+            Description: "Runs vitest with coverage for a repository whose Node workspace is the repository root.",
+            TimeoutSeconds: 600),
         new AnalyzerProfile(
             "tsc-noemit",
             "tsc",
@@ -143,6 +174,9 @@ public sealed class AnalyzerProfileCatalog
             throw new InvalidOperationException("Every analyzer profile requires an id and a sensor.");
         // Parsing here means a malformed command is a host start-up error, never a run-time surprise.
         AnalyzerCommand.Split(profile.Command);
+        if (profile.TimeoutSeconds is < 1 or > AnalyzerInvocation.MaximumTimeoutSeconds)
+            throw new InvalidOperationException(
+                $"Analyzer profile '{profile.Id}' sets timeoutSeconds outside 1-{AnalyzerInvocation.MaximumTimeoutSeconds}.");
         return profile with { Id = profile.Id.Trim(), Sensor = profile.Sensor.Trim().ToLowerInvariant() };
     }
 
@@ -160,8 +194,16 @@ public sealed class AnalyzerProfileCatalog
 }
 
 /// <summary>What one sensor run is actually allowed to execute, after profile resolution.</summary>
-public readonly record struct AnalyzerInvocation(string? Command, string? WorkingDirectory, string? ReportPath)
+public readonly record struct AnalyzerInvocation(
+    string? Command,
+    string? WorkingDirectory,
+    string? ReportPath,
+    string? ProfileId = null,
+    int? TimeoutSeconds = null)
 {
+    /// <summary>The longest time-box a profile may declare: one hour.</summary>
+    public const int MaximumTimeoutSeconds = 3600;
+
     /// <summary>
     /// Resolves repository sensor configuration into an invocation. A <c>profile</c> id selects a
     /// host-owned command; <c>reportPath</c> and <c>workingDirectory</c> may still be redirected by the
@@ -182,6 +224,8 @@ public readonly record struct AnalyzerInvocation(string? Command, string? Workin
         string? command = null;
         string? workingDirectory = null;
         string? reportPath = null;
+        string? resolvedProfile = null;
+        int? timeoutSeconds = null;
 
         if (configuration.TryGetValue(AnalyzerSensorConfiguration.ProfileKey, out var profileId) &&
             !string.IsNullOrWhiteSpace(profileId))
@@ -198,6 +242,8 @@ public readonly record struct AnalyzerInvocation(string? Command, string? Workin
             command = profile.Command;
             workingDirectory = profile.WorkingDirectory;
             reportPath = profile.ReportPath;
+            resolvedProfile = profile.Id;
+            timeoutSeconds = profile.TimeoutSeconds;
         }
 
         if (configuration.TryGetValue(AnalyzerSensorConfiguration.CommandKey, out var inline) &&
@@ -219,7 +265,7 @@ public readonly record struct AnalyzerInvocation(string? Command, string? Workin
             !string.IsNullOrWhiteSpace(configuredWorkingDirectory))
             workingDirectory = configuredWorkingDirectory;
 
-        invocation = new AnalyzerInvocation(command, workingDirectory, reportPath);
+        invocation = new AnalyzerInvocation(command, workingDirectory, reportPath, resolvedProfile, timeoutSeconds);
         return true;
     }
 }
@@ -244,7 +290,7 @@ public static class AnalyzerSensorConfiguration
             ["roslyn"] = [ProfileKey, "reportPath", "workingDirectory"],
             ["eslint"] = [ProfileKey, "reportPath", "workingDirectory"],
             ["tsc"] = [ProfileKey, "reportPath", "workingDirectory", "producerVersion"],
-            ["coverage"] = ["reportPaths"],
+            ["coverage"] = ["reportPaths", ProfileKey, "target", "workingDirectory"],
             ["dependencies"] = ["ecosystems"],
             ["dotnet-build"] = ["target"],
             ["gitleaks"] = ["mode", "range", "configPath", "baselinePath"],

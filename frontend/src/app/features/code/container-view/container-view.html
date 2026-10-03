@@ -6,10 +6,11 @@
   </div>
   <div class="rollups" aria-label="Rolled-up review states">
     @for (kind of reviewKinds; track kind) {
-      <span>
+      @let rollup = grade(node()?.kinds?.[kind]);
+      <span [class.projected]="rollup.projected" [attr.title]="rollup.title">
         <i class="status" [class]="'status ' + (node()?.kinds?.[kind]?.descendants ?? 'missing')"></i>
         <b>{{ kind }}</b>
-        <small>{{ node()?.kinds?.[kind]?.band ?? '-' }} @if ((node()?.kinds?.[kind]?.score ?? null) !== null) { &middot; {{ node()?.kinds?.[kind]?.score }} }</small>
+        <small>{{ rollup.band }} @if (rollup.score !== '-') { &middot; {{ rollup.score }} } @if (rollup.projected) { &middot; projection }</small>
       </span>
     }
   </div>
@@ -26,7 +27,7 @@
 
 <details class="risk-view">
   <summary>
-    <span><b>Risk view</b> · grade × coverage × Git churn over {{ api.risk().days }} days</span>
+    <span><b>Risk view</b> · grade × coverage × complexity × Git churn over {{ api.risk().days }} days</span>
     <small>{{ riskRows().length }} files</small>
   </summary>
   <div class="risk-matrix" aria-label="Compact risk matrix">
@@ -44,6 +45,8 @@
       <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('path')">File{{ riskSortIndicator('path') }}</button>
       <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('grade')">Grade{{ riskSortIndicator('grade') }}</button>
       <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('coverage')">Coverage{{ riskSortIndicator('coverage') }}</button>
+      <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('complexity')"
+        title="Cognitive complexity of the most complex function · sum of cyclomatic complexity">Complexity{{ riskSortIndicator('complexity') }}</button>
       <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('changes')">Changes{{ riskSortIndicator('changes') }}</button>
       <button class="studio-table-head" type="button" role="columnheader" (click)="sortRiskBy('risk')">Risk{{ riskSortIndicator('risk') }}</button>
     </div>
@@ -52,6 +55,7 @@
         <span role="cell">{{ row.path }}</span>
         <span role="cell">{{ row.gradeBand ?? 'Unknown' }} @if (row.gradeScore !== null) { · {{ row.gradeScore }} }</span>
         <span role="cell" [class.stale-coverage]="row.coverage.state === 'stale'" [title]="coverageTitle(row.coverage)">{{ coverageLabel(row.coverage) }}</span>
+        <span role="cell" [class.complex]="overThreshold(row)" [title]="complexityTitle(row)">{{ complexityLabel(row) }}</span>
         <span role="cell">{{ row.changes }}</span>
         <b role="cell">{{ riskLabel(row) }}</b>
       </button>
@@ -87,10 +91,11 @@
             </span>
           </span>
           @for (kind of reviewKinds; track kind) {
-            <span class="grade-cell" role="cell">
+            @let cell = grade(item.node.kinds[kind]);
+            <span class="grade-cell" role="cell" [class.projected]="cell.projected" [attr.title]="cell.title">
               <i class="status" [class]="'status ' + (item.node.kinds[kind]?.overall ?? 'missing')"></i>
-              <b>{{ item.node.kinds[kind]?.band ?? '-' }}</b>
-              <small>{{ item.node.kinds[kind]?.score ?? '-' }}</small>
+              <b>{{ cell.band }}</b>
+              <small>{{ cell.score }}</small>
             </span>
           }
           <span class="coverage-cell" role="cell" [class.stale-coverage]="item.node.coverage?.state === 'stale'"

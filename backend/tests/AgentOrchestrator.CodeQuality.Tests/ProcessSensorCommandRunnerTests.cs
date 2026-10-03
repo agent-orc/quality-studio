@@ -110,17 +110,36 @@ public sealed class ProcessSensorCommandRunnerTests
         {
             var pidFile = Path.Combine(root, "pids.txt");
             var runner = new ProcessSensorCommandRunner(TimeSpan.FromMilliseconds(250));
-            var stopwatch = Stopwatch.StartNew();
-
             var exception = await Assert.ThrowsAsync<SecurityScannerUnavailableException>(() =>
                 runner.RunAsync("/bin/sh", HangingCommand(pidFile), root, CancellationToken.None));
 
+            Assert.Contains("timed out", exception.Message, StringComparison.Ordinal);
+            var processIds = await ReadProcessIdsAsync(pidFile, TestContext.Current.CancellationToken);
+            await AssertProcessesExitedAsync(processIds, TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "MachineBound")]
+    public async Task Timeout_returns_within_host_budget()
+    {
+        SkipUnlessPosix();
+        var root = Directory.CreateTempSubdirectory("quality-studio-process-timing-").FullName;
+        try
+        {
+            var runner = new ProcessSensorCommandRunner(TimeSpan.FromMilliseconds(250));
+            var stopwatch = Stopwatch.StartNew();
+            var exception = await Assert.ThrowsAsync<SecurityScannerUnavailableException>(() =>
+                runner.RunAsync("/bin/sh", HangingCommand(Path.Combine(root, "pids.txt")), root,
+                    TestContext.Current.CancellationToken));
             stopwatch.Stop();
             Assert.Contains("timed out", exception.Message, StringComparison.Ordinal);
             Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
                 $"Timed-out command returned after {stopwatch.Elapsed}.");
-            var processIds = await ReadProcessIdsAsync(pidFile, TestContext.Current.CancellationToken);
-            await AssertProcessesExitedAsync(processIds, TestContext.Current.CancellationToken);
         }
         finally
         {

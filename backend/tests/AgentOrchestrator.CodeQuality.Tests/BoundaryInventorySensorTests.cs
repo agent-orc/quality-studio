@@ -346,6 +346,7 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Stacked_attributes_do_not_trigger_catastrophic_regex_backtracking()
     {
         // QS-95: a class with many stacked bracket attributes above a method - the common
@@ -390,6 +391,39 @@ public sealed class BoundaryInventorySensorTests
     }
 
     [Fact]
+    public async Task Stacked_attributes_are_scanned_completely()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-stacked-").FullName;
+        try
+        {
+            var attributes = string.Join('\n', Enumerable.Range(0, 40)
+                .Select(index => $"    [InlineData(SomeEnum.Value{index}, false, true, Other.Thing{index})]"));
+            await File.WriteAllTextAsync(Path.Combine(root, "StackedAttributeTests.cs"), """
+                namespace AgentStudio.Tests;
+                public sealed class StackedAttributeTests
+                {
+                    [Theory]
+                __ATTRIBUTES__
+                    public void WorkerOutcomeMatrix_DecidesAcceptedLane(int value) { }
+                }
+                """.Replace("__ATTRIBUTES__", attributes, StringComparison.Ordinal),
+                TestContext.Current.CancellationToken);
+
+            var inventory = await new BoundaryInventorySensor().InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+            Assert.True(inventory.Complete);
+            Assert.Empty(inventory.Omissions);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // QS-115: the 15 s budget depends on host load; QS-104, QS-110, QS-111,
+    // QS-112 and QS-116 pre-main gates measured 15.7–31 s on Windows.
+    [Fact]
+    [Trait("Category", "MachineBound")]
     public async Task Scan_of_many_files_and_routes_stays_within_a_linear_time_budget()
     {
         // QS-95: HostReachability and KnownConsumers used to redo work proportional to the
@@ -427,6 +461,48 @@ public sealed class BoundaryInventorySensorTests
             Assert.True(stopwatch.ElapsedMilliseconds < 15_000,
                 $"Boundary scan of {fileCount * 2} routes across {fileCount * 2} files took " +
                 $"{stopwatch.ElapsedMilliseconds} ms; expected roughly linear scaling with repository size.");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task Route_scan_bounds_repository_wide_and_regex_build_work()
+    {
+        // The regression was a fresh host-binding scan for every route and a regex
+        // compilation for every client file/line. These counts remain stable under load.
+        var root = Directory.CreateTempSubdirectory("quality-studio-boundaries-work-").FullName;
+        try
+        {
+            const int fileCount = 20;
+            for (var index = 0; index < fileCount; index++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(root, $"Endpoint{index}.cs"), $"""
+                    var app = WebApplication.Create();
+                    app.MapGet("/api/items/{index}/detail", () => Results.Ok());
+                    app.MapPost("/api/items/{index}/update", (Widget request) => Results.Ok());
+                    """, TestContext.Current.CancellationToken);
+                await File.WriteAllTextAsync(Path.Combine(root, $"consumer{index}.ts"), $$"""
+                    export async function load{{index}}() {
+                      await fetch(`/api/items/{{index}}/detail`);
+                      return axios.post(`/api/items/{{index}}/update`, {});
+                    }
+                    """, TestContext.Current.CancellationToken);
+            }
+
+            var work = new BoundaryInventorySensor.BoundaryScanWork();
+            var sensor = new BoundaryInventorySensor { Work = work };
+            var inventory = await sensor.InventoryAsync(
+                new SensorScanRequest(root, PersistMetadata: false), TestContext.Current.CancellationToken);
+
+            var routes = inventory.Entries.Count(entry => entry.Kind == "http");
+            Assert.Equal(fileCount * 2, routes);
+            Assert.True(inventory.Complete, string.Join(", ", inventory.Omissions.Select(omission => omission.Path)));
+            Assert.Equal(fileCount * 2, work.HostBindingFileVisits);
+            Assert.InRange(work.ConsumerRegexBuilds, routes, routes * 3);
+            Assert.Equal(fileCount, work.ClientLineSplits);
         }
         finally
         {
