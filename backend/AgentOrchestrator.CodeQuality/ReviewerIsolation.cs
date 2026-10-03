@@ -339,8 +339,10 @@ internal sealed class ReviewerContextObservation
                     _loaded.Add(Describe(path.GetString()!, workingDirectory));
                 }
                 break;
-            case "nested_memory" when attachment.TryGetProperty("path", out var nested) &&
-                                      nested.ValueKind == JsonValueKind.String:
+            case "nested_memory":
+                if (!attachment.TryGetProperty("path", out var nested) || nested.ValueKind != JsonValueKind.String ||
+                    string.IsNullOrWhiteSpace(nested.GetString()))
+                    throw new JsonException("Claude nested-memory attachment has no path.");
                 _loaded.Add(Describe(nested.GetString()!, workingDirectory));
                 break;
             case "skill_listing" when attachment.TryGetProperty("content", out var listing) &&
