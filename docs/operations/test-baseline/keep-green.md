@@ -30,6 +30,15 @@ up the external-live review check, which fails by design without
 `QUALITY_RUN_LIVE_REVIEW=1`. Use the lane scripts, or spell the full selection
 `Category!=MachineBound&Category!=ExternalLive`.
 
+Timing budgets and host-dependent live-process transports belong to
+`Category=MachineBound`; transports that require a real external CLI or service
+belong to `Category=ExternalLive`. Neither may run in the default pre-main filter.
+If only one operating system is host-dependent, categorize that case on that
+operating system and keep the deterministic case in the other host's gate. For
+example, the fake Codex 100 KiB stdin transport is `MachineBound` when compiled
+on Windows and remains `ToolBound` on Linux; the fake Claude case remains
+`ToolBound` on both hosts.
+
 ## Fast pre-review target
 
 Run:
@@ -75,7 +84,7 @@ to; that is what the categories are for.
 
 1. Keep pure tests uncategorized and deterministic.
 2. Put real tool/process tests in a class with `Category=ToolBound`.
-3. Put host timing tests under `Category=MachineBound` and retain repeated canary evidence.
-4. Put external service tests under `Category=ExternalLive` and require explicit opt-in.
+3. Put timing budgets and host-dependent live-process transports under `Category=MachineBound`; retain repeated canary evidence.
+4. Put transports that require an external CLI or service under `Category=ExternalLive` and require explicit opt-in.
 5. Run `npm run test:pre-review`, then let the complete required gate produce acceptance evidence.
 6. Raise a coverage floor only after measuring added tests; never lower it to absorb a regression.

@@ -169,7 +169,10 @@ passes its own `CliOptions` owns the choice, so derive them with
 Before this was set, every folder-level review on Windows and 23 of 124 file
 attempts above about 20 KB failed to launch in the 2026-09-28 Agent Studio
 evaluation (defect D1). `CodingAgentReviewAgentLargePromptTests` guards against a
-regression on both CI legs, ubuntu and windows. It launches the fake CLI in
+regression on both CI legs, ubuntu and windows. The 2026-10-03 QS-97 Windows
+pre-main gate intermittently failed the Codex large-prompt case under host load,
+so that case is `MachineBound` on Windows and still runs in the Linux gate. The
+Claude case continues to run in both gates. The test launches the fake CLI in
 `backend/tests/TestSupport/FakeCodingAgentCli` as `claude` and as `codex` with a
 100 KiB multi-line prompt. The fake takes its dialect from its file name, as the
 real CLIs do, so the test runs a copy named `claude[.exe]` or `codex[.exe]`; the
