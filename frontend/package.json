@@ -15,6 +15,7 @@
     "browser:install": "node node_modules/playwright-core/cli.js install chromium",
     "evidence:model-picker": "node tests/model-picker-evidence.mjs",
     "evidence:syntax": "node tests/syntax-evidence.mjs evidence",
+    "evidence:metrics": "node tests/metrics-evidence.mjs evidence",
     "evidence:exact-span": "node tests/exact-span-evidence.mjs evidence",
     "evidence:security": "node tests/security-evidence.mjs evidence",
     "evidence:repository-modal": "node tests/repository-modal-evidence.mjs",

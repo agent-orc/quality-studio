@@ -177,7 +177,7 @@ A repository's sensor configuration is checked against a per-sensor allowlist on
 | --- | --- |
 | `sarif`, `roslyn`, `eslint` | `profile`, `reportPath`, `workingDirectory` |
 | `tsc` | `profile`, `reportPath`, `workingDirectory`, `producerVersion` |
-| `coverage` | `reportPaths` |
+| `coverage` | `reportPaths`, `profile`, `target`, `workingDirectory` |
 | `dependencies` | `ecosystems` |
 | `dotnet-build` | `target` |
 | `gitleaks` | `mode`, `range`, `configPath`, `baselinePath` |
@@ -188,6 +188,27 @@ for every identity, registrars included, unless the host sets
 `400 Unsupported sensor configuration key`, and a `profile` the host does not offer is
 `400 Unknown analyzer profile`. The host-owned profiles are described in
 [`deployment.md`](deployment.md#analyzer-profiles).
+
+### Risk, complexity and directory projections
+
+`GET /api/repos/{repoId}/risk?days=90` rows carry `complexity` for C#, TypeScript and JavaScript files
+(`null` otherwise): `cyclomatic` and `cognitive` summed over the file's functions, `maxCyclomatic`,
+`maxCognitive`, `functions`, the 0–100 `pressure` that enters `riskScore`, and the three most complex
+functions as `hotspots`. `GET /api/repos/{repoId}/complexity?path=<file>` lists every function of one
+file with its line span; any other file type is `400`. The metrics and the score are defined in
+[`coverage-and-risk.md`](coverage-and-risk.md).
+
+In the tree, a container's `kinds.<kind>.projection` is present when the container has no grade of its
+own but some descendant files do:
+
+```json
+"code": { "direct": "missing", "score": null, "band": null,
+  "projection": { "score": 79, "band": "C", "gradedFiles": 40, "files": 199, "weightedLines": 13337,
+                  "basis": "size-weighted-file-grades" } }
+```
+
+It is the line-weighted mean of those files' grades — a projection, not a review. It disappears as soon
+as an aggregate review grades the container ([`hierarchy-aggregation.md`](hierarchy-aggregation.md)).
 
 ### Unavailable repositories
 

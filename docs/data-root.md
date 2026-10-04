@@ -58,6 +58,7 @@ Inside a project directory the layout is the one the `.quality` folder used to h
   reviews/<mirrored subject directory>/<lane>/<level>.<hash>.review-meta.<kind>.json
   boundaries/inventory.json
   coverage/coverage.json
+  coverage/produced/<profile>/<run-id>/…   (reports retained per coverage producer run)
   changes/<commit>.json
   flows/<hash>.flow-review.json
   runs/<run-id>/…

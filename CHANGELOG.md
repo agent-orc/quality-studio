@@ -24,6 +24,20 @@ predicted USD 56.59 for a USD 10.61 run (defects D5-D6).
   carries its `basis` (`history` or `prompt-size`) and cache classes, and the preflight sheet shows
   the basis.
 
+### Added — metrics beyond grades: coverage producer and complexity (QS-115)
+
+- **Coverage producer.** The `coverage` sensor can run a host-owned, time-boxed profile before it
+  ingests: `dotnet-test-coverage` (`dotnet test --collect "Code Coverage;Format=cobertura"`, 900 s),
+  `vitest-frontend-coverage` and `vitest-root-coverage` (600 s). Opt-in per repository through
+  `configuration.profile`; each run writes to `coverage/produced/<profile>/<run-id>/` in the data root, never the
+  checkout. A failed producer keeps the last snapshot. Analyzer profiles gained `timeoutSeconds`.
+- **Complexity.** Cyclomatic and cognitive complexity per function and file for C# (Roslyn syntax) and
+  TypeScript/JavaScript, in every risk row (`complexity`), in a new `GET /api/repos/{repoId}/complexity`
+  route, and as a sortable column of the risk view. It feeds the risk score as a 20 % component; files
+  without a measurement keep the earlier weights.
+- **Directory grade projection.** A directory without its own review shows the line-weighted mean of
+  its files' grades, labelled `projection` (`≈C · 79`), with how many of its files it rests on.
+
 ### Changed — keep host-dependent tests out of the Windows pre-main gate (QS-120)
 
 The 15-second boundary inventory scale budget is `MachineBound`, matching the
