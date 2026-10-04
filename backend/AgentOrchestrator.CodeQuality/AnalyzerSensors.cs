@@ -249,7 +249,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
                     root, target, reportPath, workingDirectory))
                 .ToArray();
         }
-        catch (ArgumentException exception)
+        catch (Exception exception) when (
+            exception is ArgumentException or IOException or UnauthorizedAccessException)
         {
             return Unavailable(request, exception.Message);
         }

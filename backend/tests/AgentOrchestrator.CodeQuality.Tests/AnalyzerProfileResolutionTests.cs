@@ -421,6 +421,38 @@ public sealed class AnalyzerProfileResolutionTests
     }
 
     [Fact]
+    public async Task Tsc_reports_an_unreadable_referenced_config_as_unavailable()
+    {
+        var root = CreateRepository("frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"),
+                """{ "files": [], "references": [{ "path": "./tsconfig.lib.json" }] }""");
+            var referenced = Path.Combine(root, "frontend", "tsconfig.lib.json");
+            File.WriteAllText(referenced, """{ "include": ["lib/**/*.ts"] }""");
+            using var locked = new FileStream(referenced, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            var runner = new CallbackRunner((_, _, _) => throw new InvalidOperationException("must not run"));
+            var sensor = new TypeScriptAnalyzerSensor(runner);
+
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+            var probe = await sensor.ProbeAvailabilityAsync(
+                root, Profile("tsc-frontend"), TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.NotNull(result.UnavailableReason);
+            Assert.Empty(result.Findings);
+            Assert.False(probe.Available);
+            Assert.NotNull(probe.UnavailableReason);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
     public void Tsc_reports_the_project_count_limit_instead_of_omitting_projects()
     {
         var root = CreateRepository();
