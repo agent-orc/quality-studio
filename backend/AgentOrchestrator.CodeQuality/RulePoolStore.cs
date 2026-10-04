@@ -306,7 +306,11 @@ public sealed class RulePoolStore
                 throw new RulePoolValidationException("The rule set is invalid.", diagnostics);
             }
 
-            var currentOverrides = mode == "replace" && current.Overrides is not null && !TryReadOverrideList(current, out _)
+            var unreadableOverrideFile = current.ReadErrors.Any(diagnostic =>
+                diagnostic.Source == current.Display(RuleScopeSources.OverridesFileName));
+            var repairOverrides = mode == "replace" &&
+                (unreadableOverrideFile || current.Overrides is not null && !TryReadOverrideList(current, out _));
+            var currentOverrides = repairOverrides
                 ? []
                 : ReadOverrideList(current);
             var nextOverrides = mode == "replace"
@@ -334,9 +338,15 @@ public sealed class RulePoolStore
                 CustomRules = nextRules,
                 Packs = nextPacks,
                 Applicability = nextApplicability,
+                ReadErrors = repairOverrides
+                    ? current.ReadErrors.Where(diagnostic =>
+                        diagnostic.Source != current.Display(RuleScopeSources.OverridesFileName)).ToArray()
+                    : current.ReadErrors,
             };
 
             var changes = PlanChanges(current, next, currentOverrides, nextOverrides);
+            if (unreadableOverrideFile && mode == "replace" && next.Overrides is null)
+                changes.Add(new RuleImportChange("override", RuleScopeSources.OverridesFileName, "removed"));
             var candidate = sources.With(next);
             var introduced = Introduced(scope, sources, candidate, out var catalogue);
             if (introduced.Count > 0)
@@ -344,10 +354,10 @@ public sealed class RulePoolStore
                 if (dryRun) return new RuleImportResult(false, false, modified, changes, introduced, catalogue);
                 throw new RulePoolValidationException("The rule set would make the rule pool invalid.", introduced);
             }
-            if (dryRun || Same(current, next))
+            if (dryRun || Same(current, next) && !repairOverrides)
                 return new RuleImportResult(true, false, modified, changes, [], catalogue);
 
-            Write(current, next);
+            Write(current, next, removeUnreadableOverrides: repairOverrides && unreadableOverrideFile);
             AppendAudit(scope, actor, "rule-set.import", string.IsNullOrWhiteSpace(set.Name) ? "rule set" : set.Name.Trim(), why,
                 null, new JsonObject
                 {
@@ -459,7 +469,7 @@ public sealed class RulePoolStore
         return introduced;
     }
 
-    private void Write(RuleScopeSources current, RuleScopeSources next)
+    private void Write(RuleScopeSources current, RuleScopeSources next, bool removeUnreadableOverrides = false)
     {
         var directory = next.Directory;
         void Put(string relative, string? before, string? after)
@@ -475,7 +485,10 @@ public sealed class RulePoolStore
                 AtomicFile.WriteAllText(path, after);
             }
         }
-        Put(RuleScopeSources.OverridesFileName, current.Overrides, next.Overrides);
+        if (removeUnreadableOverrides && next.Overrides is null)
+            File.Delete(Path.Combine(directory, RuleScopeSources.OverridesFileName));
+        else
+            Put(RuleScopeSources.OverridesFileName, current.Overrides, next.Overrides);
         Put(RuleScopeSources.ApplicabilityFileName, current.Applicability, next.Applicability);
         foreach (var (folder, before, after) in new[]
                  {

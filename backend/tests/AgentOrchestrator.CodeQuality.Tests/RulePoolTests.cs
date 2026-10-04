@@ -513,6 +513,46 @@ public sealed class RulePoolTests : IDisposable
         Assert.Equal("rule-set.import", Assert.Single(store.ReadAudit(RuleScopes.Project)).Action);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Replace_import_repairs_linked_or_oversized_overrides(bool linked)
+    {
+        var path = Path.Combine(ProjectRules, "overrides.json");
+        var outside = Path.Combine(root, "outside-overrides.json");
+        if (linked)
+        {
+            Write(root, "outside-overrides.json", "outside content");
+            Directory.CreateDirectory(ProjectRules);
+            File.CreateSymbolicLink(path, outside);
+        }
+        else
+        {
+            Write(ProjectRules, "overrides.json", new string('x', RuleScopeSources.MaxConfigurationBytes + 1));
+        }
+
+        var store = Store();
+        var empty = new RuleSetDocument(RuleSetDocument.SchemaId, 1, "empty", null, null, null, null,
+            null, [], [], []);
+        Assert.False(store.Inspect().IsValid);
+
+        var preview = store.Import(RuleScopes.Project, empty, "replace", dryRun: true, "", "operator");
+        Assert.True(preview.Valid);
+        Assert.False(preview.Applied);
+        Assert.True(preview.Catalogue.IsValid);
+        Assert.Contains(new RuleImportChange("override", "overrides.json", "removed"), preview.Changes);
+        Assert.True(new FileInfo(path).Exists || new FileInfo(path).LinkTarget is not null);
+
+        var imported = store.Import(RuleScopes.Project, empty, "replace", dryRun: false, "Repair overrides.", "operator");
+
+        Assert.True(imported.Applied);
+        Assert.False(new FileInfo(path).Exists);
+        Assert.Null(new FileInfo(path).LinkTarget);
+        if (linked) Assert.Equal("outside content", File.ReadAllText(outside));
+        Assert.True(store.Inspect().IsValid);
+        Assert.Equal("rule-set.import", Assert.Single(store.ReadAudit(RuleScopes.Project)).Action);
+    }
+
     [Fact]
     public void An_invalid_rule_set_is_reported_by_a_dry_run_and_rejected_on_apply()
     {
