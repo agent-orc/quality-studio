@@ -345,8 +345,9 @@ internal sealed class ReviewerContextObservation
                     throw new JsonException("Claude nested-memory attachment has no path.");
                 _loaded.Add(Describe(nested.GetString()!, workingDirectory));
                 break;
-            case "skill_listing" when attachment.TryGetProperty("content", out var listing) &&
-                                      listing.ValueKind == JsonValueKind.String:
+            case "skill_listing":
+                if (!attachment.TryGetProperty("content", out var listing) || listing.ValueKind != JsonValueKind.String)
+                    throw new JsonException("Claude skill-listing attachment has no string content.");
                 foreach (var entry in listing.GetString()!.Split('\n'))
                     if (entry.StartsWith("- ", StringComparison.Ordinal) && entry.IndexOf(':') is > 2 and var colon)
                         _skills.Add(entry[2..colon]);

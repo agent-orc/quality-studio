@@ -82,6 +82,8 @@ Every review run gets three layers. None is optional and none depends on the oth
    array establishes that the attachment reports no instruction files.
    A Claude `nested_memory` attachment must also have a nonempty string `path`; a missing or
    invalid path leaves the run unobserved.
+   A Claude `skill_listing` attachment must have string `content`; missing or non-string content
+   leaves the run unobserved. An explicit empty string reports no listed skills.
    Interior blank or whitespace-only lines are malformed; a single trailing newline adds no line.
    The required system-prompt record is `prompt_snapshot` / `session_meta.base_instructions`.
    A malformed line could have hidden an `instructions` attachment, and a record without the
@@ -151,7 +153,9 @@ a `SessionStart` hook in `.claude/settings.json`, `sub/CLAUDE.md`, `AGENTS.md`, 
   `Observation_AMalformedOrIncompleteRecordIsNotObserved` (malformed lines, a malformed line among
   valid ones, or no system-prompt record), `Observation_RefusesBlankOrWhitespaceLineBetweenValidRecords`
   (blank and whitespace-only lines for Claude and Codex), `Observation_AcceptsSingleTrailingNewline`,
-  `Observation_RefusesIncompleteClaudeNestedMemoryAttachment`, and
+  `Observation_RefusesIncompleteClaudeNestedMemoryAttachment`,
+  `Observation_RefusesIncompleteClaudeSkillListingAttachment`,
+  `Observation_AcceptsClaudeSkillListingWithExplicitEmptyContent`, and
   `IsolationViolation_RefusesAnObservedRunWithoutASystemPromptSize`.
 - `ReviewerIsolationProcessTests` (`Category=ToolBound`, same folder), driving the real runner,
   spawner and review pipeline with a published fake `claude` that models the CLI's context assembly

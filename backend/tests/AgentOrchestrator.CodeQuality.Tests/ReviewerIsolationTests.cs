@@ -303,6 +303,69 @@ public sealed class ReviewerIsolationTests
         }
     }
 
+    [Theory]
+    [InlineData("missing-content")]
+    [InlineData("null-content")]
+    [InlineData("number-content")]
+    [InlineData("array-content")]
+    public void Observation_RefusesIncompleteClaudeSkillListingAttachment(string shape)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var listing = new JsonObject { ["type"] = "skill_listing" };
+            switch (shape)
+            {
+                case "null-content": listing["content"] = null; break;
+                case "number-content": listing["content"] = 42; break;
+                case "array-content": listing["content"] = new JsonArray(); break;
+            }
+            ReviewerIsolationFixture.Write(home, "projects/-repo/session-1.jsonl", string.Join('\n',
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") }),
+                ReviewerIsolationFixture.Attachment(listing)));
+            var observation = new ReviewerContextObservation();
+            observation.ObserveClaudeInitFrame("""{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""");
+
+            observation.ReadSessionRecord(CliTypes.Claude, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+            Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null,
+                new ReviewerContext("clean", "excluded", observation.Observed, observation.LoadedInstructionFiles,
+                    [], observation.Skills, observation.McpServers, observation.SystemPromptCharacters, 20)));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    [Fact]
+    public void Observation_AcceptsClaudeSkillListingWithExplicitEmptyContent()
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            ReviewerIsolationFixture.Write(home, "projects/-repo/session-1.jsonl", string.Join('\n',
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") }),
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "skill_listing", ["content"] = "" })));
+            var observation = new ReviewerContextObservation();
+            observation.ObserveClaudeInitFrame("""{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""");
+
+            observation.ReadSessionRecord(CliTypes.Claude, home, "session-1", repository);
+
+            Assert.True(observation.Observed);
+            Assert.Empty(observation.Skills);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
     [Fact]
     public void Observation_ReadsWhatCodexLoadedFromItsRollout()
     {
