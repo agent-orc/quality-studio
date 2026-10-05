@@ -473,6 +473,16 @@ public sealed class RulePoolStore
     private void Write(RuleScopeSources current, RuleScopeSources next, bool removeUnreadableOverrides = false)
     {
         var directory = next.Directory;
+        // A linked folder is only reported by the reader, so a change that adds no new diagnostic
+        // would still pass validation; refuse it here before any file is touched outside the scope.
+        foreach (var folder in new[] { "", RuleScopeSources.CustomDirectoryName, RuleScopeSources.PacksDirectoryName })
+        {
+            if (new DirectoryInfo(Path.Combine(directory, folder)).LinkTarget is null) continue;
+            var source = next.Display(folder.Length == 0 ? "" : folder + "/");
+            throw new RulePoolValidationException($"{source} is a symbolic link; the rule pool is not written through it.",
+                [new RuleDiagnostic(next.Scope, source, null,
+                    "is a symbolic link; rule-pool configuration must be stored in a regular directory.")]);
+        }
         void Put(string relative, string? before, string? after)
         {
             if (string.Equals(before, after, StringComparison.Ordinal)) return;

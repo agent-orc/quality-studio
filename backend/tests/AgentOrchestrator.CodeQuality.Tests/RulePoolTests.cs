@@ -242,6 +242,44 @@ public sealed class RulePoolTests : IDisposable
         Assert.Throws<RuleConfigurationException>(() => Resolver().Resolve(Repository));
     }
 
+    [Theory]
+    [InlineData("", "custom")]
+    [InlineData("custom", "custom")]
+    [InlineData("packs", "packs")]
+    [InlineData("custom", "import")]
+    public void Writes_never_follow_a_linked_rule_folder(string linkedFolder, string write)
+    {
+        var target = Path.Combine(root, "outside");
+        Directory.CreateDirectory(target);
+        Directory.CreateDirectory(Path.GetDirectoryName(ProjectRules)!);
+        if (linkedFolder.Length > 0) Directory.CreateDirectory(ProjectRules);
+        Directory.CreateSymbolicLink(Path.Combine(ProjectRules, linkedFolder), target);
+        var store = Store();
+
+        var exception = Assert.Throws<RulePoolValidationException>(() =>
+        {
+            switch (write)
+            {
+                case "custom":
+                    store.PutCustomRule(RuleScopes.Project, "ACME-CS-001", CustomRule(), "Ours.", "operator");
+                    break;
+                case "packs":
+                    store.PutPack(RuleScopes.Project, "acme", new RulePackDocument(null, 1, "acme", "1.0.0", "ACME", "Ours.", [],
+                        [new RulePackSelector(Kinds: ["security"])]), "Our pack.", "operator");
+                    break;
+                default:
+                    var rule = RuleMarkdown.ParseCustom(CustomRule(), "ACME-CS-001.md", new List<string>());
+                    store.Import(RuleScopes.Project, new RuleSetDocument(RuleSetDocument.SchemaId, 1, "linked", null, null, null, null,
+                        null, [], [rule!], []), "merge", dryRun: false, "Ours.", "operator");
+                    break;
+            }
+        });
+
+        Assert.Contains(exception.Diagnostics, diagnostic => diagnostic.Message.Contains("symbolic link", StringComparison.Ordinal));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target, "*", SearchOption.AllDirectories));
+        Assert.Empty(store.ReadAudit(RuleScopes.Project));
+    }
+
     [Fact]
     public void The_source_state_changes_when_a_global_rule_file_changes()
     {
