@@ -6,14 +6,14 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class UsageLedgerTests
 {
     // JsonSchema.Net registers each schema's $id globally and refuses a second registration, so
-    // the v3 schema is parsed once for every validation in this class.
-    private static readonly Lazy<JsonSchema> LedgerV3Schema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "usage-ledger.v3.schema.json"))));
+    // the current schema is parsed once for every validation in this class.
+    private static readonly Lazy<JsonSchema> LedgerSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
+        RepositoryTestContext.FindRepositoryRoot(), "schemas", "usage-ledger.v4.schema.json"))));
 
     [Fact]
-    public async Task V3EntriesAttributeEveryOperationToAModelSourceAndCarryTheirCost()
+    public async Task CurrentEntriesAttributeEveryOperationToAModelSourceAndCarryTheirCost()
     {
-        var root = Directory.CreateTempSubdirectory("quality-studio-usage-v3-");
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-v4-");
         try
         {
             var timestamp = new DateTimeOffset(2026, 9, 6, 10, 0, 0, TimeSpan.Zero);
@@ -37,10 +37,10 @@ public sealed class UsageLedgerTests
             foreach (var line in lines)
             {
                 using var json = JsonDocument.Parse(line);
-                var validation = LedgerV3Schema.Value.Evaluate(json.RootElement,
+                var validation = LedgerSchema.Value.Evaluate(json.RootElement,
                     new EvaluationOptions { OutputFormat = OutputFormat.List });
                 Assert.True(validation.IsValid, validation.ToString());
-                Assert.Equal(3, json.RootElement.GetProperty("schemaVersion").GetInt32());
+                Assert.Equal(4, json.RootElement.GetProperty("schemaVersion").GetInt32());
             }
 
             using (var first = JsonDocument.Parse(lines[0]))
@@ -56,7 +56,7 @@ public sealed class UsageLedgerTests
                 Assert.False(second.RootElement.TryGetProperty("cost", out _));
             }
 
-            // Both v3 shapes are queryable next to the older versions, and the report totals the
+            // Both shapes are queryable next to the older versions, and the report totals the
             // stored cost plus the query-time price of the entry written without one.
             var report = await UsageLedger.QueryAsync(root.FullName, timestamp.AddMinutes(-1), "code",
                 cancellationToken: TestContext.Current.CancellationToken);
@@ -126,5 +126,112 @@ public sealed class UsageLedgerTests
         var beforeLaunch = UsageLedger.EstimateCost(modelId, tokens, launch.AddTicks(-1));
         Assert.Null(beforeLaunch.Total);
         Assert.Equal("noPriceForDate", beforeLaunch.Status);
+    }
+
+    [Fact]
+    public async Task ClaudeCacheWritesAreRecordedValidatedAndPricedAtTheCacheWriteRate()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-cache-write-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 9, 29, 10, 0, 0, TimeSpan.Zero);
+            // 1M input = 100k fresh + 700k cache read + 200k cache write; 50k output.
+            var tokens = new TokenUsage(1_000_000, 50_000, 700_000, 0, 900, 200_000);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "claude-run-1", timestamp, "claude-opus-5", "claude", tokens, "code", "file", "src/a.cs",
+                "review-sweep-9", UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit,
+                UsageLedger.EstimateCost("claude-opus-5", tokens, timestamp)),
+                TestContext.Current.CancellationToken);
+
+            var line = Assert.Single(await File.ReadAllLinesAsync(
+                UsageLedger.GetLedgerPath(root.FullName, timestamp), TestContext.Current.CancellationToken));
+            using var json = JsonDocument.Parse(line);
+            var validation = LedgerSchema.Value.Evaluate(json.RootElement,
+                new EvaluationOptions { OutputFormat = OutputFormat.List });
+            Assert.True(validation.IsValid, validation.ToString());
+            Assert.Equal(200_000, json.RootElement.GetProperty("tokens").GetProperty("cacheWriteInputTokens").GetInt64());
+
+            // 0.1M fresh at 5.00 + 0.7M read at 0.50 + 0.2M write at 6.25 + 0.05M output at 25.00.
+            Assert.Equal(3.35m, json.RootElement.GetProperty("cost").GetProperty("total").GetDecimal());
+
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(1_000_000, report.InputTokens);
+            Assert.Equal(200_000, report.CacheWriteInputTokens);
+            Assert.Equal(200_000, Assert.Single(report.ByModel).CacheWriteInputTokens);
+            Assert.Equal(3.35m, report.EstimatedCost);
+            Assert.Equal(0, report.UnderPricedRuns);
+            Assert.Null(Assert.Single(report.Recent).AccountingNote);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task PreSchema4ClaudeEntriesAreNormalizedRepricedAndFlaggedAsUnderPriced()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-legacy-");
+        try
+        {
+            // The shape the 2026-09-28 sweep wrote: v3, Claude fresh input only, cache reads beside
+            // it, no cache writes, and a stored cost that clamped the cache reads to the fresh input.
+            var legacyLine = """
+                {"runId":"quality-legacy","timestamp":"2026-09-28T14:02:00+00:00","model":"claude-opus-5","cliType":"claude","tokens":{"inputTokens":1000,"outputTokens":20000,"cachedInputTokens":400000,"reasoningOutputTokens":0,"durationMs":60000},"kind":"code","level":"file","path":"src/a.cs","reviewRunId":"review-0928","schemaVersion":3,"modelSource":"explicit","cost":{"total":0.5005,"currency":"USD","status":"resolved"}}
+                """;
+            var codexLine = """
+                {"runId":"codex-legacy","timestamp":"2026-09-28T14:05:00+00:00","model":"gpt-5.6-luna","cliType":"codex","tokens":{"inputTokens":100000,"outputTokens":1000,"cachedInputTokens":50000,"reasoningOutputTokens":0,"durationMs":6000},"kind":"code","level":"file","path":"src/b.cs","reviewRunId":"review-0928","schemaVersion":3,"modelSource":"explicit"}
+                """;
+            var timestamp = new DateTimeOffset(2026, 9, 28, 14, 0, 0, TimeSpan.Zero);
+            var path = UsageLedger.GetLedgerPath(root.FullName, timestamp);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllTextAsync(path, legacyLine.Trim() + "\n" + codexLine.Trim() + "\n",
+                TestContext.Current.CancellationToken);
+
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            var claude = Assert.Single(report.Recent, entry => entry.CliType == "claude");
+            // Cache reads join the input so the history counts all input the model processed.
+            Assert.Equal(401_000, claude.Tokens.InputTokens);
+            Assert.Null(claude.Tokens.CacheWriteInputTokens);
+            Assert.Equal(UsageLedger.UnderPricedNote, claude.AccountingNote);
+            Assert.True(UsageLedger.IsUnderPriced(claude));
+            // Repriced as 1k fresh at 5.00 + 400k read at 0.50 + 20k output at 25.00; still a lower
+            // bound because the cache writes were never captured.
+            Assert.Equal(0.705m, claude.Cost!.Total);
+
+            var codex = Assert.Single(report.Recent, entry => entry.CliType == "codex");
+            Assert.Equal(100_000, codex.Tokens.InputTokens);
+            Assert.Null(codex.AccountingNote);
+            Assert.False(UsageLedger.IsUnderPriced(codex));
+
+            Assert.Equal(1, report.UnderPricedRuns);
+            Assert.Equal(501_000, report.InputTokens);
+            // The file itself is append-only history and stays untouched.
+            Assert.Contains("\"inputTokens\":1000,", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public void PricingUsageSplitsAllInputIntoFreshCacheReadAndCacheWrite()
+    {
+        var split = UsageLedger.ToPricingUsage(new TokenUsage(1_000, 50, 600, 0, 0, 300));
+        Assert.Equal(100, split.Input);
+        Assert.Equal(600, split.CacheRead);
+        Assert.Equal(300, split.CacheWrite);
+        Assert.Equal(50, split.Output);
+
+        // Inconsistent counts never go negative or price more input than was recorded.
+        var clamped = UsageLedger.ToPricingUsage(new TokenUsage(500, null, 400, null, 0, 400));
+        Assert.Equal(0, clamped.Input);
+        Assert.Equal(400, clamped.CacheRead);
+        Assert.Equal(100, clamped.CacheWrite);
+        Assert.Equal(0, clamped.Output);
     }
 }

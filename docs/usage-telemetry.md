@@ -17,7 +17,32 @@ In every version, `runId` is the ID returned by the CLI for one operation.
 Version 2 adds `reviewRunId`, the durable sweep/job ID shared by all file and
 aggregate operations in the review. Version 3 (written since 2026-09-06) adds
 `modelSource` and makes `reviewRunId` optional for standalone CLI reviews.
-Existing v1 and v2 lines remain valid and are never migrated or rewritten.
+Version 4 (`schemas/usage-ledger.v4.schema.json`, written since 2026-09-29)
+changes what `inputTokens` means: it counts every input token the model
+processed, including cache reads (`cachedInputTokens`) and cache writes (the new
+`cacheWriteInputTokens`, Claude's `cache_creation_input_tokens`), which are
+subsets of it. Existing v1 to v3 lines remain valid and are never migrated or
+rewritten.
+
+## Cache tokens and legacy Claude entries
+
+Claude reports fresh input, cache reads and cache writes as disjoint counts;
+Codex and Gemini report cached tokens as a subset of the input they already
+count. The runner's typed usage summary for Claude carries fresh input and cache
+reads but drops cache writes, so the review agent reads
+`usage.cache_creation_input_tokens` from the CLI's raw stream-json `result` line
+and sums the three into `inputTokens`. Pricing splits `inputTokens` back into
+fresh input, cache reads and cache writes and applies the catalogue's
+`inputPerMTok`, `cacheReadPerMTok` and `cacheWritePerMTok` to each.
+
+Before version 4, Claude entries recorded fresh input only and no cache writes,
+and their stored cost treated cache reads as a share of the fresh input. On read,
+such an entry (any `cliType` `claude` with `schemaVersion` below 4) gets cache
+reads added to its `inputTokens`, is repriced, and carries an `accountingNote`
+saying its cost is a lower bound; `GET /api/usage` counts these as
+`underPricedRuns`. This covers the 2026-09-28 agent-studio-dev sweep, which
+recorded USD 12.50 against USD 22.53 billed. The estimator ignores these entries
+because they understate input.
 
 ## Model attribution
 
@@ -56,7 +81,9 @@ history. The synchronized Token Economy price snapshot is the only price source;
 when its validity window ends, operations become unpriced until the catalog is
 synchronized again (`npm run catalog:sync`).
 
-Budgets are cost budgets, not time budgets. A review run can carry a token cap
+Budgets are cost budgets, not time budgets. Both caps count all input: the token
+cap adds input (including cache reads and writes) and output, and the cost cap
+sums each operation's cost with every token class at its catalogue rate. A review run can carry a token cap
 and a cost cap (`tokenCap`, `costCap` on the start request; the repository's
 `DefaultReviewTokenCap` applies when none is given), and the run stops with a
 recorded stop reason when either is reached. A cost cap requires a priced model;
@@ -64,6 +91,20 @@ the API refuses a cost cap for an unpriced route instead of pretending to
 enforce it. Subscription-backed CLIs whose provider meters usage in windows
 rather than per token run without a cap by design; their operations are still
 estimated and logged so the ledger stays complete.
+
+## Preflight estimates
+
+The preflight estimate learns only from ledger entries of the same CLI, model
+(or, for a runner-default route, other runner-default entries of that CLI) and
+review kind. Each planned operation is predicted as the mean input, cache read,
+cache write and output tokens of matching entries at the same level (file or
+aggregate), falling back to all matching entries when that level has none, and
+priced per catalogue. Entries of other routes are never mixed in: on 2026-09-28
+doing so predicted USD 56.59 for a USD 10.61 run. Without matching history the
+estimate falls back to the prompt size: rendered prompt characters / 4 as fresh
+input and 20% of that as output. The estimate's `basis` (`history` or
+`prompt-size`), `historySamples` and `method` say which applied, and the
+preflight sheet shows them.
 
 `GET /api/usage?since=&kind=` (and its repository-scoped equivalent) reads the
 ledger and returns totals, model/kind/day/review-run aggregates, and at most 50

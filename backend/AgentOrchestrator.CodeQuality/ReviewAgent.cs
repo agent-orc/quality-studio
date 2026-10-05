@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using CodingAgentRunner;
 using CodingAgentRunner.Abstractions;
 using CodingAgentRunner.Events;
@@ -168,6 +169,10 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _driverOverride ?? _runner!.Get(_cliType);
+        // The runner's typed usage summary carries Claude's fresh input and cache reads but drops
+        // cache_creation_input_tokens, so cache writes are read from the raw result line instead.
+        var cacheWrites = new ClaudeCacheWriteCounter(runId, UsageLedger.IsClaude(_cliType));
+        driver.OnOutput += cacheWrites.Observe;
         using var watchdog = RunWatchdog.Attach(driver, WatchdogPolicy.Default, autoStop: true);
         watchdog.OnHung += (id, phase, silenceSeconds) =>
         {
@@ -240,34 +245,93 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         }
         catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
         {
-            var canceled = BuildUsage(metrics, stopwatch);
+            var canceled = BuildUsage(metrics, stopwatch, cacheWrites);
             throw new ReviewAgentRunCanceledException(runId, canceled.Usage, canceled.Model, exception, cancellationToken);
         }
         catch (Exception exception)
         {
-            var failed = BuildUsage(metrics, stopwatch);
+            var failed = BuildUsage(metrics, stopwatch, cacheWrites);
             throw new ReviewAgentRunException(runId, failed.Usage, failed.Model, exception);
         }
         finally
         {
             if (!attachTimedOut) await enumerator.DisposeAsync().ConfigureAwait(false);
+            driver.OnOutput -= cacheWrites.Observe;
         }
 
-        var completed = BuildUsage(metrics, stopwatch);
+        var completed = BuildUsage(metrics, stopwatch, cacheWrites);
         return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,
-        System.Diagnostics.Stopwatch stopwatch)
+        System.Diagnostics.Stopwatch stopwatch, ClaudeCacheWriteCounter cacheWrites)
     {
         var snapshot = metrics.Build();
         var hasReportedUsage = snapshot.TurnCount > 0;
-        return (new TokenUsage(
-            hasReportedUsage ? snapshot.TotalInputTokens : null,
-            hasReportedUsage ? snapshot.TotalOutputTokens : null,
-            hasReportedUsage ? snapshot.TotalCachedInputTokens : null,
-            hasReportedUsage ? snapshot.TotalReasoningOutputTokens : null,
-            snapshot.TotalDurationMs is double duration ? (long)Math.Round(duration) : stopwatch.ElapsedMilliseconds),
+        return (hasReportedUsage
+                ? NormalizeReportedUsage(_cliType, snapshot.TotalInputTokens, snapshot.TotalOutputTokens,
+                    snapshot.TotalCachedInputTokens, snapshot.TotalReasoningOutputTokens, cacheWrites.Total, DurationMs())
+                : new TokenUsage(null, null, null, null, DurationMs()),
             snapshot.Model ?? Model);
+
+        long DurationMs() =>
+            snapshot.TotalDurationMs is double duration ? (long)Math.Round(duration) : stopwatch.ElapsedMilliseconds;
+    }
+
+    /// <summary>
+    /// Maps the runner's per-CLI token vocabulary onto <see cref="TokenUsage"/>, where input counts
+    /// every input token. Claude reports fresh input, cache reads and cache writes as disjoint
+    /// counts; Codex and Gemini report cached tokens as a subset of the input they already count.
+    /// </summary>
+    internal static TokenUsage NormalizeReportedUsage(string cliType, long input, long output, long cached,
+        long reasoning, long cacheWrite, long durationMs)
+    {
+        input = Math.Max(0, input);
+        cached = Math.Max(0, cached);
+        return UsageLedger.IsClaude(cliType)
+            ? new TokenUsage(input + cached + Math.Max(0, cacheWrite), output, cached, reasoning, durationMs,
+                Math.Max(0, cacheWrite))
+            : new TokenUsage(input, output, cached, reasoning, durationMs);
+    }
+}
+
+/// <summary>
+/// Sums <c>usage.cache_creation_input_tokens</c> over the Claude CLI's stream-json <c>result</c>
+/// lines of one run — the lines the runner turns into <c>TurnCompleted</c> usage summaries.
+/// </summary>
+internal sealed class ClaudeCacheWriteCounter(string runId, bool enabled)
+{
+    private long total;
+
+    public long Total => Interlocked.Read(ref total);
+
+    public void Observe(string outputRunId, CliOutputLine line)
+    {
+        if (!enabled || outputRunId != runId || line.Stream != "stdout") return;
+        if (TryReadCacheWrite(line.Text) is long tokens) Interlocked.Add(ref total, tokens);
+    }
+
+    internal static long? TryReadCacheWrite(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || !line.Contains("cache_creation_input_tokens", StringComparison.Ordinal))
+            return null;
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+            var root = document.RootElement;
+            return root.ValueKind == JsonValueKind.Object &&
+                   root.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String &&
+                   type.GetString() == "result" &&
+                   root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object &&
+                   usage.TryGetProperty("cache_creation_input_tokens", out var value) &&
+                   value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var tokens) &&
+                   tokens >= 0
+                ? tokens
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

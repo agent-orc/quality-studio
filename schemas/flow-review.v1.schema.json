@@ -175,6 +175,7 @@
         "inputTokens": { "type": "integer", "minimum": 0 },
         "outputTokens": { "type": "integer", "minimum": 0 },
         "cachedInputTokens": { "type": "integer", "minimum": 0 },
+        "cacheWriteInputTokens": { "type": "integer", "minimum": 0, "description": "Cache-write input tokens (Claude cache_creation_input_tokens); a subset of inputTokens, which counts all input." },
         "reasoningOutputTokens": { "type": "integer", "minimum": 0 },
         "durationMs": { "type": "integer", "minimum": 0 }
       }

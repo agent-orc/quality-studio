@@ -28,6 +28,27 @@ Analyzer ids map to named rules through `deterministicRuleIds` (rule library 1.6
 Roslyn, compiler, ESLint and Angular compiler ids that check them, and two opt-in family rules own
 `CS*`/`CA*`/`IDE*` (QS-CS-013) and `TS*` (QS-NG-014). A linked finding reaches the review agent with
 `catalogueRuleIds`, so one rule is enforced by the analyzer and explained by the agent.
+
+### Fixed — Claude usage accounting, caps and cost estimates (QS-110)
+
+The ledger dropped Claude's `cache_creation_input_tokens` and priced Claude's cache reads as if
+they were a share of the fresh input, so the 2026-09-28 agent-studio-dev sweep recorded USD 12.50
+against USD 22.53 billed, token and cost caps saw only part of the input, and the preflight
+predicted USD 56.59 for a USD 10.61 run (defects D5-D6).
+
+- The review agent reads cache-write tokens from the Claude CLI's raw `result` line (the runner's
+  usage summary drops them). `inputTokens` now counts every input token — fresh, cache read and
+  cache write — with `cachedInputTokens` and the new `cacheWriteInputTokens` as subsets, each priced
+  at its catalogue rate. Token caps and cost caps therefore count all input.
+- Usage ledger schema 4 (`schemas/usage-ledger.v4.schema.json`). Earlier entries are not rewritten:
+  pre-schema-4 Claude entries are normalized and repriced on read and flagged with an
+  `accountingNote` as under-priced (their cache writes were never captured); `GET /api/usage`
+  reports `underPricedRuns` and `cacheWriteInputTokens`, and the usage history shows both.
+- The preflight estimate learns only from recorded operations of the same CLI, model and review
+  kind, per level; without such history it falls back to the rendered prompt size. The estimate
+  carries its `basis` (`history` or `prompt-size`) and cache classes, and the preflight sheet shows
+  the basis.
+
 ### Added — metrics beyond grades: coverage producer and complexity (QS-115)
 
 - **Coverage producer.** The `coverage` sensor can run a host-owned, time-boxed profile before it
