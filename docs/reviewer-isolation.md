@@ -73,10 +73,18 @@ Every review run gets three layers. None is optional and none depends on the oth
    A run that loaded any instruction file, advertised any skill, wired any MCP server, whose
    clean home could not be created, or whose transcript / rollout was not observed
    (`observed: false`) is refused with `ReviewerIsolationException` (wrapped in
-   `ReviewAgentRunException`). A record is observed only when it was found and read to the end,
-   every line is a JSON object, it holds the system-prompt record every run writes, and a Claude
-   `system/init` frame explicitly reports both `skills` and `mcp_servers` as arrays. Missing or
-   malformed init fields leave the run unobserved; empty arrays establish that none were loaded.
+   `ReviewAgentRunException`). A record is observed only when it is the session's only record
+   (two matching transcripts / rollouts leave the run unobserved), it was read to the end without
+   any error, every line is a JSON object with the shape below, it holds the system-prompt record
+   every run writes, and a Claude `system/init` frame explicitly reports both `skills` and
+   `mcp_servers` as arrays. Missing or malformed init fields leave the run unobserved, and so does
+   a malformed init frame next to a valid one (including a stdout line mentioning `"init"` that
+   does not parse); empty arrays establish that none were loaded.
+   Every Claude transcript record has a string `type`. A record of type `attachment`, and any
+   record carrying an `attachment` field, must have an object attachment with a nonempty string
+   `type`; otherwise the run is unobserved, because the record could have been an instructions
+   attachment. Attachment types other than the four below are not interpreted.
+   Every `prompt_snapshot` must have a string or string-array `systemPrompt`.
    A Claude `instructions` attachment must have a `files` array whose entries each have a
    nonempty string `path`; an incomplete attachment leaves the run unobserved. An explicit empty
    array establishes that the attachment reports no instruction files.
@@ -84,6 +92,13 @@ Every review run gets three layers. None is optional and none depends on the oth
    invalid path leaves the run unobserved.
    A Claude `skill_listing` attachment must have string `content`; missing or non-string content
    leaves the run unobserved. An explicit empty string reports no listed skills.
+   Every Codex rollout record has a string `type` and an object `payload`. A non-null
+   `session_meta.base_instructions` must have string `text`; a `payload.state` must be an object,
+   and its `agents_md` an object that is either empty (no `AGENTS.md` loaded, as Codex 0.155 writes
+   it) or has string `text` and an optional string `directory`. Anything else leaves the run
+   unobserved.
+   These shapes match every record of 500 Claude Code 2.1.281 transcripts and 100 Codex rollouts
+   checked on the runner on 2026-10-05.
    Interior blank or whitespace-only lines are malformed; a single trailing newline adds no line.
    The required system-prompt record is `prompt_snapshot` / `session_meta.base_instructions`.
    A malformed line could have hidden an `instructions` attachment, and a record without the

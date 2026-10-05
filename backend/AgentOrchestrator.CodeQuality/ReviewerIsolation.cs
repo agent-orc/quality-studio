@@ -244,6 +244,7 @@ internal sealed class ReviewerContextObservation
     private readonly SortedSet<string> _skills = new(StringComparer.Ordinal);
     private readonly SortedSet<string> _mcpServers = new(StringComparer.Ordinal);
     private bool _claudeInitObserved;
+    private bool _claudeInitMalformed;
 
     public bool Observed { get; private set; }
     public IReadOnlyList<string> LoadedInstructionFiles => _loaded.Distinct(StringComparer.Ordinal).ToArray();
@@ -251,7 +252,11 @@ internal sealed class ReviewerContextObservation
     public IReadOnlyList<string> McpServers => _mcpServers.ToArray();
     public int? SystemPromptCharacters { get; private set; }
 
-    /// <summary>Claude's stream-json <c>system/init</c> frame names the skills and MCP servers.</summary>
+    /// <summary>
+    /// Claude's stream-json <c>system/init</c> frame names the skills and MCP servers. A frame that
+    /// mentions <c>init</c> but does not parse, or an init frame without both arrays, could have
+    /// reported either, so it leaves the run unobserved even next to a valid frame.
+    /// </summary>
     public void ObserveClaudeInitFrame(string line)
     {
         if (!line.Contains("\"init\"", StringComparison.Ordinal)) return;
@@ -263,18 +268,20 @@ internal sealed class ReviewerContextObservation
                 !IsString(root, "type", "system") || !IsString(root, "subtype", "init")) return;
             if (!root.TryGetProperty("skills", out var skills) || skills.ValueKind != JsonValueKind.Array ||
                 !root.TryGetProperty("mcp_servers", out var servers) || servers.ValueKind != JsonValueKind.Array)
-                return;
+                throw new JsonException("Claude init frame has no skills or mcp_servers array.");
             var skillNames = new List<string>();
             foreach (var skill in skills.EnumerateArray())
             {
-                if (skill.ValueKind != JsonValueKind.String) return;
+                if (skill.ValueKind != JsonValueKind.String)
+                    throw new JsonException("Claude init frame has a skill that is not a string.");
                 skillNames.Add(skill.GetString()!);
             }
             var serverNames = new List<string>();
             foreach (var server in servers.EnumerateArray())
             {
                 if (server.ValueKind != JsonValueKind.Object || !server.TryGetProperty("name", out var name) ||
-                    name.ValueKind != JsonValueKind.String) return;
+                    name.ValueKind != JsonValueKind.String)
+                    throw new JsonException("Claude init frame has an MCP server without a name.");
                 serverNames.Add(name.GetString()!);
             }
             foreach (var skill in skillNames) _skills.Add(skill);
@@ -283,15 +290,19 @@ internal sealed class ReviewerContextObservation
         }
         catch (JsonException)
         {
+            _claudeInitMalformed = true;
         }
     }
 
     /// <summary>
     /// Reads the CLI's session record from <paramref name="home"/>; a no-op when it is absent. The
-    /// record counts as observed only when every line is a JSON object, it holds the system-prompt
-    /// record every run writes, and Claude's init frame established skills and MCP server values:
-    /// a malformed line could have hidden an instructions attachment, and a record without the
-    /// system prompt or init context cannot establish what the CLI loaded.
+    /// record counts as observed only when it is the only record of the session, every line is a
+    /// JSON object with the shape the CLI writes (see <see cref="ReadClaudeTranscriptRecord"/> and
+    /// <see cref="ReadCodexRolloutRecord"/>), it holds the system-prompt record every run writes,
+    /// and Claude's init frames established skills and MCP server values: a malformed line could
+    /// have hidden an instructions attachment, and a record without the system prompt or init
+    /// context cannot establish what the CLI loaded. Anything that stops the record being read to
+    /// the end leaves the run unobserved; nothing escapes to the runner's event handler.
     /// </summary>
     public void ReadSessionRecord(string cliType, string? home, string? sessionId, string workingDirectory)
     {
@@ -313,18 +324,30 @@ internal sealed class ReviewerContextObservation
                 else ReadCodexRolloutRecord(document.RootElement, workingDirectory);
             }
             Observed = SystemPromptCharacters is not null &&
-                (cliType != CliTypes.Claude || _claudeInitObserved);
+                (cliType != CliTypes.Claude || _claudeInitObserved && !_claudeInitMalformed);
         }
-        catch (Exception exception) when (exception is IOException or JsonException)
+        catch (Exception)
         {
+            // Fail closed: whatever could not be read may have been an instruction-loading record.
         }
     }
 
+    /// <summary>
+    /// Every transcript record has a string <c>type</c>; an <c>attachment</c> record, and any record
+    /// that carries an <c>attachment</c>, has an object attachment with a nonempty string
+    /// <c>type</c>. Attachment types that load instructions, list skills or snapshot the system
+    /// prompt must be complete; other types are not interpreted.
+    /// </summary>
     private void ReadClaudeTranscriptRecord(JsonElement root, string workingDirectory)
     {
-        if (!root.TryGetProperty("attachment", out var attachment) ||
-            attachment.ValueKind != JsonValueKind.Object ||
-            !attachment.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String) return;
+        if (!root.TryGetProperty("type", out var recordType) || recordType.ValueKind != JsonValueKind.String)
+            throw new JsonException("Claude transcript record has no string type.");
+        var hasAttachment = root.TryGetProperty("attachment", out var attachment);
+        if (!hasAttachment && recordType.GetString() != "attachment") return;
+        if (!hasAttachment || attachment.ValueKind != JsonValueKind.Object ||
+            !attachment.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String ||
+            string.IsNullOrEmpty(type.GetString()))
+            throw new JsonException("Claude attachment record has no attachment object with a string type.");
         switch (type.GetString())
         {
             case "instructions":
@@ -352,37 +375,57 @@ internal sealed class ReviewerContextObservation
                     if (entry.StartsWith("- ", StringComparison.Ordinal) && entry.IndexOf(':') is > 2 and var colon)
                         _skills.Add(entry[2..colon]);
                 break;
-            case "prompt_snapshot" when SystemPromptCharacters is null &&
-                                        attachment.TryGetProperty("systemPrompt", out var prompt):
-                SystemPromptCharacters = prompt.ValueKind switch
+            case "prompt_snapshot":
+                var characters = attachment.TryGetProperty("systemPrompt", out var prompt) ? prompt.ValueKind switch
                 {
-                    JsonValueKind.Array => prompt.EnumerateArray()
-                        .Where(part => part.ValueKind == JsonValueKind.String).Sum(part => part.GetString()!.Length),
+                    JsonValueKind.Array when prompt.EnumerateArray().All(part => part.ValueKind == JsonValueKind.String) =>
+                        prompt.EnumerateArray().Sum(part => part.GetString()!.Length),
                     JsonValueKind.String => prompt.GetString()!.Length,
-                    _ => null,
-                };
+                    _ => (int?)null,
+                } : null;
+                if (characters is null)
+                    throw new JsonException("Claude prompt snapshot has no string or string-array systemPrompt.");
+                SystemPromptCharacters ??= characters;
                 break;
         }
     }
 
+    /// <summary>
+    /// Every rollout record has a string <c>type</c> and an object <c>payload</c>. A
+    /// non-null <c>base_instructions</c> must carry string <c>text</c>; a <c>state</c> that is
+    /// present must be an object, and its <c>agents_md</c> an object — empty when no AGENTS.md was
+    /// loaded, otherwise with string <c>text</c> and an optional string <c>directory</c>.
+    /// </summary>
     private void ReadCodexRolloutRecord(JsonElement root, string workingDirectory)
     {
-        if (!root.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object) return;
-        if (IsString(root, "type", "session_meta") && SystemPromptCharacters is null &&
+        if (!root.TryGetProperty("type", out var recordType) || recordType.ValueKind != JsonValueKind.String ||
+            !root.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object)
+            throw new JsonException("Codex rollout record has no string type and object payload.");
+        if (recordType.GetString() == "session_meta" &&
             payload.TryGetProperty("base_instructions", out var instructions) &&
-            instructions.ValueKind == JsonValueKind.Object &&
-            instructions.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
-            SystemPromptCharacters = text.GetString()!.Length;
-        if (payload.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.Object &&
-            state.TryGetProperty("agents_md", out var agents) && agents.ValueKind == JsonValueKind.Object &&
-            agents.TryGetProperty("text", out var agentsText) && agentsText.ValueKind == JsonValueKind.String &&
-            agentsText.GetString()!.Length > 0)
+            instructions.ValueKind != JsonValueKind.Null)
         {
-            _loaded.Add(agents.TryGetProperty("directory", out var directory) &&
-                        directory.ValueKind == JsonValueKind.String
-                ? Describe(Path.Combine(directory.GetString()!, "AGENTS.md"), workingDirectory)
-                : "external:AGENTS.md");
+            if (instructions.ValueKind != JsonValueKind.Object ||
+                !instructions.TryGetProperty("text", out var text) || text.ValueKind != JsonValueKind.String)
+                throw new JsonException("Codex session_meta base_instructions has no string text.");
+            SystemPromptCharacters ??= text.GetString()!.Length;
         }
+        if (!payload.TryGetProperty("state", out var state)) return;
+        if (state.ValueKind != JsonValueKind.Object)
+            throw new JsonException("Codex rollout state is not an object.");
+        if (!state.TryGetProperty("agents_md", out var agents)) return;
+        if (agents.ValueKind != JsonValueKind.Object)
+            throw new JsonException("Codex agents_md is not an object.");
+        var hasText = agents.TryGetProperty("text", out var agentsText);
+        var hasDirectory = agents.TryGetProperty("directory", out var directory);
+        if (!hasText && !hasDirectory) return;
+        if (!hasText || agentsText.ValueKind != JsonValueKind.String ||
+            hasDirectory && directory.ValueKind != JsonValueKind.String)
+            throw new JsonException("Codex agents_md has no string text or a non-string directory.");
+        if (agentsText.GetString()!.Length == 0) return;
+        _loaded.Add(hasDirectory
+            ? Describe(Path.Combine(directory.GetString()!, "AGENTS.md"), workingDirectory)
+            : "external:AGENTS.md");
     }
 
     /// <summary>Repository-relative inside the checkout; outside it only the file name, so a
@@ -397,12 +440,14 @@ internal sealed class ReviewerContextObservation
             : relative.Replace(Path.DirectorySeparatorChar, '/');
     }
 
+    /// <summary>The session's one record; null when there is none or more than one.</summary>
     private static string? FindFile(string directory, string pattern)
     {
         if (!Directory.Exists(directory)) return null;
         try
         {
-            return Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories).FirstOrDefault();
+            var matches = Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories).Take(2).ToArray();
+            return matches.Length == 1 ? matches[0] : null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

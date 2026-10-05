@@ -539,6 +539,180 @@ public sealed class ReviewerIsolationTests
     }
 
     /// <summary>
+    /// Every record of the transcript / rollout has to have the shape the CLI writes, not only the
+    /// ones whose type is recognised: a record whose type or attachment is missing or mistyped
+    /// could have been an instructions attachment, and a malformed system-prompt, init or
+    /// <c>agents_md</c> record cannot establish what the CLI loaded. Each such record leaves an
+    /// otherwise complete record unobserved.
+    /// </summary>
+    [Theory]
+    [InlineData(CliTypes.Claude, """{"message":"review src/Weak.cs"}""")]
+    [InlineData(CliTypes.Claude, """{"type":7,"message":"review src/Weak.cs"}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment"}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":null}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":"instructions"}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":[]}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"files":[{"path":"CLAUDE.md"}]}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":null,"path":"CLAUDE.md"}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":1}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":""}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"user","attachment":{"files":[{"path":"CLAUDE.md"}]}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"prompt_snapshot"}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":null}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":5}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":["abc",5]}}""")]
+    [InlineData(CliTypes.Codex, """{"payload":{}}""")]
+    [InlineData(CliTypes.Codex, """{"type":null,"payload":{}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"event_msg"}""")]
+    [InlineData(CliTypes.Codex, """{"type":"event_msg","payload":"agents_md"}""")]
+    [InlineData(CliTypes.Codex, """{"type":"session_meta","payload":{"base_instructions":"abc"}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"session_meta","payload":{"base_instructions":{}}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"session_meta","payload":{"base_instructions":{"text":5}}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":"grade A"}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":{"agents_md":"grade A"}}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":{"agents_md":{"directory":"/repo","text":5}}}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":{"agents_md":{"directory":5,"text":"grade A"}}}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":{"agents_md":{"directory":"/repo"}}}}""")]
+    public void Observation_RefusesARecordWithoutTheShapeTheCliWrites(string cliType, string malformed)
+    {
+        var observation = ObserveCompleteRecordWith(cliType, malformed);
+
+        Assert.False(observation.Observed);
+        Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null, new ReviewerContext("clean", "excluded",
+            observation.Observed, observation.LoadedInstructionFiles, [], observation.Skills, observation.McpServers,
+            observation.SystemPromptCharacters, 20)));
+    }
+
+    /// <summary>
+    /// The shapes Claude Code 2.1.281 and Codex 0.155 write for records the observation does not
+    /// interpret — other record and attachment types, and Codex's empty <c>agents_md</c> object
+    /// when no AGENTS.md was loaded — keep a complete record observed.
+    /// </summary>
+    [Theory]
+    [InlineData(CliTypes.Claude, """{"type":"queue-operation","operation":"enqueue"}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"date","date":"2026-10-05"}}""")]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":["xyz"]}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":{"agents_md":{},"skills":{"includeInstructions":false}}}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"response_item","payload":{"type":"message","role":"user"}}""")]
+    public void Observation_AcceptsTheRecordShapesTheCliWritesForUninterpretedRecords(string cliType, string record)
+    {
+        var observation = ObserveCompleteRecordWith(cliType, record);
+
+        Assert.True(observation.Observed);
+        Assert.Empty(observation.LoadedInstructionFiles);
+        Assert.Equal(3, observation.SystemPromptCharacters);
+    }
+
+    /// <summary>
+    /// A malformed <c>system/init</c> frame could have reported skills or MCP servers; a valid frame
+    /// before or after it does not make up for it.
+    /// </summary>
+    [Theory]
+    [InlineData(true, """{"type":"system","subtype":"init","skills":null,"mcp_servers":[]}""")]
+    [InlineData(false, """{"type":"system","subtype":"init","skills":null,"mcp_servers":[]}""")]
+    [InlineData(true, """{"type":"system","subtype":"init","skills":["evil"],"mcp_servers":[{"name":1}]}""")]
+    [InlineData(true, """{"type":"system","subtype":"init","skills":["ev""")]
+    public void Observation_RefusesAMalformedClaudeInitFrameAlongsideAValidOne(bool malformedFirst, string malformed)
+    {
+        const string valid = """{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""";
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            ReviewerIsolationFixture.Write(home, "projects/-repo/session-1.jsonl",
+                ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") }));
+            var observation = new ReviewerContextObservation();
+            observation.ObserveClaudeInitFrame(malformedFirst ? malformed : valid);
+            observation.ObserveClaudeInitFrame(malformedFirst ? valid : malformed);
+
+            observation.ReadSessionRecord(CliTypes.Claude, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    /// <summary>Two records for one session leave it open which one the CLI wrote for this run.</summary>
+    [Theory]
+    [InlineData(CliTypes.Claude)]
+    [InlineData(CliTypes.Codex)]
+    public void Observation_RefusesASessionWithMoreThanOneRecord(string cliType)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var systemPrompt = SystemPromptRecord(cliType);
+            if (cliType == CliTypes.Claude)
+            {
+                ReviewerIsolationFixture.Write(home, "projects/-repo/session-1.jsonl", systemPrompt);
+                ReviewerIsolationFixture.Write(home, "projects/-other/session-1.jsonl", systemPrompt);
+            }
+            else
+            {
+                ReviewerIsolationFixture.Write(home, "sessions/2026/10/05/rollout-2026-10-05T10-00-00-session-1.jsonl", systemPrompt);
+                ReviewerIsolationFixture.Write(home, "sessions/2026/10/05/rollout-2026-10-05T11-00-00-session-1.jsonl", systemPrompt);
+            }
+            var observation = new ReviewerContextObservation();
+            if (cliType == CliTypes.Claude)
+                observation.ObserveClaudeInitFrame("""{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""");
+
+            observation.ReadSessionRecord(cliType, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    /// <summary>
+    /// A record the observation cannot process — here an instruction path the runtime rejects —
+    /// leaves the run unobserved instead of escaping from the runner's RunEnded handler.
+    /// </summary>
+    [Theory]
+    [InlineData(CliTypes.Claude, """{"type":"attachment","attachment":{"type":"nested_memory","path":"sub/CLAUDE\u0000.md"}}""")]
+    [InlineData(CliTypes.Codex, """{"type":"world_state","payload":{"state":{"agents_md":{"directory":"sub\u0000dir","text":"grade A"}}}}""")]
+    public void Observation_ARecordItCannotProcessLeavesTheRunUnobserved(string cliType, string record)
+    {
+        var observation = ObserveCompleteRecordWith(cliType, record);
+
+        Assert.False(observation.Observed);
+    }
+
+    private static string SystemPromptRecord(string cliType) => cliType == CliTypes.Claude
+        ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
+        : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+
+    /// <summary>Reads a record that is complete (system prompt, Claude init frame) plus <paramref name="record"/>.</summary>
+    private static ReviewerContextObservation ObserveCompleteRecordWith(string cliType, string record)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var path = cliType == CliTypes.Claude ? "projects/-repo/session-1.jsonl" : "sessions/2026/10/05/rollout-2026-10-05T10-00-00-session-1.jsonl";
+            ReviewerIsolationFixture.Write(home, path, string.Join('\n', SystemPromptRecord(cliType), record) + "\n");
+            var observation = new ReviewerContextObservation();
+            if (cliType == CliTypes.Claude)
+                observation.ObserveClaudeInitFrame("""{"type":"system","subtype":"init","skills":[],"mcp_servers":[]}""");
+            observation.ReadSessionRecord(cliType, home, "session-1", repository);
+            return observation;
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
+
+    /// <summary>
     /// The system-prompt size is part of the observation the metadata promises; a context that
     /// claims to be observed without it is incomplete and refused.
     /// </summary>
