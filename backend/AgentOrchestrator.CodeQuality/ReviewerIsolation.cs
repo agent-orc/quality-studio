@@ -245,6 +245,7 @@ internal sealed class ReviewerContextObservation
     private readonly SortedSet<string> _mcpServers = new(StringComparer.Ordinal);
     private bool _claudeInitObserved;
     private bool _claudeInitMalformed;
+    private bool _codexAgentsMdObserved;
 
     public bool Observed { get; private set; }
     public IReadOnlyList<string> LoadedInstructionFiles => _loaded.Distinct(StringComparer.Ordinal).ToArray();
@@ -299,9 +300,10 @@ internal sealed class ReviewerContextObservation
     /// record counts as observed only when it is the only record of the session, every line is a
     /// JSON object with the shape the CLI writes (see <see cref="ReadClaudeTranscriptRecord"/> and
     /// <see cref="ReadCodexRolloutRecord"/>), it holds the system-prompt record every run writes,
-    /// and Claude's init frames established skills and MCP server values: a malformed line could
-    /// have hidden an instructions attachment, and a record without the system prompt or init
-    /// context cannot establish what the CLI loaded. Anything that stops the record being read to
+    /// Claude's init frames established skills and MCP server values, and a Codex rollout holds a
+    /// <c>world_state.agents_md</c> record: a malformed line could have hidden an instructions
+    /// attachment, and a record without the system prompt, init context or <c>agents_md</c> cannot
+    /// establish what the CLI loaded. Anything that stops the record being read to
     /// the end leaves the run unobserved; nothing escapes to the runner's event handler.
     /// </summary>
     public void ReadSessionRecord(string cliType, string? home, string? sessionId, string workingDirectory)
@@ -324,7 +326,8 @@ internal sealed class ReviewerContextObservation
                 else ReadCodexRolloutRecord(document.RootElement, workingDirectory);
             }
             Observed = SystemPromptCharacters is not null &&
-                (cliType != CliTypes.Claude || _claudeInitObserved && !_claudeInitMalformed);
+                (cliType != CliTypes.Claude || _claudeInitObserved && !_claudeInitMalformed) &&
+                (cliType != CliTypes.Codex || _codexAgentsMdObserved);
         }
         catch (Exception)
         {
@@ -391,7 +394,9 @@ internal sealed class ReviewerContextObservation
     }
 
     /// <summary>
-    /// Every rollout record has a string <c>type</c> and an object <c>payload</c>. A
+    /// Every rollout record has a string <c>type</c> and an object <c>payload</c>; a rollout is only
+    /// complete with at least one valid <c>agents_md</c> record, which establishes whether AGENTS.md
+    /// was loaded. A
     /// non-null <c>base_instructions</c> must carry string <c>text</c>; a <c>state</c> that is
     /// present must be an object, and its <c>agents_md</c> an object — empty when no AGENTS.md was
     /// loaded, otherwise with string <c>text</c> and an optional string <c>directory</c>.
@@ -418,10 +423,11 @@ internal sealed class ReviewerContextObservation
             throw new JsonException("Codex agents_md is not an object.");
         var hasText = agents.TryGetProperty("text", out var agentsText);
         var hasDirectory = agents.TryGetProperty("directory", out var directory);
-        if (!hasText && !hasDirectory) return;
-        if (!hasText || agentsText.ValueKind != JsonValueKind.String ||
-            hasDirectory && directory.ValueKind != JsonValueKind.String)
+        if ((hasText || hasDirectory) && (!hasText || agentsText.ValueKind != JsonValueKind.String ||
+            hasDirectory && directory.ValueKind != JsonValueKind.String))
             throw new JsonException("Codex agents_md has no string text or a non-string directory.");
+        _codexAgentsMdObserved = true;
+        if (!hasText) return;
         if (agentsText.GetString()!.Length == 0) return;
         _loaded.Add(hasDirectory
             ? Describe(Path.Combine(directory.GetString()!, "AGENTS.md"), workingDirectory)

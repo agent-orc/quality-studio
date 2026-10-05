@@ -36,7 +36,8 @@ if (!string.IsNullOrEmpty(home))
 {
     var (record, line) = isCodex
         ? (Path.Combine(home, "sessions", $"rollout-fake-{CodexThread}.jsonl"),
-            """{"type":"session_meta","payload":{"base_instructions":{"text":"fake base instructions"}}}""")
+            """{"type":"session_meta","payload":{"base_instructions":{"text":"fake base instructions"}}}""" + "\n" +
+            """{"type":"world_state","payload":{"state":{"agents_md":{}}}}""")
         : (Path.Combine(home, "projects", "fake", ClaudeSession + ".jsonl"),
             """{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":["fake system prompt"]}}""");
     Directory.CreateDirectory(Path.GetDirectoryName(record)!);

@@ -137,7 +137,8 @@ public sealed class CodingAgentReviewAgentWatchdogTests
                 const string Thread = "fake-thread";
                 Directory.CreateDirectory(Path.Combine(home, "sessions"));
                 File.WriteAllText(Path.Combine(home, "sessions", $"rollout-fake-{Thread}.jsonl"),
-                    """{"type":"session_meta","payload":{"base_instructions":{"text":"fake base instructions"}}}""" + "\n");
+                    """{"type":"session_meta","payload":{"base_instructions":{"text":"fake base instructions"}}}""" + "\n" +
+                    """{"type":"world_state","payload":{"state":{"agents_md":{}}}}""" + "\n");
                 OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, CleanContextHome = home });
                 OnRunEvent?.Invoke(request.RunId, new CliRunEvent.SessionStarted(Thread) { RunId = request.RunId });
                 await foreach (var runEvent in stream(request.RunId).WithCancellation(ct))

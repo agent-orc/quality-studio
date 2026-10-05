@@ -447,9 +447,7 @@ public sealed class ReviewerIsolationTests
         var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
         try
         {
-            var systemPrompt = cliType == CliTypes.Claude
-                ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
-                : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            var systemPrompt = SystemPromptRecord(cliType);
             var other = new JsonObject { ["type"] = "user", ["message"] = "review src/Weak.cs" }.ToJsonString();
             var lines = shape switch
             {
@@ -486,9 +484,7 @@ public sealed class ReviewerIsolationTests
         var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
         try
         {
-            var systemPrompt = cliType == CliTypes.Claude
-                ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
-                : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            var systemPrompt = SystemPromptRecord(cliType);
             var other = new JsonObject { ["type"] = "user", ["message"] = "review src/Weak.cs" }.ToJsonString();
             var path = cliType == CliTypes.Claude ? "projects/-repo/session-1.jsonl" : "sessions/2026/09/29/rollout-2026-09-29T10-00-00-session-1.jsonl";
             ReviewerIsolationFixture.Write(home, path, string.Join('\n', systemPrompt, blankLine, other));
@@ -517,9 +513,7 @@ public sealed class ReviewerIsolationTests
         var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
         try
         {
-            var systemPrompt = cliType == CliTypes.Claude
-                ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
-                : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            var systemPrompt = SystemPromptRecord(cliType);
             var path = cliType == CliTypes.Claude ? "projects/-repo/session-1.jsonl" : "sessions/2026/09/29/rollout-2026-09-29T10-00-00-session-1.jsonl";
             ReviewerIsolationFixture.Write(home, path, systemPrompt + "\n");
             var observation = new ReviewerContextObservation();
@@ -686,9 +680,53 @@ public sealed class ReviewerIsolationTests
         Assert.False(observation.Observed);
     }
 
+    /// <summary>The records every run writes: Claude's prompt snapshot; Codex's session_meta and its
+    /// <c>agents_md</c> world state (empty: no AGENTS.md loaded).</summary>
     private static string SystemPromptRecord(string cliType) => cliType == CliTypes.Claude
         ? ReviewerIsolationFixture.Attachment(new JsonObject { ["type"] = "prompt_snapshot", ["systemPrompt"] = new JsonArray("abc") })
-        : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+        : new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString() +
+            "\n" + CodexNoAgentsMdRecord;
+
+    private const string CodexNoAgentsMdRecord = """{"type":"world_state","payload":{"state":{"agents_md":{}}}}""";
+
+    /// <summary>
+    /// A Codex rollout establishes whether AGENTS.md was loaded only through a
+    /// <c>world_state.agents_md</c> record; a rollout with the system prompt but no such record
+    /// (only <c>session_meta</c>, or world states without <c>agents_md</c>) has not established
+    /// it and leaves the run unobserved, so an empty loaded-instruction list is never accepted
+    /// on its strength.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("""{"type":"world_state","payload":{}}""")]
+    [InlineData("""{"type":"world_state","payload":{"state":{}}}""")]
+    [InlineData("""{"type":"world_state","payload":{"state":{"skills":{"includeInstructions":false}}}}""" + "\n" +
+        """{"type":"response_item","payload":{"type":"message","role":"user"}}""")]
+    public void Observation_RefusesACodexRolloutWithoutAnAgentsMdObservation(string records)
+    {
+        var home = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        var repository = ReviewerIsolationFixture.CreateTemporaryDirectory();
+        try
+        {
+            var sessionMeta = new JsonObject { ["type"] = "session_meta", ["payload"] = new JsonObject { ["base_instructions"] = new JsonObject { ["text"] = "abc" } } }.ToJsonString();
+            ReviewerIsolationFixture.Write(home, "sessions/2026/10/05/rollout-2026-10-05T10-00-00-session-1.jsonl",
+                (records.Length == 0 ? sessionMeta : sessionMeta + "\n" + records) + "\n");
+            var observation = new ReviewerContextObservation();
+
+            observation.ReadSessionRecord(CliTypes.Codex, home, "session-1", repository);
+
+            Assert.False(observation.Observed);
+            Assert.Empty(observation.LoadedInstructionFiles);
+            Assert.Contains("not observed", CodingAgentReviewAgent.IsolationViolation(null, new ReviewerContext("clean", "excluded",
+                observation.Observed, observation.LoadedInstructionFiles, [], observation.Skills, observation.McpServers,
+                observation.SystemPromptCharacters, 20)));
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(home);
+            TemporaryDirectory.Delete(repository);
+        }
+    }
 
     /// <summary>Reads a record that is complete (system prompt, Claude init frame) plus <paramref name="record"/>.</summary>
     private static ReviewerContextObservation ObserveCompleteRecordWith(string cliType, string record)
