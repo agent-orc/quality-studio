@@ -2,33 +2,35 @@
 
 Result: Done
 
-## Integration recovery
+## Round
 
-- Started from reviewed delivery `7a3032b28f0b50bd8f2e32e0be7b6a8d9ae13be9` (ProductFailure review `review_f66f577d860248618541c9aac60fdd36`). Its delivery commit history is preserved: no squash, split or drop.
-- Merged current `origin/main` at `bfe24ce53fe1da1e77aa4d0e5c0ebb5b5a015f0c` (11 new commits, including QS-110 usage accounting) in merge commit `c8b21c53`. The only conflict was `CHANGELOG.md`, where both sides added an independent section. Both sections were kept. The earlier failed integration stage was `merge-into-develop` into `main` (evidence reference: `pipeline-execution.json`). No integration branch was moved or pushed.
-- Fix commit: `5ab7d9fd fix(rule-pool): report null rule-set fields and list entries instead of throwing`.
+- Targeted fix round for review `review_f8c56165854845c0836350246f9e93da`. Only its open blocking finding is fixed.
+- Started from the latest delivery `3259ff2c` (`refs/remotes/origin/agent-studio/results/run_df3feadfb90e413582bffc7d0ef9cacd/fence-22/…`). All reviewed commits are kept, with no squash, split or drop.
+- Merged `origin/main` once. It was already contained at `bfe24ce5` ("Already up to date"), so no merge commit was needed.
+- Fix commit: `9bab533f fix(rule-pool): refuse writes through linked rule folders`.
+- No push to `main`.
 
-## Review findings addressed
+## Findings addressed
 
-- **code-quality (block): "Invalid rule-set imports can cause an unhandled null exception."** Fixed. `RuleMarkdown.ValidateStructured` now checks every required string, every list element and every change-history entry for an explicit JSON `null`, and reports each one before any string method or `Render` runs. A dry run returns `valid: false` with located diagnostics, and an apply answers 400.
-  - Tests: `RulePoolTests.A_rule_set_custom_rule_with_a_null_field_is_reported_not_thrown` covers 10 cases: `title`, `category`, `statement`, `goodExample`, `badExample` and `since` set to null, a null `kinds` entry, a null `deterministicRuleIds` entry, a null `changeHistory` entry, and a null `change`. Before the fix, the title, category, example and change-history cases threw from `ValidateStructured`. The null `statement` case and the null `deterministicRuleIds` entry were reported without naming the field or were silently dropped. The `since` and `kinds` cases were already reported, and now stay covered.
-  - API test: `ApiSmokeTests.Rule_set_import_with_a_null_custom_rule_field_answers_with_diagnostics_not_a_server_error` posts the reviewer's exact case (`title: null`). The dry run answers 200 with diagnostics and the apply answers 400 with diagnostics, not 500.
-- **Same class of defect, found by reviewing the rest of the change:** user-supplied `null` reaching code that assumes a value. Each instance below crashed before this fix and now produces a diagnostic.
-  - A null `include[].ids` entry in a pack threw `ArgumentNullException` in the resolver's `definitions.ContainsKey`. This applied to a rule-set import, `PUT …/rules/packs/{id}` and a hand-edited pack file. `RulePackRules.Validate` now rejects null entries in every selector list and in `projectTypes`.
-  - A null pack name in applicability threw from `packs.ContainsKey` in `ValidateApplicability`. This applied to an import and to a hand-edited `applicability.json`, so `GET …/rules` answered 500 instead of reporting the problem. `SetApplicability` also threw a `NullReferenceException` on `Trim`. Applicability now rejects null pack names on all three paths.
-  - An imported override with a null `id` crashed `PlanChanges` (`ToDictionary` with a null key). The rule-set validation now requires an override id. A hand-edited `overrides.json` entry without an id no longer crashes a merge import plan, and the resolver still reports that entry.
-  - Tests: `A_rule_set_with_a_null_entry_is_reported_not_thrown` (4 cases), `Hand_edited_files_with_null_entries_are_reported_by_inspection_not_thrown`, `Store_writes_with_null_entries_are_rejected_not_thrown`, `Merge_import_over_a_hand_edited_override_without_an_id_does_not_throw`. All failed before the fix. Across both bullets, 15 of the 17 new store test cases failed before the fix, and all 17 pass now.
-- **requirement-fit: pass.** No scope change.
-- **tests-and-evidence: pass.** The nine rule-pool UI screenshots, the evidence manifest, the execution log and the exported rule set are in the collected results directory, beside the four gate logs. This fix changes no UI.
-- **documentation-impact: pass.** `docs/rule-pool-management.md` (import section) now states that an explicit `null` is rejected with diagnostics. No other contract changed.
+- **code-quality (block): "Rule-pool writes can follow linked directories outside their scope."**
+  - Root cause: `RuleScopeSources.Read` reports a linked folder as a diagnostic. `Mutate` and `Import` reject only *new* diagnostics, so a write that added none still reached `RulePoolStore.Write`, which then wrote through the link.
+  - Fix: `RulePoolStore.Write` now checks the scope rule folder, `custom/` and `packs/` for a symbolic link before it touches any file. If one is linked, it throws `RulePoolValidationException` with a located diagnostic, and the API answers 400. No file is written and no audit entry is appended (the audit is written after `Write`).
+  - File links were already safe and are unchanged. `AtomicFile` renames over a link rather than following it, and a delete removes the link, not its target. The existing test `Replace_import_repairs_linked_or_oversized_overrides` covers this.
+  - Regression test: `RulePoolTests.Writes_never_follow_a_linked_rule_folder` (4 cases):
+    - a linked scope folder with a custom-rule write;
+    - a linked `custom/` with a custom-rule write;
+    - a linked `packs/` with a pack write;
+    - a linked `custom/` with a merge import.
 
-## Verification (on the merged state, HEAD after the fix)
+    Each case asserts the rejection, an empty link target and an empty audit. Before the fix, all 4 failed with "No exception was thrown". All 4 pass after it.
+  - Docs: one sentence was added to `docs/rule-pool-management.md`, beside the existing linked-folder paragraph.
+
+## Verification
 
 | Command | Result |
 | --- | --- |
-| `dotnet build QualityStudio.slnx --configuration Release` | Passed: 0 warnings, 0 errors (`gate-1-dotnet-build.log`). |
-| `dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"` | Passed: 650 CodeQuality tests (9 skipped on Linux) and 273 API tests, 0 failures (`gate-2-dotnet-test.log`). |
-| `npm --prefix frontend run build -- --configuration development` | Passed (`gate-3-frontend-build.log`). |
-| `npm --prefix frontend test` | Passed with `CHROME_NO_SANDBOX=1`: 236 of 236 browser tests (`gate-4-frontend-test.log`). Without the variable, Chromium cannot launch its sandbox on this runner host, and the run fails before any test executes (`gate-4-frontend-test-sandboxed-launch-failure.log`). This is a host limitation, not a test failure. `frontend/tests/run-tests.mjs` supports the variable. |
+| `dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests --filter "FullyQualifiedName~RulePoolTests.Writes_never_follow"` before the fix | Failed 4 of 4, which is expected and proves the defect. |
+| `dotnet build QualityStudio.slnx --configuration Release` | Passed: 0 warnings, 0 errors. |
+| `dotnet test QualityStudio.slnx --configuration Release --no-build --filter "FullyQualifiedName~RulePool"` | Passed: 54 of 54 `RulePoolTests` and 2 of 2 `RulePoolGlobalScopeTests`. |
 
-Gate logs and UI evidence are in `/home/agent/runner-work/tasks/QS-112/results/`.
+The full suites were not run in this round, as the round's rules direct, because the review gate runs them. No frontend file changed, so the frontend tests were not run. The previous round's full-gate result was 650 CodeQuality, 273 API and 236 frontend tests passing. The UI evidence (nine screenshots, the evidence manifest, the log and the exported rule set) is unchanged from earlier rounds.

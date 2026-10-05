@@ -85,6 +85,8 @@ and lists every problem under `diagnostics`, located by a scope-relative path, s
 seen and repaired from the tool.
 Linked rule folders or configuration files also produce diagnostics. The loader does not silently
 skip them, including when a regular file is replaced by a link after the pool was cached.
+A write is refused with a 400 and a diagnostic when the scope's rule folder, or its `custom/` or
+`packs/` folder, is a symbolic link, so a change never writes outside its scope.
 
 ## Managing the pool in the tool
 
