@@ -152,6 +152,45 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Cost_cap_counts_claude_cache_reads_and_writes_at_their_catalogue_rates()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        // Per operation: 200k input = 10k fresh + 40k cache read + 150k cache write, 1k output.
+        // At claude-sonnet-5 rates that is 0.02 + 0.008 + 0.375 + 0.01 = 0.413 USD; fresh input
+        // alone would stay far below the cap.
+        var fake = new CappedExecutorFactory(new TokenUsage(200_000, 1_000, 40_000, 0, 1, 150_000));
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-sonnet-5",
+                costCap = 0.5m,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            Assert.Equal("prompt-size", accepted.GetProperty("estimate").GetProperty("basis").GetString());
+
+            var run = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "capped", cancellationToken);
+
+            Assert.Equal(2, fake.OperationCount);
+            Assert.Equal(0.826m, run.GetProperty("costSpent").GetDecimal());
+            Assert.Equal(400_000, run.GetProperty("usage").GetProperty("inputTokens").GetInt64());
+            Assert.Equal(300_000, run.GetProperty("usage").GetProperty("cacheWriteInputTokens").GetInt64());
+            Assert.Contains("Cost cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Server_stops_a_direct_api_run_at_its_token_cap_and_reports_skipped_units()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -1025,9 +1064,10 @@ public sealed class ReviewRunStoreTests
         }
     }
 
-    private sealed class CappedExecutorFactory : IReviewExecutorFactory
+    private sealed class CappedExecutorFactory(TokenUsage? operationUsage = null) : IReviewExecutorFactory
     {
         private int operationCount;
+        public TokenUsage OperationUsage { get; } = operationUsage ?? new TokenUsage(6, 4, 0, 0, 1);
         public int OperationCount => operationCount;
         public string? CliType { get; private set; }
         public string? Model { get; private set; }
@@ -1052,7 +1092,7 @@ public sealed class ReviewRunStoreTests
             {
                 var operation = Interlocked.Increment(ref owner.operationCount);
                 var entry = new ReviewUsageEntry($"test-{Guid.NewGuid():N}", DateTimeOffset.UtcNow,
-                    model ?? "claude-sonnet-5", cliType, new TokenUsage(6, 4, 0, 0, 1),
+                    model ?? "claude-sonnet-5", cliType, owner.OperationUsage,
                     request.Kind, request.Level.ToString().ToLowerInvariant(), request.FilePath);
                 await UsageLedger.AppendAsync(request.RepositoryRoot!, entry, cancellationToken);
                 usageRecorded(entry);

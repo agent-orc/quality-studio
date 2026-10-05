@@ -19,6 +19,7 @@ export class UsageHistory {
   readonly durableRuns = computed(() => this.api.usage().byReviewRun?.length ?? 0);
   readonly totalCost = computed(() => formatCost(this.api.usage().estimatedCost, this.api.usage().costCurrency));
   readonly unpricedRuns = computed(() => this.api.usage().unpricedRuns ?? 0);
+  readonly underPricedRuns = computed(() => this.api.usage().underPricedRuns ?? 0);
 
   toggleEntry(index: number): void {
     this.expandedEntry.update(current => current === index ? null : index);

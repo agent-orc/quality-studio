@@ -318,6 +318,11 @@ h3 {
   font-size: var(--studio-font-size-heading);
 }
 
+.summary-grid .under-priced,
+.entry-details .under-priced dd {
+  color: var(--status-missing);
+}
+
 @media(max-width:760px) {
   .summary-grid {
     grid-template-columns: 1fr 1fr;
