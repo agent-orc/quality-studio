@@ -126,7 +126,9 @@ A dry run reports every change (`added`, `updated`, `removed`, `unchanged`) and 
 would be valid, without writing. An import reports `modifiedSinceExport` when the digest no longer
 matches the content; editing an exported file is allowed. Imported custom rules are written back as
 Markdown in the authored format, so a repository import produces a reviewable diff. Unknown properties
-are rejected rather than silently dropped.
+are rejected rather than silently dropped, and so is an explicit `null` where the schema expects a value
+(a custom rule field, a list entry, an override id): a dry run reports it under `diagnostics`, an apply
+answers 400 with the same diagnostics.
 
 ## Audit trail
 

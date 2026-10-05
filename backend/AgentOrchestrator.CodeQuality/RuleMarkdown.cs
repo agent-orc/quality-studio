@@ -165,6 +165,30 @@ public static partial class RuleMarkdown
     {
         ArgumentNullException.ThrowIfNull(rule);
         var before = errors.Count;
+        // Structured input is user-supplied JSON: a non-nullable property can still arrive as an
+        // explicit null. Report every one before anything below calls a string method on it.
+        foreach (var (name, value) in new[]
+                 {
+                     ("id", rule.Id), ("version", rule.Version), ("title", rule.Title), ("technology", rule.Technology),
+                     ("category", rule.Category), ("statement", rule.Statement), ("rationale", rule.Rationale),
+                     ("detection", rule.Detection), ("goodExample", rule.GoodExample), ("badExample", rule.BadExample),
+                     ("since", rule.Since),
+                 })
+        {
+            if (value is null) errors.Add($"requires a non-empty '{name}'.");
+        }
+        if (rule.Kinds is null || rule.ChangeHistory is null || rule.DeterministicRuleIds is null)
+            errors.Add("requires kinds, deterministicRuleIds and changeHistory.");
+        foreach (var (name, values) in new[] { ("kinds", rule.Kinds), ("deterministicRuleIds", rule.DeterministicRuleIds) })
+        {
+            if (values?.Any(value => value is null) == true) errors.Add($"'{name}' must not contain null.");
+        }
+        foreach (var (entry, index) in (rule.ChangeHistory ?? []).Select((entry, index) => (entry, index)))
+        {
+            if (entry?.Version is null || entry.Date is null || entry.Change is null)
+                errors.Add($"'changeHistory[{index}]' requires version, date and change.");
+        }
+        if (errors.Count != before) return null;
         foreach (var (name, value) in new[]
                  {
                      ("title", rule.Title), ("category", rule.Category), ("relatedGuideline", rule.RelatedGuideline ?? string.Empty),
@@ -176,13 +200,8 @@ public static partial class RuleMarkdown
         {
             if (value.Contains("```", StringComparison.Ordinal)) errors.Add($"'{name}' must not contain a code fence.");
         }
-        if (rule.Kinds is null || rule.ChangeHistory is null || rule.DeterministicRuleIds is null)
-        {
-            errors.Add("requires kinds, deterministicRuleIds and changeHistory.");
-            return null;
-        }
         if (errors.Count != before) return null;
-        return ParseCustom(Render(rule), (rule.Id ?? string.Empty) + ".md", errors);
+        return ParseCustom(Render(rule), rule.Id + ".md", errors);
     }
 
     /// <summary>The empty rule an author starts from; parses once its placeholders are filled.</summary>

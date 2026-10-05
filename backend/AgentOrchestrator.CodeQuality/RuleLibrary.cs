@@ -623,7 +623,8 @@ public sealed class RuleCatalogueResolver(string? globalRulesDirectory = null)
         else
         {
             if (document.Packs.Count > RulePackRules.MaxPacksPerScope) errors.Add($"selects more than {RulePackRules.MaxPacksPerScope} packs.");
-            foreach (var id in document.Packs.Where(id => !packExists(id))) errors.Add($"selects unknown pack '{id}'.");
+            if (document.Packs.Any(id => id is null)) errors.Add("packs must not contain null.");
+            foreach (var id in document.Packs.Where(id => id is not null && !packExists(id))) errors.Add($"selects unknown pack '{id}'.");
         }
         if (string.IsNullOrWhiteSpace(document.Reason)) errors.Add("requires a reason.");
         else if (document.Reason.Length > 1000) errors.Add("reason must be at most 1000 characters.");

@@ -230,6 +230,7 @@ public sealed class RulePoolStore
     {
         ArgumentNullException.ThrowIfNull(packs);
         var why = RequireReason(reason);
+        if (packs.Any(pack => pack is null)) throw new RulePoolValidationException("The packs list must not contain null.");
         var document = new RuleApplicabilityDocument(RuleApplicabilityDocument.SchemaId, 1,
             packs.Select(pack => pack.Trim()).Distinct(StringComparer.Ordinal).ToArray(), why);
         return Mutate(scope, actor, "applicability.set", "applicability", why, current =>
@@ -536,9 +537,11 @@ public sealed class RulePoolStore
                     !had ? "added" : !has ? "removed" : equal(left!, right!) ? "unchanged" : "updated"));
             }
         }
+        // Keyed by id or, for a hand-edited entry without one, by an empty id: the resolver reports
+        // that entry, and the plan must still be computable around it.
         Compare("override",
-            currentOverrides.GroupBy(value => value.Id).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal),
-            nextOverrides.GroupBy(value => value.Id).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal),
+            currentOverrides.GroupBy(value => value.Id ?? string.Empty).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal),
+            nextOverrides.GroupBy(value => value.Id ?? string.Empty).ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal),
             (left, right) => left == right);
         Compare("custom-rule", ById(current.CustomRules), ById(next.CustomRules), string.Equals);
         Compare("pack", current.Packs.ToDictionary(pair => Path.GetFileNameWithoutExtension(pair.Key), pair => pair.Value),
@@ -588,11 +591,14 @@ public sealed class RulePoolStore
         foreach (var entry in set.Overrides ?? [])
         {
             if (entry is null) Add(null, "contains an empty override.");
+            else if (string.IsNullOrWhiteSpace(entry.Id)) Add(null, "override requires an id.");
             else if (entry.Reason?.Length > MaxReasonLength) Add(entry.Id, $"override reason must be at most {MaxReasonLength} characters.");
         }
         if (set.Applicability is { } applicability &&
             (applicability.Packs is null || string.IsNullOrWhiteSpace(applicability.Reason)))
             Add("applicability", "applicability requires a packs list and a reason.");
+        else if (set.Applicability?.Packs.Any(pack => pack is null) == true)
+            Add("applicability", "applicability packs must not contain null.");
         return diagnostics;
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Json.Schema;
 using QualityStudio.Testing;
 using Xunit;
@@ -573,6 +574,114 @@ public sealed class RulePoolTests : IDisposable
             JsonDocument.Parse("""{ "schemaVersion": 1, "overrides": [], "customRules": [], "packs": [], "extra": true }""").RootElement));
     }
 
+    [Theory]
+    [InlineData("title", null)]
+    [InlineData("category", null)]
+    [InlineData("statement", null)]
+    [InlineData("goodExample", null)]
+    [InlineData("badExample", null)]
+    [InlineData("since", null)]
+    [InlineData("kinds", "[null]")]
+    [InlineData("deterministicRuleIds", "[\"CA2254\", null]")]
+    [InlineData("changeHistory", "[null]")]
+    [InlineData("changeHistory", "[{ \"version\": \"1.0.0\", \"date\": \"2026-09-28\", \"change\": null }]")]
+    public void A_rule_set_custom_rule_with_a_null_field_is_reported_not_thrown(string field, string? value)
+    {
+        var rule = JsonSerializer.SerializeToNode(
+            RuleMarkdown.ParseCustom(CustomRule(), "ACME-CS-001.md", new List<string>())!, AttackCoverageJson.Options)!.AsObject();
+        rule[field] = value is null ? null : JsonNode.Parse(value);
+        var set = ParseSet(new JsonObject { ["customRules"] = new JsonArray(rule) });
+        var store = Store();
+
+        var preview = store.Import(RuleScopes.Project, set, "merge", dryRun: true, string.Empty, "operator");
+        var rejected = Assert.Throws<RulePoolValidationException>(() =>
+            store.Import(RuleScopes.Project, set, "merge", dryRun: false, "Apply.", "operator"));
+
+        Assert.False(preview.Valid);
+        Assert.Contains(preview.Diagnostics, diagnostic => diagnostic.Subject == "ACME-CS-001" &&
+                                                           diagnostic.Message.Contains(field, StringComparison.Ordinal));
+        Assert.NotEmpty(rejected.Diagnostics);
+        Assert.False(Directory.Exists(ProjectRules));
+    }
+
+    [Theory]
+    [InlineData("""{ "overrides": [ { "id": null, "enabled": false, "reason": "No id." } ] }""", "override requires an id")]
+    [InlineData("""{ "applicability": { "packs": [null], "reason": "Null pack." } }""", "must not contain null")]
+    [InlineData("""
+        { "packs": [ { "schemaVersion": 1, "id": "acme", "version": "1.0.0", "title": "ACME", "description": "",
+          "projectTypes": [], "include": [ { "ids": [null] } ] } ] }
+        """, "ids must not contain null")]
+    [InlineData("""
+        { "packs": [ { "schemaVersion": 1, "id": "acme", "version": "1.0.0", "title": "ACME", "description": "",
+          "projectTypes": [null], "include": [ { "defaultOn": true } ] } ] }
+        """, "projectTypes must not contain null")]
+    public void A_rule_set_with_a_null_entry_is_reported_not_thrown(string fragment, string message)
+    {
+        var set = ParseSet(JsonNode.Parse(fragment)!.AsObject());
+        var store = Store();
+
+        var preview = store.Import(RuleScopes.Project, set, "replace", dryRun: true, string.Empty, "operator");
+        var rejected = Assert.Throws<RulePoolValidationException>(() =>
+            store.Import(RuleScopes.Project, set, "replace", dryRun: false, "Apply.", "operator"));
+
+        Assert.False(preview.Valid);
+        Assert.Contains(preview.Diagnostics, diagnostic => diagnostic.Message.Contains(message, StringComparison.Ordinal));
+        Assert.Contains(rejected.Diagnostics, diagnostic => diagnostic.Message.Contains(message, StringComparison.Ordinal));
+        Assert.False(Directory.Exists(ProjectRules));
+    }
+
+    [Fact]
+    public void Hand_edited_files_with_null_entries_are_reported_by_inspection_not_thrown()
+    {
+        Write(ProjectRules, "packs/acme.json", """
+            { "schemaVersion": 1, "id": "acme", "version": "1.0.0", "title": "ACME", "description": "",
+              "projectTypes": [], "include": [ { "ids": [null] } ] }
+            """);
+        Write(ProjectRules, "applicability.json", """{ "schemaVersion": 1, "packs": [null], "reason": "Hand edit." }""");
+
+        var diagnostics = Resolver().Inspect(Repository).Diagnostics;
+
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Source == ".quality/rules/packs/acme.json" &&
+                                                   diagnostic.Message.Contains("ids must not contain null", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Source == ".quality/rules/applicability.json" &&
+                                                   diagnostic.Message.Contains("must not contain null", StringComparison.Ordinal));
+        Assert.Throws<RuleConfigurationException>(() => Resolver().Resolve(Repository));
+    }
+
+    [Fact]
+    public void Store_writes_with_null_entries_are_rejected_not_thrown()
+    {
+        var store = Store();
+
+        var applicability = Assert.Throws<RulePoolValidationException>(() =>
+            store.SetApplicability(RuleScopes.Project, ["dotnet-service", null!], "Null pack.", "operator"));
+        var pack = Assert.Throws<RulePoolValidationException>(() =>
+            store.PutPack(RuleScopes.Project, "acme", new RulePackDocument(null, 1, "acme", "1.0.0", "ACME", "",
+                [], [new RulePackSelector(Ids: [null!])]), "Null id.", "operator"));
+
+        Assert.Contains("must not contain null", applicability.Message, StringComparison.Ordinal);
+        Assert.Contains(pack.Diagnostics, diagnostic => diagnostic.Message.Contains("ids must not contain null", StringComparison.Ordinal));
+        Assert.False(Directory.Exists(ProjectRules));
+    }
+
+    [Fact]
+    public void Merge_import_over_a_hand_edited_override_without_an_id_does_not_throw()
+    {
+        Write(ProjectRules, "overrides.json", """
+            { "schemaVersion": 1, "overrides": [ { "id": null, "enabled": false, "reason": "Hand edit." } ] }
+            """);
+        var store = Store();
+        var set = ParseSet(JsonNode.Parse("""
+            { "overrides": [ { "id": "QS-CS-004", "enabled": false, "reason": "No tests." } ] }
+            """)!.AsObject());
+
+        var preview = store.Import(RuleScopes.Project, set, "merge", dryRun: true, string.Empty, "operator");
+
+        Assert.True(preview.Valid);
+        Assert.Contains(new RuleImportChange("override", "QS-CS-004", "added"), preview.Changes);
+        Assert.False(preview.Catalogue.IsValid);
+    }
+
     [Fact]
     public void Every_built_in_rule_file_parses_to_its_catalogue_entry_with_the_runtime_parser()
     {
@@ -650,6 +759,20 @@ public sealed class RulePoolTests : IDisposable
         var schema = JsonSchema.FromText(File.ReadAllText(Path.Combine(repository, "schemas", schemaFile)), options);
         var result = schema.Evaluate(element, new EvaluationOptions { OutputFormat = OutputFormat.List });
         Assert.True(result.IsValid, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static RuleSetDocument ParseSet(JsonObject fragment)
+    {
+        var set = new JsonObject
+        {
+            ["schemaVersion"] = 1, ["overrides"] = new JsonArray(), ["customRules"] = new JsonArray(), ["packs"] = new JsonArray(),
+        };
+        foreach (var (name, value) in fragment.ToArray())
+        {
+            fragment.Remove(name);
+            set[name] = value;
+        }
+        return RulePoolStore.ParseRuleSet(JsonDocument.Parse(set.ToJsonString()).RootElement);
     }
 
     private RuleCatalogueResolver Resolver() => new(Global);

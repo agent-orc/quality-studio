@@ -101,6 +101,7 @@ public static partial class RulePackRules
         if (string.IsNullOrWhiteSpace(pack.Title) || pack.Title.Length > 120) errors.Add("requires a title of at most 120 characters.");
         if (pack.Description is null || pack.Description.Length > 2000) errors.Add("requires a description of at most 2000 characters.");
         if (pack.ProjectTypes is null) errors.Add("requires a projectTypes list (it may be empty).");
+        else if (pack.ProjectTypes.Any(value => value is null)) errors.Add("projectTypes must not contain null.");
         if (pack.Include is null || pack.Include.Count == 0)
         {
             errors.Add("requires at least one include selector.");
@@ -125,10 +126,12 @@ public static partial class RulePackRules
                      })
             {
                 if (values is { Count: 0 }) errors.Add($"{label}.{name} must not be an empty list.");
+                // A null id would otherwise reach the resolver's dictionary lookups and throw.
+                else if (values?.Any(value => value is null) == true) errors.Add($"{label}.{name} must not contain null.");
             }
-            foreach (var value in (selector.Technologies ?? []).Where(value => !Technologies.Contains(value, StringComparer.Ordinal)))
+            foreach (var value in (selector.Technologies ?? []).Where(value => value is not null && !Technologies.Contains(value, StringComparer.Ordinal)))
                 errors.Add($"{label}.technologies value '{value}' must be one of angular, dotnet, generic.");
-            foreach (var value in (selector.Kinds ?? []).Where(value => !Kinds.Contains(value, StringComparer.Ordinal)))
+            foreach (var value in (selector.Kinds ?? []).Where(value => value is not null && !Kinds.Contains(value, StringComparer.Ordinal)))
                 errors.Add($"{label}.kinds value '{value}' must be one of code, security, performance.");
         }
     }

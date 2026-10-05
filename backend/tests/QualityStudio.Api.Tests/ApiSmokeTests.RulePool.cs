@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentOrchestrator.CodeQuality;
 using QualityStudio.Testing;
 using Xunit;
@@ -225,6 +226,41 @@ public sealed partial class ApiSmokeTests
                 },
                 TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, unknownProperty.StatusCode);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(ProjectRuleFolder);
+        }
+    }
+
+    [Fact]
+    public async Task Rule_set_import_with_a_null_custom_rule_field_answers_with_diagnostics_not_a_server_error()
+    {
+        using var client = application!.CreateClient();
+        var rule = JsonSerializer.SerializeToNode(
+            RuleMarkdown.ParseCustom(CustomRule(), "ACME-CS-001.md", new List<string>())!, AttackCoverageJson.Options)!.AsObject();
+        rule["title"] = null;
+        var ruleSet = new JsonObject
+        {
+            ["schemaVersion"] = 1, ["overrides"] = new JsonArray(), ["customRules"] = new JsonArray(rule), ["packs"] = new JsonArray(),
+        };
+        try
+        {
+            using var preview = await client.PostAsJsonAsync("/api/rules/import?scope=project",
+                new { ruleSet, mode = "merge", dryRun = true }, TestContext.Current.CancellationToken);
+            using var applied = await client.PostAsJsonAsync("/api/rules/import?scope=project",
+                new { ruleSet, mode = "merge", dryRun = false, reason = "Apply." }, TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+            var plan = await preview.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.False(plan.GetProperty("valid").GetBoolean());
+            Assert.Contains(plan.GetProperty("diagnostics").EnumerateArray(), diagnostic =>
+                diagnostic.GetProperty("message").GetString()!.Contains("'title'", StringComparison.Ordinal));
+            Assert.Equal(HttpStatusCode.BadRequest, applied.StatusCode);
+            var problem = await applied.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Contains(problem.GetProperty("diagnostics").EnumerateArray(), diagnostic =>
+                diagnostic.GetProperty("message").GetString()!.Contains("'title'", StringComparison.Ordinal));
+            Assert.False(Directory.Exists(ProjectRuleFolder));
         }
         finally
         {
