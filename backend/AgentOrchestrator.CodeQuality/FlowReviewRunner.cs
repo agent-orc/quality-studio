@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using CodingAgentRunner.Pricing;
-using PricingTokenUsage = CodingAgentRunner.Pricing.TokenUsage;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -245,26 +244,30 @@ public sealed class FlowReviewRunner
         DateTimeOffset timestamp)
     {
         // The agent has already consumed the tokens; persist that fact even when the run failed.
+        // The entry carries the current schema so readers know input already counts cache tokens.
+        var model = EffectiveModel(effectiveModel);
         await UsageLedger.AppendAsync(root, new ReviewUsageEntry(
             runId,
             timestamp,
-            EffectiveModel(effectiveModel),
+            model,
             agent.AgentName,
             usage,
             UsageKind,
             "flow",
-            flowId), CancellationToken.None).ConfigureAwait(false);
+            flowId,
+            SchemaVersion: UsageLedger.CurrentSchemaVersion,
+            ModelSource: string.Equals(model, ReviewModelSource.RunnerDefault, StringComparison.Ordinal)
+                ? ReviewModelSource.RunnerDefault
+                : agent.ModelSource ?? ReviewModelSource.Explicit,
+            Cost: UsageLedger.EstimateCost(model, usage, timestamp, prices)), CancellationToken.None).ConfigureAwait(false);
     }
 
     private FlowReviewCost ComputeCost(string model, TokenUsage usage, DateTimeOffset timestamp)
     {
         if (usage.InputTokens is null || usage.OutputTokens is null)
             return new FlowReviewCost("usageUnavailable", null, null);
-        var input = Math.Max(0, usage.InputTokens.Value);
-        var cached = Math.Clamp(usage.CachedInputTokens ?? 0, 0, input);
-        var cost = prices.ComputeCost(model, new PricingTokenUsage(
-            input - cached, Math.Max(0, usage.OutputTokens.Value), cached, 0), timestamp.UtcDateTime);
-        return new FlowReviewCost(Camel(cost.Status.ToString()), cost.Total, cost.Currency);
+        var cost = UsageLedger.EstimateCost(model, usage, timestamp, prices);
+        return new FlowReviewCost(cost.Status, cost.Total, cost.Currency);
     }
 
     private string EffectiveModel(string? effectiveModel) =>
@@ -398,9 +401,6 @@ public sealed class FlowReviewRunner
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-
-    private static string Camel(string value) =>
-        string.IsNullOrEmpty(value) ? value : char.ToLowerInvariant(value[0]) + value[1..];
 
     private static JsonSerializerOptions CreateJsonOptions()
     {

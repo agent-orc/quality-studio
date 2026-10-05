@@ -25,7 +25,7 @@
         <article>
           <span>Input</span>
           <strong>{{ formatNumber(api.usage().inputTokens) }}</strong>
-          <small>{{ formatNumber(api.usage().cachedInputTokens) }} cached</small>
+          <small>{{ formatNumber(api.usage().cachedInputTokens) }} cache read · {{ formatNumber(api.usage().cacheWriteInputTokens ?? 0) }} cache write</small>
         </article>
         <article>
           <span>Output</span>
@@ -41,6 +41,9 @@
           <span>Estimated cost</span>
           <strong>{{ totalCost() }}</strong>
           <small>{{ unpricedRuns() ? unpricedRuns() + ' operation(s) unpriced' : 'every operation priced' }}</small>
+          @if (underPricedRuns()) {
+            <small class="under-priced">{{ underPricedRuns() }} operation(s) under-priced: Claude cache writes were not recorded before ledger schema 4</small>
+          }
         </article>
       </section>
 
@@ -123,10 +126,14 @@
                   <div><dt>CLI run</dt><dd>{{ entry.runId }}</dd></div>
                   <div><dt>Input</dt><dd>{{ formatNumber(entry.tokens.inputTokens) }}</dd></div>
                   <div><dt>Output</dt><dd>{{ formatNumber(entry.tokens.outputTokens) }}</dd></div>
-                  <div><dt>Cached input</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
+                  <div><dt>Cache read</dt><dd>{{ formatNumber(entry.tokens.cachedInputTokens) }}</dd></div>
+                  <div><dt>Cache write</dt><dd>{{ entry.tokens.cacheWriteInputTokens === undefined || entry.tokens.cacheWriteInputTokens === null ? 'Not recorded' : formatNumber(entry.tokens.cacheWriteInputTokens) }}</dd></div>
                   <div><dt>Reasoning output</dt><dd>{{ formatNumber(entry.tokens.reasoningOutputTokens) }}</dd></div>
                   <div><dt>Duration</dt><dd>{{ formatDuration(entry.tokens.durationMs) }}</dd></div>
                   <div><dt>Cost</dt><dd>{{ entryCostDetail(entry) }}</dd></div>
+                  @if (entry.accountingNote) {
+                    <div class="under-priced"><dt>Accounting</dt><dd>{{ entry.accountingNote }}</dd></div>
+                  }
                   <div><dt>Model choice</dt><dd>{{ entry.model }} · {{ entryModelSource(entry) }}</dd></div>
                   <div><dt>Source</dt><dd>{{ entry.cliType }} · {{ entry.level }}</dd></div>
                 </dl>

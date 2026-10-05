@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/usage-ledger.v4.schema.json",
+  "title": "Quality Studio usage ledger entry v4",
+  "description": "One agent-backed review operation. Version 4 counts every input token in tokens.inputTokens, including cache reads (cachedInputTokens) and cache writes (cacheWriteInputTokens, Claude's cache_creation_input_tokens), so caps and costs see all billed input. Readers normalize earlier Claude entries, whose inputTokens held fresh input only and which never recorded cache writes, and flag them as under-priced (for example the 2026-09-28 agent-studio-dev sweep).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "timestamp",
+    "model",
+    "cliType",
+    "tokens",
+    "kind",
+    "level",
+    "path",
+    "schemaVersion",
+    "modelSource"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Provider or CLI run identifier for this individual review operation."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The model id the CLI was asked to run. The literal \"runner-default\" appears only together with modelSource \"runner-default\"."
+    },
+    "cliType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "tokens": {
+      "$ref": "#/$defs/tokens"
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "level": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewRunId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Durable sweep/job identifier shared by every operation in one review run. Absent for standalone CLI reviews."
+    },
+    "schemaVersion": {
+      "const": 4
+    },
+    "modelSource": {
+      "enum": [
+        "explicit",
+        "policy-default",
+        "runner-default"
+      ],
+      "description": "explicit: the caller named the model. policy-default: no model was named and Quality Studio resolved the synchronized routing policy's route for the CLI and passed it explicitly. runner-default: no model was named and the policy routes nothing for the CLI, so the CLI's own default served the run and is unknown."
+    },
+    "cost": {
+      "$ref": "#/$defs/cost"
+    }
+  },
+  "$defs": {
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "currency",
+        "status"
+      ],
+      "description": "Estimated provider cost at the catalog price valid at the operation timestamp. total is null when no price resolved; status names the reason (resolved, unknownModel, noPriceForDate).",
+      "properties": {
+        "total": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 10
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputTokens",
+        "outputTokens",
+        "cachedInputTokens",
+        "reasoningOutputTokens",
+        "durationMs"
+      ],
+      "properties": {
+        "inputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "All input tokens the model processed: fresh input plus cache reads plus cache writes."
+        },
+        "outputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cachedInputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Cache-read (cache-hit) input tokens; a subset of inputTokens."
+        },
+        "cacheWriteInputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Cache-write (cache-creation) input tokens; a subset of inputTokens. Absent when the CLI bills no cache writes (Codex, Gemini)."
+        },
+        "reasoningOutputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
