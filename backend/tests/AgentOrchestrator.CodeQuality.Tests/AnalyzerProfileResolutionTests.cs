@@ -301,6 +301,38 @@ public sealed class AnalyzerProfileResolutionTests
     }
 
     [Fact]
+    public async Task Tsc_reports_a_failed_project_as_unavailable_even_when_another_project_has_diagnostics()
+    {
+        var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"), """
+                { "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.spec.json" }] }
+                """);
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.app.json"), """{ "files": ["src/main.ts"] }""");
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.spec.json"), """{ "include": ["src/**/*.spec.ts"] }""");
+            var invocations = 0;
+            var runner = new CallbackRunner((_, _, _) => ++invocations == 1
+                ? new SensorCommandResult(2, "src/main.ts(3,7): error TS2322: Type 'string' is not assignable to type 'number'.\n", string.Empty)
+                : new SensorCommandResult(1, string.Empty, "Error: Cannot find module 'typescript/lib/tsc.js'"));
+
+            var result = await new TypeScriptAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, invocations);
+            Assert.False(result.Available);
+            Assert.Empty(result.Findings);
+            Assert.Contains("tsconfig.spec.json", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Contains("exited with code 1", result.UnavailableReason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
     public async Task Tsc_checks_references_when_the_root_config_also_has_sources()
     {
         var root = CreateRepository("frontend/src/main.ts", "frontend/node_modules/typescript/bin/tsc");

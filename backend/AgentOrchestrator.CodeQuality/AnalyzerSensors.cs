@@ -230,6 +230,7 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
         string target;
         string workingDirectory;
         IReadOnlyList<IReadOnlyList<string>> commands;
+        IReadOnlyList<string?> projects = [null];
         try
         {
             target = request.Scope == SensorScope.Path && !string.IsNullOrWhiteSpace(request.Path)
@@ -242,7 +243,6 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "tsc workingDirectory must be an existing repository directory.");
             // One invocation per checked project: `tsc -p` on a solution-style tsconfig checks nothing.
-            IReadOnlyList<string?> projects = [null];
             if (configuredCommand.Contains(TsconfigPlaceholder, StringComparison.Ordinal))
                 projects = [.. TypeScriptProjects.Resolve(root, workingDirectory)];
             commands = projects
@@ -296,14 +296,25 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             return Unavailable(request, $"tsc report '{configuredReport}' could not be written: {exception.Message}");
         }
         var producerVersion = configuration.GetValueOrDefault("producerVersion");
-        var findings = Parse(diagnostics, root, workingDirectory, producerVersion);
-        if (output.ExitCode != 0 && findings.Count == 0)
+        // Judge every project on its own output: diagnostics from one project must not hide another that failed.
+        for (var index = 0; index < outputs.Count; index++)
         {
+            var projectOutput = outputs[index];
+            if (projectOutput.ExitCode == 0) continue;
+            var projectDiagnostics = string.Join(
+                Environment.NewLine,
+                new[] { projectOutput.StandardOutput, projectOutput.StandardError }
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+            if (Parse(projectDiagnostics, root, workingDirectory, producerVersion).Count > 0) continue;
+            var project = projects[index] is { } path
+                ? $" for project '{Path.GetRelativePath(root, path).Replace('\\', '/')}'"
+                : string.Empty;
             return Unavailable(
                 request,
-                $"tsc exited with code {output.ExitCode} without parseable diagnostics. " +
-                AnalyzerCommand.OutputDetail(output));
+                $"tsc exited with code {projectOutput.ExitCode}{project} without parseable diagnostics. " +
+                AnalyzerCommand.OutputDetail(projectOutput));
         }
+        var findings = Parse(diagnostics, root, workingDirectory, producerVersion);
 
         var versions = new Dictionary<string, string>(StringComparer.Ordinal);
         if (!string.IsNullOrWhiteSpace(producerVersion)) versions["typescript"] = producerVersion;
