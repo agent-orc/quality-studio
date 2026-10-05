@@ -61,12 +61,15 @@ describe('API request policy', () => {
 
   it('gives up after the configured number of retries', async () => {
     const loading = firstValueFrom(http.get('/api/repos/default/tree'));
+    // Observed before the last failure: the request rejects inside the loop, and an
+    // unobserved rejection is reported by zone.js as an unhandled HttpErrorResponse.
+    const gaveUp = expectAsync(loading).toBeRejectedWith(jasmine.any(HttpErrorResponse));
     for (let attempt = 0; attempt < 3; attempt++) {
       backend.expectOne('/api/repos/default/tree').error(new ProgressEvent('error'), { status: 503, statusText: 'Unavailable' });
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    await expectAsync(loading).toBeRejected();
+    await gaveUp;
     backend.verify();
   });
 
