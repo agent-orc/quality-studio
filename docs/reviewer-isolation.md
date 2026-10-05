@@ -96,11 +96,14 @@ Every review run gets three layers. None is optional and none depends on the oth
    `session_meta.base_instructions` must have string `text`; a `payload.state` must be an object,
    and its `agents_md` an object that is either empty (no `AGENTS.md` loaded, as Codex 0.155 writes
    it) or has string `text` and an optional string `directory`. Anything else leaves the run
-   unobserved.
+   unobserved. A Codex rollout must also hold at least one `world_state.agents_md` record: a
+   rollout with only `session_meta` (or world states without `agents_md`) has not established
+   whether `AGENTS.md` was loaded and leaves the run unobserved.
    These shapes match every record of 500 Claude Code 2.1.281 transcripts and 100 Codex rollouts
    checked on the runner on 2026-10-05.
    Interior blank or whitespace-only lines are malformed; a single trailing newline adds no line.
    The required system-prompt record is `prompt_snapshot` / `session_meta.base_instructions`.
+   Codex additionally requires the `world_state.agents_md` record.
    A malformed line could have hidden an `instructions` attachment, and a record without the
    system prompt is incomplete. A context
    without a system-prompt size is refused even if it claims to be observed. The tokens are still
