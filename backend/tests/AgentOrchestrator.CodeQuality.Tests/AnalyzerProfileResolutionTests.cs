@@ -441,13 +441,129 @@ public sealed class AnalyzerProfileResolutionTests
                 root, Profile("tsc-frontend"), TestContext.Current.CancellationToken);
 
             Assert.False(result.Available);
-            Assert.NotNull(result.UnavailableReason);
+            Assert.Contains("could not be read", result.UnavailableReason, StringComparison.Ordinal);
             Assert.Empty(result.Findings);
             Assert.False(probe.Available);
-            Assert.NotNull(probe.UnavailableReason);
+            Assert.Contains("could not be read", probe.UnavailableReason, StringComparison.Ordinal);
         }
         finally
         {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task Tsc_probe_and_scan_report_a_config_without_read_permission_as_unavailable()
+    {
+        var root = CreateRepository("frontend/node_modules/typescript/bin/tsc");
+        var referenced = Path.Combine(root, "frontend", "tsconfig.lib.json");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"),
+                """{ "files": [], "references": [{ "path": "./tsconfig.lib.json" }] }""");
+            File.WriteAllText(referenced, """{ "include": ["lib/**/*.ts"] }""");
+            if (!TryDenyRead(referenced))
+                Assert.Skip("The fixture needs a file the test user cannot read (POSIX, not root).");
+            var runner = new CallbackRunner((_, _, _) => new SensorCommandResult(0, "Version 5.9.3", string.Empty));
+            var sensor = new TypeScriptAnalyzerSensor(runner);
+
+            var probe = await sensor.ProbeAvailabilityAsync(
+                root, Profile("tsc-frontend"), TestContext.Current.CancellationToken);
+            var result = await sensor.RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+            var error = Assert.Throws<ArgumentException>(
+                () => TypeScriptProjects.Resolve(root, Path.Combine(root, "frontend")));
+
+            Assert.False(probe.Available);
+            Assert.Contains("tsconfig.lib.json' could not be read", probe.UnavailableReason, StringComparison.Ordinal);
+            Assert.False(result.Available);
+            Assert.Contains("tsconfig.lib.json' could not be read", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.IsType<UnauthorizedAccessException>(error.InnerException);
+        }
+        finally
+        {
+            RestoreRead(referenced);
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task Tsc_reports_an_unwritable_report_as_unavailable_instead_of_throwing()
+    {
+        var root = CreateRepository("frontend/node_modules/typescript/bin/tsc");
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"), """{ "include": ["src"] }""");
+            // A directory where the report file belongs cannot be written as a file on any platform.
+            Directory.CreateDirectory(Path.Combine(root, ".quality", "preflight", "tsc.txt"));
+            var runner = new CallbackRunner((_, _, _) => new SensorCommandResult(0, string.Empty, string.Empty));
+
+            var result = await new TypeScriptAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("tsc-frontend")),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.Contains("could not be written", result.UnavailableReason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task A_report_directory_that_cannot_be_created_is_unavailable_and_runs_nothing()
+    {
+        var root = CreateRepository("src/A/A.cs", ".quality/preflight/roslyn");
+        try
+        {
+            var runner = new CallbackRunner((_, _, _) => throw new InvalidOperationException("must not run"));
+
+            var result = await new RoslynAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("roslyn-build-sarif")),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.NotNull(result.UnavailableReason);
+            Assert.DoesNotContain("must not run", result.UnavailableReason, StringComparison.Ordinal);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task An_unreadable_sarif_log_is_unavailable_instead_of_throwing()
+    {
+        var root = CreateRepository("src/A/A.cs");
+        var log = Path.Combine(root, ".quality", "preflight", "roslyn", "A-1-net10.0.sarif");
+        try
+        {
+            var capability = Path.Combine(root, "capability.txt");
+            File.WriteAllText(capability, string.Empty);
+            if (!TryDenyRead(capability))
+                Assert.Skip("The fixture needs a file the test user cannot read (POSIX, not root).");
+            var runner = new CallbackRunner((_, _, _) =>
+            {
+                File.WriteAllText(log, Log("CA1822", "src/A/A.cs", 3));
+                _ = TryDenyRead(log);
+                return new SensorCommandResult(0, string.Empty, string.Empty);
+            });
+
+            var result = await new RoslynAnalyzerSensor(runner).RunAsync(
+                new SensorScanRequest(root, Configuration: Profile("roslyn-build-sarif")),
+                TestContext.Current.CancellationToken);
+
+            Assert.False(result.Available);
+            Assert.StartsWith("SARIF report is unavailable", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Empty(result.Findings);
+        }
+        finally
+        {
+            RestoreRead(log);
+            RestoreRead(Path.Combine(root, "capability.txt"));
             TemporaryDirectory.Delete(root);
         }
     }
@@ -594,6 +710,31 @@ public sealed class AnalyzerProfileResolutionTests
         $"\"results\":[{{\"ruleId\":\"{ruleId}\",\"level\":\"warning\",\"message\":{{\"text\":\"{ruleId} reported.\"}}," +
         (suppressed ? "\"suppressions\":[{\"kind\":\"inSource\"}]," : string.Empty) +
         $"\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":\"{path}\"}},\"region\":{{\"startLine\":{line},\"startColumn\":1}}}}}}]}}]}}]}}";
+
+    /// <summary>
+    /// Removes every permission from <paramref name="path"/>. False when the test user can still read
+    /// it (Windows, or a POSIX root user), so a test can skip instead of proving nothing.
+    /// </summary>
+    internal static bool TryDenyRead(string path)
+    {
+        if (OperatingSystem.IsWindows()) return false;
+        File.SetUnixFileMode(path, UnixFileMode.None);
+        try
+        {
+            using var stream = File.OpenRead(path);
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    internal static void RestoreRead(string path)
+    {
+        if (!OperatingSystem.IsWindows() && File.Exists(path))
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+    }
 
     internal static string CreateRepository(params string[] paths)
     {

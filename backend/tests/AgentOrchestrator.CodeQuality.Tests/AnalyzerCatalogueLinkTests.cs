@@ -211,6 +211,65 @@ public sealed class AnalyzerCatalogueLinkTests
     }
 
     [Fact]
+    public async Task A_document_without_read_permission_is_skipped_instead_of_failing_the_file_view()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-analyzer-denied-").FullName;
+        var store = new AnalyzerResultStore(root);
+        var denied = Path.Combine(store.Directory, "eslint.json");
+        try
+        {
+            await store.RecordAsync(Result("roslyn", Finding("CA2016", "src/A.cs")), TestContext.Current.CancellationToken);
+            await store.RecordAsync(Result("eslint", Finding("no-eval", "src/a.ts")), TestContext.Current.CancellationToken);
+            if (!AnalyzerProfileResolutionTests.TryDenyRead(denied))
+                Assert.Skip("The fixture needs a file the test user cannot read (POSIX, not root).");
+
+            var view = await store.ReadForPathAsync(".", DeterministicRuleMap.Empty, TestContext.Current.CancellationToken);
+            var counts = await store.CountByFileAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("roslyn", Assert.Single(view.Sensors).SensorId);
+            Assert.Equal(1, counts["src/A.cs"]);
+            Assert.False(counts.ContainsKey("src/a.ts"));
+        }
+        finally
+        {
+            AnalyzerProfileResolutionTests.RestoreRead(denied);
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
+    public async Task A_rewrite_with_an_unchanged_file_stamp_never_serves_the_replaced_result()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-analyzer-stamp-").FullName;
+        try
+        {
+            var store = new AnalyzerResultStore(root);
+            var path = Path.Combine(store.Directory, "roslyn.json");
+            var first = Result("roslyn", Finding("CA2016", "src/A.cs"));
+            await store.RecordAsync(first, TestContext.Current.CancellationToken);
+            Assert.Single((await store.ReadAllAsync(TestContext.Current.CancellationToken)));
+            var stamp = File.GetLastWriteTimeUtc(path);
+            var length = new FileInfo(path).Length;
+
+            // Same findings, same-width timestamp: the rewrite has the same length. A coarse
+            // file-system clock (FAT, SMB, HFS+) can give it the same write time too.
+            await store.RecordAsync(
+                first with { Provenance = first.Provenance with { ScannedAt = "2026-09-28T09:30:00.0000000Z" } },
+                TestContext.Current.CancellationToken);
+            File.SetLastWriteTimeUtc(path, stamp);
+            Assert.Equal(length, new FileInfo(path).Length);
+
+            var document = Assert.Single(await store.ReadAllAsync(TestContext.Current.CancellationToken));
+            Assert.Equal("2026-09-28T09:30:00.0000000Z", document.LastAttempt.ScannedAt);
+            Assert.Equal("2026-09-28T09:30:00.0000000Z", document.Result!.Provenance.ScannedAt);
+        }
+        finally
+        {
+            TemporaryDirectory.Delete(root);
+        }
+    }
+
+    [Fact]
     public async Task Evidence_collected_for_a_review_is_persisted_when_asked()
     {
         var root = Directory.CreateTempSubdirectory("quality-studio-analyzer-collect-").FullName;

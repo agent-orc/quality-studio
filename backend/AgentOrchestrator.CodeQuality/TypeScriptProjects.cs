@@ -29,8 +29,8 @@ public static class TypeScriptProjects
 
     /// <summary>
     /// The absolute project files to check for <paramref name="workingDirectory"/>, in reference order.
-    /// Raises <see cref="ArgumentException"/> when there is nothing checkable, so the sensor reports the
-    /// reason instead of a clean result.
+    /// Raises <see cref="ArgumentException"/> when there is nothing checkable or a config cannot be read,
+    /// so the sensor reports the reason instead of a clean result or an exception.
     /// </summary>
     public static IReadOnlyList<string> Resolve(string repositoryRoot, string workingDirectory)
     {
@@ -70,12 +70,23 @@ public static class TypeScriptProjects
             throw new ArgumentException(
                 $"'{Relative(repositoryRoot, configPath)}' exceeds the TypeScript project reference depth limit of {MaximumReferenceDepth}.");
         if (!visited.Add(Path.GetFullPath(configPath))) return;
-        if (new FileInfo(configPath).Length > MaximumConfigBytes)
-            throw new ArgumentException($"'{Relative(repositoryRoot, configPath)}' is too large to be a tsconfig.");
+        string text;
+        try
+        {
+            if (new FileInfo(configPath).Length > MaximumConfigBytes)
+                throw new ArgumentException($"'{Relative(repositoryRoot, configPath)}' is too large to be a tsconfig.");
+            text = File.ReadAllText(configPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Every caller (scan and availability probe) reports ArgumentException as unavailable.
+            throw new ArgumentException(
+                $"'{Relative(repositoryRoot, configPath)}' could not be read: {exception.Message}", exception);
+        }
         JsonDocument document;
         try
         {
-            document = JsonDocument.Parse(File.ReadAllText(configPath), ConfigOptions);
+            document = JsonDocument.Parse(text, ConfigOptions);
         }
         catch (JsonException exception)
         {

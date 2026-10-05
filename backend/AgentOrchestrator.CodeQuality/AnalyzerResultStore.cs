@@ -92,6 +92,8 @@ public sealed class AnalyzerResultStore
             System.IO.Directory.CreateDirectory(Directory);
             await AtomicFile.WriteAllTextAsync(
                 path, JsonSerializer.Serialize(document, JsonOptions), cancellationToken).ConfigureAwait(false);
+            // A coarse file-system clock can give the rewrite the old stamp; never serve the replaced result.
+            Cache.TryRemove(path, out _);
             return document;
         }
         finally
@@ -221,7 +223,8 @@ public sealed class AnalyzerResultStore
             Cache[path] = (stamp, document);
             return document;
         }
-        catch (Exception exception) when (exception is JsonException or IOException or NotSupportedException)
+        catch (Exception exception) when (
+            exception is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
         {
             // A torn or foreign file must not take the explorer down; the next scan rewrites it.
             return null;

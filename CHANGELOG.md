@@ -18,6 +18,8 @@ the Agent Studio checkout (defects D8-D10). Fixed:
 - **ESLint**: the binary, the formatter and the flat config are resolved from the workspace, including
   hoisted `node_modules`, and the `frontend` profile runs in `frontend/`.
 - **Probes** run in the analysed repository and the profile's working directory instead of the host's.
+  A config, report or log that cannot be read or written makes the sensor unavailable with the reason;
+  a probe that still throws marks only its own sensor unavailable in the repository's sensor list.
 - The SARIF import honours `suppressions` and reports `suppressedFindings`.
 
 Deterministic sensor results are persisted in the data root (`analyzers/<sensor>.json`) by scans and by

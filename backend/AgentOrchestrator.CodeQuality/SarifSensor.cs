@@ -74,7 +74,8 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "Analyzer workingDirectory must be an existing repository directory.");
         }
-        catch (ArgumentException exception)
+        catch (Exception exception) when (
+            exception is ArgumentException or IOException or UnauthorizedAccessException)
         {
             return Unavailable(request, exception.Message);
         }
@@ -91,7 +92,8 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
                 command = AnalyzerCommand.Expand(
                     configuredCommand, root, target, reportPath, workingDirectory, reportDirectory);
             }
-            catch (ArgumentException exception)
+            catch (Exception exception) when (
+                exception is ArgumentException or IOException or UnauthorizedAccessException)
             {
                 return Unavailable(request, exception.Message);
             }
@@ -110,14 +112,23 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
                 }
             }
             catch (Exception exception) when (
-                exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+                exception is SecurityScannerUnavailableException or IOException or UnauthorizedAccessException or
+                    InvalidOperationException)
             {
                 return Unavailable(request, $"{Id} is unavailable: {exception.Message}");
             }
         }
-        else if (ReportFiles(reportPath, reportDirectoryMode).Count == 0)
+        else
         {
-            return Unavailable(request, $"SARIF report is unavailable: '{configuredReport}' does not exist.");
+            try
+            {
+                if (ReportFiles(reportPath, reportDirectoryMode).Count == 0)
+                    return Unavailable(request, $"SARIF report is unavailable: '{configuredReport}' does not exist.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return Unavailable(request, $"SARIF report is unavailable: {exception.Message}");
+            }
         }
 
         try
@@ -152,7 +163,8 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             return new SensorScanResult(true, null, merged, Provenance(request, versions), suppressed);
         }
         catch (Exception exception) when (
-            exception is JsonException or IOException or InvalidDataException or InvalidOperationException)
+            exception is JsonException or IOException or UnauthorizedAccessException or InvalidDataException or
+                InvalidOperationException)
         {
             return Unavailable(request, $"SARIF report is unavailable: {exception.Message}");
         }

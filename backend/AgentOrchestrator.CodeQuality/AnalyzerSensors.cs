@@ -65,7 +65,8 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor,
                 if (!string.IsNullOrWhiteSpace(invocation.Command))
                     AnalyzerCommand.CheckTools(invocation.Command, root, workingDirectory);
             }
-            catch (ArgumentException exception)
+            catch (Exception exception) when (
+                exception is ArgumentException or IOException or UnauthorizedAccessException)
             {
                 return new SensorAvailability(false, $"{Id} is unavailable: {exception.Message}");
             }
@@ -92,7 +93,8 @@ public abstract class SarifCommandAnalyzerSensor : IDeterministicEvidenceSensor,
             });
         }
         catch (Exception exception) when (
-            exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+            exception is SecurityScannerUnavailableException or IOException or UnauthorizedAccessException or
+                InvalidOperationException)
         {
             return new SensorAvailability(false, $"{Id} is unavailable: {exception.Message}");
         }
@@ -147,7 +149,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             return VersionAvailability(output);
         }
         catch (Exception exception) when (
-            exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+            exception is SecurityScannerUnavailableException or IOException or UnauthorizedAccessException or
+                InvalidOperationException)
         {
             return new SensorAvailability(false, $"tsc is unavailable: {exception.Message}");
         }
@@ -190,7 +193,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             return new SensorAvailability(false, $"tsc is unavailable: {exception.Message}");
         }
         catch (Exception exception) when (
-            exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+            exception is SecurityScannerUnavailableException or IOException or UnauthorizedAccessException or
+                InvalidOperationException)
         {
             return new SensorAvailability(false, $"tsc is unavailable: {exception.Message}");
         }
@@ -265,7 +269,8 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             }
         }
         catch (Exception exception) when (
-            exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+            exception is SecurityScannerUnavailableException or IOException or UnauthorizedAccessException or
+                InvalidOperationException)
         {
             return Unavailable(request, $"tsc is unavailable: {exception.Message}");
         }
@@ -280,9 +285,16 @@ public sealed partial class TypeScriptAnalyzerSensor : IDeterministicEvidenceSen
             Environment.NewLine,
             new[] { output.StandardOutput, output.StandardError }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
-        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
-        await File.WriteAllTextAsync(
-            reportPath, diagnostics, new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+            await File.WriteAllTextAsync(
+                reportPath, diagnostics, new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Unavailable(request, $"tsc report '{configuredReport}' could not be written: {exception.Message}");
+        }
         var producerVersion = configuration.GetValueOrDefault("producerVersion");
         var findings = Parse(diagnostics, root, workingDirectory, producerVersion);
         if (output.ExitCode != 0 && findings.Count == 0)
