@@ -118,18 +118,18 @@ public sealed class ReviewAgentUsageTests
 
         public int OutputSubscribers => onOutput?.GetInvocationList().Length ?? 0;
         public string CliType => cliType;
-        public bool SupportsCleanContext => false;
+        public bool SupportsCleanContext => true;
 
         public event Action<string, CliOutputLine>? OnOutput
         {
             add => onOutput += value;
             remove => onOutput -= value;
         }
-#pragma warning disable CS0067 // required by ICliDriver; this fake raises raw output only
         public event Action<string, CliRunInfo>? OnStarted;
+#pragma warning disable CS0067 // required by ICliDriver; this fake never reports a finished run
         public event Action<string, CliRunInfo>? OnFinished;
-        public event Action<string, CliRunEvent>? OnRunEvent;
 #pragma warning restore CS0067
+        public event Action<string, CliRunEvent>? OnRunEvent;
 
         public string GetCliPath() => "fake-cli";
         public bool IsAvailable() => true;
@@ -142,12 +142,34 @@ public sealed class ReviewAgentUsageTests
             CliRunRequest request, [EnumeratorCancellation] CancellationToken ct = default)
         {
             await Task.Yield();
-            onOutput?.Invoke("another-run", new CliOutputLine { Stream = "stdout", Text = ClaudeResultLine });
-            foreach (var line in lines(request.RunId)) onOutput?.Invoke(request.RunId, line);
-            foreach (var runEvent in events(request.RunId))
+            // A clean-context Claude run reports its per-run home, its init frame and its session,
+            // and keeps a transcript with the system prompt there; the agent refuses a run without.
+            const string Session = "fake-session";
+            var home = Directory.CreateTempSubdirectory("quality-usage-home-").FullName;
+            try
             {
-                await Task.Yield();
-                yield return runEvent;
+                Directory.CreateDirectory(Path.Combine(home, "projects", "fake"));
+                File.WriteAllText(Path.Combine(home, "projects", "fake", Session + ".jsonl"),
+                    """{"type":"attachment","attachment":{"type":"prompt_snapshot","systemPrompt":["fake system prompt"]}}""" + "\n");
+                OnStarted?.Invoke(request.RunId, new CliRunInfo { RunId = request.RunId, CleanContextHome = home });
+                OnRunEvent?.Invoke(request.RunId, new CliRunEvent.SessionStarted(Session) { RunId = request.RunId });
+                onOutput?.Invoke(request.RunId, new CliOutputLine
+                {
+                    Stream = "stdout",
+                    Text = """{"type":"system","subtype":"init","session_id":"fake-session","skills":[],"mcp_servers":[]}""",
+                });
+                onOutput?.Invoke("another-run", new CliOutputLine { Stream = "stdout", Text = ClaudeResultLine });
+                foreach (var line in lines(request.RunId)) onOutput?.Invoke(request.RunId, line);
+                foreach (var runEvent in events(request.RunId))
+                {
+                    await Task.Yield();
+                    OnRunEvent?.Invoke(request.RunId, runEvent);
+                    yield return runEvent;
+                }
+            }
+            finally
+            {
+                Directory.Delete(home, recursive: true);
             }
         }
 
