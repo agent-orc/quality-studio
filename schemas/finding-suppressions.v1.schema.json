@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://quality.studio/schemas/finding-suppressions.v1.schema.json",
-  "title": "Quality Studio exact-finding suppression policy v1",
+  "title": "Quality Studio finding suppression policy v1",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "revision", "rules"],
@@ -15,14 +15,19 @@
         "additionalProperties": false,
         "required": ["id", "enabled", "match", "effect", "reason", "author", "createdAt"],
         "properties": {
-          "id": { "type": "string", "pattern": "^exact-[0-9a-f]{64}$" },
+          "id": { "type": "string", "pattern": "^(exact-[0-9a-f]{64}|scope-[0-9a-f]{32})$" },
           "enabled": { "type": "boolean" },
           "match": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["fingerprint"],
+            "oneOf": [
+              { "required": ["fingerprint"], "properties": { "fingerprint": { "type": "string" } } },
+              { "required": ["ruleId", "path"], "properties": { "fingerprint": { "type": "null" }, "ruleId": { "type": "string", "minLength": 1 }, "path": { "type": "string", "minLength": 1 } } }
+            ],
             "properties": {
-              "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              "fingerprint": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+              "ruleId": { "type": ["string", "null"] },
+              "path": { "type": ["string", "null"] }
             }
           },
           "effect": { "const": "suppress" },

@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiContext } from './api-context';
 import {
   AgentStudioImportResponse, AnalyzerCountsResponse, AttackCoverageMatrix, FindingStateMutationRequest, FindingSuppressionMutation,
-  FindingSuppressionsResponse, Guideline,
+  FindingSuppressionsResponse, ScopedSuppressionMutation, Guideline,
   GuidelineCatalogueEntry, GuidelineDraft, GuidelineImpact, GuidelineTrace, HandoverRequest, HandoverResult, ProjectDashboard,
   QualityRunReport, QualityRunTrendPage, RepositoryRegistration, RepositoryRegistrationRequest,
   RepositoryTransition, ResolvedInputs, ReviewFinding, ReviewKind, ReviewModelRecommendation,
@@ -457,6 +457,7 @@ export class QualityApi {
   createTask(request: HandoverRequest): Promise<HandoverResult> { return this.findingsApi.createTask(request); }
   loadFindingSuppressions(): Promise<FindingSuppressionsResponse> { return this.findingsApi.loadFindingSuppressions(); }
   addFindingSuppression(request: FindingSuppressionMutation): Promise<ReviewFinding | null> { return this.findingsApi.addFindingSuppression(request); }
+  addScopedSuppression(request: ScopedSuppressionMutation): Promise<void> { return this.findingsApi.addScopedSuppression(request); }
   deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> { return this.findingsApi.deleteFindingSuppression(id, expectedRevision); }
 
   // --- scope and guidelines -----------------------------------------------------------------

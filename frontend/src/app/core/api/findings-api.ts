@@ -6,7 +6,7 @@ import { ApiContext } from './api-context';
 import { describeFileError } from './api-errors';
 import {
   CoverageFact, FileDocument, FileError, FindingStateMutationRequest, FindingSuppressionMutation,
-  FindingSuppressionsResponse, HandoverRequest, HandoverResult, ReviewFinding, ReviewThread,
+  FindingSuppressionsResponse, ScopedSuppressionMutation, HandoverRequest, HandoverResult, ReviewFinding, ReviewThread,
   ThreadMutationRequest,
 } from '../models/contracts';
 import type { PreviewFixtures } from './preview-fixtures';
@@ -111,6 +111,14 @@ export class FindingsApi {
     console.info(JSON.stringify({ event: 'qs.finding.suppressed', fingerprint: request.fingerprint, revision: response.revision }));
     return this.file()?.metaDocuments.find(meta => meta.kind === request.kind)?.findings
       .find(finding => finding.fingerprint === request.fingerprint) ?? null;
+  }
+
+  async addScopedSuppression(request: ScopedSuppressionMutation): Promise<void> {
+    const response = await firstValueFrom(this.http.post<FindingSuppressionsResponse>(
+      `${this.context.repositoryApiBase()}/findings/suppressions/scoped`, request));
+    this.findingSuppressions.set(response);
+    const path = this.file()?.path;
+    await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.onFindingsChanged?.() ?? Promise.resolve()]);
   }
 
   async deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> {

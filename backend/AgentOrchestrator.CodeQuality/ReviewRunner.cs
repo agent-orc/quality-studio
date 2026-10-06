@@ -143,7 +143,9 @@ public sealed class ReviewRunner
                 async reported =>
                 {
                     usage = CreateUsage(reported.RunId, reported.Usage, reported.EffectiveModel,
-                        startedAt, request, relativePath);
+                        startedAt, request, relativePath, inputs.Inputs
+                            .Where(input => input.IncludedContent.Length > 0 && input.Version != ReviewInput.Unversioned)
+                            .Select(input => input.Id).Distinct(StringComparer.Ordinal).ToArray());
                     await RecordUsageAsync(root, usage, relativePath, request.Kind).ConfigureAwait(false);
                 },
                 outcome =>
@@ -414,7 +416,7 @@ public sealed class ReviewRunner
     }
 
     private ReviewUsageEntry CreateUsage(string runId, TokenUsage tokens, string? effectiveModel,
-        DateTimeOffset startedAt, ReviewRequest request, string relativePath)
+        DateTimeOffset startedAt, ReviewRequest request, string relativePath, IReadOnlyList<string> ruleIds)
     {
         var model = !string.IsNullOrWhiteSpace(effectiveModel) ? effectiveModel
             : !string.IsNullOrWhiteSpace(_agent.Model) ? _agent.Model
@@ -426,7 +428,7 @@ public sealed class ReviewRunner
             : request.ModelSource ?? _agent.ModelSource ?? ReviewModelSource.Explicit;
         return new ReviewUsageEntry(runId, startedAt, model, _agent.AgentName, tokens, request.Kind,
             request.Level.ToString().ToLowerInvariant(), relativePath, request.ReviewRunId,
-            UsageLedger.CurrentSchemaVersion, modelSource, UsageLedger.EstimateCost(model, tokens, startedAt));
+            UsageLedger.CurrentSchemaVersion, modelSource, UsageLedger.EstimateCost(model, tokens, startedAt), RuleIds: ruleIds);
     }
 
     private async Task RecordUsageAsync(string root, ReviewUsageEntry usage, string relativePath, string kind)

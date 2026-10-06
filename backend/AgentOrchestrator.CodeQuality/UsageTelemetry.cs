@@ -51,7 +51,8 @@ public sealed record ReviewUsageEntry(
     int SchemaVersion = 1,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ModelSource = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] UsageCost? Cost = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AccountingNote = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? AccountingNote = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? RuleIds = null);
 
 public sealed record UsageAggregate(string Key, int Runs, long InputTokens, long OutputTokens,
     long CachedInputTokens, long ReasoningOutputTokens, long DurationMs, long CacheWriteInputTokens = 0);

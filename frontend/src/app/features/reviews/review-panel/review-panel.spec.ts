@@ -49,6 +49,7 @@ describe('ReviewPanel session flow', () => {
     deleteScopeRule: jasmine.createSpy('deleteScopeRule'),
     loadFindingSuppressions: jasmine.createSpy('loadFindingSuppressions'),
     addFindingSuppression: jasmine.createSpy('addFindingSuppression'),
+    addScopedSuppression: jasmine.createSpy('addScopedSuppression'),
     deleteFindingSuppression: jasmine.createSpy('deleteFindingSuppression'),
     createTask: jasmine.createSpy('createTask'), pauseReview: jasmine.createSpy('pauseReview'),
     cancelReview: jasmine.createSpy('cancelReview'), resumeReview: jasmine.createSpy('resumeReview'),
@@ -67,7 +68,7 @@ describe('ReviewPanel session flow', () => {
     api.reviewRuns.set(initialRuns);
     for (const spy of [api.mutateFindingState, api.loadFile, api.loadTree, api.loadScopeRules, api.previewScopeRule,
       api.addScopeRule, api.updateScopeRule, api.deleteScopeRule, api.loadFindingSuppressions,
-      api.addFindingSuppression, api.deleteFindingSuppression, api.createTask, api.pauseReview, api.cancelReview,
+      api.addFindingSuppression, api.addScopedSuppression, api.deleteFindingSuppression, api.createTask, api.pauseReview, api.cancelReview,
       api.resumeReview, api.loadRunReport, api.loadRunTrend, api.compareRuns, api.loadPinnedRunIds,
       api.pinRun, api.unpinRun]) spy.calls.reset();
     api.loadPinnedRunIds.and.resolveTo([]);
@@ -85,6 +86,7 @@ describe('ReviewPanel session flow', () => {
       id: 'exact-a', reason: 'Known debt.', author: 'Reviewer', createdAt: '2026-08-12T20:00:00Z', expiresAt: null,
     } }));
     api.deleteFindingSuppression.and.resolveTo();
+    api.addScopedSuppression.and.resolveTo();
 
     await TestBed.configureTestingModule({
       imports: [ReviewPanel],
@@ -193,6 +195,21 @@ describe('ReviewPanel session flow', () => {
     }));
     expect(component.ignoreManagerOpen()).toBeTrue();
     expect(component.ignoreStatus()).toContain('observation remains');
+  });
+
+  it('adds a rule and path suppression with reason and expiry', async () => {
+    component.openIgnoreFinding(openFinding);
+    component.ignoreMode.set('scope');
+    component.ignoreScopePath.set('src/generated');
+    component.ignoreReason.set('Generated source.');
+    component.ignoreExpiry.set('2027-01-01T12:00');
+    await component.saveFindingSuppression();
+
+    expect(api.addScopedSuppression).toHaveBeenCalledWith(jasmine.objectContaining({
+      ruleId: openFinding.ruleId, path: 'src/generated', reason: 'Generated source.', expectedRevision: 0,
+      expiresAt: new Date('2027-01-01T12:00').toISOString(),
+    }));
+    expect(component.ignoreManagerOpen()).toBeTrue();
   });
 
   it('hides suppressed observations by default and keeps them queryable', () => {

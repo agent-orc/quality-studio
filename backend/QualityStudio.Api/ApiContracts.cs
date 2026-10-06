@@ -433,6 +433,10 @@ public sealed record FindingSuppressionMutationRequest(
     long? ExpectedRevision,
     string? UnitId = null);
 
+public sealed record ScopedSuppressionMutationRequest(
+    string RuleId, string Path, string Author, string Reason,
+    DateTimeOffset? ExpiresAt, long? ExpectedRevision);
+
 /// <summary>Per-project outcome of an Agent Studio repository import ("imported", "skipped", or "failed").</summary>
 public sealed record AgentStudioImportResultResponse(
     string ProjectId,

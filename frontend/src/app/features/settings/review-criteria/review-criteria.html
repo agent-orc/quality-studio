@@ -4,10 +4,28 @@
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'rules'" (click)="section.set('rules')">Rules & rationale</button>
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'prompt'" (click)="section.set('prompt')">Prompt input preview</button>
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'metrics'" (click)="section.set('metrics')">Metrics & formulas</button>
+    <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'effectiveness'" (click)="showEffectiveness()">Rule effectiveness</button>
     <button class="studio-button" type="button" [attr.aria-pressed]="section() === 'domains'" (click)="section.set('domains')">Quality domains</button>
   </nav>
   @if (section() === 'domains') {
     <qs-quality-domains (openMetric)="showMetric($event)" (openRule)="showRule($event)" />
+  } @else if (section() === 'effectiveness') {
+    <p class="muted">One hit per distinct finding fingerprint; dispositions reflect the current state ledger. Daily trend uses the latest state timestamp. Review cost is shared evenly among named rules included in its prompt. Older untagged usage is unattributed.</p>
+    @if (policy.effectivenessError()) { <p role="alert">Effectiveness data unavailable: {{ policy.effectivenessError() }}</p> }
+    @if (policy.effectiveness(); as report) {
+      <p class="muted">Unattributed cost: {{ report.unattributedCost | number:'1.2-4' }} {{ report.costCurrency }} · {{ report.unpricedRuns }} unpriced runs</p>
+      <h3>Worst offenders</h3>
+      <div class="effectiveness-offenders">
+        @for (row of report.worstOffenders; track row.ruleId) {
+          <button class="studio-row-button" type="button" (click)="showRule(row.ruleId)"><code>{{ row.ruleId }}</code><span>{{ row.falsePositives }} false positives · {{ row.dismissed }} dismissed · {{ row.hits }} hits</span></button>
+        } @empty { <p class="studio-empty-state">No findings recorded yet.</p> }
+      </div>
+      <div class="effectiveness-table-wrap"><table class="effectiveness-table"><thead><tr><th>Rule</th><th>Hits</th><th>Accepted</th><th>Dismissed</th><th>False positives</th><th>Resolved</th><th>Cost ({{ report.costCurrency }})</th><th>Trend</th></tr></thead><tbody>
+        @for (row of report.rules; track row.ruleId) {
+          <tr><th scope="row"><button class="studio-button" type="button" (click)="showRule(row.ruleId)">{{ row.ruleId }}</button></th><td>{{ row.hits }}</td><td>{{ row.accepted }}</td><td>{{ row.dismissed }}</td><td>{{ row.falsePositives }}</td><td>{{ row.resolved }}</td><td>{{ row.cost | number:'1.2-4' }}</td><td><details><summary>{{ row.trend.length }} days</summary>@for (day of row.trend; track day.day) { <div>{{ day.day }} · {{ day.hits }} hits · {{ day.falsePositives }} false positives · {{ day.cost | number:'1.2-4' }} {{ report.costCurrency }}</div> }</details></td></tr>
+        } @empty { <tr><td colspan="8">No rule observations or attributed usage yet.</td></tr> }
+      </tbody></table></div>
+    }
   } @else if (section() === 'metrics') {
     @for (metric of methodology.metrics; track metric.id) {
       <details class="reference-card" [attr.data-metric-id]="metric.id" [open]="metric.id === selectedMetric()"><summary>{{ metric.title }}</summary><p>{{ metric.why }}</p><code class="formula">{{ metric.formula }}</code><p>{{ metric.interpretation }}</p><p><strong>Limits:</strong> {{ metric.limits }}</p><a [href]="'https://github.com/agent-orc/quality-studio/blob/main/' + metric.implementation" target="_blank" rel="noopener noreferrer">Implementation ↗</a></details>

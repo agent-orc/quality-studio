@@ -34,9 +34,13 @@ public static class FindingStateProjection
             var effective = state?.State is { } lifecycle && lifecycle != FindingState.NotReobserved
                 ? lifecycle
                 : FindingState.Open;
-            var suppression = fingerprint is not null && suppressions?.TryGetValue(fingerprint, out var storedSuppression) == true
-                ? storedSuppression
-                : null;
+            var ruleId = finding["ruleId"]?.GetValue<string>();
+            var path = finding["locations"]?.AsArray().FirstOrDefault()?["path"]?.GetValue<string>();
+            FindingSuppressionRule? suppression = null;
+            if (fingerprint is not null && suppressions?.TryGetValue(fingerprint, out var exact) == true)
+                suppression = exact;
+            suppression ??= suppressions?.Values.FirstOrDefault(rule =>
+                rule.Match.Fingerprint is null && rule.Matches(fingerprint, ruleId, path));
             finding["state"] = FindingStateStore.StateName(effective);
             if (state is not null)
             {

@@ -27,6 +27,13 @@
   background: var(--studio-selected);
 }
 
+.effectiveness-offenders { display: grid; gap: 6px; margin-bottom: 16px; }
+.effectiveness-offenders button { display: flex; justify-content: space-between; gap: 12px; }
+.effectiveness-table-wrap { overflow-x: auto; }
+.effectiveness-table { width: 100%; border-collapse: collapse; text-align: left; }
+.effectiveness-table th, .effectiveness-table td { padding: 8px; border-bottom: 1px solid var(--studio-border); white-space: nowrap; }
+.effectiveness-table details div { font-size: var(--studio-font-size-control); }
+
 .criteria-filters {
   display: flex;
   align-items: end;

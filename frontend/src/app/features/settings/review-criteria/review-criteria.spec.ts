@@ -77,4 +77,21 @@ describe('ReviewCriteria', () => {
     expect(content).toContain('0.4 × (100 − code grade)');
     expect(content).toContain('not a failure probability');
   });
+
+  it('shows rule effectiveness and trend from the repository report', async () => {
+    const loading = fixture.componentInstance.showEffectiveness();
+    http.expectOne('/api/repos/default/rules/effectiveness').flush({
+      generatedAt: '2026-09-28T12:00:00Z', costCurrency: 'USD', unattributedCost: 2, unpricedRuns: 1,
+      worstOffenders: [{ ruleId: 'QS-GN-003', hits: 2, accepted: 0, dismissed: 1, falsePositives: 1,
+        resolved: 0, cost: 0.5, unpricedRuns: 0, falsePositiveRate: 0.5, trend: [] }],
+      rules: [{ ruleId: 'QS-GN-003', hits: 2, accepted: 0, dismissed: 1, falsePositives: 1,
+        resolved: 0, cost: 0.5, unpricedRuns: 0, falsePositiveRate: 0.5,
+        trend: [{ day: '2026-09-28', hits: 2, accepted: 0, dismissed: 1, falsePositives: 1, resolved: 0, cost: 0.5 }] }],
+    });
+    await loading;
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Unattributed cost');
+    expect(fixture.nativeElement.textContent).toContain('false positives');
+    expect(fixture.nativeElement.querySelectorAll('.effectiveness-table tbody tr').length).toBe(1);
+  });
 });

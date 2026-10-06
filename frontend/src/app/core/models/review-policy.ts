@@ -56,3 +56,15 @@ export interface RuleImportResult {
   diagnostics: RuleDiagnostic[]; pool: ReviewRuleCatalogue;
 }
 export type RuleImportMode = 'merge' | 'replace';
+
+export interface RuleEffectivenessDay {
+  day: string; hits: number; accepted: number; dismissed: number; falsePositives: number; resolved: number; cost: number;
+}
+export interface RuleEffectivenessRow {
+  ruleId: string; hits: number; accepted: number; dismissed: number; falsePositives: number; resolved: number;
+  cost: number; unpricedRuns: number; falsePositiveRate: number | null; trend: RuleEffectivenessDay[];
+}
+export interface RuleEffectivenessReport {
+  generatedAt: string; costCurrency: string; rules: RuleEffectivenessRow[];
+  worstOffenders: RuleEffectivenessRow[]; unattributedCost: number; unpricedRuns: number;
+}

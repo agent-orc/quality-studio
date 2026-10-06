@@ -4,7 +4,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { ApiContext } from './api-context';
 import {
   CustomRuleValidation, ReviewInputPreview, ReviewRuleCatalogue, RuleAuditEntry, RuleDiagnostic, RuleImportMode,
-  RuleImportResult, RuleOverrideMutation, RuleWriteScope,
+  RuleImportResult, RuleOverrideMutation, RuleWriteScope, RuleEffectivenessReport,
 } from '../models/review-policy';
 
 /** A rejected rule pool change: the API's sentence plus the located configuration problems. */
@@ -30,6 +30,8 @@ export class ReviewPolicyApi {
   /** The scope rule changes are written to; shared by the pool manager and every rule card. */
   readonly editScope = signal<RuleWriteScope>('project');
   readonly saving = signal(false);
+  readonly effectiveness = signal<RuleEffectivenessReport | null>(null);
+  readonly effectivenessError = signal('');
 
   constructor() { inject(DestroyRef).onDestroy(() => { this.sequence++; }); }
 
@@ -39,6 +41,8 @@ export class ReviewPolicyApi {
     this.inputPreview.set(null);
     this.error.set('');
     this.previewError.set('');
+    this.effectiveness.set(null);
+    this.effectivenessError.set('');
     this.loading.set(true);
     const base = this.context.repositoryApiBase(repositoryId);
     try {
@@ -57,6 +61,18 @@ export class ReviewPolicyApi {
       if (sequence === this.sequence && repositoryId === this.repositoryId()) this.error.set(this.context.errorMessage(error));
     } finally {
       if (sequence === this.sequence && repositoryId === this.repositoryId()) this.loading.set(false);
+    }
+  }
+
+  async loadEffectiveness(): Promise<void> {
+    const repositoryId = this.repositoryId();
+    this.effectivenessError.set('');
+    try {
+      const report = await firstValueFrom(this.http.get<RuleEffectivenessReport>(
+        `${this.context.repositoryApiBase(repositoryId)}/rules/effectiveness`));
+      if (repositoryId === this.repositoryId()) this.effectiveness.set(report);
+    } catch (error) {
+      if (repositoryId === this.repositoryId()) this.effectivenessError.set(this.context.errorMessage(error));
     }
   }
 

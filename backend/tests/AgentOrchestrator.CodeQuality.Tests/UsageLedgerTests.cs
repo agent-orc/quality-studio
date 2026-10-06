@@ -21,7 +21,7 @@ public sealed class UsageLedgerTests
                 "cli-run-3", timestamp, "gpt-5.6-luna", "codex",
                 new TokenUsage(50, 10, 20, 2, 600), "code", "file", "src/c.ts",
                 "review-sweep-3", UsageLedger.CurrentSchemaVersion, ReviewModelSource.PolicyDefault,
-                new UsageCost(0.5m, "USD", "resolved")),
+                new UsageCost(0.5m, "USD", "resolved"), RuleIds: ["QS-A"]),
                 TestContext.Current.CancellationToken);
             // A standalone CLI review has no sweep id but still names its model source; an entry
             // without a stored cost is priced at query time.

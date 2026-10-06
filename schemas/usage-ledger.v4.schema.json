@@ -75,6 +75,12 @@
     },
     "cost": {
       "$ref": "#/$defs/cost"
+    },
+    "ruleIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Named rules included in the review prompt. Optional on older entries; review cost is shared across these rules for effectiveness reporting."
     }
   },
   "$defs": {

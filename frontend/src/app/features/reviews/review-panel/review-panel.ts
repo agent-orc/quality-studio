@@ -42,6 +42,8 @@ export class ReviewPanel {
   readonly scopeManagerOpen = signal(false);
   readonly ignoreManagerOpen = signal(false);
   readonly ignoreFinding = signal<ReviewFinding | null>(null);
+  readonly ignoreMode = signal<'exact' | 'scope'>('exact');
+  readonly ignoreScopePath = signal('');
   readonly ignoreReason = signal('');
   readonly ignoreExpiry = signal('');
   readonly ignoreStatus = signal('');
@@ -118,6 +120,8 @@ export class ReviewPanel {
 
   openIgnoreFinding(finding: ReviewFinding): void {
     this.ignoreFinding.set(finding);
+    this.ignoreMode.set('exact');
+    this.ignoreScopePath.set(finding.locations[0]?.path ?? this.api.file()?.path ?? '');
     this.ignoreReason.set('');
     this.ignoreExpiry.set('');
     this.ignoreStatus.set('');
@@ -132,6 +136,18 @@ export class ReviewPanel {
     if (!author || !reason) { this.ignoreStatus.set('Author and reason are required.'); return; }
     this.ignoreStatus.set('Adding to Ignore list…');
     try {
+      if (this.ignoreMode() === 'scope') {
+        if (!this.ignoreScopePath().trim() || !finding.ruleId) { this.ignoreStatus.set('Rule and path scope are required.'); return; }
+        await this.api.addScopedSuppression({
+          ruleId: finding.ruleId, path: this.ignoreScopePath().trim(), author, reason,
+          expiresAt: this.ignoreExpiry() ? new Date(this.ignoreExpiry()).toISOString() : null,
+          expectedRevision: this.api.findingSuppressions().revision,
+        });
+        this.ignoreFinding.set(null);
+        this.ignoreManagerOpen.set(true);
+        this.ignoreStatus.set('Rule and path scope ignored. Matching observations remain available under Suppressed.');
+        return;
+      }
       const updated = await this.api.addFindingSuppression({
         path, kind: this.activeKind(), fingerprint: finding.fingerprint, author, reason,
         expiresAt: this.ignoreExpiry() ? new Date(this.ignoreExpiry()).toISOString() : null,

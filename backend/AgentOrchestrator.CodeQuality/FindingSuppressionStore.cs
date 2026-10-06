@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace AgentOrchestrator.CodeQuality;
 
-public sealed record FindingSuppressionMatch(string Fingerprint);
+public sealed record FindingSuppressionMatch(string? Fingerprint = null, string? RuleId = null, string? Path = null);
 
 public sealed record FindingSuppressionRule(
     string Id,
@@ -22,6 +22,13 @@ public sealed record FindingSuppressionRule(
     public bool IsActive(DateTimeOffset now) =>
         Enabled && string.Equals(Effect, "suppress", StringComparison.Ordinal) &&
         (ExpiresAt is null || ExpiresAt > now);
+
+    public bool Matches(string? fingerprint, string? ruleId, string? path) =>
+        (Match.Fingerprint is null || string.Equals(Match.Fingerprint, fingerprint, StringComparison.Ordinal)) &&
+        (Match.RuleId is null || string.Equals(Match.RuleId, ruleId, StringComparison.Ordinal)) &&
+        (Match.Path is null || path is not null &&
+            (Match.Path == "." || string.Equals(Match.Path, path, StringComparison.Ordinal) ||
+             path.StartsWith(Match.Path.TrimEnd('/') + "/", StringComparison.Ordinal)));
 }
 
 public sealed record FindingSuppressionDocument(
@@ -87,6 +94,32 @@ public sealed class FindingSuppressionStore
             return updated;
         }, cancellationToken);
 
+    public Task<FindingSuppressionDocument> AddScopedAsync(
+        string ruleId, string path, string author, string reason, DateTimeOffset? expiresAt = null,
+        long? expectedRevision = null, CancellationToken cancellationToken = default) =>
+        ExecuteLockedAsync(async () =>
+        {
+            ValidateText(ruleId, 200, "A rule id is required.", "A rule id cannot exceed 200 characters.");
+            ValidateText(path, 1000, "A path scope is required.", "A path scope cannot exceed 1,000 characters.");
+            ValidateText(author, 200, "A suppression author is required.", "A suppression author cannot exceed 200 characters.");
+            ValidateText(reason, 2000, "A suppression reason is required.", "A suppression reason cannot exceed 2,000 characters.");
+            if (expiresAt is not null && expiresAt <= clock().ToUniversalTime())
+                throw new ArgumentException("Suppression expiry must be in the future.", nameof(expiresAt));
+            var normalizedPath = path.Replace('\\', '/').Trim('/');
+            if (normalizedPath.Length == 0 || normalizedPath != "." && normalizedPath.Split('/').Any(segment => segment is "." or ".."))
+                throw new ArgumentException("A repository-relative path scope is required.", nameof(path));
+            var document = await LoadAsync(cancellationToken).ConfigureAwait(false);
+            EnsureRevision(document, expectedRevision);
+            if (document.Rules.Any(rule => rule.Match.Fingerprint is null && rule.Match.RuleId == ruleId.Trim() && rule.Match.Path == normalizedPath))
+                throw new ArgumentException("This rule and path scope is already suppressed.", nameof(path));
+            var rule = new FindingSuppressionRule("scope-" + Guid.NewGuid().ToString("N"), true,
+                new FindingSuppressionMatch(null, ruleId.Trim(), normalizedPath), "suppress", reason.Trim(),
+                author.Trim(), clock().ToUniversalTime(), expiresAt?.ToUniversalTime(), normalizedPath, ruleId.Trim());
+            var updated = new FindingSuppressionDocument(1, document.Revision + 1, document.Rules.Append(rule).ToArray());
+            await SaveAsync(updated, cancellationToken).ConfigureAwait(false);
+            return updated;
+        }, cancellationToken);
+
     public Task<FindingSuppressionDocument> DeleteAsync(
         string id,
         long? expectedRevision = null,
@@ -107,7 +140,7 @@ public sealed class FindingSuppressionStore
         FindingSuppressionDocument document,
         DateTimeOffset? now = null) =>
         document.Rules.Where(rule => rule.IsActive(now ?? DateTimeOffset.UtcNow))
-            .ToDictionary(rule => rule.Match.Fingerprint, StringComparer.Ordinal);
+            .ToDictionary(rule => rule.Match.Fingerprint ?? "scope:" + rule.Id, StringComparer.Ordinal);
 
     private async Task<FindingSuppressionDocument> LoadAsync(CancellationToken cancellationToken)
     {
@@ -117,13 +150,18 @@ public sealed class FindingSuppressionStore
             ?? throw new JsonException("Finding suppressions must be a JSON object.");
         if (document.SchemaVersion != 1) throw new JsonException($"Unsupported finding suppression schemaVersion '{document.SchemaVersion}'.");
         if (document.Revision < 0 || document.Rules is null) throw new JsonException("Finding suppression revision or rules are invalid.");
-        if (document.Rules.GroupBy(rule => rule.Id, StringComparer.Ordinal).Any(group => group.Count() > 1) ||
-            document.Rules.GroupBy(rule => rule.Match.Fingerprint, StringComparer.Ordinal).Any(group => group.Count() > 1))
-            throw new JsonException("Finding suppressions contain duplicate ids or fingerprints.");
         if (document.Rules.Any(rule => string.IsNullOrWhiteSpace(rule.Id) || rule.Match is null ||
-            !IsFingerprint(rule.Match.Fingerprint) || !string.Equals(rule.Effect, "suppress", StringComparison.Ordinal) ||
+            (rule.Match.Fingerprint is null
+                ? string.IsNullOrWhiteSpace(rule.Match.RuleId) || string.IsNullOrWhiteSpace(rule.Match.Path) ||
+                  rule.Match.Path.StartsWith('/') || rule.Match.Path != "." &&
+                  rule.Match.Path.Split('/').Any(segment => segment is "" or "." or "..")
+                : !IsFingerprint(rule.Match.Fingerprint)) || !string.Equals(rule.Effect, "suppress", StringComparison.Ordinal) ||
             string.IsNullOrWhiteSpace(rule.Author) || string.IsNullOrWhiteSpace(rule.Reason)))
-            throw new JsonException("Finding suppressions contain an invalid exact-fingerprint rule.");
+            throw new JsonException("Finding suppressions contain an invalid rule.");
+        if (document.Rules.GroupBy(rule => rule.Id, StringComparer.Ordinal).Any(group => group.Count() > 1) ||
+            document.Rules.Where(rule => rule.Match.Fingerprint is not null)
+                .GroupBy(rule => rule.Match.Fingerprint, StringComparer.Ordinal).Any(group => group.Count() > 1))
+            throw new JsonException("Finding suppressions contain duplicate ids or fingerprints.");
         return document;
     }
 

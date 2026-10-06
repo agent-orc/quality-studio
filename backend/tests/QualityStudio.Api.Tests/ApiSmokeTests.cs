@@ -950,6 +950,22 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
             Assert.False(restoredFinding.TryGetProperty("suppression", out _));
             var restoredGrade = restoredFile.GetProperty("metaDocuments")[0].GetProperty("grade").GetProperty("score").GetInt32();
             Assert.True(restoredGrade < suppressedGrade, "restoring an ignored finding must return its deficit to the grade");
+
+            using var scopedResponse = await client.PostAsJsonAsync("/api/findings/suppressions/scoped", new
+            {
+                ruleId = "correctness.ignore-test",
+                path = "Sample.cs",
+                author = "Ada",
+                reason = "Generated file exceptions.",
+                expiresAt = DateTimeOffset.UtcNow.AddDays(1),
+                expectedRevision = 2,
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, scopedResponse.StatusCode);
+            var scoped = await scopedResponse.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("correctness.ignore-test", scoped.GetProperty("rules")[0].GetProperty("match").GetProperty("ruleId").GetString());
+            var scopedFile = await client.GetFromJsonAsync<JsonElement>("/api/file?path=Sample.cs", TestContext.Current.CancellationToken);
+            Assert.Equal(scoped.GetProperty("rules")[0].GetProperty("id").GetString(), scopedFile.GetProperty("metaDocuments")[0]
+                .GetProperty("findings")[0].GetProperty("suppression").GetProperty("id").GetString());
         }
         finally
         {

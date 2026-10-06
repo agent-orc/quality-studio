@@ -1,4 +1,5 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { ReviewPolicyApi } from '../../../core/api/review-policy-api';
 import { ReviewKind } from '../../../core/models/contracts';
 import { QualityDomains } from './quality-domains';
@@ -8,7 +9,7 @@ import { RulePoolManager } from './rule-pool/rule-pool-manager';
 
 @Component({
   selector: 'qs-review-criteria',
-  imports: [QualityDomains, RulePoolManager, RuleOverrideEditor],
+  imports: [DecimalPipe, QualityDomains, RulePoolManager, RuleOverrideEditor],
   templateUrl: './review-criteria.html',
   styleUrl: './review-criteria.css',
   providers: [ReviewPolicyApi],
@@ -17,7 +18,7 @@ import { RulePoolManager } from './rule-pool/rule-pool-manager';
 export class ReviewCriteria {
   readonly policy = inject(ReviewPolicyApi);
   readonly methodology = REVIEW_METHODOLOGY;
-  readonly section = signal<'rules' | 'prompt' | 'metrics' | 'domains'>('rules');
+  readonly section = signal<'rules' | 'prompt' | 'metrics' | 'domains' | 'effectiveness'>('rules');
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   readonly selectedRule = signal<string | null>(null);
@@ -77,5 +78,10 @@ export class ReviewCriteria {
 
   setKind(value: string): void {
     if (value === 'code' || value === 'security' || value === 'performance') this.kind.set(value);
+  }
+
+  showEffectiveness(): Promise<void> {
+    this.section.set('effectiveness');
+    return this.policy.loadEffectiveness();
   }
 }

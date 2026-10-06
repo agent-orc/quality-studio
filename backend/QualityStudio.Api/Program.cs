@@ -345,6 +345,8 @@ app.MapGet("/api/analyzers/counts", AnalyzerCounts);
 app.MapGet("/api/repos/{repoId}/analyzers/counts", AnalyzerCounts);
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
+app.MapGet("/api/rules/effectiveness", RuleEffectivenessReportEndpoint);
+app.MapGet("/api/repos/{repoId}/rules/effectiveness", RuleEffectivenessReportEndpoint);
 app.MapGet("/api/report", Report);
 app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
@@ -402,6 +404,8 @@ app.MapGet("/api/findings/suppressions", FindingSuppressions);
 app.MapGet("/api/repos/{repoId}/findings/suppressions", FindingSuppressions);
 app.MapPost("/api/findings/suppressions", AddFindingSuppression);
 app.MapPost("/api/repos/{repoId}/findings/suppressions", AddFindingSuppression);
+app.MapPost("/api/findings/suppressions/scoped", AddScopedFindingSuppression);
+app.MapPost("/api/repos/{repoId}/findings/suppressions/scoped", AddScopedFindingSuppression);
 app.MapDelete("/api/findings/suppressions/{id}", DeleteFindingSuppression);
 app.MapDelete("/api/repos/{repoId}/findings/suppressions/{id}", DeleteFindingSuppression);
 
@@ -973,6 +977,18 @@ static async Task<IResult> FindingSuppressions(HttpContext context, RepositoryRe
     return Results.Ok(await new FindingSuppressionStore(repository.Root).ReadAsync(cancellationToken));
 }
 
+static async Task<IResult> AddScopedFindingSuppression(HttpContext context, ScopedSuppressionMutationRequest request,
+    RepositoryRegistry registry, CancellationToken cancellationToken)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var path = repository.NormalizeRelativePath(request.Path);
+    var updated = await new FindingSuppressionStore(repository.Root).AddScopedAsync(
+        request.RuleId, path, request.Author, request.Reason, request.ExpiresAt,
+        request.ExpectedRevision, cancellationToken);
+    var collectionPath = context.Request.Path.Value![..^"/scoped".Length];
+    return Results.Created($"{collectionPath}/{updated.Rules[^1].Id}", updated);
+}
+
 static async Task<IResult> AddFindingSuppression(HttpContext context, FindingSuppressionMutationRequest request,
     RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
 {
@@ -1427,6 +1443,20 @@ static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, str
         "Loaded {UsageRunCount} usage entries for repository {RepositoryId} in {ElapsedMilliseconds} ms",
         report.Runs, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(report);
+}
+
+static async Task<IResult> RuleEffectivenessReportEndpoint(HttpContext context, RepositoryRegistry registry,
+    CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var states = await new FindingStateStore(repository.Root).ReadAsync(cancellationToken);
+    var usage = await UsageLedger.ReadAsync(repository.Root, cancellationToken: cancellationToken);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    var catalogue = new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory);
+    return Results.Ok(RuleEffectiveness.Aggregate(states.Values, usage, DateTimeOffset.UtcNow,
+        catalogue.Rules.Select(rule => rule.Rule.Id)));
 }
 
 static async Task<IResult> Report(HttpContext context, string? format,
