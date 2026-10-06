@@ -1,10 +1,12 @@
 QS-112 integration recovery evidence
 Failed pipeline stage: merge-into-develop
 Original failure evidence reference: pipeline-execution.json (not mounted in this workspace)
-Reviewed delivery: cf5be0a70b95361f5e444a13120a660497b84ddb
-Latest origin/main: bf7278ff97ec0ee574c2b6b5612097ff0acda6d5
-New merge: 939ad9eb5b79d471ea6fab5b4b31b516f9b8c6c0
-Merge parents: cf5be0a70b95361f5e444a13120a660497b84ddb bf7278ff97ec0ee574c2b6b5612097ff0acda6d5
+Reviewed delivery: fdbfbbdd375003673fbd1115e30c5347542fbe82
+Latest origin/main fetched: 23eaa16b692d863dd267100e3a5f9bad5f9888aa
+New merge: 67e37ffde9e37db26206b0a640eaaa5e0603dac5
+Merge parents: fdbfbbdd375003673fbd1115e30c5347542fbe82 23eaa16b692d863dd267100e3a5f9bad5f9888aa
+Conflict resolutions: CHANGELOG.md, docs/data-root.md, rules/CHANGELOG.md combined; website/index.html kept from main's generated 35-rule catalogue.
 Reviewed delivery is ancestor: exit 0
 origin/main is ancestor: exit 0
-Worktree status:
+Worktree status after merge: clean
+Verification: .NET build passed (0 warnings, 0 errors); targeted .NET 108 passed; frontend build passed; frontend 239 passed; rule catalogue 10 passed.
