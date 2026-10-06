@@ -4,6 +4,13 @@ JSON Schema draft 2020-12 artifacts for every document Quality Studio writes, pl
 `rule-config.v1.schema.json`, which describes the rule-override file a reviewed
 repository writes for Quality Studio to read.
 
+[`change-review-verdict.v1.schema.json`](change-review-verdict.v1.schema.json)
+describes the shadow code-quality verdict returned by `POST /api/repos/{id}/change-review`.
+It binds the exact Git range, effective rule set and project policy and requires
+rule-cited findings on changed lines. See [`../docs/change-reviews.md`](../docs/change-reviews.md).
+[`change-review-policy.v1.schema.json`](change-review-policy.v1.schema.json) describes
+the repository-owned `.quality/policy.json` thresholds.
+
 ## Canonical domain
 
 Every `$id` uses `https://agent-orchestrator.dev/quality/schemas/<name>.schema.json`.

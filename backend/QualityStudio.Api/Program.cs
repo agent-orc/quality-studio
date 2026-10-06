@@ -360,6 +360,7 @@ app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
 app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
@@ -1153,6 +1154,30 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
 /// from and which review kind and adapter it reaches. Override file paths stay inside the process;
 /// only their scope is reported.
 /// </summary>
+static async Task<IResult> ChangeReviewVerdict(HttpContext context, ChangeReviewVerdictRequest request,
+    RepositoryRegistry registry, CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    try
+    {
+        var agent = string.IsNullOrWhiteSpace(request.Model) && string.IsNullOrWhiteSpace(request.ThinkingLevel)
+            ? CodingAgentReviewAgent.CreateDefault(request.CliType ?? "codex")
+            : new CodingAgentReviewAgent(request.CliType ?? "codex", request.Model, request.ThinkingLevel);
+        var result = await new ChangeReviewVerdictService(agent).ReviewAsync(
+            registration.Id, repository.Root, request, registration.GlobalInputsDirectory, cancellationToken);
+        return Results.Ok(result);
+    }
+    catch (Exception exception) when (exception is ArgumentException or ChangeReviewException or JsonException)
+    {
+        return Results.BadRequest(new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Invalid change-review request",
+            Detail = exception.Message,
+        });
+    }
+}
+
 static IResult Rules(HttpContext context, string? kind, string? adapter, RepositoryRegistry registry)
 {
     var (registration, repository) = ResolveRepository(context, registry);
