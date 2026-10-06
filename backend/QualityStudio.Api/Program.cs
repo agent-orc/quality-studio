@@ -365,6 +365,7 @@ app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
+app.MapPost("/api/repos/{repoId}/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
 app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
@@ -1166,6 +1167,101 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
         "Resolved review inputs for {KindCount} kinds in repository {RepositoryId} in {ElapsedMilliseconds} ms",
         kinds.Count, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new { level = "file", kinds });
+}
+
+static async Task<IResult> ChangeReviewVerdict(HttpContext context, ChangeReviewVerdictRequest request,
+    RepositoryRegistry registry, CancellationToken cancellationToken)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    try
+    {
+        var agent = string.IsNullOrWhiteSpace(request.Model) && string.IsNullOrWhiteSpace(request.ThinkingLevel)
+            ? CodingAgentReviewAgent.CreateDefault(request.CliType ?? "codex")
+            : new CodingAgentReviewAgent(request.CliType ?? "codex", request.Model, request.ThinkingLevel);
+        var result = await new ChangeReviewVerdictService(agent).ReviewAsync(
+            registration.Id, repository.Root, request, registration.GlobalInputsDirectory, cancellationToken);
+        return Results.Ok(result);
+    }
+    catch (Exception exception) when (exception is ArgumentException or ChangeReviewException or JsonException)
+    {
+        return Results.BadRequest(new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Invalid change-review request",
+            Detail = exception.Message,
+        });
+    }
+}
+
+static IResult Rules(HttpContext context, string? kind, string? adapter, RepositoryRegistry registry)
+{
+    var (registration, repository) = ResolveRepository(context, registry);
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    if (kind is not null && !Enum.TryParse<ReviewKind>(kind, true, out _))
+    {
+        return Results.BadRequest(new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Unsupported review kind",
+            Detail = $"'{kind}' is not a review kind.",
+        });
+    }
+
+    var catalogue = new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory);
+    var projectOverridePath = Path.GetFullPath(Path.Combine(repository.Root,
+        RuleCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+    string ScopeOf(string source) =>
+        source == "built-in" || source.StartsWith("embedded:", StringComparison.Ordinal) ? "built-in"
+        : string.Equals(source, projectOverridePath, StringComparison.OrdinalIgnoreCase) ? "project" : "global";
+    var normalizedKind = kind?.ToLowerInvariant();
+    var selected = catalogue.Rules
+        .Where(rule => normalizedKind is null || rule.Rule.Kinds.Contains(normalizedKind, StringComparer.OrdinalIgnoreCase))
+        .Where(rule => RuleCatalogueResolver.AppliesTo(rule.Rule.Technology, adapter))
+        .ToArray();
+
+    return Results.Ok(new
+    {
+        catalogueVersion = catalogue.CatalogueVersion,
+        filter = new { kind = normalizedKind, adapter },
+        sources = catalogue.Sources.Select(ScopeOf).Distinct(StringComparer.Ordinal).ToArray(),
+        rules = selected.Select(rule => new
+        {
+            rule.Rule.Id,
+            rule.Rule.Version,
+            rule.Rule.Title,
+            rule.Rule.Technology,
+            rule.Rule.Category,
+            rule.Rule.Kinds,
+            rule.Rule.Statement,
+            rule.Rule.Rationale,
+            rule.Rule.Detection,
+            rule.Rule.GoodExample,
+            rule.Rule.BadExample,
+            severity = rule.EffectiveSeverity.ToString().ToLowerInvariant(),
+            authoredSeverity = rule.Rule.Severity.ToString().ToLowerInvariant(),
+            enabled = rule.EffectiveEnabled,
+            rule.Rule.DefaultOn,
+            rule.Rule.Autofixable,
+            rule.Rule.DeterministicRuleIds,
+            rule.Rule.RelatedGuideline,
+            rule.Rule.Since,
+        }).ToArray(),
+        traces = selected.Select(rule => new
+        {
+            rule.Rule.Id,
+            source = ScopeOf(rule.Scope),
+            enabled = rule.EffectiveEnabled,
+            severityOverridden = rule.SeverityOverridden,
+            reason = rule.OverrideReason,
+            kinds = rule.Rule.Kinds,
+            rule.Rule.Technology,
+            adapters = new[] { "angular", "dotnet", "generic" }
+                .Where(candidate => RuleCatalogueResolver.AppliesTo(rule.Rule.Technology, candidate))
+                .ToArray(),
+        }).ToArray(),
+    });
 }
 
 static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/change-review-verdict.v1.schema.json",
+  "title": "Quality Studio shadow change-review verdict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "repository", "baseSha", "headSha", "verdict", "policyHash", "ruleSetHash", "catalogueVersion", "findings"],
+  "properties": {
+    "schema": { "const": "https://agent-orchestrator.dev/quality/schemas/change-review-verdict.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "repository": { "type": "string", "minLength": 1 },
+    "baseSha": { "$ref": "#/$defs/gitSha" },
+    "headSha": { "$ref": "#/$defs/gitSha" },
+    "verdict": { "enum": ["pass", "concerns", "block", "provider-unavailable", "unparseable", "auth-failure", "timeout"] },
+    "policyHash": { "$ref": "#/$defs/hash" },
+    "ruleSetHash": { "$ref": "#/$defs/hash" },
+    "catalogueVersion": { "type": "string", "minLength": 1 },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "failureReason": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "thinkingLevel": { "type": ["string", "null"] },
+    "usage": { "type": ["object", "null"] },
+    "durationMilliseconds": { "type": ["integer", "null"], "minimum": 0 }
+  },
+  "$defs": {
+    "gitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fingerprint", "ruleId", "ruleVersion", "severity", "path", "side", "line", "message", "evidenceChecked", "missing", "disposition"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^finding-[0-9a-f]{64}$" },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "ruleId": { "type": "string", "minLength": 1 },
+        "ruleVersion": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["critical", "high", "medium", "low", "info"] },
+        "path": { "type": "string", "minLength": 1 },
+        "side": { "enum": ["base", "head"] },
+        "line": { "type": "integer", "minimum": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "evidenceChecked": { "type": "string", "minLength": 1 },
+        "missing": { "type": "string", "minLength": 1 },
+        "disposition": { "enum": ["concerns", "block"] }
+      }
+    }
+  }
+}

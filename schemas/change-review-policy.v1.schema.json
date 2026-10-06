@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/change-review-policy.v1.schema.json",
+  "title": "Quality Studio project change-review policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "blockingRules", "blockingSeverities"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "blockingRules": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "blockingSeverities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["critical", "high", "medium", "low", "info"] }
+    }
+  }
+}

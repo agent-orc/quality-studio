@@ -1,5 +1,46 @@
 # Change-set reviews
 
+## Shadow code-quality verdict (QS-117)
+
+`POST /api/repos/{id}/change-review` accepts `baseSha` and `headSha` (Git
+commit names). Optional `cliType`, `model`, and `thinkingLevel` select the
+isolated reviewer; the default is the product's code-review route. The endpoint
+reads the exact Git diff without writing a sidecar or running a build. It sends
+the changed hunks and the effective enabled code rules to the reviewer. The
+response conforms to [`change-review-verdict.v1.schema.json`](../schemas/change-review-verdict.v1.schema.json).
+
+```json
+{ "baseSha": "<40-character commit>", "headSha": "<40-character commit>" }
+```
+
+The `verdict` is `pass`, `concerns`, or `block`. Each finding cites a catalogue
+rule, a path and changed line (`side: head` for added lines or `side: base` for
+removed lines), and `evidenceChecked` and `missing` text. The API
+rejects a reviewer finding outside a changed line or an applicable enabled rule
+as `unparseable`, with no partial pass. Reviewer failures have an explicit
+infrastructure verdict; callers must never turn one into pass. Fingerprints
+are derived from the rule, path, line, and changed source text, so replaying
+the same range produces the same finding identity. The response also binds the
+effective rule-set hash and policy-file hash and records model, thinking level,
+usage, and duration. No existing gate consumes this endpoint.
+
+The repository owns `.quality/policy.json`, schema version 1:
+
+```json
+{ "schemaVersion": 1, "blockingRules": ["*"], "blockingSeverities": ["critical", "high"] }
+```
+
+`blockingRules` names catalogue IDs or `*`; `blockingSeverities` names one or
+more of `critical`, `high`, `medium`, `low`, and `info`. Both conditions must
+match for a finding to block. Enabled code rules outside those thresholds raise
+concerns. Security rules, standing debt, and a new endpoint alone do not block.
+The default applies when the policy file is absent. The file is versioned in
+this repository; a registered project can commit its own version.
+
+This implements the QS-118 Dossier's recommended option B as a shadow source
+for Agent Studio's code-quality aspect. Agent Studio remains the decision owner
+until the paired comparison and dossier update are accepted.
+
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration
 transition changed in that standing evidence. It is project-owned at
