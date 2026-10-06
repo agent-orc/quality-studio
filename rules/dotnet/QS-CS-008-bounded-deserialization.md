@@ -1,6 +1,6 @@
 ---
 id: QS-CS-008
-version: 1.0.0
+version: 1.0.1
 title: Gate and bound every deserialization of data you did not write
 technology: dotnet
 kinds: [security]
@@ -8,7 +8,7 @@ category: deserialization
 severity: high
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [CA2300, CA2301, CA2302, CA2305, CA2310, CA2315, CA2321, CA2326, CA2327, CA2328, CA2329, CA2330, CA3075]
 relatedGuideline: dotnet-api-safety
 since: 1.2.0
 ---
@@ -62,6 +62,7 @@ return meta.Findings;
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA2300, CA2301, CA2302, CA2305, CA2310, CA2315, CA2321, CA2326, CA2327, CA2328, CA2329, CA2330, CA3075); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in the version-gated, unmapped-member-rejecting
   options in `QualityRunReport` and the unbounded read recorded as a finding against
   `QualityStudio.Api`'s file endpoint.

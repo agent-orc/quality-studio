@@ -87,7 +87,7 @@ export interface ReviewSensorReference { id: string; version: string; resultHash
 export interface SecuritySensorMetadata extends ReviewSensorReference { available: boolean; unavailableReason: string | null; verdict: SecurityVerdict; toolVersions: Record<string, string>; }
 export interface SecurityReviewMetadata { verdict: SecurityVerdict; combinationRule: string; sensors: SecuritySensorMetadata[]; }
 export interface SensorProvenance { sensorId: string; sensorVersion: string; scope: string; target: string; scannedAt: string; toolVersions: Record<string, string>; }
-export interface DeterministicSensorResult { available: boolean; unavailableReason: string | null; findings: ReviewFinding[]; provenance: SensorProvenance; }
+export interface DeterministicSensorResult { available: boolean; unavailableReason: string | null; findings: ReviewFinding[]; provenance: SensorProvenance; suppressedFindings?: number; }
 export interface ReviewMetaDocument { reviewedAt: string; kind: ReviewKind; reviewer: { agent: string; model: string; runId?: string; usage?: TokenUsage & { cliType: string }; sensors?: ReviewSensorReference[] }; grade: ReviewGrade; summary: string; aspects?: ReviewAspect[]; findings: ReviewFinding[]; deterministicEvidence?: DeterministicSensorResult[]; findingCounts?: FindingStateCounts; threads?: ReviewThread[]; security?: SecurityReviewMetadata; }
 export interface ThreadMutationRequest { path: string; kind: ReviewKind; threadId?: string; body?: string; replyTo?: string; status?: ThreadStatus; humanName?: string; line?: number; findingFingerprint?: string; }
 export interface FindingStateMutationRequest { path: string; kind: ReviewKind; fingerprint: string; state: Exclude<FindingState, 'resolved'>; author: string; reason: string; expiresAt?: string | null; expectedTimestamp?: string | null; }
@@ -161,7 +161,15 @@ export interface AttackCoverageMatrix {
 }
 export type LineEnding = 'lf' | 'crlf' | 'mixed';
 export type FileEncoding = 'utf-8' | 'utf-8-bom' | 'other';
-export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; sizeBytes: number; lineEnding: LineEnding; encoding: FileEncoding; coverage?: CoverageFact; }
+export interface FileDocument { path: string; content: string; metaDocuments: ReviewMetaDocument[]; sizeBytes: number; lineEnding: LineEnding; encoding: FileEncoding; coverage?: CoverageFact; analyzers?: AnalyzerFileView | null; }
+/** A named catalogue rule that an analyzer rule id checks deterministically. */
+export interface CatalogueRuleLink { id: string; title: string; technology: string; enabled: boolean; severity: FindingSeverity; }
+export interface AnalyzerFileFinding { sensorId: string; finding: ReviewFinding; catalogueRules: CatalogueRuleLink[]; }
+export interface AnalyzerAttempt { available: boolean; unavailableReason: string | null; scannedAt: string; scope: string; target: string; }
+export interface AnalyzerSensorSummary { sensorId: string; available: boolean; unavailableReason: string | null; scannedAt: string | null; scope: string | null; target: string | null; findings: number; suppressedFindings: number; toolVersions: Record<string, string>; lastAttempt: AnalyzerAttempt; }
+/** Persisted deterministic analyzer results (Roslyn, ESLint, tsc, SARIF) for one path. */
+export interface AnalyzerFileView { sensors: AnalyzerSensorSummary[]; findings: AnalyzerFileFinding[]; }
+export interface AnalyzerCountsResponse { files: Record<string, number>; }
 export interface RiskRow { path: string; name: string; gradeScore: number | null; gradeBand: string | null; reviewState: ReviewState; coverage: CoverageFact; changes: number; riskScore: number | null; complexity?: ComplexitySummary | null; }
 export interface FunctionComplexity { name: string; line: number; endLine: number; cyclomatic: number; cognitive: number; }
 /** Sums and maxima over a file's functions; `pressure` (0-100) is what enters the risk score. */

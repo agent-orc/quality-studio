@@ -2,7 +2,7 @@ import { WORKSPACE_METRICS } from '../../../shared/ui/layout-metrics';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { QualityApi } from '../../../core/api/quality-api';
 import { ReviewKind, TreeNode } from '../../../core/models/contracts';
-import { FlatNode, ancestorIds, flattenTree } from '../../../shared/utils/tree-utils';
+import { FlatNode, ancestorIds, flattenTree, rollUpPathCounts } from '../../../shared/utils/tree-utils';
 
 const ROW_HEIGHT = WORKSPACE_METRICS.explorerRow;
 const TYPEAHEAD_RESET_MS = 600;
@@ -50,6 +50,15 @@ export class Explorer {
     return id === null ? -1 : this.filteredRows().findIndex(row => row.id === id);
   });
   readonly selectedNode = computed(() => this.api.nodeAt(this.selectedPath()));
+  /** Persisted Roslyn, ESLint, tsc and SARIF findings below each path. */
+  readonly analyzerCounts = computed(() => rollUpPathCounts(this.api.analyzerCounts()));
+
+  analyzerCount(node: TreeNode): number { return this.analyzerCounts().get(node.path) ?? 0; }
+
+  analyzerTitle(node: TreeNode): string {
+    const count = this.analyzerCount(node);
+    return `${count} analyzer finding${count === 1 ? '' : 's'} (Roslyn, ESLint, tsc, SARIF) ${this.hasChildren(node) ? 'below this folder' : 'in this file'}`;
+  }
 
   exclusionTitle(node: TreeNode): string {
     return (node.excluded ?? []).map(item => `${item.path}: ${item.reason}`).join('\n');

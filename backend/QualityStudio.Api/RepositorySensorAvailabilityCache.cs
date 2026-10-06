@@ -69,9 +69,27 @@ public sealed class RepositorySensorAvailabilityCache
 
             var started = Stopwatch.GetTimestamp();
             var availability = new Dictionary<string, SensorAvailability>(StringComparer.OrdinalIgnoreCase);
+            var configured = (registration.Sensors ?? [])
+                .GroupBy(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Last().Configuration, StringComparer.OrdinalIgnoreCase);
             foreach (var sensor in sensors.List())
             {
-                availability[sensor.Id] = await sensor.ProbeAvailabilityAsync(cancellationToken);
+                // An analyzer's tools belong to the repository (its global.json, its node_modules), so
+                // it is probed there and in its profile's working directory, not in the host's.
+                try
+                {
+                    availability[sensor.Id] = sensor is IRepositoryProbedSensor probed
+                        ? await probed.ProbeAvailabilityAsync(
+                            registration.RootPath, configured.GetValueOrDefault(sensor.Id), cancellationToken)
+                        : await sensor.ProbeAvailabilityAsync(cancellationToken);
+                }
+                catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // One probe that throws (an unreadable config, a broken tool) makes that sensor
+                    // unavailable with the reason; it must not fail the sensor list of the repository.
+                    availability[sensor.Id] = new SensorAvailability(
+                        false, $"{sensor.Id} is unavailable: its availability probe failed: {exception.Message}");
+                }
             }
             slot.Key = key;
             slot.Availability = availability;

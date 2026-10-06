@@ -11,6 +11,9 @@ Library-level version history. Per-rule history lives in each rule file's own
 - Per-project applicability chooses packs per project type and replaces the house-style default;
   custom rules in a repository or the data root use the same rule format with their own id prefix.
   No existing rule changed. See `docs/rule-pool-management.md`.
+- Analyzer rule ids are catalogue citizens: twelve rules now list the Roslyn, compiler, ESLint and Angular compiler diagnostics that check them deterministically (`deterministicRuleIds`), so one rule is enforced by an analyzer and explained by the review agent under the same id.
+- `deterministicRuleIds` accepts a trailing `*` for a diagnostic family; an exact id always wins over a family.
+- Added two opt-in family rules: QS-CS-013 (compiler, analyzer and code-style diagnostics, `CS*`, `CA*`, `IDE*`) and QS-NG-014 (TypeScript diagnostics, `TS*`). Both are off by default, so enabling the library version changes no review prompt.
 
 ## 1.5.0 (2026-09-13)
 

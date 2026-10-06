@@ -143,11 +143,41 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 ## Analyzer profiles
 
 Repository sensor configuration selects a **profile id**; it can never carry the command the host
-executes. The embedded defaults cover `eslint` (`eslint-frontend-sarif`, `eslint-root-sarif`), `roslyn`
-(`roslyn-build-sarif`), `tsc` (`tsc-noemit`) and the `coverage` producers (`dotnet-test-coverage`,
-`vitest-frontend-coverage`, `vitest-root-coverage`; see
-[`coverage-and-risk.md`](coverage-and-risk.md#producing-coverage)). To ship your own, mount a file and name it in
-`QualityStudio__AnalyzerProfiles__Path`:
+executes. The embedded defaults:
+
+| Sensor | Profile | Runs in | What it does |
+| --- | --- | --- | --- |
+| `eslint` | `eslint-frontend-sarif` | `frontend/` | The workspace's own ESLint, its nearest `eslint.config.*` and the SARIF formatter, resolved from the nearest `node_modules` up to the repository root. |
+| `eslint` | `eslint-root-sarif` | `.` | The same for a workspace at the repository root. |
+| `roslyn` | `roslyn-build-sarif` | `.` | `dotnet build --no-incremental` with a generated MSBuild import that gives every project its own SARIF 2.1 log in `.quality/preflight/roslyn/`. |
+| `tsc` | `tsc-noemit` | the scanned directory | `node <typescript>/bin/tsc -p <tsconfig> --noEmit`; a `tsconfig.json` with references checks every referenced project, including when it has sources of its own. |
+| `tsc` | `tsc-frontend` | `frontend/` | The same for a workspace in `frontend/`. |
+
+The embedded `coverage` producer profiles are `dotnet-test-coverage`, `vitest-frontend-coverage` and
+`vitest-root-coverage`; see [producing coverage](coverage-and-risk.md#producing-coverage).
+
+Why the Roslyn profile does not pass `-p:ErrorLog=…,version=2.1`: MSBuild splits a command-line property
+at the comma, so the compiler wrote a SARIF **1.0** log the importer rejects, and one global file name
+meant every project of a solution overwrote the previous one. An incremental build that skips the
+compiler writes no log at all, which used to read as clean. The generated
+`quality-studio-errorlog.targets` sets `ErrorLog` per project (`<project>-<path hash>-<tfm>.sarif%2Cversion=2.1`)
+and is handed to MSBuild through `CustomAfterMicrosoftCommonTargets`; a repository that sets that
+property itself has it overridden for the scan. A build that fails without reporting a compiler error is
+unavailable, not partially clean.
+
+The SARIF import honours `suppressions`: a result whose suppressions are all accepted (Roslyn's
+`#pragma warning disable` and `[SuppressMessage]`, ESLint's disable comments) is not a finding, and the
+scan reports how many it skipped as `suppressedFindings`. A suppression `underReview` or `rejected` keeps
+the finding.
+
+Availability probes run in the analysed repository and in the profile's working directory, so they
+report the SDK its `global.json` selects and the Node tools its workspace installed; a missing
+`npm ci` shows up as an unavailable sensor with the reason.
+
+The tsc scan reports an unavailable result if a referenced project is missing or malformed, or if the
+reference traversal exceeds its project-count or depth limit. It never reports a partial traversal as clean.
+
+To ship your own, mount a file and name it in `QualityStudio__AnalyzerProfiles__Path`:
 
 ```json
 {
@@ -164,11 +194,18 @@ executes. The embedded defaults cover `eslint` (`eslint-frontend-sarif`, `eslint
 }
 ```
 
-`{repositoryRoot}`, `{target}` and `{reportPath}` are expanded at run time; every path stays confined to
-the repository. A `coverage` profile also receives `{outputDirectory}` — a fresh directory below the
-project's data root — and its `reportPath` is a glob of the reports it writes there. `timeoutSeconds`
-(1–3600) time-boxes a profile; the process tree is killed when it expires. A host file **replaces** the embedded defaults rather than extending them, so a
-deployment that names its own profiles cannot silently fall back to a shipped command. A registration
+`{repositoryRoot}`, `{target}`, `{reportPath}` and `{reportDirectory}` are expanded at run time; every path
+stays confined to the repository. A profile can also ask for the analysed repository's tools:
+`{nodeModule:<package path>}` (the nearest `node_modules/<package path>` from the working directory up to the
+repository root), `{eslintConfig}` (the nearest ESLint flat config), `{tsconfig}` (the tsc sensor's project
+file, one invocation per referenced project) and `{roslynErrorLogTargets}` (the per-project ErrorLog import).
+A placeholder that cannot be resolved makes the scan unavailable with the reason instead of running a
+command bound to fail. A `reportPath` ending in `/` names a directory whose `*.sarif` files are merged.
+A `coverage` profile also receives `{outputDirectory}` — a fresh directory below the project's data root —
+and its `reportPath` is a glob of the reports it writes there. `timeoutSeconds` (1–3600) time-boxes a
+profile; the process tree is killed when it expires. A host file **replaces** the embedded defaults rather
+than extending them, so a deployment that names its own profiles cannot silently fall back to a shipped
+command. A registration
 that names a profile the host does not offer is refused with `400 Unknown analyzer profile`, and a
 registration carrying a `command` with `400 Analyzer commands are host-owned` — for registrars too,
 unless `QualityStudio__AnalyzerProfiles__AllowInlineCommands` is set.

@@ -121,7 +121,11 @@ public sealed partial class SarifSensorTests
     [Fact]
     public async Task EslintSensor_runs_configured_local_command_and_maps_its_report()
     {
-        var root = CreateRepository("frontend/src/app.ts");
+        var root = CreateRepository(
+            "frontend/src/app.ts",
+            "frontend/eslint.config.mjs",
+            "frontend/node_modules/eslint/bin/eslint.js",
+            "frontend/node_modules/@microsoft/eslint-formatter-sarif/sarif.js");
         try
         {
             var sensor = new EslintAnalyzerSensor(new SarifWritingRunner(Fixture("eslint.sarif.json")));
@@ -173,7 +177,8 @@ public sealed partial class SarifSensorTests
     [Fact]
     public async Task TypeScriptSensor_CapturesConfiguredNoEmitReport()
     {
-        var root = CreateRepository("frontend/src/app.ts");
+        var root = CreateRepository("frontend/src/app.ts", "frontend/node_modules/typescript/bin/tsc");
+        File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"), """{ "include": ["src"] }""");
         try
         {
             var sensor = new TypeScriptAnalyzerSensor(new RecordedRunner(

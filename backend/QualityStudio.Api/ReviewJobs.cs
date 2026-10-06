@@ -555,7 +555,7 @@ public sealed class ReviewJobService : BackgroundService
             item.CliType, item.Model ?? "runner-default", item.ThinkingLevel ?? "model-default");
         try
         {
-            item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry)
+            item.DeterministicEvidence = await new DeterministicEvidenceCollector(sensorRegistry, persistResults: true)
                 .CollectAsync(
                     item.Repository.RootPath,
                     (item.Repository.Sensors ?? [])

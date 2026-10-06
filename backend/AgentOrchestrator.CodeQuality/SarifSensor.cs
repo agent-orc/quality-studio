@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AgentOrchestrator.CodeQuality;
 
@@ -54,6 +55,10 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             return Unavailable(request, "SARIF analyzer configuration requires reportPath.");
         }
 
+        // A report path ending in a separator names a directory of SARIF logs: one per compiled
+        // project, as a solution build writes them. A single shared file would keep only the
+        // project that finished last.
+        var reportDirectoryMode = configuredReport.EndsWith('/') || configuredReport.EndsWith('\\');
         string reportPath;
         string workingDirectory;
         string target;
@@ -69,54 +74,84 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             if (!Directory.Exists(workingDirectory))
                 return Unavailable(request, "Analyzer workingDirectory must be an existing repository directory.");
         }
-        catch (ArgumentException exception)
+        catch (Exception exception) when (
+            exception is ArgumentException or IOException or UnauthorizedAccessException)
         {
             return Unavailable(request, exception.Message);
         }
 
+        var reportDirectory = reportDirectoryMode ? reportPath : Path.GetDirectoryName(reportPath)!;
+        SensorCommandResult? commandOutput = null;
         if (!string.IsNullOrWhiteSpace(invocation.Command))
         {
             var configuredCommand = invocation.Command;
             IReadOnlyList<string> command;
             try
             {
+                Directory.CreateDirectory(reportDirectory);
                 command = AnalyzerCommand.Expand(
-                    configuredCommand, root, target, reportPath);
+                    configuredCommand, root, target, reportPath, workingDirectory, reportDirectory);
             }
-            catch (ArgumentException exception)
+            catch (Exception exception) when (
+                exception is ArgumentException or IOException or UnauthorizedAccessException)
             {
                 return Unavailable(request, exception.Message);
             }
 
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
-                if (File.Exists(reportPath)) File.Delete(reportPath);
-                var output = await commandRunner.RunAsync(
+                // A report left over from an earlier run must never stand in for this one.
+                foreach (var stale in ReportFiles(reportPath, reportDirectoryMode)) File.Delete(stale);
+                commandOutput = await commandRunner.RunAsync(
                     command[0], command.Skip(1).ToArray(), workingDirectory, cancellationToken).ConfigureAwait(false);
-                if (!File.Exists(reportPath))
+                if (ReportFiles(reportPath, reportDirectoryMode).Count == 0)
                 {
                     return Unavailable(request,
-                        $"{command[0]} exited with code {output.ExitCode} without producing SARIF report " +
-                        $"'{configuredReport}'. {AnalyzerCommand.OutputDetail(output)}");
+                        $"{command[0]} exited with code {commandOutput.ExitCode} without producing SARIF report " +
+                        $"'{configuredReport}'. {AnalyzerCommand.OutputDetail(commandOutput)}");
                 }
             }
             catch (Exception exception) when (
-                exception is SecurityScannerUnavailableException or IOException or InvalidOperationException)
+                exception is SecurityScannerUnavailableException or IOException or UnauthorizedAccessException or
+                    InvalidOperationException)
             {
                 return Unavailable(request, $"{Id} is unavailable: {exception.Message}");
             }
         }
-        else if (!File.Exists(reportPath))
+        else
         {
-            return Unavailable(request, $"SARIF report is unavailable: '{configuredReport}' does not exist.");
+            try
+            {
+                if (ReportFiles(reportPath, reportDirectoryMode).Count == 0)
+                    return Unavailable(request, $"SARIF report is unavailable: '{configuredReport}' does not exist.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return Unavailable(request, $"SARIF report is unavailable: {exception.Message}");
+            }
         }
 
         try
         {
-            await using var stream = File.OpenRead(reportPath);
-            var findings = await ParseAsync(stream, root, Id, cancellationToken).ConfigureAwait(false);
-            var versions = findings
+            var findings = new List<ReviewFinding>();
+            var suppressed = 0;
+            foreach (var file in ReportFiles(reportPath, reportDirectoryMode))
+            {
+                await using var stream = File.OpenRead(file);
+                var parsed = await ParseReportAsync(stream, root, Id, cancellationToken).ConfigureAwait(false);
+                findings.AddRange(parsed.Findings);
+                suppressed += parsed.SuppressedFindings;
+            }
+            var merged = Order(findings);
+            // A failed solution build may leave projects it never compiled without a log. Even an
+            // error in one project's log cannot prove the other projects were analysed.
+            if (reportDirectoryMode && commandOutput is { ExitCode: not 0 })
+            {
+                return Unavailable(request,
+                    $"The analyzer command exited with code {commandOutput.ExitCode}, " +
+                    $"so the SARIF logs it left may be incomplete. {AnalyzerCommand.OutputDetail(commandOutput)}");
+            }
+            var versions = merged
                 .Where(finding => finding.Source is not null)
                 .GroupBy(finding => finding.Source!.Producer, StringComparer.Ordinal)
                 .ToDictionary(
@@ -125,16 +160,36 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
                         .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "not reported",
                     StringComparer.Ordinal);
             versions["sarif"] = "2.1.0";
-            return new SensorScanResult(true, null, findings, Provenance(request, versions));
+            return new SensorScanResult(true, null, merged, Provenance(request, versions), suppressed);
         }
         catch (Exception exception) when (
-            exception is JsonException or IOException or InvalidDataException or InvalidOperationException)
+            exception is JsonException or IOException or UnauthorizedAccessException or InvalidDataException or
+                InvalidOperationException)
         {
             return Unavailable(request, $"SARIF report is unavailable: {exception.Message}");
         }
     }
 
+    private static IReadOnlyList<string> ReportFiles(string reportPath, bool directoryMode)
+    {
+        if (!directoryMode) return File.Exists(reportPath) ? [reportPath] : [];
+        if (!Directory.Exists(reportPath)) return [];
+        return Directory.EnumerateFiles(reportPath, "*.sarif", SearchOption.TopDirectoryOnly)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    /// <summary>The findings of one SARIF log, without the results its producer suppressed.</summary>
+    public sealed record SarifParseResult(IReadOnlyList<ReviewFinding> Findings, int SuppressedFindings);
+
     public static async Task<IReadOnlyList<ReviewFinding>> ParseAsync(
+        Stream stream,
+        string repositoryRoot,
+        string sensorId = "sarif",
+        CancellationToken cancellationToken = default) =>
+        (await ParseReportAsync(stream, repositoryRoot, sensorId, cancellationToken).ConfigureAwait(false)).Findings;
+
+    public static async Task<SarifParseResult> ParseReportAsync(
         Stream stream,
         string repositoryRoot,
         string sensorId = "sarif",
@@ -158,6 +213,7 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             throw new InvalidDataException("SARIF report contains no analysis runs.");
 
         var findings = new List<ReviewFinding>();
+        var suppressed = 0;
         var runIndex = 0;
         foreach (var run in runs.EnumerateArray())
         {
@@ -180,7 +236,11 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             {
                 if (result.ValueKind != JsonValueKind.Object)
                     throw new InvalidDataException("SARIF results must contain result objects.");
-                if (String(result, "kind") is not ("pass" or "notApplicable"))
+                if (IsSuppressed(result))
+                {
+                    suppressed++;
+                }
+                else if (String(result, "kind") is not ("pass" or "notApplicable"))
                 {
                     findings.Add(MapResult(
                         result, context, sensorId, producer, producerVersion, runIndex, resultIndex));
@@ -190,12 +250,36 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
             runIndex++;
         }
 
-        return findings
-            .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
-            .OrderBy(finding => finding.Locations[0].Path, StringComparer.Ordinal)
-            .ThenBy(finding => finding.Locations[0].Range?.Start.Line ?? 0)
-            .ThenBy(finding => finding.RuleId, StringComparer.Ordinal)
-            .ToArray();
+        return new SarifParseResult(Order(findings), suppressed);
+    }
+
+    private static IReadOnlyList<ReviewFinding> Order(IEnumerable<ReviewFinding> findings) => findings
+        .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
+        .OrderBy(finding => finding.Locations[0].Path, StringComparer.Ordinal)
+        .ThenBy(finding => finding.Locations[0].Range?.Start.Line ?? 0)
+        .ThenBy(finding => finding.RuleId, StringComparer.Ordinal)
+        .ToArray();
+
+    /// <summary>
+    /// SARIF 2.1.0 §3.27.23: a result is suppressed when its <c>suppressions</c> array is non-empty and
+    /// no entry is still <c>underReview</c> or was <c>rejected</c>. An entry without a status counts as
+    /// accepted, which is how Roslyn reports <c>#pragma warning disable</c> and
+    /// <c>[SuppressMessage]</c>, and how ESLint's SARIF formatter reports an <c>eslint-disable</c> comment.
+    /// An absent or empty array means the producer did not suppress the result.
+    /// </summary>
+    internal static bool IsSuppressed(JsonElement result)
+    {
+        if (!result.TryGetProperty("suppressions", out var suppressions) ||
+            suppressions.ValueKind != JsonValueKind.Array ||
+            suppressions.GetArrayLength() == 0)
+            return false;
+        foreach (var suppression in suppressions.EnumerateArray())
+        {
+            if (suppression.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException("SARIF suppressions must contain suppression objects.");
+            if (String(suppression, "status") is "underReview" or "rejected") return false;
+        }
+        return true;
     }
 
     // SARIF permits logs with no analysis (for example rule metadata or startup failure).
@@ -707,21 +791,182 @@ public sealed class SarifSensor : IDeterministicEvidenceSensor
         IReadOnlyDictionary<string, Artifact> UriBases);
 }
 
-internal static class AnalyzerCommand
+internal static partial class AnalyzerCommand
 {
+    /// <summary>File name of the host-written MSBuild import that gives every project its own ErrorLog.</summary>
+    public const string RoslynErrorLogTargetsFileName = "quality-studio-errorlog.targets";
+
+    /// <summary>ESLint's flat-config file names, in the order ESLint itself prefers them.</summary>
+    public static readonly IReadOnlyList<string> EslintConfigFileNames =
+    [
+        "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs",
+        "eslint.config.ts", "eslint.config.mts", "eslint.config.cts",
+    ];
+
+    /// <summary>
+    /// Splits a host-owned command and expands its placeholders. Besides the paths of the run
+    /// (<c>{repositoryRoot}</c>, <c>{target}</c>, <c>{reportPath}</c>, <c>{reportDirectory}</c>), a profile can ask
+    /// for tools the analysed repository installed, so it never hard-codes one workspace layout:
+    /// <list type="bullet">
+    /// <item><c>{nodeModule:&lt;package path&gt;}</c> resolves the file below the nearest <c>node_modules</c>
+    /// from the working directory up to the repository root, where npm, pnpm and workspaces hoist it.</item>
+    /// <item><c>{eslintConfig}</c> resolves the nearest ESLint flat config the same way.</item>
+    /// <item><c>{roslynErrorLogTargets}</c> writes an MSBuild import into the report directory that points
+    /// each project's <c>ErrorLog</c> at its own SARIF 2.1 file, and expands to its path.</item>
+    /// </list>
+    /// A placeholder that cannot be resolved raises <see cref="ArgumentException"/>, which the sensor
+    /// reports as unavailable with the reason instead of running a command that is bound to fail.
+    /// </summary>
     public static IReadOnlyList<string> Expand(
         string command,
         string repositoryRoot,
         string target,
-        string reportPath)
+        string reportPath,
+        string? workingDirectory = null,
+        string? reportDirectory = null)
     {
         var arguments = Split(command);
-        return arguments.Select(argument => argument
-            .Replace("{repositoryRoot}", repositoryRoot, StringComparison.Ordinal)
-            .Replace("{target}", target, StringComparison.Ordinal)
-            .Replace("{reportPath}", reportPath, StringComparison.Ordinal))
-            .ToArray();
+        var working = workingDirectory ?? repositoryRoot;
+        var reports = reportDirectory ?? Path.GetDirectoryName(reportPath)!;
+        return arguments.Select(argument => Placeholder().Replace(argument, match =>
+        {
+            var name = match.Groups["name"].Value;
+            var value = match.Groups["value"].Success ? match.Groups["value"].Value : null;
+            return (name, value) switch
+            {
+                ("repositoryRoot", null) => repositoryRoot,
+                ("target", null) => target,
+                ("reportPath", null) => reportPath,
+                ("reportDirectory", null) => reports,
+                ("nodeModule", { } module) => NodeModule(repositoryRoot, working, module),
+                ("eslintConfig", null) => EslintConfig(repositoryRoot, working),
+                ("roslynErrorLogTargets", null) => WriteRoslynErrorLogTargets(reports),
+                _ => match.Value,
+            };
+        })).ToArray();
     }
+
+    /// <summary>
+    /// Resolves the repository tools a command asks for without running it or writing anything, so a
+    /// probe can tell a missing install apart from a working analyzer.
+    /// </summary>
+    public static void CheckTools(string command, string repositoryRoot, string workingDirectory)
+    {
+        foreach (var argument in Split(command))
+            foreach (Match match in Placeholder().Matches(argument))
+            {
+                var name = match.Groups["name"].Value;
+                if (name == "nodeModule" && match.Groups["value"].Success)
+                    NodeModule(repositoryRoot, workingDirectory, match.Groups["value"].Value);
+                else if (name == "eslintConfig")
+                    EslintConfig(repositoryRoot, workingDirectory);
+            }
+    }
+
+    /// <summary>The nearest <c>node_modules/&lt;module&gt;</c> from <paramref name="workingDirectory"/> up to the root.</summary>
+    public static string NodeModule(string repositoryRoot, string workingDirectory, string module)
+    {
+        var segments = module.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0 || Path.IsPathRooted(module) || segments.Any(segment => segment is "." or ".."))
+            throw new ArgumentException($"Analyzer module '{module}' must be a package-relative path.");
+        foreach (var directory in Upward(repositoryRoot, workingDirectory))
+        {
+            var candidate = Path.Combine([directory, "node_modules", .. segments]);
+            if (File.Exists(candidate)) return candidate;
+        }
+        throw new ArgumentException(
+            $"'{string.Join('/', segments)}' is not installed below {Relative(repositoryRoot, workingDirectory)} " +
+            "or any parent inside the repository. Install the workspace's dependencies (for example npm ci) first.");
+    }
+
+    /// <summary>The nearest ESLint flat config from <paramref name="workingDirectory"/> up to the root.</summary>
+    public static string EslintConfig(string repositoryRoot, string workingDirectory)
+    {
+        foreach (var directory in Upward(repositoryRoot, workingDirectory))
+            foreach (var name in EslintConfigFileNames)
+            {
+                var candidate = Path.Combine(directory, name);
+                if (File.Exists(candidate)) return candidate;
+            }
+        throw new ArgumentException(
+            $"No ESLint flat config ({string.Join(", ", EslintConfigFileNames)}) was found in " +
+            $"{Relative(repositoryRoot, workingDirectory)} or any parent inside the repository.");
+    }
+
+    /// <summary>
+    /// Writes the MSBuild import the Roslyn profile hands to <c>CustomAfterMicrosoftCommonTargets</c>.
+    /// Setting <c>ErrorLog</c> here rather than on the command line solves two problems at once: a
+    /// global <c>-p:ErrorLog=a.sarif,version=2.1</c> is split at the comma into a SARIF 1.0 log plus a
+    /// stray <c>version</c> property, and a global value names one file every project of a solution
+    /// overwrites. The comma is escaped as <c>%2C</c> so MSBuild never splits it either.
+    /// </summary>
+    public static string WriteRoslynErrorLogTargets(string reportDirectory)
+    {
+        Directory.CreateDirectory(reportDirectory);
+        var directory = MsBuildEscape(Path.TrimEndingDirectorySeparator(Path.GetFullPath(reportDirectory)));
+        var content =
+            "<Project>\n" +
+            "  <!-- Written by Quality Studio for its Roslyn analyzer profile; regenerated on every run. -->\n" +
+            "  <PropertyGroup>\n" +
+            $"    <ErrorLog>{directory}{Path.DirectorySeparatorChar}$(MSBuildProjectName)-" +
+            "$([MSBuild]::StableStringHash('$(MSBuildProjectFullPath)'))-$(TargetFramework).sarif%2Cversion=2.1</ErrorLog>\n" +
+            "  </PropertyGroup>\n" +
+            "</Project>\n";
+        var path = Path.Combine(reportDirectory, RoslynErrorLogTargetsFileName);
+        File.WriteAllText(path, content, new UTF8Encoding(false));
+        return path;
+    }
+
+    // MSBuild unescapes %XX in property values and would expand $, @ and % sequences in a path;
+    // the XML layer additionally needs &, < and > escaped.
+    private static string MsBuildEscape(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            builder.Append(character switch
+            {
+                '%' => "%25",
+                '$' => "%24",
+                '@' => "%40",
+                ';' => "%3B",
+                '\'' => "%27",
+                '*' => "%2A",
+                '?' => "%3F",
+                '&' => "&amp;",
+                '<' => "&lt;",
+                '>' => "&gt;",
+                _ => character.ToString(),
+            });
+        }
+        return builder.ToString();
+    }
+
+    private static IEnumerable<string> Upward(string repositoryRoot, string workingDirectory)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repositoryRoot));
+        var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workingDirectory));
+        if (!IsWithin(root, current)) yield break;
+        while (true)
+        {
+            yield return current;
+            if (string.Equals(current, root, OperatingSystem.IsWindows()
+                    ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                yield break;
+            var parent = Path.GetDirectoryName(current);
+            if (parent is null || !IsWithin(root, parent)) yield break;
+            current = parent;
+        }
+    }
+
+    private static string Relative(string repositoryRoot, string path)
+    {
+        var relative = Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/');
+        return relative == "." ? "the repository root" : $"'{relative}'";
+    }
+
+    [GeneratedRegex(@"\{(?<name>[A-Za-z]+)(?::(?<value>[^{}]+))?\}", RegexOptions.CultureInvariant)]
+    private static partial Regex Placeholder();
 
     public static IReadOnlyList<string> Split(string command)
     {

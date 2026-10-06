@@ -75,6 +75,14 @@ with the rest of the review. Do not repeat an analyzer result as an agent findin
 here. Keep its producer and `ruleId` visible whenever you refer to it. Your grade remains your own explicit
 judgement; analyzer evidence does not set or cap it.
 
+""" + (deterministicEvidence?.Contains("\"catalogueRuleIds\"", StringComparison.Ordinal) == true
+            ? """
+
+A result with `catalogueRuleIds` is the deterministic check of that named rule from your review inputs. When you
+discuss it, explain it in terms of that rule and cite the rule id; do not report it again under another id.
+
+"""
+            : "\n") + """
 ```json
 """ + (string.IsNullOrWhiteSpace(deterministicEvidence) ? "[]" : deterministicEvidence.Trim()) + "\n```";
         if (openThreads is not { Count: > 0 }) return prompt;

@@ -1,6 +1,6 @@
 ---
 id: QS-CS-002
-version: 1.1.0
+version: 1.1.1
 title: Register the narrowest correct DI lifetime; inject via constructor
 technology: dotnet
 kinds: [code]
@@ -8,7 +8,7 @@ category: dependency-injection
 severity: medium
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [ASP0000]
 relatedGuideline: dotnet-api-safety
 since: 1.0.0
 ---
@@ -61,6 +61,7 @@ public sealed class ReviewExecutorFactory : IReviewExecutorFactory
 
 ## Change history
 
+- 1.1.1 (2026-09-28): Mapped the Roslyn and compiler diagnostics that check this rule deterministically (ASP0000); statement and detection guidance unchanged.
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `Singleton`/`Transient` split for
   `GuidelineStore`/`GuidelineImpactAnalyzer` and the primary-constructor DI pattern used by

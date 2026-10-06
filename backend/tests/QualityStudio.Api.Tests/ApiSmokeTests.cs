@@ -711,10 +711,14 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal(3, json.GetProperty("sensors").GetArrayLength());
+        Assert.Equal(4, json.GetProperty("sensors").GetArrayLength());
         var dependency = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
             sensor => sensor.GetProperty("id").GetString() == "dependencies");
         Assert.Equal("1.0.0", dependency.GetProperty("version").GetString());
+        // An analyzer sensor is registered but off until a repository opts in.
+        var sarif = Assert.Single(json.GetProperty("sensors").EnumerateArray(),
+            sensor => sensor.GetProperty("id").GetString() == "sarif");
+        Assert.False(sarif.GetProperty("enabled").GetBoolean());
         Assert.True(dependency.GetProperty("enabled").GetBoolean());
         Assert.True(dependency.GetProperty("available").GetBoolean());
         Assert.Contains("path", dependency.GetProperty("scopes").EnumerateArray().Select(scope => scope.GetString()));
@@ -1351,6 +1355,8 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
                 services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<GitleaksSecurityScanner>());
                 services.AddSingleton<IReviewSensor, FakeDependencySensor>();
                 services.AddSingleton<IReviewSensor, BoundaryInventorySensor>();
+                // Imports a repository-produced SARIF report; with no profile it executes nothing.
+                services.AddSingleton<IReviewSensor>(serviceProvider => serviceProvider.GetRequiredService<SarifSensor>());
                 services.RemoveAll<GuidelineImpactAnalyzer>();
                 services.AddSingleton<GuidelineImpactAnalyzer, FakeGuidelineImpactAnalyzer>();
             });

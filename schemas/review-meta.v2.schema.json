@@ -417,6 +417,7 @@
       "properties": {
         "available": { "type": "boolean" },
         "unavailableReason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
+        "suppressedFindings": { "type": "integer", "minimum": 1 },
         "findings": {
           "type": "array",
           "items": {

@@ -1,6 +1,6 @@
 ---
 id: QS-NG-010
-version: 1.0.0
+version: 1.0.1
 title: Derive template collections in computed signals, not in template calls
 technology: angular
 kinds: [performance]
@@ -8,7 +8,7 @@ category: change-detection
 severity: medium
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [@angular-eslint/template/no-call-expression]
 relatedGuideline: angular-typescript
 since: 1.2.0
 ---
@@ -54,5 +54,6 @@ readonly runFindings = computed(() => this.indexFindings(this.selectedRun()));
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@angular-eslint/template/no-call-expression); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in the `computed()` derivations in `review-panel.ts`
   and the repeated `runFiles(...)` template calls in `review-actions.html`.

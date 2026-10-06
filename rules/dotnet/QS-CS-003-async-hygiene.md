@@ -1,6 +1,6 @@
 ---
 id: QS-CS-003
-version: 1.1.0
+version: 1.1.1
 title: Propagate CancellationToken; never write async void
 technology: dotnet
 kinds: [code]
@@ -8,7 +8,7 @@ category: async-hygiene
 severity: high
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [CA2016, CS4014, VSTHRD100, VSTHRD002, xUnit1031]
 relatedGuideline: dotnet-api-safety
 since: 1.0.0
 ---
@@ -56,6 +56,7 @@ public async void Refresh() // async void: exceptions never surface to the calle
 
 ## Change history
 
+- 1.1.1 (2026-09-28): Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA2016, CS4014, VSTHRD100, VSTHRD002, xUnit1031); statement and detection guidance unchanged.
 - 1.1.0 (2026-09-06): Declared the applicable review kinds and added detection guidance for the generated catalogue.
 - 1.0.0 (2026-08-27): Initial rule, grounded in the `CancellationToken`-propagating signatures of
   `GuidelineImpactAnalyzer.AnalyzeAsync` and `ReviewRunner`'s async methods.

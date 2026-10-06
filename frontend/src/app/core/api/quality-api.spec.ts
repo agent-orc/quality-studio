@@ -240,6 +240,7 @@ describe('QualityApi', () => {
     http.expectOne('/api/repos/restored/risk?days=90').flush({ rows: [], matrix: [] });
     http.expectOne('/api/repos/restored/findings/suppressions').flush({ schemaVersion: 1, revision: 0, rules: [] });
     http.expectOne('/api/models').flush({ models: [], thinkingLevels: [] });
+    http.expectOne('/api/repos/restored/analyzers/counts').flush({ files: { 'src/a.cs': 2 } });
     http.expectOne('/api/repos/restored/review/runs').flush({ runs: [] });
     http.expectOne('/api/repos/restored/usage').flush({ runs: 0, byModel: [], byKind: [], byDay: [], byReviewRun: [], recent: [] });
     http.expectOne('/api/quotas').flush({ providers: [] });
@@ -253,6 +254,7 @@ describe('QualityApi', () => {
     expect(api.selectedRepository()?.displayName).toBe('Restored repository');
     expect(api.tree()[0].name).toBe('Restored project');
     expect(api.project()?.metrics.fileCount).toBe(12);
+    expect(api.analyzerCounts()).toEqual({ 'src/a.cs': 2 });
   });
 
   it('keeps the offline state when retry cannot reload the registry', async () => {

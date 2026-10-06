@@ -1,6 +1,6 @@
 ---
 id: QS-CS-005
-version: 1.0.0
+version: 1.0.1
 title: Confine every repository path through the shared confinement helper
 technology: dotnet
 kinds: [security]
@@ -8,7 +8,7 @@ category: path-confinement
 severity: critical
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [CA3003]
 relatedGuideline: dotnet-api-safety
 since: 1.2.0
 ---
@@ -68,5 +68,6 @@ if (absolute.StartsWith(repositoryRoot))                     // no separator, no
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA3003); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in `PathConfinement` and the `RepositoryAccess`
   call sites that route every repository read through it.

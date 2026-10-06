@@ -339,6 +339,10 @@ app.MapGet("/api/sensors", Sensors);
 app.MapGet("/api/repos/{repoId}/sensors", Sensors);
 app.MapPost("/api/sensors/{id}/scan", SensorScan);
 app.MapPost("/api/repos/{repoId}/sensors/{id}/scan", SensorScan);
+app.MapGet("/api/analyzers", Analyzers);
+app.MapGet("/api/repos/{repoId}/analyzers", Analyzers);
+app.MapGet("/api/analyzers/counts", AnalyzerCounts);
+app.MapGet("/api/repos/{repoId}/analyzers/counts", AnalyzerCounts);
 app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/report", Report);
@@ -812,12 +816,14 @@ static async Task<IResult> FileContent(HttpContext context, string? path, Reposi
         CoverageSensor.GitValue(repository.Root, "rev-parse", "--verify", "HEAD"),
         relative,
         file: true);
+    var analyzers = await new AnalyzerResultStore(repository.Root)
+        .ReadForPathAsync(relative, AnalyzerRuleMap(registration, repository), cancellationToken);
     logger.LogInformation(new EventId(1101, "FileLoaded"),
         "Loaded {FilePath} from repository {RepositoryId} ({SizeBytes} bytes, {Encoding}, {LineEnding}, Truncated={Truncated}) in {ElapsedMilliseconds} ms",
         relative, registration.Id, sizeBytes, encoding, lineEnding, oversized, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new FileResponse(relative, content, repository.ReadMetaDocuments(relative, findingStates, suppressions),
         sizeBytes, lineEnding, encoding, coverage,
-        oversized ? new LargeFileResponse(sizeBytes, limits.MaxFileBytes, bytes.LongLength) : null));
+        oversized ? new LargeFileResponse(sizeBytes, limits.MaxFileBytes, bytes.LongLength) : null, analyzers));
 }
 
 /// <summary>
@@ -1376,7 +1382,39 @@ static async Task<IResult> SensorScan(HttpContext context, string id, string? pa
     logger.LogInformation(new EventId(1202, "SensorScanCompleted"),
         "Ran sensor {SensorId} for repository {RepositoryId}; Available={Available}, Findings={FindingCount}, ElapsedMilliseconds={ElapsedMilliseconds}",
         sensor.Id, registration.Id, result.Available, result.Findings.Count, stopwatch.ElapsedMilliseconds);
+    // Deterministic results outlive the response: the explorer and editor read them from the data root.
+    if (sensor is IDeterministicEvidenceSensor)
+        await new AnalyzerResultStore(registration.RootPath).RecordAsync(result, cancellationToken);
     return Results.Ok(result);
+}
+
+static async Task<IResult> Analyzers(HttpContext context, string? path, RepositoryRegistry registry,
+    ILogger<Program> logger, CancellationToken cancellationToken)
+{
+    var stopwatch = Stopwatch.StartNew();
+    var (registration, repository) = ResolveRepository(context, registry);
+    var relative = string.IsNullOrWhiteSpace(path) || path == "." ? "." : repository.NormalizeRelativePath(path);
+    var view = await new AnalyzerResultStore(repository.Root)
+        .ReadForPathAsync(relative, AnalyzerRuleMap(registration, repository), cancellationToken);
+    logger.LogInformation(new EventId(1203, "AnalyzerResultsLoaded"),
+        "Loaded {FindingCount} persisted analyzer findings under {Path} for repository {RepositoryId} in {ElapsedMilliseconds} ms",
+        view.Findings.Count, relative, registration.Id, stopwatch.ElapsedMilliseconds);
+    return Results.Ok(view);
+}
+
+static async Task<IResult> AnalyzerCounts(HttpContext context, RepositoryRegistry registry, CancellationToken cancellationToken)
+{
+    var (_, repository) = ResolveRepository(context, registry);
+    var files = await new AnalyzerResultStore(repository.Root).CountByFileAsync(cancellationToken);
+    return Results.Ok(new AnalyzerCountsResponse(files));
+}
+
+static DeterministicRuleMap AnalyzerRuleMap(RepositoryRegistration registration, RepositoryAccess repository)
+{
+    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
+        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
+        : registration.GlobalInputsDirectory;
+    return DeterministicRuleMap.From(new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory));
 }
 
 static async Task<IResult> Usage(HttpContext context, DateTimeOffset? since, string? kind,

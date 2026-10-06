@@ -1,6 +1,6 @@
 ---
 id: QS-NG-007
-version: 1.0.0
+version: 1.0.1
 title: Render text as text; never bypass Angular's sanitizer
 technology: angular
 kinds: [security]
@@ -8,7 +8,7 @@ category: rendering-safety
 severity: high
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [@microsoft/sdl/no-angular-bypass-sanitizer, @microsoft/sdl/no-inner-html]
 relatedGuideline: angular-typescript
 since: 1.2.0
 ---
@@ -54,5 +54,6 @@ the sanitizer still sees.
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Angular compiler and ESLint diagnostics that check this rule deterministically (@microsoft/sdl/no-angular-bypass-sanitizer, @microsoft/sdl/no-inner-html); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, recording the property a repository-wide search already
   establishes for `frontend/src` so a regression is visible as one.

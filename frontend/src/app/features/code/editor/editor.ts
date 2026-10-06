@@ -4,7 +4,7 @@ import { ContainerView } from '../container-view/container-view';
 import { formatDateTime, formatOptionalBytes } from '../../../shared/utils/format';
 import { languageForPath } from '../../../shared/utils/language';
 import { QualityApi } from '../../../core/api/quality-api';
-import { CoverageFact, FindingSeverity, ReviewFinding, ReviewKind, ReviewThread } from '../../../core/models/contracts';
+import { AnalyzerFileFinding, AnalyzerSensorSummary, CoverageFact, FindingSeverity, ReviewFinding, ReviewKind, ReviewThread } from '../../../core/models/contracts';
 import { FlatNode } from '../../../shared/utils/tree-utils';
 import { FindingSpanRange, SegmentedSpan, segmentLineTokens } from './finding-span-segmentation';
 import { SyntaxHighlighting } from './syntax-highlighting';
@@ -14,7 +14,7 @@ import { LARGE_FILE_HIGHLIGHT_LIMIT_BYTES, TokenLine, TokenSpan } from './syntax
 const LINE_ENDING_LABELS: Record<string, string> = { lf: 'LF', crlf: 'CRLF', mixed: 'Mixed' };
 const ENCODING_LABELS: Record<string, string> = { 'utf-8': 'UTF-8', 'utf-8-bom': 'UTF-8 BOM', other: 'Unknown encoding' };
 type CodeLayoutRow =
-  | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[] }
+  | { key: string; kind: 'code'; top: number; height: number; text: string; number: number; findings: ReviewFinding[]; analyzer: AnalyzerFileFinding[] }
   | { key: string; kind: 'thread'; top: number; height: number; thread: ReviewThread; line: number; expanded: boolean }
   | { key: string; kind: 'composer'; top: number; height: number; line: number };
 
@@ -72,6 +72,18 @@ export class Editor {
     }
     return map;
   });
+  /** Persisted deterministic analyzer findings of the open file; independent of the review kind. */
+  readonly analyzerFindings = computed(() => this.api.file()?.analyzers?.findings ?? []);
+  readonly analyzerSensors = computed(() => this.api.file()?.analyzers?.sensors ?? []);
+  readonly analyzerByLine = computed(() => {
+    const map = new Map<number, AnalyzerFileFinding[]>();
+    const path = this.api.file()?.path;
+    for (const entry of this.analyzerFindings()) for (const location of entry.finding.locations) {
+      if (location.path !== path || !location.range) continue;
+      for (let line = location.range.start.line; line <= location.range.end.line; line++) map.set(line, [...(map.get(line) ?? []), entry]);
+    }
+    return map;
+  });
   readonly threadsByLine = computed(() => {
     const map = new Map<number, ReviewThread[]>();
     const path = this.api.file()?.path;
@@ -85,11 +97,12 @@ export class Editor {
   readonly layoutRows = computed<CodeLayoutRow[]>(() => {
     const rows: CodeLayoutRow[] = [];
     const markers = this.findingsByLine();
+    const analyzer = this.analyzerByLine();
     const threads = this.threadsByLine();
     let top = 0;
     this.codeLines().forEach((text, index) => {
       const number = index + 1;
-      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings: markers.get(number) ?? [] });
+      rows.push({ key: `line:${number}`, kind: 'code', text, number, top, height: this.lineHeight, findings: markers.get(number) ?? [], analyzer: analyzer.get(number) ?? [] });
       top += this.lineHeight;
       for (const thread of threads.get(number) ?? []) {
         const expanded = !!this.expandedThreads()[thread.id];
@@ -221,6 +234,40 @@ export class Editor {
 
   segmentAriaLabel(segment: SegmentedSpan, line: number): string | null {
     return segment.state === 'plain' ? null : `${segment.state} finding span at line ${line}: ${segment.text}`;
+  }
+
+  /** The first line an analyzer finding occupies in the open file, or null when it has no range here. */
+  analyzerLine(entry: AnalyzerFileFinding): number | null {
+    const path = this.api.file()?.path;
+    return entry.finding.locations.find(location => location.path === path && location.range)?.range?.start.line ?? null;
+  }
+
+  /** Scrolls the virtualized source so the line sits a third of the way down. */
+  revealLine(line: number | null): void {
+    if (line === null) return;
+    const row = this.layoutRows().find(candidate => candidate.kind === 'code' && candidate.number === line);
+    if (row) this.codeScrollTop.set(Math.max(0, row.top - Math.floor(this.viewportHeight() / 3)));
+  }
+
+  analyzerTitle(entries: AnalyzerFileFinding[]): string {
+    return entries.map(entry => {
+      const rules = entry.catalogueRules.map(rule => rule.id).join(', ');
+      return `${entry.sensorId} ${entry.finding.ruleId}${rules ? ` → ${rules}` : ''}: ${entry.finding.title}`;
+    }).join('\n');
+  }
+
+  analyzerSeverity(entries: AnalyzerFileFinding[]): FindingSeverity { return entries[0]?.finding.severity ?? 'info'; }
+
+  sensorLabel(sensor: AnalyzerSensorSummary): string {
+    if (sensor.lastAttempt && !sensor.lastAttempt.available) return `${sensor.sensorId}: unavailable${sensor.available ? ' (showing the last result)' : ''}`;
+    const suppressed = sensor.suppressedFindings ? `, ${sensor.suppressedFindings} suppressed at source` : '';
+    return `${sensor.sensorId}: ${sensor.findings} finding${sensor.findings === 1 ? '' : 's'}${suppressed}`;
+  }
+
+  sensorTitle(sensor: AnalyzerSensorSummary): string {
+    const reason = sensor.lastAttempt && !sensor.lastAttempt.available ? `\n${sensor.lastAttempt.unavailableReason ?? 'Unavailable'}` : '';
+    const scanned = sensor.scannedAt ? `Scanned ${formatDateTime(sensor.scannedAt)}` : 'Never scanned successfully';
+    return `${scanned}${reason}`;
   }
 
   findingTitle(findings: ReviewFinding[]): string { return findings.map(finding => `${finding.severity.toUpperCase()}: ${finding.title}`).join('\n'); }

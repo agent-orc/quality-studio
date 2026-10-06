@@ -116,6 +116,22 @@ public sealed class RepositorySnapshotCacheTests : IAsyncLifetime
         Assert.Equal(3, sensor.Probes);
     }
 
+    [Fact]
+    public async Task A_probe_that_throws_marks_only_its_sensor_unavailable()
+    {
+        var cache = new RepositorySensorAvailabilityCache(new RepositoryHierarchyCache(TimeSpan.Zero));
+        var counting = new CountingSensor();
+        var sensors = new SensorRegistry([new ThrowingProbeSensor(), counting]);
+
+        var measured = await cache.GetAsync(Registration(), sensors, TestContext.Current.CancellationToken);
+
+        var failed = measured.Availability["throwing"];
+        Assert.False(failed.Available);
+        Assert.Contains("Access to the path", failed.UnavailableReason, StringComparison.Ordinal);
+        Assert.True(measured.Availability[counting.Id].Available);
+        Assert.Equal(1, counting.Probes);
+    }
+
     public async ValueTask InitializeAsync()
     {
         Directory.CreateDirectory(root);
@@ -170,6 +186,26 @@ public sealed class RepositorySnapshotCacheTests : IAsyncLifetime
             Probes++;
             return Task.FromResult(new SensorAvailability(true));
         }
+
+        public Task<SensorScanResult> RunAsync(
+            SensorScanRequest request,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+
+    private sealed class ThrowingProbeSensor : IRepositoryProbedSensor
+    {
+        public string Id => "throwing";
+        public string Version => "1.0.0";
+        public IReadOnlyList<SensorScope> SupportedScopes { get; } = [SensorScope.Repository];
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The repository probe must be used.");
+
+        public Task<SensorAvailability> ProbeAvailabilityAsync(
+            string repositoryRoot,
+            IReadOnlyDictionary<string, string>? configuration,
+            CancellationToken cancellationToken = default) =>
+            throw new UnauthorizedAccessException("Access to the path 'frontend/tsconfig.json' is denied.");
 
         public Task<SensorScanResult> RunAsync(
             SensorScanRequest request,

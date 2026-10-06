@@ -1,6 +1,6 @@
 ---
 id: QS-CS-009
-version: 1.0.0
+version: 1.0.1
 title: Keep blocking I/O and process waits off request paths and out of locks
 technology: dotnet
 kinds: [performance]
@@ -8,7 +8,7 @@ category: request-path
 severity: high
 defaultOn: true
 autofixable: false
-deterministicRuleIds: []
+deterministicRuleIds: [CA1849, VSTHRD103]
 relatedGuideline: dotnet-api-safety
 since: 1.2.0
 ---
@@ -65,5 +65,6 @@ lock (slot.Gate)                                  // every other caller of this 
 
 ## Change history
 
+- 1.0.1 (2026-09-28): Mapped the Roslyn and compiler diagnostics that check this rule deterministically (CA1849, VSTHRD103); statement and detection guidance unchanged.
 - 1.0.0 (2026-09-06): Initial rule, grounded in the `PERF.md` switch budget and the blocking
   git and file reads `RepositoryHierarchyCache` performs while holding its slot gate.

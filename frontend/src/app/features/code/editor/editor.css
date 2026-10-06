@@ -514,3 +514,105 @@
   background: color-mix(in srgb,var(--studio-accent) 16%,var(--studio-bg-editor));
   box-shadow: inset var(--studio-space-1) 0 var(--studio-accent);
 }
+
+.analyzer-strip {
+  flex: none;
+  border-bottom: 1px solid var(--studio-border);
+  font-size: var(--studio-font-size-control);
+  color: var(--studio-fg-muted);
+}
+
+.analyzer-strip summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--studio-space-2);
+  padding: var(--studio-space-1) var(--studio-space-3);
+  cursor: pointer;
+}
+
+.analyzer-strip summary b {
+  color: var(--studio-fg);
+}
+
+.analyzer-sensor {
+  padding: 0 var(--studio-space-1);
+  border-radius: var(--studio-radius-badge);
+  background: var(--studio-accent-soft);
+  color: var(--studio-accent);
+  font-family: var(--font-mono);
+}
+
+.analyzer-sensor.unavailable {
+  background: color-mix(in srgb,var(--status-stale) 14%,var(--studio-bg-elevated));
+  color: var(--status-stale);
+}
+
+.analyzer-list {
+  max-height: 180px;
+  margin: 0;
+  padding: 0 var(--studio-space-3) var(--studio-space-2);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.analyzer-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--studio-space-1);
+  min-width: 0;
+}
+
+.analyzer-list button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--studio-space-2);
+  min-width: 0;
+  text-align: left;
+}
+
+.analyzer-line {
+  flex: none;
+  width: 56px;
+  font-family: var(--font-mono);
+}
+
+.analyzer-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--studio-fg);
+}
+
+.catalogue-rule {
+  flex: none;
+  padding: 0 var(--studio-space-1);
+  border: 1px solid var(--studio-accent);
+  border-radius: var(--studio-radius-badge);
+  color: var(--studio-accent);
+  font-family: var(--font-mono);
+}
+
+.catalogue-rule.disabled {
+  border-color: var(--studio-border);
+  color: var(--studio-fg-muted);
+}
+
+/* A gutter bar that takes no layout width, so marked lines keep the code column aligned. */
+.analyzer-marker {
+  --analyzer-marker-color: var(--studio-severity-info);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  width: 3px;
+  height: var(--studio-code-line-height);
+  margin-right: -3px;
+  background: var(--analyzer-marker-color);
+}
+
+.analyzer-marker.critical { --analyzer-marker-color: var(--studio-severity-critical); }
+.analyzer-marker.high { --analyzer-marker-color: var(--studio-severity-high); }
+.analyzer-marker.medium { --analyzer-marker-color: var(--studio-severity-medium); }
+.analyzer-marker.low { --analyzer-marker-color: var(--studio-severity-low); }
