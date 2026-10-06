@@ -29,6 +29,23 @@ versioned `rule-set.v1` file and an append-only audit trail per scope.
   `rule-audit.v1`; the id patterns of `rule-catalogue.v1` and `rule-config.v1` admit custom rule ids.
   Contract and API: [`docs/rule-pool-management.md`](docs/rule-pool-management.md).
 
+### Changed — reviewers run isolated from repository and operator instructions (QS-116)
+
+Agent reviews used to run the reviewer CLI in the operator's shared context and let it load the
+reviewed checkout's `CLAUDE.md` / `AGENTS.md`, so a repository could steer its own grade (D12).
+Every review now runs in a clean per-run CLI home with launch flags that exclude repository
+instruction files, project settings and hooks, skills, plugins and MCP servers. After the run the
+CLI's own transcript is read back; a run that loaded an instruction file, a skill or an MCP server,
+or whose transcript is missing, malformed or lacks its system-prompt record, is refused and writes
+no sidecar. The runner's subagent delegation is off for reviews, so the checkout's
+`contexts/delegation-economy.md` never reaches the prompt and no agent definitions are written into
+the checkout. Repository instruction files are **excluded**, not quoted: they stay readable as
+ordinary files, and review guidance belongs in `.quality/inputs/`.
+`review-meta.v3` gains an optional `reviewer.context` block recording the loaded and excluded
+instruction files, skills, MCP servers, and the system-prompt and prompt sizes. `gemini` and
+`antigravity` are refused as reviewer CLIs because they cannot be isolated. See
+[`docs/reviewer-isolation.md`](docs/reviewer-isolation.md).
+
 ### Fixed — Claude usage accounting, caps and cost estimates (QS-110)
 
 The ledger dropped Claude's `cache_creation_input_tokens` and priced Claude's cache reads as if

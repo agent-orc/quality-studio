@@ -205,6 +205,7 @@ public sealed class ReviewRunner
                             initialSubject.Exclusions,
                             reviewedHash,
                             outcome.RunId,
+                            outcome.Context,
                             inputs,
                             requestGuidelines,
                             request.Level,
@@ -445,6 +446,7 @@ public sealed class ReviewRunner
         IReadOnlyList<ScopeExclusion>? aggregateExclusions,
         string reviewedHash,
         string runId,
+        ReviewerContext? reviewerContext,
         ResolvedInputs inputs,
         IReadOnlyList<StandardReference> requestGuidelines,
         ReviewLevel level,
@@ -476,7 +478,8 @@ public sealed class ReviewRunner
                 // Requested route, as distinct from the CLI-resolved model above — the model the
                 // review agent was asked to use may differ from what actually served the run.
                 RequestedModel: Trimmed(_agent.Model),
-                RequestedThinkingLevel: Trimmed(_agent.ThinkingLevel)),
+                RequestedThinkingLevel: Trimmed(_agent.ThinkingLevel),
+                Context: reviewerContext),
             ReviewedHash = ManifestHash.Subject(reviewedHash),
             SubjectInputs = subjectInputs,
             ReviewInputs = new ReviewInputs(
