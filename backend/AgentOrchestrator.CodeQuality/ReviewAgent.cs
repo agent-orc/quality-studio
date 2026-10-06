@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using CodingAgentRunner;
 using CodingAgentRunner.Abstractions;
+using CodingAgentRunner.Delegation;
 using CodingAgentRunner.Events;
 using CodingAgentRunner.Execution;
 using CodingAgentRunner.Metrics;
@@ -27,7 +28,8 @@ public interface IReviewAgent
     Task<ReviewAgentResult> RunAsync(string prompt, string workingDirectory, CancellationToken cancellationToken = default);
 }
 
-public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null);
+public sealed record ReviewAgentResult(string RunId, string Response, TokenUsage? Usage = null, string? EffectiveModel = null,
+    ReviewerContext? Context = null);
 
 public sealed class ReviewAgentRunException(
     string runId, TokenUsage usage, string? effectiveModel, Exception innerException)
@@ -104,7 +106,19 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             : ReviewModelSource.Explicit);
         _logger = logger;
         _attachTimeout = attachTimeout ?? DefaultAttachTimeout;
-        _runner = new CliRunner(options ?? CreateCliOptions(), logger);
+        // A CLI that cannot be isolated would review with the repository's own instructions in
+        // force, so it is refused up front rather than run shared. See ReviewerIsolation.
+        if (!ReviewerIsolation.Supports(cliType))
+            throw new ReviewerIsolationException(
+                $"The '{cliType}' reviewer CLI cannot run without repository instruction files; use claude or codex.");
+        options ??= CreateCliOptions();
+        // Subagent delegation would write agent definitions into the reviewed checkout and read
+        // its contexts/delegation-economy.md into the prompt, so a reviewer runs without it.
+        _runner = new CliRunner(options with
+        {
+            Spawner = new IsolatingCliProcessSpawner(cliType, options.Spawner),
+            Delegation = new DelegationOptions { Enabled = false },
+        }, logger);
         _eventObserver = eventObserver;
         _runner.Get(cliType); // Fail at construction for unknown adapters.
     }
@@ -169,6 +183,31 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         var metrics = new RunMetricsRecorder();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var driver = _driverOverride ?? _runner!.Get(_cliType);
+        var observation = new ReviewerContextObservation();
+        CliRunInfo? started = null;
+        string? sessionId = null;
+        void ObserveOutput(string id, CliOutputLine line)
+        {
+            if (id == runId && line.Stream == "stdout" && _cliType == CliTypes.Claude)
+                observation.ObserveClaudeInitFrame(line.Text);
+        }
+        void ObserveStart(string id, CliRunInfo info)
+        {
+            if (id == runId) started = info;
+        }
+        // The runner deletes the per-run home right after RunEnded's synchronous handlers return,
+        // so the CLI's transcript has to be read here, not once the stream has drained.
+        void ObserveEvent(string id, CliRunEvent runEvent)
+        {
+            if (id != runId) return;
+            if (runEvent is CliRunEvent.SessionStarted session) sessionId = session.SessionId;
+            else if (runEvent is CliRunEvent.RunEnded)
+                observation.ReadSessionRecord(_cliType,
+                    started?.CleanContextHome ?? driver.GetExecution(runId)?.CleanContextHome, sessionId, workingDirectory);
+        }
+        driver.OnOutput += ObserveOutput;
+        driver.OnStarted += ObserveStart;
+        driver.OnRunEvent += ObserveEvent;
         // The runner's typed usage summary carries Claude's fresh input and cache reads but drops
         // cache_creation_input_tokens, so cache writes are read from the raw result line instead.
         var cacheWrites = new ClaudeCacheWriteCounter(runId, UsageLedger.IsClaude(_cliType));
@@ -188,7 +227,7 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
             Model = Model,
             ThinkingLevel = _thinkingLevel,
             PermissionMode = "read-only",
-            ContextMode = "shared",
+            ContextMode = ReviewerIsolation.ContextMode,
         }, cancellationToken).GetAsyncEnumerator(cancellationToken);
         var attachTimedOut = false;
         try
@@ -256,11 +295,53 @@ public sealed class CodingAgentReviewAgent : IReviewAgent
         finally
         {
             if (!attachTimedOut) await enumerator.DisposeAsync().ConfigureAwait(false);
+            driver.OnOutput -= ObserveOutput;
+            driver.OnStarted -= ObserveStart;
+            driver.OnRunEvent -= ObserveEvent;
             driver.OnOutput -= cacheWrites.Observe;
         }
 
         var completed = BuildUsage(metrics, stopwatch, cacheWrites);
-        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model);
+        var context = new ReviewerContext(
+            ReviewerIsolation.ContextMode,
+            ReviewerIsolation.RepositoryInstructionPolicy,
+            observation.Observed,
+            observation.LoadedInstructionFiles,
+            ReviewerIsolation.FindRepositoryInstructionFiles(workingDirectory),
+            observation.Skills,
+            observation.McpServers,
+            observation.SystemPromptCharacters,
+            prompt.Length);
+        if (IsolationViolation(started, context) is { } violation)
+        {
+            _logger?.LogError("Review run {RunId} was not isolated: {Violation}", runId, violation);
+            throw new ReviewAgentRunException(runId, completed.Usage, completed.Model,
+                new ReviewerIsolationException(violation));
+        }
+        return new ReviewAgentResult(runId, output.ToString(), completed.Usage, completed.Model, context);
+    }
+
+    /// <summary>
+    /// Why a finished run cannot be trusted as isolated, or null. A run whose clean home was never
+    /// created ran on the operator's shared state; a run whose transcript could not be read, or held
+    /// no system prompt, may have loaded anything; a run that reports loading an instruction file, a
+    /// skill or an MCP server saw more than the prompt. In every case its grade is not recorded.
+    /// </summary>
+    internal static string? IsolationViolation(CliRunInfo? started, ReviewerContext context)
+    {
+        if (started is not null && string.IsNullOrWhiteSpace(started.CleanContextHome))
+            return "the runner could not create a clean context home, so the CLI ran on the operator's shared state";
+        if (!context.Observed)
+            return "the CLI's context was not observed: its transcript or rollout was missing, unreadable, malformed or incomplete, so what it loaded is unknown";
+        if (context.SystemPromptCharacters is null)
+            return "the CLI's system prompt was not observed, so the record of what it loaded is incomplete";
+        if (context.LoadedInstructionFiles.Count > 0)
+            return "the CLI loaded instruction files: " + string.Join(", ", context.LoadedInstructionFiles);
+        if (context.Skills.Count > 0)
+            return "the CLI advertised skills: " + string.Join(", ", context.Skills);
+        if (context.McpServers.Count > 0)
+            return "the CLI wired MCP servers: " + string.Join(", ", context.McpServers);
+        return null;
     }
 
     private (TokenUsage Usage, string? Model) BuildUsage(RunMetricsRecorder metrics,
