@@ -27,7 +27,8 @@ public sealed record ReviewRequest(
     IReadOnlyList<SensorScanResult>? DeterministicEvidence = null,
     string? ModelSource = null,
     IReadOnlyList<ReviewSubjectGroup>? SubjectGroups = null,
-    bool DirectoryScope = false);
+    bool DirectoryScope = false,
+    IReadOnlyList<SensorScanResult>? SecurityEvidence = null);
 
 public sealed record ReviewSubjectFile(string UnitId, string Path);
 
@@ -396,6 +397,9 @@ public sealed class ReviewRunner
     {
         if (request.Kind != "security" || request.Sensors is not { Count: > 0 })
             return SecurityEvidenceBundle.Empty;
+        // A queued run scans the repository once and hands every subject the same results.
+        if (request.SecurityEvidence is { } collected)
+            return SecurityEvidenceCollector.Project(collected, subjectPaths);
         if (_sensorRegistry is null)
             throw new InvalidOperationException("Security sensors were configured for the review, but no sensor registry is available.");
         return await new SecurityEvidenceCollector(_sensorRegistry)
