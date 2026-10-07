@@ -40,7 +40,8 @@ public sealed class ReviewPromptBuilder
         var prompt = LoadTemplate(level, kind)
             .Replace("{{FILE_PATH}}", filePath.Replace('\\', '/'), StringComparison.Ordinal)
             .Replace("{{FILE_CONTENT}}",
-                fileContent is null ? "(content not supplied)" : NumberLines(fileContent),
+                fileContent is null ? "(content not supplied)" :
+                level == ReviewLevel.File ? NumberLines(fileContent) : fileContent,
                 StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
             .Replace("{{PROJECT_GUIDELINES}}", FormatGuidelines(projectGuidelines), StringComparison.Ordinal)

@@ -1315,11 +1315,8 @@ public sealed class LiveReviewIntegrationTests
     /// unnumbered lines by eye, so a mid-sized file reliably produced ranges landing on the
     /// wrong line entirely, which is what forced <see cref="FindingIdentity"/>'s fallback
     /// clamp. This calls the real coding agent directly (bypassing <see cref="ReviewRunner"/>,
-    /// which would silently clamp) so a wrong line fails the test instead of being rewritten
-    /// away. Columns are checked too, but only asserted loosely: exact character-column
-    /// counting on a long, punctuation-dense line is a known residual model limitation that
-    /// numbering lines does not fully remove, and FindingIdentity's clamp already handles that
-    /// gracefully - the regression this test exists to catch is line placement, not that.
+    /// which would silently clamp) so invalid lines or columns fail the test instead of being
+    /// rewritten away.
     /// </summary>
     [Fact]
     [Trait("Category", "ExternalLive")]
@@ -1342,7 +1339,7 @@ public sealed class LiveReviewIntegrationTests
         Assert.NotEmpty(findings);
 
         var locationCount = 0;
-        var columnViolations = 0;
+        var columnViolations = new List<string>();
         foreach (var finding in findings)
         {
             foreach (var locationNode in finding!["locations"]!.AsArray())
@@ -1364,12 +1361,12 @@ public sealed class LiveReviewIntegrationTests
                     endColumn < 1 || endColumn > lines[endLine - 1].Length + 1 ||
                     (startLine == endLine && endColumn < startColumn))
                 {
-                    columnViolations++;
+                    columnViolations.Add($"{startLine}:{startColumn}-{endLine}:{endColumn} (line lengths {lines[startLine - 1].Length}, {lines[endLine - 1].Length})");
                 }
             }
         }
 
-        Assert.True(columnViolations <= 1,
-            $"{columnViolations} of {locationCount} locations needed a column clamp; expected at most 1.");
+        Assert.True(locationCount > 0, "Expected at least one finding on the reviewed file.");
+        Assert.True(columnViolations.Count == 0, string.Join("; ", columnViolations));
     }
 }
