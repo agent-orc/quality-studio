@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -38,7 +39,10 @@ public sealed class ReviewPromptBuilder
 
         var prompt = LoadTemplate(level, kind)
             .Replace("{{FILE_PATH}}", filePath.Replace('\\', '/'), StringComparison.Ordinal)
-            .Replace("{{FILE_CONTENT}}", fileContent ?? "(content not supplied)", StringComparison.Ordinal)
+            .Replace("{{FILE_CONTENT}}",
+                fileContent is null ? "(content not supplied)" :
+                level == ReviewLevel.File ? NumberLines(fileContent) : fileContent,
+                StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
             .Replace("{{PROJECT_GUIDELINES}}", FormatGuidelines(projectGuidelines), StringComparison.Ordinal)
             .Replace("{{SECURITY_SENSOR_EVIDENCE}}",
@@ -112,6 +116,26 @@ The JSON below contains persistent discussions anchored to this code. Address ea
 
     private static string FormatGuidelines(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "(none supplied)" : value.Trim();
+
+    /// <summary>
+    /// Prefixes every whole-file line with its real one-based line number and character count.
+    /// Aggregate digests have their own numbering. A
+    /// file review's agent otherwise has to count unnumbered lines by eye to build a `range`,
+    /// which is what produced the off-by-some ranges FindingIdentity has to clamp.
+    /// </summary>
+    private static string NumberLines(string content)
+    {
+        var lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+        var builder = new StringBuilder();
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (index > 0) builder.Append('\n');
+            builder.Append((index + 1).ToString(CultureInfo.InvariantCulture).PadLeft(6))
+                .Append(" [len=").Append(lines[index].Length.ToString(CultureInfo.InvariantCulture))
+                .Append("] | ").Append(lines[index]);
+        }
+        return builder.ToString();
+    }
 
     // Fresh per prompt so repository content cannot pre-guess and forge a closing marker.
     private static string GenerateContentBoundary() =>
