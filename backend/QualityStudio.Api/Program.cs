@@ -347,8 +347,6 @@ app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/rules/effectiveness", RuleEffectivenessReportEndpoint);
 app.MapGet("/api/repos/{repoId}/rules/effectiveness", RuleEffectivenessReportEndpoint);
-app.MapGet("/api/rules", Rules);
-app.MapGet("/api/repos/{repoId}/rules", Rules);
 app.MapGet("/api/report", Report);
 app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
@@ -367,6 +365,7 @@ app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
+app.MapPost("/api/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
 app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
@@ -1193,77 +1192,6 @@ static async Task<IResult> ChangeReviewVerdict(HttpContext context, ChangeReview
             Detail = exception.Message,
         });
     }
-}
-
-static IResult Rules(HttpContext context, string? kind, string? adapter, RepositoryRegistry registry)
-{
-    var (registration, repository) = ResolveRepository(context, registry);
-    var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
-        ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
-        : registration.GlobalInputsDirectory;
-    if (kind is not null && !Enum.TryParse<ReviewKind>(kind, true, out _))
-    {
-        return Results.BadRequest(new ProblemDetails
-        {
-            Status = StatusCodes.Status400BadRequest,
-            Title = "Unsupported review kind",
-            Detail = $"'{kind}' is not a review kind.",
-        });
-    }
-
-    var catalogue = new RuleCatalogueResolver().Resolve(repository.Root, globalDirectory);
-    var projectOverridePath = Path.GetFullPath(Path.Combine(repository.Root,
-        RuleCatalogueResolver.ProjectRelativePath.Replace('/', Path.DirectorySeparatorChar)));
-    string ScopeOf(string source) =>
-        source == "built-in" || source.StartsWith("embedded:", StringComparison.Ordinal) ? "built-in"
-        : string.Equals(source, projectOverridePath, StringComparison.OrdinalIgnoreCase) ? "project" : "global";
-    var normalizedKind = kind?.ToLowerInvariant();
-    var selected = catalogue.Rules
-        .Where(rule => normalizedKind is null || rule.Rule.Kinds.Contains(normalizedKind, StringComparer.OrdinalIgnoreCase))
-        .Where(rule => RuleCatalogueResolver.AppliesTo(rule.Rule.Technology, adapter))
-        .ToArray();
-
-    return Results.Ok(new
-    {
-        catalogueVersion = catalogue.CatalogueVersion,
-        filter = new { kind = normalizedKind, adapter },
-        sources = catalogue.Sources.Select(ScopeOf).Distinct(StringComparer.Ordinal).ToArray(),
-        rules = selected.Select(rule => new
-        {
-            rule.Rule.Id,
-            rule.Rule.Version,
-            rule.Rule.Title,
-            rule.Rule.Technology,
-            rule.Rule.Category,
-            rule.Rule.Kinds,
-            rule.Rule.Statement,
-            rule.Rule.Rationale,
-            rule.Rule.Detection,
-            rule.Rule.GoodExample,
-            rule.Rule.BadExample,
-            severity = rule.EffectiveSeverity.ToString().ToLowerInvariant(),
-            authoredSeverity = rule.Rule.Severity.ToString().ToLowerInvariant(),
-            enabled = rule.EffectiveEnabled,
-            rule.Rule.DefaultOn,
-            rule.Rule.Autofixable,
-            rule.Rule.DeterministicRuleIds,
-            rule.Rule.RelatedGuideline,
-            rule.Rule.Since,
-        }).ToArray(),
-        traces = selected.Select(rule => new
-        {
-            rule.Rule.Id,
-            source = ScopeOf(rule.Scope),
-            enabled = rule.EffectiveEnabled,
-            severityOverridden = rule.SeverityOverridden,
-            reason = rule.OverrideReason,
-            kinds = rule.Rule.Kinds,
-            rule.Rule.Technology,
-            adapters = new[] { "angular", "dotnet", "generic" }
-                .Where(candidate => RuleCatalogueResolver.AppliesTo(rule.Rule.Technology, candidate))
-                .ToArray(),
-        }).ToArray(),
-    });
 }
 
 static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)

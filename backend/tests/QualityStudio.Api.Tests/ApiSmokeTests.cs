@@ -39,6 +39,13 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         Assert.Empty(result.GetProperty("findings").EnumerateArray());
         Assert.Equal(1, result.GetProperty("schemaVersion").GetInt32());
 
+        using var defaultRoute = await client.PostAsJsonAsync("/api/change-review",
+            new { baseSha = sha, headSha = sha }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, defaultRoute.StatusCode);
+        var defaultResult = await defaultRoute.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(result.GetProperty("policyHash").GetString(),
+            defaultResult.GetProperty("policyHash").GetString());
+
         using var invalid = await client.PostAsJsonAsync("/api/repos/default/change-review",
             new { baseSha = "HEAD", headSha = sha }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);

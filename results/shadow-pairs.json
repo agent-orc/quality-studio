@@ -1,0 +1,142 @@
+[
+  {
+    "taskId": "AGT-2944",
+    "baseSha": "02d5dde3494d1ea7d169486e3cf78c10d741bbdf",
+    "headSha": "d467cf310b32551a5db5c85f2a51c9f0128124e4",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2944.json"
+  },
+  {
+    "taskId": "AGT-2943",
+    "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+    "headSha": "380403bd20c722cf1c131c711f6502a49e795561",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2943.json"
+  },
+  {
+    "taskId": "AGT-3025",
+    "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+    "headSha": "7be76584ea6309ce3207514f3d5b6fc924e0a068",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-3025.json"
+  },
+  {
+    "taskId": "AGT-2926",
+    "baseSha": "b225a6e70d472c01d2fe856f35eca256c2c9c021",
+    "headSha": "df3e5365706754b2a37f717cca87374c05511bb6",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2926.json"
+  },
+  {
+    "taskId": "AGT-3015",
+    "baseSha": "cb51e48ac678211153f6fb84a67d4aab18860ccb",
+    "headSha": "40c5cae37597279815f4df6f993db161406d0a7e",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-3015.json"
+  },
+  {
+    "taskId": "AGT-2934",
+    "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+    "headSha": "bbf3298e0c37dbcbb9bf92fe68a04e1546c939f5",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2934.json"
+  },
+  {
+    "taskId": "AGT-2996",
+    "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+    "headSha": "90a2893f26a4598bec32a3ec30e3b2ce0574e9bc",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2996.json"
+  },
+  {
+    "taskId": "AGT-2954",
+    "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+    "headSha": "fe9f04210c100c3b7037bd354a5cf1bbffb53e2f",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2954.json"
+  },
+  {
+    "taskId": "AGT-2964",
+    "baseSha": "48faf526698a6147282ce8b307ed4ef23f5a4584",
+    "headSha": "f00cdccc10ae0bcfc6be5bc9eff09d7b37b2f57d",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-2964.json"
+  },
+  {
+    "taskId": "AGT-3001",
+    "baseSha": "0acd12a517dbb416abd9f43e80ff585dba7af1da",
+    "headSha": "532ae09d2e6ab186bad10b7516fa1f0ec290ae6a",
+    "studioCodeQuality": "concerns",
+    "qsVerdictPath": "qs-verdicts/AGT-3001.json"
+  },
+  {
+    "taskId": "AGT-3014",
+    "baseSha": "0acd12a517dbb416abd9f43e80ff585dba7af1da",
+    "headSha": "849c8e946b0361688822d0ac737254e860c4d070",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-3014.json"
+  },
+  {
+    "taskId": "AGT-3002",
+    "baseSha": "79668c04d64eb1304dd2532203f5efb20adecb72",
+    "headSha": "4562c0604f2602dc30074ca2e31678e3a3a9221a",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-3002.json"
+  },
+  {
+    "taskId": "AGT-2963",
+    "baseSha": "79668c04d64eb1304dd2532203f5efb20adecb72",
+    "headSha": "eb6bc510427052f79d752efba57e2e18bb588357",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-2963.json"
+  },
+  {
+    "taskId": "AGT-2938",
+    "baseSha": "b0c42992e9bf2810a645305a3938938fe86a11fa",
+    "headSha": "bb874c0d693ed279d113172b9f38c6ab7e013f0a",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-2938.json"
+  },
+  {
+    "taskId": "AGT-2946",
+    "baseSha": "475993f4e5fac2125774ae4108c1cd4db8194b6e",
+    "headSha": "774e0d1deb0f414a19c6b572be27e31dd36810bb",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-2946.json"
+  },
+  {
+    "taskId": "AGT-3000",
+    "baseSha": "e6dd1fe95551e87dd70fa9f97996650d0557e8ed",
+    "headSha": "75f173b9e2475ca84374c2c8502646a85f52d40c",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-3000.json"
+  },
+  {
+    "taskId": "AGT-2929",
+    "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+    "headSha": "f1d72d69f1862496169c84491be9e25a30231ffe",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-2929.json"
+  },
+  {
+    "taskId": "AGT-3016",
+    "baseSha": "90f6a1edd20571e897664eae381bdf7a1a8b16c6",
+    "headSha": "54ea5c0488aa89f17738ea787d0eabe1d07e1493",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-3016.json"
+  },
+  {
+    "taskId": "AGT-2985",
+    "baseSha": "4d4bd717ee615d0a9fd498c30b2e47e3ff204415",
+    "headSha": "15424974119aed1cb8b3da04c457e23926a839c5",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-2985.json"
+  },
+  {
+    "taskId": "AGT-2797",
+    "baseSha": "4d4bd717ee615d0a9fd498c30b2e47e3ff204415",
+    "headSha": "f173c1ed00c3794bdd7fd50e8cb4665311b57ec0",
+    "studioCodeQuality": "pass",
+    "qsVerdictPath": "qs-verdicts/AGT-2797.json"
+  }
+]

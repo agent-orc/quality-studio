@@ -1,5 +1,7 @@
-# QS-112 deliverables
+# QS-117 deliverables
 
-- Preserved the reviewed rule-pool management implementation: repository and global overrides with audit trails, runtime custom rules and packs, per-project applicability, versioned rule-set import and export, API and UI, tests, and indexed documentation.
-- Recovered the failed `merge-into-develop` stage by merging `origin/main` at `23eaa16b` into the task branch as `67e37ffd`. See [status](status.md) and [recovery evidence](integration-recovery-evidence.txt). The original `pipeline-execution.json` was not mounted.
-- Verified the merged state: Release .NET build, 108 relevant .NET tests, frontend development build, 239 frontend tests, and 10 rule catalogue tests passed. Logs and nine existing UI screenshots are in `/home/agent/runner-work/tasks/QS-112/results`.
+- Shadow-only `POST /api/repos/{id}/change-review` and default-repository `POST /api/change-review`, returning the versioned pass/concerns/block contract with exact changed-line citations, stable finding identities, policy and rule-set hashes, and explicit infrastructure outcomes.
+- Versioned `.quality/policy.json` threshold contract and schemas. Applicable security-category code findings follow the configured blocking rule and severity thresholds.
+- Corrected rule-pool route ownership and regression coverage for default/scoped routes, foreign identities, and security-category policy behavior.
+- [20-task Agent Studio shadow comparison](shadow-comparison.md): 5/20 exact agreements (25.0%), 15 individually recorded disagreements, [paired input](shadow-pairs.json), [machine-readable comparison](shadow-comparison.json), and 20 retained endpoint responses in `qs-verdicts/`.
+- [Status and verification evidence](status.md). The implemented choice is shadow mode under QS-W6; no Agent Studio gate or review decision consumes the new verdict.

@@ -43,6 +43,77 @@ public sealed class ChangeReviewVerdictTests
     }
 
     [Fact]
+    public async Task Security_category_code_rule_obeys_the_same_blocking_policy()
+    {
+        using var repository = await Fixture.CreateAsync();
+        var customDirectory = Path.Combine(repository.Root, ".quality", "rules", "custom");
+        Directory.CreateDirectory(customDirectory);
+        await File.WriteAllTextAsync(Path.Combine(customDirectory, "ACME-CS-019.md"), """
+            ---
+            id: ACME-CS-019
+            version: 1.0.0
+            title: Validate untrusted input
+            technology: dotnet
+            kinds: [code]
+            category: security
+            severity: high
+            defaultOn: true
+            autofixable: false
+            deterministicRuleIds: []
+            since: 1.0.0
+            ---
+
+            ## Statement
+
+            Validate input before use.
+
+            ## Rationale
+
+            Untrusted input can cross a trust boundary.
+
+            ## Detection
+
+            Check the added call for validation.
+
+            ## Good example
+
+            ```csharp
+            Validate(input);
+            ```
+
+            ## Bad example
+
+            ```csharp
+            Use(input);
+            ```
+
+            ## Change history
+
+            - 1.0.0 (2026-10-07): Initial rule.
+            """, TestContext.Current.CancellationToken);
+        var policyPath = Path.Combine(repository.Root, ".quality", "policy.json");
+        await File.WriteAllTextAsync(policyPath,
+            """{"schemaVersion":1,"blockingRules":["ACME-CS-019"],"blockingSeverities":["high"]}""",
+            TestContext.Current.CancellationToken);
+        var agent = new FakeAgent("""{"findings":[{"ruleId":"ACME-CS-019","path":"src/Work.cs","line":2,"message":"Input is not validated","evidenceChecked":"The added call uses input","missing":"Input validation"}]}""");
+        var service = new ChangeReviewVerdictService(agent);
+        var request = new ChangeReviewVerdictRequest(repository.Base, repository.Head);
+
+        var blocked = await service.ReviewAsync("sample", repository.Root, request,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal("block", blocked.Verdict);
+        Assert.Equal("block", Assert.Single(blocked.Findings).Disposition);
+
+        await File.WriteAllTextAsync(policyPath,
+            """{"schemaVersion":1,"blockingRules":["QS-CS-003"],"blockingSeverities":["high"]}""",
+            TestContext.Current.CancellationToken);
+        var allowed = await service.ReviewAsync("sample", repository.Root, request,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal("concerns", allowed.Verdict);
+        Assert.Equal("concerns", Assert.Single(allowed.Findings).Disposition);
+    }
+
+    [Fact]
     public async Task Out_of_diff_or_unparseable_reply_never_passes()
     {
         using var repository = await Fixture.CreateAsync();

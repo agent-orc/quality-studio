@@ -2,7 +2,8 @@
 
 ## Shadow code-quality verdict (QS-117)
 
-`POST /api/repos/{id}/change-review` accepts `baseSha` and `headSha` (Git
+`POST /api/repos/{id}/change-review` (or `/api/change-review` for the default
+repository) accepts `baseSha` and `headSha` (Git
 commit names). Optional `cliType`, `model`, and `thinkingLevel` select the
 isolated reviewer; the default is the product's code-review route. The endpoint
 reads the exact Git diff without writing a sidecar or running a build. It sends
@@ -33,13 +34,19 @@ The repository owns `.quality/policy.json`, schema version 1:
 `blockingRules` names catalogue IDs or `*`; `blockingSeverities` names one or
 more of `critical`, `high`, `medium`, `low`, and `info`. Both conditions must
 match for a finding to block. Enabled code rules outside those thresholds raise
-concerns. Security rules, standing debt, and a new endpoint alone do not block.
+concerns. Applicable security-category code rules use the same policy thresholds.
+Standing debt and a new endpoint alone do not block.
 The default applies when the policy file is absent. The file is versioned in
 this repository; a registered project can commit its own version.
 
 This prepares the QS-118 Dossier's recommended option B in shadow mode.
 Under the existing QS-W6 decision, Agent Studio remains the decision owner;
 this endpoint does not change its gates or review outcome.
+
+The [20-task shadow comparison](../results/shadow-comparison.md) records the
+operator-provided SHA pairs, retained endpoint responses, exact agreement rate,
+and each disagreement. Re-run it with
+`node scripts/compare-shadow-verdicts.mjs results/shadow-pairs.json results/shadow-comparison.json`.
 
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration

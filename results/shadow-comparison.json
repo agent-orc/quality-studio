@@ -1,0 +1,737 @@
+{
+  "schemaVersion": 1,
+  "comparedAspect": "code-quality",
+  "cohortSize": 20,
+  "agreements": 5,
+  "agreementRate": 0.25,
+  "pinning": {
+    "policyHashes": [
+      "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764"
+    ],
+    "ruleSetHashes": [
+      "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0"
+    ],
+    "models": [
+      "gpt-6-luna"
+    ],
+    "thinkingLevels": [
+      "low"
+    ]
+  },
+  "disagreements": [
+    {
+      "taskId": "AGT-2944",
+      "baseSha": "02d5dde3494d1ea7d169486e3cf78c10d741bbdf",
+      "headSha": "d467cf310b32551a5db5c85f2a51c9f0128124e4",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2943",
+      "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+      "headSha": "380403bd20c722cf1c131c711f6502a49e795561",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3025",
+      "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+      "headSha": "7be76584ea6309ce3207514f3d5b6fc924e0a068",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-85c88478ee6ab45dab21a87d30b6e41918aa494c33a18551953d8880af3570f2",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "runner/GitWorkspace.cs",
+          "side": "head",
+          "line": 155
+        },
+        {
+          "id": "finding-3dc85f156cb442ef72fb100d622d638b42ec4a49f5fbbae40d02583f9fd62804",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "runner/PushProtection.cs",
+          "side": "head",
+          "line": 32
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2926",
+      "baseSha": "b225a6e70d472c01d2fe856f35eca256c2c9c021",
+      "headSha": "df3e5365706754b2a37f717cca87374c05511bb6",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-d9049cacdd640da44394c89976f741befb182f9f128df4987d9d70694daa20a5",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Pipeline/BatchGate/BatchGatePilotService.cs",
+          "side": "head",
+          "line": 896
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-3015",
+      "baseSha": "cb51e48ac678211153f6fb84a67d4aab18860ccb",
+      "headSha": "40c5cae37597279815f4df6f993db161406d0a7e",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2934",
+      "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+      "headSha": "bbf3298e0c37dbcbb9bf92fe68a04e1546c939f5",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2996",
+      "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+      "headSha": "90a2893f26a4598bec32a3ec30e3b2ce0574e9bc",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-9364b50d86b8d8159ef0d1a65f3ff3d68877b7fa7f96a24ce52372c5db76e15d",
+          "ruleId": "QS-GN-001",
+          "severity": "high",
+          "path": "backend/Features/Git/GitService.cs",
+          "side": "head",
+          "line": 5130
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2954",
+      "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+      "headSha": "fe9f04210c100c3b7037bd354a5cf1bbffb53e2f",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2964",
+      "baseSha": "48faf526698a6147282ce8b307ed4ef23f5a4584",
+      "headSha": "f00cdccc10ae0bcfc6be5bc9eff09d7b37b2f57d",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3001",
+      "baseSha": "0acd12a517dbb416abd9f43e80ff585dba7af1da",
+      "headSha": "532ae09d2e6ab186bad10b7516fa1f0ec290ae6a",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3002",
+      "baseSha": "79668c04d64eb1304dd2532203f5efb20adecb72",
+      "headSha": "4562c0604f2602dc30074ca2e31678e3a3a9221a",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-d33b0af59082c0a301816bdb9bf533080817d575eaf0034be9457e4cfa08bb2d",
+          "ruleId": "QS-CS-003",
+          "severity": "high",
+          "path": "backend/Features/Pipeline/IntegrationVerification/MergeIntoDevelopRunner.Verification.cs",
+          "side": "head",
+          "line": 47
+        },
+        {
+          "id": "finding-9921336d52db6a72fcea629d480522e90538dc24e32138b64d5ff8c41af08cf0",
+          "ruleId": "QS-CS-003",
+          "severity": "high",
+          "path": "backend/Features/Pipeline/IntegrationVerification/MergeIntoDevelopRunner.Verification.cs",
+          "side": "head",
+          "line": 102
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2963",
+      "baseSha": "79668c04d64eb1304dd2532203f5efb20adecb72",
+      "headSha": "eb6bc510427052f79d752efba57e2e18bb588357",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-dcac76626a2a4d0d6fded4e4571988d97b7cd2c4ff925f7a27e1dc083e156cf3",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "frontend/e2e/mockups/usage-header.spec.ts",
+          "side": "head",
+          "line": 29
+        },
+        {
+          "id": "finding-88e114849ad37f0c0025ce1aa3547a8b6e5bae8246619bd505ce83332bfb628e",
+          "ruleId": "QS-GN-001",
+          "severity": "high",
+          "path": "frontend/src/app/features/studio-shell/studio-shell.header-cockpit.ts",
+          "side": "head",
+          "line": 71
+        },
+        {
+          "id": "finding-f2c494ca6fb07ac2240f21bba8e04ee796a2c030b9319c6aafe34fbc90c055f8",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "frontend/src/app/features/usage-cockpit/services/usage-cockpit.service.ts",
+          "side": "head",
+          "line": 56
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2938",
+      "baseSha": "b0c42992e9bf2810a645305a3938938fe86a11fa",
+      "headSha": "bb874c0d693ed279d113172b9f38c6ab7e013f0a",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-21fefa2ef383e9b57b9816a563a31004646b0bc2b3fb41dc3a3354351c6cdec2",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Runner/RunnerEndpoints.cs",
+          "side": "head",
+          "line": 79
+        },
+        {
+          "id": "finding-7bcb7016ddb4ed8725b31ef2b5597959f9064f09f04e0543dc52863cacfc5a7f",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "task-server/TaskServerStudioRunnerOrchestratorStore.cs",
+          "side": "head",
+          "line": 521
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-3000",
+      "baseSha": "e6dd1fe95551e87dd70fa9f97996650d0557e8ed",
+      "headSha": "75f173b9e2475ca84374c2c8502646a85f52d40c",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-53a7f4f18b6a4efbd5f6046ee4cfd05e57dc69e010d0a2e620f04e02643c592a",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Git/StaleLocks/GitLockOwnerProbe.cs",
+          "side": "head",
+          "line": 184
+        },
+        {
+          "id": "finding-453d13441d93e5ae7d2454d0670b33b2a83cb1456421d86d60ee002788147957",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Git/StaleLocks/GitStaleLockGuard.cs",
+          "side": "head",
+          "line": 350
+        },
+        {
+          "id": "finding-04feef6e46e9b35e8c4e031b25a76e24d02ceb9b0ea4ad0043de620ab6675155",
+          "ruleId": "QS-GN-003",
+          "severity": "medium",
+          "path": "docs/fluid-capacity/index.html",
+          "side": "head",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2929",
+      "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+      "headSha": "f1d72d69f1862496169c84491be9e25a30231ffe",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-3a424e1f7edc18ffc09aaa9f5bf34334caf22110a3208251a35554333e31704f",
+          "ruleId": "QS-GN-001",
+          "severity": "high",
+          "path": "backend/Features/Tasks/Decisions/DecisionApplyPolicy.cs",
+          "side": "head",
+          "line": 86
+        }
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "taskId": "AGT-2944",
+      "baseSha": "02d5dde3494d1ea7d169486e3cf78c10d741bbdf",
+      "headSha": "d467cf310b32551a5db5c85f2a51c9f0128124e4",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2943",
+      "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+      "headSha": "380403bd20c722cf1c131c711f6502a49e795561",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3025",
+      "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+      "headSha": "7be76584ea6309ce3207514f3d5b6fc924e0a068",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-85c88478ee6ab45dab21a87d30b6e41918aa494c33a18551953d8880af3570f2",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "runner/GitWorkspace.cs",
+          "side": "head",
+          "line": 155
+        },
+        {
+          "id": "finding-3dc85f156cb442ef72fb100d622d638b42ec4a49f5fbbae40d02583f9fd62804",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "runner/PushProtection.cs",
+          "side": "head",
+          "line": 32
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2926",
+      "baseSha": "b225a6e70d472c01d2fe856f35eca256c2c9c021",
+      "headSha": "df3e5365706754b2a37f717cca87374c05511bb6",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-d9049cacdd640da44394c89976f741befb182f9f128df4987d9d70694daa20a5",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Pipeline/BatchGate/BatchGatePilotService.cs",
+          "side": "head",
+          "line": 896
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-3015",
+      "baseSha": "cb51e48ac678211153f6fb84a67d4aab18860ccb",
+      "headSha": "40c5cae37597279815f4df6f993db161406d0a7e",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2934",
+      "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+      "headSha": "bbf3298e0c37dbcbb9bf92fe68a04e1546c939f5",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2996",
+      "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+      "headSha": "90a2893f26a4598bec32a3ec30e3b2ce0574e9bc",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-9364b50d86b8d8159ef0d1a65f3ff3d68877b7fa7f96a24ce52372c5db76e15d",
+          "ruleId": "QS-GN-001",
+          "severity": "high",
+          "path": "backend/Features/Git/GitService.cs",
+          "side": "head",
+          "line": 5130
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2954",
+      "baseSha": "a0dacb7d5238e4512ff6d188b698184bc2c23422",
+      "headSha": "fe9f04210c100c3b7037bd354a5cf1bbffb53e2f",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2964",
+      "baseSha": "48faf526698a6147282ce8b307ed4ef23f5a4584",
+      "headSha": "f00cdccc10ae0bcfc6be5bc9eff09d7b37b2f57d",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3001",
+      "baseSha": "0acd12a517dbb416abd9f43e80ff585dba7af1da",
+      "headSha": "532ae09d2e6ab186bad10b7516fa1f0ec290ae6a",
+      "studioCodeQuality": "concerns",
+      "qualityStudio": "pass",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3014",
+      "baseSha": "0acd12a517dbb416abd9f43e80ff585dba7af1da",
+      "headSha": "849c8e946b0361688822d0ac737254e860c4d070",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "pass",
+      "agreement": true,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3002",
+      "baseSha": "79668c04d64eb1304dd2532203f5efb20adecb72",
+      "headSha": "4562c0604f2602dc30074ca2e31678e3a3a9221a",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-d33b0af59082c0a301816bdb9bf533080817d575eaf0034be9457e4cfa08bb2d",
+          "ruleId": "QS-CS-003",
+          "severity": "high",
+          "path": "backend/Features/Pipeline/IntegrationVerification/MergeIntoDevelopRunner.Verification.cs",
+          "side": "head",
+          "line": 47
+        },
+        {
+          "id": "finding-9921336d52db6a72fcea629d480522e90538dc24e32138b64d5ff8c41af08cf0",
+          "ruleId": "QS-CS-003",
+          "severity": "high",
+          "path": "backend/Features/Pipeline/IntegrationVerification/MergeIntoDevelopRunner.Verification.cs",
+          "side": "head",
+          "line": 102
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2963",
+      "baseSha": "79668c04d64eb1304dd2532203f5efb20adecb72",
+      "headSha": "eb6bc510427052f79d752efba57e2e18bb588357",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-dcac76626a2a4d0d6fded4e4571988d97b7cd2c4ff925f7a27e1dc083e156cf3",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "frontend/e2e/mockups/usage-header.spec.ts",
+          "side": "head",
+          "line": 29
+        },
+        {
+          "id": "finding-88e114849ad37f0c0025ce1aa3547a8b6e5bae8246619bd505ce83332bfb628e",
+          "ruleId": "QS-GN-001",
+          "severity": "high",
+          "path": "frontend/src/app/features/studio-shell/studio-shell.header-cockpit.ts",
+          "side": "head",
+          "line": 71
+        },
+        {
+          "id": "finding-f2c494ca6fb07ac2240f21bba8e04ee796a2c030b9319c6aafe34fbc90c055f8",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "frontend/src/app/features/usage-cockpit/services/usage-cockpit.service.ts",
+          "side": "head",
+          "line": 56
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2938",
+      "baseSha": "b0c42992e9bf2810a645305a3938938fe86a11fa",
+      "headSha": "bb874c0d693ed279d113172b9f38c6ab7e013f0a",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-21fefa2ef383e9b57b9816a563a31004646b0bc2b3fb41dc3a3354351c6cdec2",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Runner/RunnerEndpoints.cs",
+          "side": "head",
+          "line": 79
+        },
+        {
+          "id": "finding-7bcb7016ddb4ed8725b31ef2b5597959f9064f09f04e0543dc52863cacfc5a7f",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "task-server/TaskServerStudioRunnerOrchestratorStore.cs",
+          "side": "head",
+          "line": 521
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2946",
+      "baseSha": "475993f4e5fac2125774ae4108c1cd4db8194b6e",
+      "headSha": "774e0d1deb0f414a19c6b572be27e31dd36810bb",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "pass",
+      "agreement": true,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-3000",
+      "baseSha": "e6dd1fe95551e87dd70fa9f97996650d0557e8ed",
+      "headSha": "75f173b9e2475ca84374c2c8502646a85f52d40c",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-53a7f4f18b6a4efbd5f6046ee4cfd05e57dc69e010d0a2e620f04e02643c592a",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Git/StaleLocks/GitLockOwnerProbe.cs",
+          "side": "head",
+          "line": 184
+        },
+        {
+          "id": "finding-453d13441d93e5ae7d2454d0670b33b2a83cb1456421d86d60ee002788147957",
+          "ruleId": "QS-GN-002",
+          "severity": "high",
+          "path": "backend/Features/Git/StaleLocks/GitStaleLockGuard.cs",
+          "side": "head",
+          "line": 350
+        },
+        {
+          "id": "finding-04feef6e46e9b35e8c4e031b25a76e24d02ceb9b0ea4ad0043de620ab6675155",
+          "ruleId": "QS-GN-003",
+          "severity": "medium",
+          "path": "docs/fluid-capacity/index.html",
+          "side": "head",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-2929",
+      "baseSha": "53d78664e7c2494042c6ac79a98e7d5be4b73f73",
+      "headSha": "f1d72d69f1862496169c84491be9e25a30231ffe",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "block",
+      "agreement": false,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": [
+        {
+          "id": "finding-3a424e1f7edc18ffc09aaa9f5bf34334caf22110a3208251a35554333e31704f",
+          "ruleId": "QS-GN-001",
+          "severity": "high",
+          "path": "backend/Features/Tasks/Decisions/DecisionApplyPolicy.cs",
+          "side": "head",
+          "line": 86
+        }
+      ]
+    },
+    {
+      "taskId": "AGT-3016",
+      "baseSha": "90f6a1edd20571e897664eae381bdf7a1a8b16c6",
+      "headSha": "54ea5c0488aa89f17738ea787d0eabe1d07e1493",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "pass",
+      "agreement": true,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2985",
+      "baseSha": "4d4bd717ee615d0a9fd498c30b2e47e3ff204415",
+      "headSha": "15424974119aed1cb8b3da04c457e23926a839c5",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "pass",
+      "agreement": true,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    },
+    {
+      "taskId": "AGT-2797",
+      "baseSha": "4d4bd717ee615d0a9fd498c30b2e47e3ff204415",
+      "headSha": "f173c1ed00c3794bdd7fd50e8cb4665311b57ec0",
+      "studioCodeQuality": "pass",
+      "qualityStudio": "pass",
+      "agreement": true,
+      "policyHash": "sha256:709fe0fe23ef6adff316166e3c8e13a12774064eb119512b13a9d3f2484c7764",
+      "ruleSetHash": "sha256:c4ae562e5e318dbe1fd9ffba7665e53740a022796589059113905422469d76c0",
+      "model": "gpt-6-luna",
+      "thinkingLevel": "low",
+      "findings": []
+    }
+  ],
+  "note": "Shadow comparison only. Agent Studio policy and gates retain authority."
+}
