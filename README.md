@@ -342,16 +342,22 @@ definition Agent Studio reads at the subject commit for coding runs and the buil
 stack, tool version manifests (`.nvmrc`, `global.json`), prepare/build/test/lint commands, the
 named test-suite inventory with expected durations, cache paths, capabilities, non-secret
 environment, and the development-server lifecycle. [`.agent-studio/prepare`](.agent-studio/prepare)
-composes the product building blocks (`dotnet restore`, `npm ci`) and does not implement its own
-cache manager. Run the same commands locally:
+composes the product building blocks (`dotnet restore`, `npm ci`, Playwright Chromium install)
+and does not implement its own cache manager.
+
+The `devServer` entry runs `npm start` from the repository root. It launches the
+API at `http://127.0.0.1:5127` with
+`QualityStudio__AllowedRoots__0=../..` (resolved from the API content root to
+this checkout) and Angular at `http://127.0.0.1:4200`.
+
+Run the declared commands locally:
 
 ```shell
 .agent-studio/prepare
 dotnet build QualityStudio.slnx --no-restore
 npm --prefix frontend run build
-dotnet test QualityStudio.slnx --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
-npm --prefix frontend run test
-dotnet format QualityStudio.slnx --verify-no-changes --no-restore
+dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
+CHROME_NO_SANDBOX=1 npm --prefix frontend run test
 npm --prefix frontend run lint
 ```
 

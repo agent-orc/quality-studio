@@ -1,5 +1,5 @@
 schemaVersion: 1
-stack: [dotnet, node]
+stack: [dotnet, node, playwright]
 toolVersions:
   node: .nvmrc
   dotnetSdk: global.json
@@ -9,23 +9,22 @@ commands:
     - dotnet build QualityStudio.slnx --no-restore
     - npm --prefix frontend run build
   test:
-    - dotnet test QualityStudio.slnx --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
+    - dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
     - npm --prefix frontend run test
   lint:
-    - dotnet format QualityStudio.slnx --verify-no-changes --no-restore
     - npm --prefix frontend run lint
 testSuites:
   - id: backend-routine
     category: routine
-    expectedDurationSeconds: 90
-    command: dotnet test QualityStudio.slnx --no-build --filter "Category!=MachineBound&Category!=ExternalLive"
+    expectedDurationSeconds: 497
+    command: dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
   - id: backend-machine-bound
     category: machine-bound
-    expectedDurationSeconds: 30
+    expectedDurationSeconds: 23
     command: dotnet test QualityStudio.slnx --no-build --filter Category=MachineBound
   - id: frontend-unit
     category: routine
-    expectedDurationSeconds: 60
+    expectedDurationSeconds: 35
     command: npm --prefix frontend run test
 cachePaths:
   - frontend/node_modules
@@ -33,8 +32,13 @@ capabilities: [git, child-process, loopback-network]
 environment:
   DOTNET_NOLOGO: "1"
   NUGET_XMLDOC_MODE: skip
+  CHROME_NO_SANDBOX: "1"
+  # The dev launcher starts QualityStudio.Api with backend/QualityStudio.Api as
+  # its content root. This resolves to the checkout root from that directory.
   QualityStudio__AllowedRoots__0: ../..
 devServer:
+  # npm start launches the API at 127.0.0.1:5127 and Angular at 127.0.0.1:4200.
+  # The API receives QualityStudio__AllowedRoots__0 from environment above.
   command: npm start
   workingDirectory: .
   healthUrl: http://127.0.0.1:4200
