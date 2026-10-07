@@ -76,6 +76,8 @@ export function runStateTone(state: string): 'positive' | 'warning' | 'critical'
   if (state === 'partial') return 'warning';
   if (state === 'failed' || state === 'cancelled') return 'critical';
   return null;
+}
+
 /** A wall-clock duration at the scale sensors run: seconds, or minutes and seconds. */
 export function formatDuration(milliseconds: number): string {
   const seconds = Math.round(Math.max(0, milliseconds) / 1000);
