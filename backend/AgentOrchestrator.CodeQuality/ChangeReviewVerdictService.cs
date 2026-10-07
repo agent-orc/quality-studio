@@ -227,18 +227,18 @@ public sealed class ChangeReviewVerdictService
                     oldPath = null;
                     newPath = null;
                 }
-                else if (!inHunk && text.StartsWith("--- a/", StringComparison.Ordinal))
+                else if (!inHunk && text.StartsWith("--- ", StringComparison.Ordinal))
                 {
-                    oldPath = text[6..].TrimEnd('\r');
-                    if (!result.ContainsKey((oldPath, "base"))) result[(oldPath, "base")] = new Dictionary<int, string>();
+                    oldPath = DiffPath(text[4..].TrimEnd('\r', '\t'), "a/");
+                    if (oldPath is not null && !result.ContainsKey((oldPath, "base")))
+                        result[(oldPath, "base")] = new Dictionary<int, string>();
                 }
-                else if (!inHunk && text.StartsWith("--- /dev/null", StringComparison.Ordinal)) oldPath = null;
-                else if (!inHunk && text.StartsWith("+++ b/", StringComparison.Ordinal))
+                else if (!inHunk && text.StartsWith("+++ ", StringComparison.Ordinal))
                 {
-                    newPath = text[6..].TrimEnd('\r');
-                    if (!result.ContainsKey((newPath, "head"))) result[(newPath, "head")] = new Dictionary<int, string>();
+                    newPath = DiffPath(text[4..].TrimEnd('\r', '\t'), "b/");
+                    if (newPath is not null && !result.ContainsKey((newPath, "head")))
+                        result[(newPath, "head")] = new Dictionary<int, string>();
                 }
-                else if (!inHunk && text.StartsWith("+++ /dev/null", StringComparison.Ordinal)) newPath = null;
                 else if (text.StartsWith("@@ ", StringComparison.Ordinal))
                 {
                     inHunk = true;
@@ -252,6 +252,57 @@ public sealed class ChangeReviewVerdictService
                 else if (inHunk && text.StartsWith(' ')) { oldLine++; newLine++; }
             }
             return result;
+        }
+
+        private static string? DiffPath(string header, string prefix)
+        {
+            if (header == "/dev/null") return null;
+            if (header.StartsWith('"') && header.EndsWith('"'))
+            {
+                // Git uses C-style quoting, including octal UTF-8 bytes, for unusual paths.
+                using var bytes = new MemoryStream();
+                var literal = new StringBuilder();
+                void FlushLiteral()
+                {
+                    if (literal.Length == 0) return;
+                    bytes.Write(Encoding.UTF8.GetBytes(literal.ToString()));
+                    literal.Clear();
+                }
+
+                for (var index = 1; index < header.Length - 1; index++)
+                {
+                    var character = header[index];
+                    if (character != '\\') { literal.Append(character); continue; }
+                    FlushLiteral();
+                    if (++index >= header.Length - 1)
+                        throw new ChangeReviewException("Git returned an invalid quoted diff path.");
+                    character = header[index];
+                    if (character is >= '0' and <= '7')
+                    {
+                        if (index + 2 >= header.Length - 1 ||
+                            header[index + 1] is not (>= '0' and <= '7') ||
+                            header[index + 2] is not (>= '0' and <= '7'))
+                            throw new ChangeReviewException("Git returned an invalid quoted diff path.");
+                        bytes.WriteByte((byte)(((character - '0') << 6) |
+                            ((header[++index] - '0') << 3) | (header[++index] - '0')));
+                    }
+                    else
+                    {
+                        var escaped = character switch
+                        {
+                            'a' => '\a', 'b' => '\b', 'f' => '\f', 'n' => '\n',
+                            'r' => '\r', 't' => '\t', 'v' => '\v', '\\' => '\\', '"' => '"',
+                            _ => throw new ChangeReviewException("Git returned an invalid quoted diff path."),
+                        };
+                        bytes.WriteByte((byte)escaped);
+                    }
+                }
+                FlushLiteral();
+                header = Encoding.UTF8.GetString(bytes.ToArray());
+            }
+            if (!header.StartsWith(prefix, StringComparison.Ordinal))
+                throw new ChangeReviewException("Git returned an invalid diff path.");
+            return header[prefix.Length..];
         }
 
         private static int Start(string header, char marker)

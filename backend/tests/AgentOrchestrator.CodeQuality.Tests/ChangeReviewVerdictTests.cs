@@ -153,6 +153,33 @@ public sealed class ChangeReviewVerdictTests
         Assert.Equal("base", Assert.Single(result.Findings).Side);
     }
 
+    [Theory]
+    [InlineData("Work with space.cs", false)]
+    [InlineData("naïve \"work\".cs", false)]
+    [InlineData("naïve \"work\".cs", true)]
+    public async Task Git_quoted_paths_anchor_findings_on_either_side(string fileName, bool deletionOnly)
+    {
+        using var repository = await Fixture.CreateAsync(deletionOnly, fileName);
+        var path = "src/" + fileName;
+        var diff = await GitTestRepository.RunForOutputAsync(repository.Root,
+            TestContext.Current.CancellationToken, "diff", repository.Base, repository.Head);
+        if (fileName.Contains('"')) Assert.Contains("\"a/", diff);
+        var response = JsonSerializer.Serialize(new
+        {
+            findings = new[] { new
+            {
+                ruleId = "QS-CS-003", path, side = deletionOnly ? "base" : "head", line = 2,
+                message = "Missing cancellation handling", evidenceChecked = "Changed call",
+                missing = "CancellationToken forwarding",
+            } },
+        });
+        var result = await new ChangeReviewVerdictService(new FakeAgent(response)).ReviewAsync(
+            "sample", repository.Root, new(repository.Base, repository.Head),
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal("block", result.Verdict);
+        Assert.Equal(path, Assert.Single(result.Findings).Path);
+    }
+
     private sealed class FakeAgent(string response) : IReviewAgent
     {
         public string AgentName => "fixture";
@@ -169,19 +196,20 @@ public sealed class ChangeReviewVerdictTests
         public string Base { get; }
         public string Head { get; }
 
-        public static async Task<Fixture> CreateAsync(bool deletionOnly = false)
+        public static async Task<Fixture> CreateAsync(bool deletionOnly = false, string fileName = "Work.cs")
         {
             var root = Path.Combine(Path.GetTempPath(), "qs-verdict-tests", Guid.NewGuid().ToString("N"));
             await GitTestRepository.InitializeAsync(root, TestContext.Current.CancellationToken);
             Directory.CreateDirectory(Path.Combine(root, "src"));
             Directory.CreateDirectory(Path.Combine(root, ".quality"));
-            await File.WriteAllTextAsync(Path.Combine(root, "src", "Work.cs"),
+            var sourcePath = Path.Combine(root, "src", fileName);
+            await File.WriteAllTextAsync(sourcePath,
                 deletionOnly ? "class Work {}\nawait operation.RunAsync(token);\n" : "class Work {}\n",
                 TestContext.Current.CancellationToken);
             await GitTestRepository.RunAsync(root, TestContext.Current.CancellationToken, "add", "-A");
             await GitTestRepository.RunAsync(root, TestContext.Current.CancellationToken, "commit", "-qm", "base");
             var @base = (await GitTestRepository.RunForOutputAsync(root, TestContext.Current.CancellationToken, "rev-parse", "HEAD")).Trim();
-            await File.WriteAllTextAsync(Path.Combine(root, "src", "Work.cs"),
+            await File.WriteAllTextAsync(sourcePath,
                 deletionOnly ? "class Work {}\n" : "class Work {}\nawait operation.RunAsync();\n",
                 TestContext.Current.CancellationToken);
             await GitTestRepository.RunAsync(root, TestContext.Current.CancellationToken, "add", "-A");
