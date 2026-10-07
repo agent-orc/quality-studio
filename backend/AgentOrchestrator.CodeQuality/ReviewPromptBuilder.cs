@@ -40,7 +40,8 @@ public sealed class ReviewPromptBuilder
         var prompt = LoadTemplate(level, kind)
             .Replace("{{FILE_PATH}}", filePath.Replace('\\', '/'), StringComparison.Ordinal)
             .Replace("{{FILE_CONTENT}}",
-                fileContent is null ? "(content not supplied)" : NumberLines(fileContent),
+                fileContent is null ? "(content not supplied)"
+                    : level == ReviewLevel.File ? NumberLines(fileContent) : fileContent,
                 StringComparison.Ordinal)
             .Replace("{{GLOBAL_GUIDELINES}}", FormatGuidelines(globalGuidelines), StringComparison.Ordinal)
             .Replace("{{PROJECT_GUIDELINES}}", FormatGuidelines(projectGuidelines), StringComparison.Ordinal)
@@ -117,8 +118,8 @@ The JSON below contains persistent discussions anchored to this code. Address ea
         string.IsNullOrWhiteSpace(value) ? "(none supplied)" : value.Trim();
 
     /// <summary>
-    /// Prefixes every line with its real one-based line number, in the same "&lt;n,6&gt; | "
-    /// gutter <see cref="AggregateSubjectDigest"/> already uses for module/project digests. A
+    /// Prefixes every whole-file line with its real one-based line number and the column
+    /// immediately after its last character. Aggregate digests already carry their own anchors. A
     /// file review's agent otherwise has to count unnumbered lines by eye to build a `range`,
     /// which is what produced the off-by-some ranges FindingIdentity has to clamp.
     /// </summary>
@@ -129,7 +130,10 @@ The JSON below contains persistent discussions anchored to this code. Address ea
         for (var index = 0; index < lines.Length; index++)
         {
             if (index > 0) builder.Append('\n');
-            builder.Append((index + 1).ToString(CultureInfo.InvariantCulture).PadLeft(6)).Append(" | ").Append(lines[index]);
+            builder.Append((index + 1).ToString(CultureInfo.InvariantCulture).PadLeft(6))
+                .Append(" [endColumn=")
+                .Append((lines[index].Length + 1).ToString(CultureInfo.InvariantCulture))
+                .Append("] | ").Append(lines[index]);
         }
         return builder.ToString();
     }

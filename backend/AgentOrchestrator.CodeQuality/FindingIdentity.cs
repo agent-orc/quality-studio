@@ -290,8 +290,7 @@ public static partial class FindingIdentity
         var end = range["end"]!.AsObject();
         var lines = content.Split('\n');
 
-        // Agents locate findings against unnumbered file content, so ranges arrive slightly
-        // off. An out-of-bounds range is clamped to the file instead of discarding the whole
+        // An out-of-bounds range is clamped to the file instead of discarding the whole
         // completed review document; the persisted range is rewritten to stay consistent
         // with the captured excerpt.
         var startLine = Math.Clamp(start["line"]!.GetValue<int>(), 1, lines.Length);

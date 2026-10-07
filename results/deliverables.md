@@ -1,5 +1,7 @@
-# QS-112 deliverables
+# QS-101 deliverables
 
-- Preserved the reviewed rule-pool management implementation: repository and global overrides with audit trails, runtime custom rules and packs, per-project applicability, versioned rule-set import and export, API and UI, tests, and indexed documentation.
-- Recovered the failed `merge-into-develop` stage by merging `origin/main` at `23eaa16b` into the task branch as `67e37ffd`. See [status](status.md) and [recovery evidence](integration-recovery-evidence.txt). The original `pipeline-execution.json` was not mounted.
-- Verified the merged state: Release .NET build, 108 relevant .NET tests, frontend development build, 239 frontend tests, and 10 rule catalogue tests passed. Logs and nine existing UI screenshots are in `/home/agent/runner-work/tasks/QS-112/results`.
+- Rebased the reviewed `b12c675b` line-numbered file review change onto current `origin/main` on `runner/agent-runner-01/QS-101`.
+- Preserved main's current finding identity contract in the prompt conflicts.
+- Limited added numbering and exact end-column anchors to whole-file content so aggregate source anchors stay intact; added unit coverage for file and aggregate paths.
+- Tightened the opt-in live range test to require a finding location and zero ranges needing clamps; the real agent run passed after adding end-column anchors.
+- Verification logs and [status](status.md) are in this results directory.
