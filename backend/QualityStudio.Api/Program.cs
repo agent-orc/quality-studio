@@ -347,6 +347,8 @@ app.MapGet("/api/usage", Usage);
 app.MapGet("/api/repos/{repoId}/usage", Usage);
 app.MapGet("/api/rules/effectiveness", RuleEffectivenessReportEndpoint);
 app.MapGet("/api/repos/{repoId}/rules/effectiveness", RuleEffectivenessReportEndpoint);
+app.MapGet("/api/rules", Rules);
+app.MapGet("/api/repos/{repoId}/rules", Rules);
 app.MapGet("/api/report", Report);
 app.MapGet("/api/repos/{repoId}/report", Report);
 app.MapGet("/api/quotas", Quotas);
