@@ -350,6 +350,59 @@
   justify-content: flex-end;
 }
 
+.sensor-plan {
+  display: grid;
+  gap: var(--studio-space-2);
+}
+
+.sensor-plan ul {
+  display: grid;
+  gap: var(--studio-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sensor-plan li {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) minmax(80px, .8fr) minmax(120px, 1.2fr) minmax(110px, 1fr);
+  align-items: center;
+  gap: var(--studio-space-2);
+  padding: var(--studio-space-1) var(--studio-space-2);
+  border: 1px solid var(--studio-border-soft);
+  border-radius: var(--studio-radius-sm);
+  background: var(--studio-bg-editor);
+  font-size: var(--studio-font-size-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.sensor-plan li[data-decision="opt-in-required"] {
+  color: var(--studio-fg-muted);
+}
+
+.sensor-plan .sensor-name {
+  display: flex;
+  align-items: center;
+  gap: var(--studio-space-1);
+  min-width: 0;
+}
+
+.sensor-plan .sensor-role,.sensor-plan .sensor-duration,.refresh-sensors {
+  color: var(--studio-fg-muted);
+  font-size: var(--studio-font-size-label);
+}
+
+.sensor-plan .studio-check {
+  width: 16px;
+  height: 16px;
+}
+
+.refresh-sensors {
+  display: flex;
+  align-items: center;
+  gap: var(--studio-space-1);
+}
+
 .active-run-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

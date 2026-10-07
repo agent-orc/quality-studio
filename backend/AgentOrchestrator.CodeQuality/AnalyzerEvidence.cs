@@ -10,7 +10,8 @@ namespace AgentOrchestrator.CodeQuality;
 /// Records every result in the working copy's <see cref="AnalyzerResultStore"/>, so analyzers run as
 /// review evidence also refresh what the explorer and editor show.
 /// </param>
-public sealed class DeterministicEvidenceCollector(SensorRegistry registry, bool persistResults = false)
+/// <param name="cache">When given, a sensor whose result for the same commit and inputs is stored is not run again.</param>
+public sealed class DeterministicEvidenceCollector(SensorRegistry registry, bool persistResults = false, SensorResultCache? cache = null)
 {
     public async Task<IReadOnlyList<SensorScanResult>> CollectAsync(
         string repositoryRoot,
@@ -54,11 +55,14 @@ public sealed class DeterministicEvidenceCollector(SensorRegistry registry, bool
 
         try
         {
-            var result = await sensor.RunAsync(new SensorScanRequest(
+            var request = new SensorScanRequest(
                 repositoryRoot,
                 SensorScope.Repository,
                 Configuration: configuration.Configuration,
-                PersistMetadata: false), cancellationToken).ConfigureAwait(false);
+                PersistMetadata: false);
+            var result = cache is null
+                ? await sensor.RunAsync(request, cancellationToken).ConfigureAwait(false)
+                : await cache.GetOrRunAsync(sensor, request, cancellationToken).ConfigureAwait(false);
             if (result.Findings.Any(finding =>
                     finding.Source?.Kind != FindingSourceKind.Deterministic ||
                     string.IsNullOrWhiteSpace(finding.Source.SensorId)))

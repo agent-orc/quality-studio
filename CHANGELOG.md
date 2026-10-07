@@ -134,6 +134,19 @@ From the 2026-09-28 evaluation of the Agent Studio checkout (defects D2-D4):
   (default 3) consecutive identical provider or authentication failures the run ends as `failed`
   with the reason and skips the remaining files. `GET /api/quotas` returns each provider's login
   state in `auth`, and the top bar shows it next to the quota.
+### Changed — no hidden builds: sensor evidence is cached per commit and build sensors are opt-in (QS-111)
+
+A review run used to execute every enabled sensor on the whole repository before it started — with
+the build sensor enabled, a full Release build per run (defect D7 of the 2026-09-28 evaluation) —
+and a security review rescanned the repository once per file prompt.
+
+- Sensor results are stored per commit and inputs under `sensor-cache/` in the data root; a run on
+  an unchanged working copy reuses them instead of running the sensors. `refreshSensors: true`
+  ignores stored results.
+- Security evidence runs once per run and is projected onto each subject.
+- `dotnet-build` and `angular-compiler` run only when the run names them in `optInSensors`.
+- The review preflight lists which sensors the run executes, reuses, or holds for opt-in, with
+  expected durations; a started run reports what each sensor did.
 
 ### Fixed — large and aggregate reviews launch on Windows (QS-108)
 
