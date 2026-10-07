@@ -60,6 +60,17 @@ public sealed class ChangeReviewVerdictTests
     }
 
     [Fact]
+    public async Task Fenced_reviewer_json_is_accepted()
+    {
+        using var repository = await Fixture.CreateAsync();
+        var agent = new FakeAgent("```json\n{\"findings\":[]}\n```");
+        var result = await new ChangeReviewVerdictService(agent).ReviewAsync(
+            "sample", repository.Root, new(repository.Base, repository.Head),
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal("pass", result.Verdict);
+    }
+
+    [Fact]
     public async Task Removed_line_can_cite_base_side()
     {
         using var repository = await Fixture.CreateAsync(deletionOnly: true);

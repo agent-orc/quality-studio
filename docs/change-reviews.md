@@ -37,9 +37,9 @@ concerns. Security rules, standing debt, and a new endpoint alone do not block.
 The default applies when the policy file is absent. The file is versioned in
 this repository; a registered project can commit its own version.
 
-This implements the QS-118 Dossier's recommended option B as a shadow source
-for Agent Studio's code-quality aspect. Agent Studio remains the decision owner
-until the paired comparison and dossier update are accepted.
+This prepares the QS-118 Dossier's recommended option B in shadow mode.
+Under the existing QS-W6 decision, Agent Studio remains the decision owner;
+this endpoint does not change its gates or review outcome.
 
 Standing review metadata answers how a unit scores until its reviewed inputs
 change. A change review answers a different question: what one integration
