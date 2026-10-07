@@ -2,20 +2,18 @@ QS-117 integration recovery evidence — 2026-10-08
 
 Reported failed stage: merge-into-develop
 Reported reason: The reviewed delivery did not integrate.
-Reported failure evidence ref: pipeline-execution.json (not mounted in this workspace or the task results directory).
-Delivery ref: refs/heads/agent-studio/results/run_059c9ce6256c408d9a3325a22a161807/fence-5/3f0130b3f6962fa889a5b0a051c3b1e2aadab234
+Reported failure evidence ref: pipeline-execution.json (not mounted in this workspace or task results directory).
+Reviewed delivery ref: refs/heads/agent-studio/results/run_059c9ce6256c408d9a3325a22a161807/fence-5/3f0130b3f6962fa889a5b0a051c3b1e2aadab234
 Reviewed delivery SHA: 3f0130b3f6962fa889a5b0a051c3b1e2aadab234
-Current integration branch: origin/main at 828734e4cad8f9f5811eb8c61f399754cca5128c
-Refresh check: `git fetch origin main` on 2026-10-08 retained that same remote tip.
+Prior recovery delivery ref: refs/heads/agent-studio/results/run_0ee51cd20bf14a86a20a80625f8bfa80/fence-8/032a9a14a232c6200abc4d85aa070b1f7ca6bd08
+Prior recovery delivery SHA: 032a9a14a232c6200abc4d85aa070b1f7ca6bd08
 
-The task worktree initially pointed at 828734e4, not the reviewed delivery. After fetching both refs, Git confirmed the reviewed delivery object and main tip. The clean task branch was reset to the existing reviewed delivery SHA, then `git merge --no-ff --no-edit origin/main` produced a conflict-free merge:
+The task worktree initially pointed at main, not the prior recovery delivery. The clean task branch was restored to 032a9a14. `git fetch origin main` updated origin/main to a0a5d6607038032dc0db7df4894f41c3d4168df0. `git merge --no-edit origin/main` made a conflict-free merge:
 
-  30e914e9db34a53e00f666c483790a4b0f56ff4c
-  first parent:  3f0130b3f6962fa889a5b0a051c3b1e2aadab234
-  second parent: 828734e4cad8f9f5811eb8c61f399754cca5128c
+  59502d456bd177990941edf43126841f4d773e41
+  first parent:  032a9a14a232c6200abc4d85aa070b1f7ca6bd08
+  second parent: a0a5d6607038032dc0db7df4894f41c3d4168df0
 
-`git merge-base --is-ancestor 3f0130b3 HEAD` and `git merge-base --is-ancestor origin/main HEAD` both returned 0 immediately after the merge. The merge carried main's QS-111 sensor-cache work into the task branch. No QS-117 delivery commit was rebased, squashed, split, dropped, or altered. The merge had no conflicts. The local main branch and origin/main remained at 828734e4; neither was moved or pushed.
+`git merge-base --is-ancestor 032a9a14 HEAD` and `git merge-base --is-ancestor origin/main HEAD` both returned 0. The prior delivery already contained the reviewed 3f0130b3 commit, so the reviewed code remains in this ancestry. No QS-117 delivery commit was rebased, squashed, split, dropped, or altered. The local main branch and origin/main remained unmoved; neither was pushed.
 
-The absent pipeline-execution.json prevents inspection of the original pipeline's private stage log. The fetch, parentage, ancestry, clean merge, and verification logs in this results directory are replacement evidence for the reported integration dead end.
-The 20-record comparator was rerun after the merge and its output matched the committed machine-readable comparison byte for byte: 5/20 agreements (25.0%).
-Final checks after the merge: Release .NET build passed with 0 warnings and 0 errors; filtered .NET tests passed (280 API and 826 code-quality, with 9 platform skips); frontend development build passed; an isolated frontend test run passed 243/243. See build.log, dotnet-tests.log, frontend-build.log, and frontend-tests-final.log in the collected job results directory.
+The absent pipeline-execution.json prevents inspection of the private stage log. This branch's merge parentage and ancestry resolve the reported integration dead end. The comparison was recomputed after the merge and matched the committed JSON byte for byte: 5/20 agreements (25.0%). Release .NET build, filtered .NET tests, frontend development build, and frontend tests are recorded in build.log, dotnet-tests.log, frontend-build.log, and frontend-tests.log in the collected job results directory.
