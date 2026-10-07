@@ -154,6 +154,73 @@ describe('ReviewActions', () => {
       .toBe('Prompt size (no matching history)');
   });
 
+  it('shows which sensors the run executes with expected durations and sends an explicit build opt-in', async () => {
+    const preflight = (optedIn: boolean) => ({
+      repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: null,
+      thinkingLevel: null, cliType: 'codex', tokenCap: null, costCap: null, overrideBelowFloor: false,
+      estimate: { files: 1, operations: 1, promptCharacters: 4000, inputTokens: 1000, outputTokens: 200,
+        cost: null, currency: null, priceStatus: 'unknownModel', historySamples: 0,
+        method: 'Rendered prompt characters / 4.', expectedFreshSkips: 0 },
+      recommendation: { policyVersion: '2026-07-24', recommendedModel: 'gpt-5.6-sol',
+        recommendedThinkingLevel: 'xhigh', capabilityTier: 'frontier', score: 70,
+        correctnessFloor: 'sol-xhigh', reason: 'Correctness floor.', selectionSource: 'model-routing-policy' },
+      sensorPlan: {
+        expectedDurationMs: optedIn ? 180_000 : 45_000, inputFingerprint: 'sha256:abc', cacheNote: 'Keyed to 9e79cb41abcd.',
+        sensors: [
+          { sensorId: 'dotnet-build', role: 'deterministic', decision: optedIn ? 'run' : 'opt-in-required', optIn: true,
+            optedIn, expectedDurationMs: 180_000, durationSource: 'default', detail: null },
+          { sensorId: 'eslint', role: 'deterministic', decision: 'cached', optIn: false, optedIn: false,
+            expectedDurationMs: 0, durationSource: 'cache', detail: null },
+          { sensorId: 'tsc', role: 'deterministic', decision: 'run', optIn: false, optedIn: false,
+            expectedDurationMs: 45_000, durationSource: 'observed', detail: null },
+        ],
+      },
+    });
+    api.estimateReview.and.callFake(async (request: any) => preflight((request.optInSensors ?? []).includes('dotnet-build')));
+    api.startReview.and.resolveTo({});
+
+    await component.prepare();
+    fixture.detectChanges();
+    const plan = fixture.nativeElement.querySelector('[aria-label="Sensors this run executes"]') as HTMLElement;
+    expect(plan.textContent).toContain('not run · builds the project');
+    expect(plan.textContent).toContain('cached for this commit');
+    expect(plan.textContent).toContain('~45s (last run)');
+    expect(fixture.nativeElement.querySelector('[aria-label="Review preflight"]').textContent)
+      .toContain('1 to run · ~45s before the first review');
+    expect(api.estimateReview.calls.mostRecent().args[0].optInSensors).toBeUndefined();
+
+    const optIn = plan.querySelector('[aria-label="Run dotnet-build in this review"]') as HTMLInputElement;
+    optIn.checked = true;
+    optIn.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.estimateReview).toHaveBeenCalledWith(jasmine.objectContaining({ optInSensors: ['dotnet-build'] }));
+    expect(fixture.nativeElement.querySelector('[aria-label="Review preflight"]').textContent)
+      .toContain('2 to run · ~3m before the first review');
+    await component.start();
+    expect(api.startReview).toHaveBeenCalledWith(jasmine.objectContaining({ optInSensors: ['dotnet-build'] }));
+  });
+
+  it('reports on the run strip which sensors ran, were reused, or were held for opt-in', () => {
+    api.reviewRuns.set([{
+      id: 'run-sensors', repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code',
+      model: null, thinkingLevel: null, cliType: 'codex', state: 'running', totalFiles: 1, completedFiles: 0,
+      failedFiles: 0, skippedFiles: 0, aggregateState: null, files: [], stopReason: null,
+      sensors: [
+        { sensorId: 'angular-compiler', outcome: 'opt-in-required', durationMs: 0, detail: null },
+        { sensorId: 'eslint', outcome: 'cached', durationMs: 0, detail: null },
+        { sensorId: 'gitleaks', outcome: 'cached', durationMs: 0, detail: null },
+        { sensorId: 'tsc', outcome: 'ran', durationMs: 41_000, detail: null },
+      ],
+    }]);
+    component.showLauncher.set(false);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement.querySelector('.active-run-strip') as HTMLElement).textContent)
+      .toContain('sensors: 1 ran · 2 cached · 1 held for opt-in');
+  });
+
   it('moves to the recommended model provider before re-estimating', async () => {
     api.estimateReview.and.resolveTo({
       repositoryId: 'default', path: 'Sample.cs', level: 'file', kind: 'code', model: 'gpt-5.6-sol',
