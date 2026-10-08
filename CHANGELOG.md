@@ -4,6 +4,12 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — Agent Studio repository preparation (QS-103)
+
+- Frontend tests now select the no-sandbox Chromium launcher on Linux even when the execution
+  environment is not forwarded to `npm test`. This prevents Playwright Chromium from aborting
+  before Karma starts the suite on the Agent Studio runner. The launcher also avoids `/dev/shm`.
+
 ### Added — rule pool management (QS-112)
 
 The named-rule library is now managed, not only inspected. **Review policy → Rules & rationale**

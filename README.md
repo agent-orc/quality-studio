@@ -357,9 +357,12 @@ Run the declared commands locally:
 dotnet build QualityStudio.slnx --no-restore
 npm --prefix frontend run build
 dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
-CHROME_NO_SANDBOX=1 npm --prefix frontend run test
+npm --prefix frontend run test
 npm --prefix frontend run lint
 ```
+
+On Linux, the frontend test wrapper selects Karma's no-sandbox Chromium launcher and disables
+`/dev/shm` usage. Windows continues to use the standard ChromeHeadless launcher.
 
 ## Required test baseline
 

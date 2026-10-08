@@ -16,7 +16,7 @@ if (!chromeBin) {
 }
 
 const ngCli = join(frontendRoot, 'node_modules', '@angular', 'cli', 'bin', 'ng.js');
-const browser = process.env.CHROME_NO_SANDBOX === '1'
+const browser = process.platform === 'linux' || process.env.CHROME_NO_SANDBOX === '1'
   ? 'ChromeHeadlessNoSandbox'
   : 'ChromeHeadless';
 const testArguments = [ngCli, 'test', 'frontend', '--watch=false', `--browsers=${browser}`];
