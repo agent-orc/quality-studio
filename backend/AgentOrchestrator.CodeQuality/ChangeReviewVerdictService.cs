@@ -209,7 +209,7 @@ public sealed class ChangeReviewVerdictService
         return builder.ToString();
     }
 
-    private static class ChangedLines
+    internal static class ChangedLines
     {
         public static Dictionary<(string Path, string Side), Dictionary<int, string>> Parse(string diff)
         {
@@ -229,13 +229,13 @@ public sealed class ChangeReviewVerdictService
                 }
                 else if (!inHunk && text.StartsWith("--- ", StringComparison.Ordinal))
                 {
-                    oldPath = DiffPath(text[4..].TrimEnd('\r', '\t'), "a/");
+                    oldPath = DiffPath(text[4..].TrimEnd('\r'), "a/");
                     if (oldPath is not null && !result.ContainsKey((oldPath, "base")))
                         result[(oldPath, "base")] = new Dictionary<int, string>();
                 }
                 else if (!inHunk && text.StartsWith("+++ ", StringComparison.Ordinal))
                 {
-                    newPath = DiffPath(text[4..].TrimEnd('\r', '\t'), "b/");
+                    newPath = DiffPath(text[4..].TrimEnd('\r'), "b/");
                     if (newPath is not null && !result.ContainsKey((newPath, "head")))
                         result[(newPath, "head")] = new Dictionary<int, string>();
                 }
@@ -256,6 +256,24 @@ public sealed class ChangeReviewVerdictService
 
         private static string? DiffPath(string header, string prefix)
         {
+            if (header.StartsWith('"'))
+            {
+                var closingQuote = -1;
+                for (var index = 1; index < header.Length; index++)
+                {
+                    if (header[index] == '\\') { index++; continue; }
+                    if (header[index] == '"') { closingQuote = index; break; }
+                }
+                if (closingQuote < 0 ||
+                    (closingQuote + 1 < header.Length && header[closingQuote + 1] != '\t'))
+                    throw new ChangeReviewException("Git returned an invalid quoted diff path.");
+                header = header[..(closingQuote + 1)];
+            }
+            else
+            {
+                var timestampSeparator = header.IndexOf('\t');
+                if (timestampSeparator >= 0) header = header[..timestampSeparator];
+            }
             if (header == "/dev/null") return null;
             if (header.StartsWith('"') && header.EndsWith('"'))
             {

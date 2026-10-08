@@ -180,6 +180,25 @@ public sealed class ChangeReviewVerdictTests
         Assert.Equal(path, Assert.Single(result.Findings).Path);
     }
 
+    [Fact]
+    public void Timestamped_git_headers_keep_quoted_paths_separate_from_timestamps()
+    {
+        const string path = "src/naïve \"work\".cs";
+        const string quotedOld = "\"" + """a/src/na\303\257ve \"work\".cs""" + "\"";
+        const string quotedNew = "\"" + """b/src/na\303\257ve \"work\".cs""" + "\"";
+        var diff = $"diff --git {quotedOld} {quotedNew}\n" +
+            $"--- {quotedOld}\t2026-10-08 00:00:00 +0000\n" +
+            $"+++ {quotedNew}\t2026-10-08 00:00:01 +0000\n" +
+            "@@ -1 +1 @@\n-old\n+new\n";
+
+        var anchors = ChangeReviewVerdictService.ChangedLines.Parse(diff);
+
+        Assert.True(anchors.ContainsKey((path, "base")),
+            "Parsed anchors: " + string.Join(", ", anchors.Keys.Select(key => $"{key.Path}:{key.Side}")));
+        Assert.Equal("old", anchors[(path, "base")][1]);
+        Assert.Equal("new", anchors[(path, "head")][1]);
+    }
+
     private sealed class FakeAgent(string response) : IReviewAgent
     {
         public string AgentName => "fixture";
