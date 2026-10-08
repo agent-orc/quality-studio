@@ -1,12 +1,24 @@
-QS-112 integration recovery evidence
-Failed pipeline stage: merge-into-develop
-Original failure evidence reference: pipeline-execution.json (not mounted in this workspace)
-Reviewed delivery: fdbfbbdd375003673fbd1115e30c5347542fbe82
-Latest origin/main fetched: 23eaa16b692d863dd267100e3a5f9bad5f9888aa
-New merge: 67e37ffde9e37db26206b0a640eaaa5e0603dac5
-Merge parents: fdbfbbdd375003673fbd1115e30c5347542fbe82 23eaa16b692d863dd267100e3a5f9bad5f9888aa
-Conflict resolutions: CHANGELOG.md, docs/data-root.md, rules/CHANGELOG.md combined; website/index.html kept from main's generated 35-rule catalogue.
-Reviewed delivery is ancestor: exit 0
-origin/main is ancestor: exit 0
-Worktree status after merge: clean
-Verification: .NET build passed (0 warnings, 0 errors); targeted .NET 108 passed; frontend build passed; frontend 239 passed; rule catalogue 10 passed.
+QS-117 integration recovery evidence — 2026-10-08
+
+Reported failed stage: merge-into-develop
+Reported reason: The reviewed delivery did not integrate.
+Reported failure evidence ref: pipeline-execution.json (not mounted in this workspace or task results directory).
+Reviewed delivery ref: refs/heads/agent-studio/results/run_059c9ce6256c408d9a3325a22a161807/fence-5/3f0130b3f6962fa889a5b0a051c3b1e2aadab234
+Reviewed delivery SHA: 3f0130b3f6962fa889a5b0a051c3b1e2aadab234
+Prior recovery delivery ref: refs/heads/agent-studio/results/run_0ee51cd20bf14a86a20a80625f8bfa80/fence-8/032a9a14a232c6200abc4d85aa070b1f7ca6bd08
+Prior recovery delivery SHA: 032a9a14a232c6200abc4d85aa070b1f7ca6bd08
+
+The task worktree initially pointed at main, not the prior recovery delivery. The clean task branch was restored to 032a9a14. `git fetch origin main` updated origin/main to a0a5d6607038032dc0db7df4894f41c3d4168df0. `git merge --no-edit origin/main` made a conflict-free merge:
+
+  59502d456bd177990941edf43126841f4d773e41
+  first parent:  032a9a14a232c6200abc4d85aa070b1f7ca6bd08
+  second parent: a0a5d6607038032dc0db7df4894f41c3d4168df0
+
+`git merge-base --is-ancestor 032a9a14 HEAD` and `git merge-base --is-ancestor origin/main HEAD` both returned 0. The prior delivery already contained the reviewed 3f0130b3 commit, so the reviewed code remains in this ancestry. No QS-117 delivery commit was rebased, squashed, split, dropped, or altered. The local main branch and origin/main remained unmoved; neither was pushed.
+
+The absent pipeline-execution.json prevents inspection of the private stage log. This branch's merge parentage and ancestry resolve the reported integration dead end. The comparison was recomputed after the merge and matched the committed JSON byte for byte: 5/20 agreements (25.0%). Release .NET build, filtered .NET tests, frontend development build, and frontend tests are recorded in build.log, dotnet-tests.log, frontend-build.log, and frontend-tests.log in the collected job results directory.
+
+On this continuation, the task branch was fast-forwarded from main to the latest reviewed QS-117 delivery 5014ba7c, preserving every delivery commit. `origin/main` remains an ancestor of the branch. The quoted Git path finding was fixed on top of that delivery; the four required verification commands passed on this state.
+
+For the 2026-10-08 timestamped-path fix round, the clean task branch was restored from main to reviewed QS-117 delivery 63b86c5b979f6a8c2c71f3138ba45e85e3b1870b. A fresh `git fetch origin main` and `git merge --no-edit origin/main` reported "Already up to date." The current origin/main tip remains a0a5d6607038032dc0db7df4894f41c3d4168df0 and is an ancestor of this task branch. The timestamped quoted-path fix is a new commit on top of 63b86c5b; all prior delivery commits remain in the branch history unchanged. The integration branch was not moved or pushed.
+On this fix round, the Release .NET build passed with zero warnings and errors; filtered .NET tests passed with 280 API tests and 834 code-quality tests, with 9 platform skips. The frontend development build and all 243 frontend tests passed. The 20-task comparison was recomputed and matched the committed JSON byte for byte. Logs and comparison artifacts are in the collected job results directory.

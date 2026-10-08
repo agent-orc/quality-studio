@@ -30,6 +30,7 @@ TestResults/
 # ignored whole.
 /.quality/**
 !/.quality/scope.json
+!/.quality/policy.json
 !/.quality/inputs/
 !/.quality/inputs/**
 !/.quality/rules/

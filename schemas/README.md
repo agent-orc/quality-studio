@@ -5,6 +5,13 @@ the rule pool contracts a reviewed repository or host writes for Quality Studio 
 read: `rule-config.v1` (overrides), `rule-applicability.v1` (which packs apply),
 `rule-pack.v1` (custom packs) and `rule-set.v1` (one-file import and export).
 
+[`change-review-verdict.v1.schema.json`](change-review-verdict.v1.schema.json)
+describes the shadow code-quality verdict returned by `POST /api/repos/{id}/change-review`.
+It binds the exact Git range, effective rule set and project policy and requires
+rule-cited findings on changed lines. See [`../docs/change-reviews.md`](../docs/change-reviews.md).
+[`change-review-policy.v1.schema.json`](change-review-policy.v1.schema.json) describes
+the repository-owned `.quality/policy.json` thresholds.
+
 ## Canonical domain
 
 Every `$id` uses `https://agent-orchestrator.dev/quality/schemas/<name>.schema.json`.

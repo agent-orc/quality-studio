@@ -75,6 +75,25 @@ public sealed partial class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Change_review_respects_scoped_and_default_repository_identity()
+    {
+        var request = new { baseSha = new string('a', 40), headSha = new string('b', 40) };
+        using var alice = CreateClient("alice", AliceToken);
+        using var foreign = await alice.PostAsJsonAsync("/api/repos/foreign/change-review", request,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        Assert.DoesNotContain(ForeignRepositoryRoot,
+            await foreign.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        using var bob = CreateClient("bob", BobToken);
+        using var defaultRoute = await bob.PostAsJsonAsync("/api/change-review", request,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, defaultRoute.StatusCode);
+        Assert.DoesNotContain(RepositoryRoot,
+            await defaultRoute.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Repository_scoped_identity_cannot_update_or_archive_its_repository()
     {
         var registryBefore = await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken);

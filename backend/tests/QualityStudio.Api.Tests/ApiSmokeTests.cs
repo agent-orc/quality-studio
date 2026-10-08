@@ -22,6 +22,36 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
     private TestApplication? application;
 
     [Fact]
+    public async Task Change_review_exposes_shadow_verdict_for_exact_git_range()
+    {
+        await GitTestRepository.RunAsync(repositoryRoot, TestContext.Current.CancellationToken, "add", "-A");
+        await GitTestRepository.RunAsync(repositoryRoot, TestContext.Current.CancellationToken,
+            "commit", "-qm", "fixture");
+        var sha = (await GitTestRepository.RunForOutputAsync(repositoryRoot,
+            TestContext.Current.CancellationToken, "rev-parse", "HEAD")).Trim();
+        using var client = application!.CreateClient();
+        using var response = await client.PostAsJsonAsync("/api/repos/default/change-review",
+            new { baseSha = sha, headSha = sha }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("pass", result.GetProperty("verdict").GetString());
+        Assert.Equal(sha, result.GetProperty("headSha").GetString());
+        Assert.Empty(result.GetProperty("findings").EnumerateArray());
+        Assert.Equal(1, result.GetProperty("schemaVersion").GetInt32());
+
+        using var defaultRoute = await client.PostAsJsonAsync("/api/change-review",
+            new { baseSha = sha, headSha = sha }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, defaultRoute.StatusCode);
+        var defaultResult = await defaultRoute.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal(result.GetProperty("policyHash").GetString(),
+            defaultResult.GetProperty("policyHash").GetString());
+
+        using var invalid = await client.PostAsJsonAsync("/api/repos/default/change-review",
+            new { baseSha = "HEAD", headSha = sha }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
     public async Task Tree_returns_derived_hierarchy_and_kind_states()
     {
         using var client = application!.CreateClient();

@@ -48,6 +48,17 @@ public sealed class ReviewTemplateSelectionTests
         Assert.Contains("duplication", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("{{", prompt, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Build_PreservesAggregateDigestLineAnchors()
+    {
+        const string digest = "src/Thing.cs\n    42 | return value;";
+        var prompt = new ReviewPromptBuilder().Build("src/Thing.cs", "code",
+            fileContent: digest, level: ReviewLevel.Module);
+
+        Assert.Contains(digest, prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("     2 |     42 |", prompt, StringComparison.Ordinal);
+    }
 }
 
 public sealed class AggregateReviewTests
