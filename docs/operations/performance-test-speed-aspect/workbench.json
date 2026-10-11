@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "performance-test-speed-aspect",
+  "title": "Performance and test speed as a measured aspect",
+  "summary": "Decision-ready concept for a sensor-led performance.test-speed aspect: retained timing snapshots, per-repository budgets, an explicit penalty for missing measurements, trend evidence, and measured suggestions. Recommends a TRX plus Playwright JSON MVP on Agent Studio and Quality Studio.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-10-11T20:30:42Z",
+  "sourceTaskKeys": [
+    "QS-123"
+  ],
+  "implementationTasks": [
+    {
+      "title": "Define the measured performance aspect and snapshot contract",
+      "promptMarkdown": "Implement Slice 1 of docs/operations/performance-test-speed-aspect/index.html in Quality Studio. Register performance.test-speed as a sensor-led taxonomy aspect, with performance.general retaining existing ReviewKind.Performance behavior. Add a versioned MetricSnapshot contract with repository, commit, run, lane, environment, observed time, metric ID, numeric value/unit, subject, status, and source digest/reference. Specify stable IDs and duration units. Acceptance: existing performance review API behavior remains compatible; contract round-trips valid snapshots; malformed units, missing provenance, and duplicate IDs are rejected in focused tests."
+    },
+    {
+      "title": "Ingest TRX and Playwright timing with an explicit gap",
+      "promptMarkdown": "Implement Slice 2 of docs/operations/performance-test-speed-aspect/index.html. Add test-timing as a deterministic evidence sensor for completed TRX and Playwright JSON, with bounded streaming admission and digest-checked retained artifact references. Emit suite wall time only from run/step clocks, summed case time separately, top 50 tests/classes/specs, p50/p90/p99, skip and retry counts, and an explicit unavailable or perf.metric-missing finding when a required report is absent, stale, malformed, or producer-failed. Acceptance: fixture runs for both formats yield checked values; missing and partial reports never produce zero-duration passes; old snapshots remain historical after a failed producer; bounded size and unsafe-path cases are rejected."
+    },
+    {
+      "title": "Persist metric series and evaluate repository budgets",
+      "promptMarkdown": "Implement Slice 3 of docs/operations/performance-test-speed-aspect/index.html. Persist append-only MetricSnapshot series with idempotency by repository/run/lane/metric/subject. Read absolute and baseline-relative budgets from per-repository sensor configuration. Require comparable environment and lane for trend regression; apply the working three-run, 15 percent and two-minute suite-wall rule while allowing an absolute ceiling on one complete run. Track current-head freshness at 14 days with repository overrides and surface missing/stale as a separate measurement-quality facet, without a combined performance score. Acceptance: rerun import creates no duplicates; comparable three-run regression and absolute breach create cited numeric findings; cross-host samples and stale head do not pass as current."
+    },
+    {
+      "title": "Pilot Agent Studio and Quality Studio timing ingestion",
+      "promptMarkdown": "Implement Slice 4 of docs/operations/performance-test-speed-aspect/index.html. Configure the test-timing sensor for Agent Studio and Quality Studio with explicit required lanes and initial per-repository budgets derived from approved baselines, without altering the existing test commands. Ingest AGT-3049 retained compact summaries where complete, TRX when actually retained, and AGT-3050 Playwright JSON once available. Record unmeasured for missing inputs rather than synthesizing them. Acceptance: each repository has a recorded snapshot or named gap for every required MVP metric; import report shows source digest, timestamp, lane, environment, count, and budget result; baseline provenance is reviewable."
+    },
+    {
+      "title": "Show trends, budget status, and top offenders",
+      "promptMarkdown": "Implement Slice 5 of docs/operations/performance-test-speed-aspect/index.html. Add read APIs for snapshot detail and filtered per-commit metric series, and a Quality Studio aspect view with a trend chart, budget status, top tests/classes/specs, and explicit unavailable/stale states. Keep unlike environment cohorts visually separate and show both observed and threshold numbers. Acceptance: API pagination and filters preserve run/commit identity; UI fixtures cover measured, breached, and unmeasured states in light and dark themes; values shown match seeded snapshots."
+    },
+    {
+      "title": "Generate measured suggestions and Agent Studio card candidates",
+      "promptMarkdown": "Implement Slice 6 of docs/operations/performance-test-speed-aspect/index.html. Add deterministic suggestions for repeated host setup in slow classes, fixed sleeps, one-worker Playwright configuration, and full-suite rerun after a single failure, each with trigger metric IDs, source locations when known, proposed lever, and verification metric. Provide an optional bounded LLM enrichment that cites source and cannot assert an unmeasured speedup. Export reviewed candidates to Agent Studio normal card intake with repository, baseline, target, and evidence links. Acceptance: fixtures trigger and suppress each rule; no candidate is exported from one noisy run; exported payload round-trips and remains a draft until accepted."
+    },
+    {
+      "title": "Extend sources to unit tests, builds, and runtime probes",
+      "promptMarkdown": "Implement Slice 7 of docs/operations/performance-test-speed-aspect/index.html after the MVP. Parse Vitest JUnit and CI build step times for dotnet/ng, add bounded static scans for Task.Delay, Thread.Sleep, waitForTimeout and parallelism settings, then pilot optional request latency and process-spawn metrics under separate performance.build and performance.runtime siblings. Acceptance: each metric declares source, unit, collection cost and missing-state behavior; JUnit/build fixture totals match known clocks; static counts include file locations and exclusions; runtime metrics remain unavailable when instrumentation is absent."
+    }
+  ]
+}
