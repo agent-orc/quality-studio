@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "performance-test-speed-aspect",
+  "title": "Performance and test speed as a measured quality aspect",
+  "summary": "Decision-ready concept for a measured performance.test-speed aspect with artifact ingestion, per-repository budgets, append-only trends, an explicit unmeasured state, and evidence-backed improvement suggestions. The first slice uses TRX and Playwright JSON from Agent Studio and Quality Studio.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-10-11T10:31:53Z",
+  "sourceTaskKeys": ["QS-123"],
+  "implementationTasks": [
+    {
+      "title": "Define and ingest test timing snapshots",
+      "promptMarkdown": "Implement the first test-timing sensor slice from docs/operations/performance-test-speed-aspect/index.html in Quality Studio. Define a versioned numeric MetricSnapshot contract separate from ReviewFinding; parse TRX and Playwright JSON (plus JUnit XML where it maps cleanly) from explicitly configured, repository-relative artifact paths. Record suite wall time, summed final-attempt test time, test and spec durations, outcomes, retry counts where present, source commit, run identity, environment cohort, measuredAt, parser version, and artifact digests. Reject traversal, malformed or mismatched commit data; deduplicate repeats by run/artifact digest. The sensor must not run test suites. Acceptance: fixture tests demonstrate a 6-second and 54-second same-test pair remains two observations, parallel wall time is not computed by summing cases, skipped tests do not enter duration percentiles, and absent files yield unmeasured rather than zero."
+    },
+    {
+      "title": "Publish timing artifacts for both pilot repositories",
+      "promptMarkdown": "Implement the artifact producer slice described in docs/operations/performance-test-speed-aspect/index.html for Agent Studio and Quality Studio CI. Export TRX or JUnit for backend and unit tests, Playwright JSON for browser tests, and a small summary JSON with invocation start/end, exit status, commit SHA, runner class, worker count, and stable run ID. Preserve artifacts even on test failure; do not change gate pass criteria. Apply this first to the Agent Studio backend and frontend acceleration tracks and the Quality Studio test lanes. Acceptance: one successful and one failing run in each pilot repository publish parseable files, the summary wall time matches the invocation clock within one second, and every artifact can be tied to its commit and run ID."
+    },
+    {
+      "title": "Persist and expose append-only metric history",
+      "promptMarkdown": "Implement the storage and API slice from docs/operations/performance-test-speed-aspect/index.html. Store immutable metric snapshots and normalized per-test observations by repository, commit, run, lane, and environment cohort; retain artifact digests and parser provenance. Provide repository-scoped APIs for latest snapshot, bounded trend, and top N test/spec/class durations. Never overwrite a prior successful snapshot when a producer or parser fails; expose the new ingestion failure separately. Acceptance: two runs of the same SHA remain distinct, re-upload of the same run is idempotent, another repository cannot read them, and pagination plus retention bounds are covered by API tests."
+    },
+    {
+      "title": "Evaluate budgets, freshness, and measurement quality",
+      "promptMarkdown": "Implement the evaluation slice from docs/operations/performance-test-speed-aspect/index.html. Read per-repository test-timing budgets from validated sensor configuration; compare absolute limits and an operator-pinned baseline within the same environment cohort. Use the proposed three-run median, 20% plus 30-second regression gate, 14-day freshness window, and explicit metric-missing findings as working defaults. Report evidence completeness separately from speed budget status and do not create a combined performance-domain score. Acceptance: fixtures cover missing, stale, partial, current, failed-producer, 6s/54s contention, and a true comparable regression; missing values never pass as zero."
+    },
+    {
+      "title": "Show timing trends and evidence-backed suggestions",
+      "promptMarkdown": "Implement the presentation and handoff slice from docs/operations/performance-test-speed-aspect/index.html. Show measurement freshness, budget status, a trend per comparable cohort, and top test/spec/class offenders. Derive suggestions from deterministic rules only when their required evidence exists; export a structured proposal with run/artifact references, source locations where known, estimated opportunity, and measurable acceptance for review before it becomes an Agent Studio card. Offer the LLM refactoring step only as an optional proposal generator and never let it set measurements or grades. Acceptance: both themes distinguish unmeasured from passing, a timing hotspot links to its source artifact, and repeated exports deduplicate by suggestion fingerprint."
+    },
+    {
+      "title": "Expand to build and static delay metrics",
+      "promptMarkdown": "After the test-timing pilot, implement the next measured inputs from docs/operations/performance-test-speed-aspect/index.html: dotnet and Angular build wall time from CI invocation summaries or binlogs, plus static counts of Task.Delay, Thread.Sleep, and waitForTimeout with source locations and exclusions for intentional waits. Keep build metrics under performance.build and static delay indicators separate from measured elapsed time. Acceptance: no build is launched by an inspection request; counts are reproducible at a pinned SHA; a configured build budget produces a regression only against a comparable runner cohort; and a sleep count alone is never presented as seconds saved."
+    }
+  ]
+}

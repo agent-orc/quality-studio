@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en" data-document-pattern="concept">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Performance and test speed as a measured quality aspect | Quality Studio</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb; --surface-2: #f2f1ee; --surface-3: #e9e8e3;
+    --ink-1: #0b0b0b; --ink-2: #52514e; --ink-3: #8a8983; --line: #d8d6cf;
+    --develop: #2a78d6; --ok: #008300; --bad: #c93736; --warn: #9a6b00;
+    --accent-soft: #eaf1fb; --bad-soft: #fbecec; --ok-soft: #eaf4ea; --warn-soft: #f8f0dd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --surface-2: #232322; --surface-3: #2c2c2a;
+      --ink-1: #ffffff; --ink-2: #c3c2b7; --ink-3: #8a8983; --line: #3d3d3a;
+      --develop: #3987e5; --ok: #4eae4e; --bad: #e66767; --warn: #d9a63f;
+      --accent-soft: #1e2a3a; --bad-soft: #382222; --ok-soft: #1f2f1f; --warn-soft: #33301e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 0 80px; background: var(--surface-1); color: var(--ink-1); font: 16px/1.6 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header.page { border-bottom: 1px solid var(--line); padding: 44px 0 26px; margin-bottom: 8px; }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0 0 12px; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 62ch; margin: 0; }
+  .meta { display: flex; gap: 10px 18px; flex-wrap: wrap; margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+  h2 { font-size: 25px; margin: 56px 0 8px; scroll-margin-top: 20px; }
+  h3 { font-size: 18px; margin: 32px 0 7px; }
+  h4 { font-size: 15px; margin: 0 0 8px; }
+  p { max-width: 76ch; margin: 0 0 17px; }
+  ul, ol { padding-left: 22px; } li { margin: 6px 0; max-width: 76ch; }
+  a { color: var(--develop); text-underline-offset: .14em; } a:focus-visible { outline: 2px solid var(--develop); outline-offset: 3px; }
+  code { font: .88em/1.5 ui-monospace, Consolas, monospace; background: var(--surface-3); border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+  .box, .callout { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 18px 22px; margin: 22px 0; }
+  .box.accent, .callout[data-tone="accent"] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--develop) 30%, var(--line)); }
+  .box.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
+  .box p:last-child, .box ul:last-child, .callout p:last-child { margin-bottom: 0; }
+  .dim { color: var(--ink-2); }
+  .number { display: block; font-size: 12px; letter-spacing: .12em; color: var(--ink-3); text-transform: uppercase; }
+  .variant-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 23px 0; }
+  .variant { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .variant h3 { margin: 0 0 8px; } .variant p { font-size: 14px; margin: 0 0 10px; }
+  .variant.selected { border-color: var(--develop); background: var(--accent-soft); }
+  .pill { display: inline-block; border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+  .pill.recommended { color: var(--develop); background: var(--accent-soft); }
+  .pill.open { color: var(--bad); background: var(--bad-soft); }
+  .pill.measured { color: var(--ok); background: var(--ok-soft); }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 14px; line-height: 1.5; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-3); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .compact td:first-child { min-width: 175px; }
+  figure { margin: 26px 0; }
+  figure > svg { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-1); }
+  figcaption { max-width: 86ch; margin-top: 10px; color: var(--ink-2); font-size: 13.5px; }
+  .s-node { fill: var(--surface-2); stroke: var(--line); }
+  .s-label { fill: var(--ink-1); font: 600 16px system-ui, sans-serif; }
+  .s-sub { fill: var(--ink-2); font: 13px system-ui, sans-serif; }
+  .s-flow { stroke: var(--ink-3); stroke-width: 2; fill: none; marker-end: url(#arrow); }
+  .s-accent { stroke: var(--develop); }
+  .breakout { width: min(1120px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+  .evidence-list { display: grid; gap: 10px; margin: 20px 0; }
+  .evidence { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px 14px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); text-decoration: none; color: var(--ink-1); }
+  .evidence:hover { border-color: var(--develop); background: var(--accent-soft); }
+  .evidence-class { display: inline-flex; align-items: center; height: 22px; border-radius: 99px; padding: 2px 8px; background: var(--ok-soft); color: var(--ok); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .evidence-class.inferred { background: var(--warn-soft); color: var(--warn); }
+  .evidence-class.proposed { background: var(--accent-soft); color: var(--develop); }
+  .evidence b { display: block; font-size: 14px; } .evidence small { display: block; color: var(--ink-2); font-size: 12.5px; }
+  .decision td:first-child { width: 25%; } .decision td:nth-child(2) { width: 40%; }
+  @media (max-width: 760px) { main { padding: 0 16px; } .variant-grid { grid-template-columns: 1fr; } .breakout { width: calc(100vw - 20px); } .evidence { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header class="page">
+  <p class="kicker">Quality Studio / QS-123 / Concept Dossier</p>
+  <h1>Performance and test speed as a measured quality aspect</h1>
+  <p class="lede">A fast codebase needs measured test and build work, comparable budgets, and a record of where time goes. The first delivery makes test timing visible and treats absent evidence as a quality gap.</p>
+  <div class="meta"><span><b>Observed</b> 11 October 2026</span><span><b>Phase</b> Decision ready</span><span><b>Status</b> Decision pending</span><span><b>Working option</b> B</span></div>
+</header>
+
+<div class="box accent">
+  <h4>Decision requested</h4>
+  <p>Adopt <code>performance.test-speed</code> as a measured aspect. Ingest test artifacts, keep an append-only numeric history, compare compatible runs against repository budgets, and expose an explicit unmeasured state. Keep the existing file-level performance review as a separate source-reading capability.</p>
+</div>
+
+<section id="alternatives" data-concept-section="alternatives">
+  <h2><span class="number">01</span>Alternatives</h2>
+  <div class="variant-grid">
+    <article class="variant"><h3>Option A · extend the LLM review</h3><p>Add timing text to the existing <code>performance</code> prompt and findings. This has low schema cost, but the prompt cannot produce missing measurements, reliable numeric trends, or reproducible budgets. The current prompt explicitly forbids tools.</p><p><b>Fit:</b> source risk review only.</p></article>
+    <article class="variant selected"><h3>Option B · measured aspect</h3><p>Give <code>performance.test-speed</code> its own artifact-backed sensor, metric snapshot, evaluation rules, and view. Reuse the sensor framework and keep the source-reading review separate. This adds persistence and API work, but gives a verifiable value and provenance for each claim.</p><p><span class="pill recommended">Recommended</span></p></article>
+    <article class="variant"><h3>Option C · CI dashboard only</h3><p>Keep timing reports in CI and link them from Quality Studio. This is useful as an interim producer, but cannot express the repository's measurement gap as a Quality Studio quality attribute or turn comparable regressions into findings and proposals.</p><p><b>Fit:</b> interim artifact collection.</p></article>
+  </div>
+  <p>The aspect taxonomy should reserve <code>performance.build</code> for build elapsed time and <code>performance.runtime</code> for workload-specific hot paths. They remain separate metric families and are not added to the initial test-timing sensor. <code>performance.general</code> is the proposed name for the existing source-reading review aspect; its kind string remains <code>performance</code> until a deliberate migration.</p>
+</section>
+
+<section id="recommendation" data-concept-section="recommendation">
+  <h2><span class="number">02</span>Recommendation</h2>
+  <div class="callout" data-tone="accent"><h3>Option B, beginning with test timing</h3><p>Make the first sensor parse TRX and Playwright JSON from Agent Studio and Quality Studio. It records values and gaps without running tests. CI owns the expensive production of reports. Use JUnit XML as a compatible input for Vitest and other lanes once the same contract is proven.</p></div>
+
+  <h3>Metric catalogue</h3>
+  <div class="table-wrap"><table class="compact"><thead><tr><th>Metric</th><th>Source and interpretation</th><th>Collection cost</th><th>Slice</th></tr></thead><tbody>
+    <tr><td>Suite wall time</td><td>CI invocation summary with start/end and exit status; Playwright JSON run interval or TRX run times if present. Report per lane and full verification separately. Never sum parallel test durations to infer wall time.</td><td>Cheap parse; test run itself is expensive.</td><td>MVP</td></tr>
+    <tr><td>Summed test time; slowest N tests, classes, and specs</td><td>TRX or JUnit test cases, Playwright JSON tests/specs. Sum final attempts for unique test identities; retain all attempts separately. Group class and spec paths without losing individual durations.</td><td>Cheap parse, linear in cases.</td><td>MVP</td></tr>
+    <tr><td>Concentration and p50/p95/p99</td><td>Derived from measured final-attempt durations. Report share of summed time in the slowest 1%, 4%, and 10%, with sample count and percentile method.</td><td>Cheap sort/aggregation.</td><td>MVP</td></tr>
+    <tr><td>Retries, flaky, skipped, quarantined</td><td>Playwright retry/status data, TRX/JUnit outcome and explicit quarantine labels; history can identify pass-after-fail. A single failed test is not automatically flaky.</td><td>Cheap parse; history is moderate.</td><td>MVP where present</td></tr>
+    <tr><td>Unit test time</td><td>Vitest JUnit or equivalent lane summary; separate from browser and backend integration time.</td><td>Cheap parse; no new run.</td><td>Next</td></tr>
+    <tr><td>Build time</td><td>CI start/end for <code>dotnet build</code> and <code>ng build</code>; optional binlog for target breakdown. Compare matching configuration and runner cohort.</td><td>Cheap import; producing a build is expensive.</td><td>Next</td></tr>
+    <tr><td>Fixed sleeps and parallelism</td><td>Static scan of <code>Task.Delay</code>, <code>Thread.Sleep</code>, <code>waitForTimeout</code>; Playwright worker setting and test runner parallelism configuration. Counts are indicators, not elapsed seconds.</td><td>Cheap static read.</td><td>Next</td></tr>
+    <tr><td>Runtime hot paths</td><td>Optional request-latency percentiles, request budget, and process spawns per request from instrumented workloads or traces, never from source pattern alone.</td><td>Instrumented workload; potentially high.</td><td>Later</td></tr>
+  </tbody></table></div>
+
+  <h3>Snapshot and series contract</h3>
+  <p>Use a separate versioned <code>MetricSnapshot</code> instead of adding numeric values to free-text findings. Each immutable snapshot has <code>schemaVersion</code>, repository ID, commit SHA, CI run ID, lane, measured-at time, environment cohort (OS, runner class, CPU class, test/build configuration, worker count), artifact URI and SHA-256, parser version, test counts, wall milliseconds, summed final-attempt milliseconds, and named metric values with units. Per-case observations preserve stable test identity, class/spec path, attempt, duration, outcome, and quarantine marker. The artifact manifest may reference TRX, JUnit, Playwright JSON, build logs/binlog, and a run summary; only explicitly configured paths are read.</p>
+  <p>Keep the original artifact digest and a bounded top-offender projection, plus normalized observations needed for trends. Append by run ID and artifact digest; a repeat upload is idempotent while two runs at the same SHA remain distinct. Store metric history under the repository's data root, subject to its retention policy; expose repository-scoped latest, trend, and top-N APIs with pagination. A failed producer or parser records an ingestion state and preserves the last successful snapshot, following the coverage precedent.</p>
+  <p>The sensor's parser may be available while its evidence is absent. Report <b>unmeasured</b> with a reason rather than using <code>SensorAvailability(false)</code> to imply a missing tool. Reserve unavailable for a broken parser, unsupported format, or inaccessible configured source. Reject path traversal, unsafe absolute paths, mismatched commit identities, non-finite values, and implausible negative durations.</p>
+
+  <h3>Evaluation and scoring</h3>
+  <p>Repository sensor configuration holds applicable lanes, required metrics, artifact locations, absolute budgets, relative budgets, pinned baseline run IDs, and freshness windows. The working default is <b>14 days</b> since the most recent successful comparable run; a known daily CI lane can use a shorter window. A baseline is pinned from a clean, successful run and never silently redefined by a slower run. Compare only the same lane and environment cohort. Show non-comparable points on the timeline but exclude them from regression decisions.</p>
+  <p>Use absolute budget failures immediately after a valid run. For a relative regression, compare medians of at least three candidate and three baseline runs in the same cohort; flag suite wall time when it is both over <b>20%</b> and over <b>30 seconds</b> slower. Treat a repeated test whose max/min duration exceeds <b>3×</b> across at least three comparable runs at the same SHA as a contention lead; display variance and samples rather than calling it a code regression. Track trends per commit and by run time so repeated runs remain visible.</p>
+  <p><b>Measurement is a quality attribute.</b> Show an evidence-completeness score for <code>performance.test-speed</code>: required, applicable metrics with current valid observations divided by required, applicable metrics, scaled to 0–100. Missing or stale metrics produce <code>perf.metric-missing.&lt;metric&gt;</code> or <code>perf.metric-stale.&lt;metric&gt;</code> findings and lower that score; no artifacts means 0 and an explicit unmeasured status. At initial rollout, both Agent Studio and Quality Studio start unmeasured until their own valid CI artifacts are ingested. Separately show speed budget status as pass, breach, or unavailable. This avoids interpreting an absent timing as a fast test suite. Do not aggregate test speed, build speed, and field Web Vitals into a single performance-domain score. This preserves the current domain rule that has no combined performance score.</p>
+
+  <h3>Suggestions and Agent Studio handoff</h3>
+  <p>Deterministic rules use measured conditions and separately verified context. A concentrated class with host-start evidence can suggest reusing or sharing a fixture; duration alone can only say “inspect setup”. Static sleep counts can request review of cited source locations without claiming that all sleep time is avoidable. A one-worker Playwright configuration with a long browser lane suggests a bounded multi-worker experiment. A CI log showing full-suite rerun after one failure suggests targeted replay before the full gate. Rank proposals by observed elapsed opportunity and confidence, and include counterexamples or preconditions.</p>
+  <p>An optional LLM pass can read the top measured hotspots and bounded source excerpts to propose concrete refactors with file locations. It cannot invent metric values, alter the deterministic grade, or submit cards autonomously. Export each accepted proposal as an Agent Studio card draft containing problem, evidence artifact/run links, target files, estimated opportunity, acceptance measurement, and a stable fingerprint. Agent Studio's operator reviews the draft before card creation; repeated exports update the same draft rather than creating duplicates.</p>
+
+  <h3>MVP order</h3>
+  <ol>
+    <li>Define the test-timing snapshot and parse TRX plus Playwright JSON fixtures. Prove missing and malformed artifact behavior.</li>
+    <li>Have the Agent Studio acceleration tracks and Quality Studio CI retain timing artifacts and a summary JSON on passing and failing runs.</li>
+    <li>Persist the append-only series and implement configured budgets, unmeasured/stale findings, and repository-scoped APIs.</li>
+    <li>Show trend, budget status, and top offenders; export evidence-backed suggestions as reviewed Agent Studio card drafts.</li>
+    <li>Add Vitest JUnit, build timing, fixed-sleep counts, and parallelism signals. Instrumented runtime hot paths remain a later family.</li>
+  </ol>
+</section>
+
+<section id="evidence" data-concept-section="evidence">
+  <h2><span class="number">03</span>Evidence</h2>
+  <p>The figures below are measurements supplied in Robert's 11 October 2026 task brief for an Agent Studio Linux runner. They are a motivating first dataset, not a Quality Studio benchmark or a claim that the proposed sensor already exists. The referenced Agent Studio Test acceleration Dossier was absent from the locally available <code>develop</code> checkout at <code>37aef51</code> when this Dossier was prepared; its lever catalogue and live track progress therefore need to be rechecked at ingestion time.</p>
+  <div class="table-wrap"><table><thead><tr><th>Observation</th><th>Recorded value</th><th>Decision it supports</th></tr></thead><tbody>
+    <tr><td>One review verification</td><td>About 131 minutes; tests 88% of it. Backend suite alone 68%, about 88 minutes for about 8,980 tests.</td><td>Start with test timing and keep lane wall time distinct from individual test duration.</td></tr>
+    <tr><td>Distribution</td><td>Median test 0–1 ms; about 4% of tests at least 1 second account for about 97% of summed test time; p99 is 24–30 seconds.</td><td>Store top offenders, percentiles, and concentration rather than only an average.</td></tr>
+    <tr><td>Contention signal</td><td>The same trivial test took 6 seconds and 54 seconds on different runs with six suites on 12 cores.</td><td>Keep repeated observations and runner parallelism before attributing a regression to code.</td></tr>
+    <tr><td>Browser lane</td><td>Playwright uses one worker across 499 spec files; 365 <code>waitForTimeout</code> calls represent about 297 seconds of configured waits; servers compile per run via <code>dotnet run</code> and <code>ng serve</code>.</td><td>Measure per-spec time, inspect fixed waits and startup work, and test bounded parallelism.</td></tr>
+    <tr><td>Evidence gap</td><td>No timing data is persisted in the motivating workflow.</td><td>An unmeasured state must be an explicit quality gap, not a passing zero.</td></tr>
+  </tbody></table></div>
+
+  <figure class="breakout">
+    <svg viewBox="0 0 1080 234" role="img" aria-labelledby="flow-title flow-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="flow-title">Proposed test timing data flow</title>
+      <desc id="flow-desc">A test run produces timing artifacts; a test-timing sensor parses them into metric snapshots; the append-only series feeds findings, budgets, and suggestions.</desc>
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="var(--ink-3)"/></marker></defs>
+      <rect class="s-node" x="22" y="55" width="170" height="120" rx="10"/><text class="s-label" x="42" y="95">Test run</text><text class="s-sub" x="42" y="120">CI lane + commit</text><text class="s-sub" x="42" y="142">runner cohort</text>
+      <path class="s-flow" d="M194 115H226"/>
+      <rect class="s-node" x="230" y="55" width="170" height="120" rx="10"/><text class="s-label" x="250" y="95">Artifacts</text><text class="s-sub" x="250" y="120">TRX / JUnit</text><text class="s-sub" x="250" y="142">Playwright JSON</text>
+      <path class="s-flow" d="M402 115H434"/>
+      <rect class="s-node s-accent" x="438" y="55" width="170" height="120" rx="10"/><text class="s-label" x="458" y="95">Sensor</text><text class="s-sub" x="458" y="120">parse + validate</text><text class="s-sub" x="458" y="142">normalize units</text>
+      <path class="s-flow" d="M610 115H642"/>
+      <rect class="s-node" x="646" y="55" width="170" height="120" rx="10"/><text class="s-label" x="666" y="95">Metric series</text><text class="s-sub" x="666" y="120">append by run</text><text class="s-sub" x="666" y="142">compare cohorts</text>
+      <path class="s-flow" d="M818 115H850"/>
+      <rect class="s-node" x="854" y="55" width="204" height="120" rx="10"/><text class="s-label" x="874" y="95">Assessment</text><text class="s-sub" x="874" y="120">findings + budgets</text><text class="s-sub" x="874" y="142">suggestion drafts</text>
+      <text class="s-sub" x="22" y="210">Proposed architecture · artifacts remain the traceable source for every numeric claim.</text>
+    </svg>
+    <figcaption><b>Proposed data flow.</b> A run produces artifacts; the sensor validates them into numeric snapshots; the series supports comparable evaluation and evidence-backed suggestions. This is an architecture figure, not a product screenshot.</figcaption>
+  </figure>
+
+  <h3>Repository evidence ledger</h3>
+  <div class="evidence-list">
+    <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/prompts/file-performance-review.v1.md"><span class="evidence-class">Observed</span><span><b>Existing performance review is source-reading</b><small>The file prompt asks for risks and says “Do not use tools”; it cannot collect test artifacts.</small></span></a>
+    <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/Sensors.cs"><span class="evidence-class">Observed</span><span><b>Sensor framework</b><small>IReviewSensor, IDeterministicEvidenceSensor, SensorAvailability, SensorScanResult, and free-form sensor configuration are present.</small></span></a>
+    <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/Coverage.cs"><span class="evidence-class">Observed</span><span><b>Coverage ingestion precedent</b><small>CoverageSensor parses existing reports, can use a producer, and preserves its previous snapshot on producer refusal.</small></span></a>
+    <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/ReviewMetaContract.cs"><span class="evidence-class">Observed</span><span><b>Finding contract</b><small>ReviewFinding has free-text evidence and evidence items, but no numeric metric value or metric series.</small></span></a>
+    <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/QualityRunComparison.cs"><span class="evidence-class">Observed</span><span><b>Run comparison is finding-based</b><small>Existing comparison aligns findings and route context; it is not an append-only metric history.</small></span></a>
+    <a class="evidence" href="../../../rules/quality-domains.json"><span class="evidence-class">Observed</span><span><b>Performance domain boundary</b><small>The planned field Web Vitals check says missing field data is unavailable and defines no combined performance score.</small></span></a>
+    <a class="evidence" href="#recommendation"><span class="evidence-class inferred">Inferred</span><span><b>Metric snapshot is the smallest stable extension</b><small>A numeric series needs value, unit, cohort, run, and source digest; finding prose alone cannot support comparable budgets.</small></span></a>
+  </div>
+  <p class="dim">Source inspection: Quality Studio worktree <code>85d506e</code>, 11 October 2026. The local Agent Studio <code>develop</code> checkout at <code>37aef51</code> did not contain <code>docs/operations/test-acceleration/index.html</code>; the task brief is the provenance for the Agent Studio numbers above. No claim about a currently visible Quality Studio screen is made here, so no product capture is used.</p>
+</section>
+
+<section id="open-decisions" data-concept-section="open-decisions">
+  <h2><span class="number">04</span>Open decisions</h2>
+  <p>Each choice has a working recommendation so implementation can proceed after this Dossier enters the normal decision lane.</p>
+  <div class="table-wrap"><table class="decision"><thead><tr><th>Decision for Robert</th><th>Working recommendation</th><th>Consequence to review</th></tr></thead><tbody>
+    <tr><td>Taxonomy boundary</td><td>Choose Option B: <code>performance.test-speed</code> measured separately; reserve <code>performance.build</code> and <code>performance.runtime</code>; keep the LLM review's kind string intact for now.</td><td>A later kind/aspect migration needs compatibility for hard-coded <code>performance</code> routes and prompts.</td></tr>
+    <tr><td>Measurement quality and score</td><td>Publish a separate 0–100 evidence-completeness score plus an unavailable/pass/breach speed status. Emit missing/stale metric findings. Do not create a combined performance-domain score.</td><td>An unmeasured repository receives 0 for evidence completeness, which must be labeled clearly as missing measurement rather than slow execution.</td></tr>
+    <tr><td>Baseline and budgets</td><td>Pin one clean baseline per lane/cohort; default to 14-day freshness, absolute limits set per repository, and a relative gate of 20% plus 30 seconds on three-run medians.</td><td>Robert can tighten values after the Agent Studio and Quality Studio artifact series establish normal variance.</td></tr>
+    <tr><td>Artifact ownership</td><td>CI produces timing files on success and failure; the sensor only ingests configured artifacts and records provenance. Keep artifacts in the producer's storage with digest references.</td><td>The two Agent Studio acceleration tracks need a stable manifest and publication path before live ingestion.</td></tr>
+    <tr><td>Suggestion handoff</td><td>Export deduplicated, evidence-linked Agent Studio card drafts for operator review. Keep the LLM pass optional and outside scoring.</td><td>The exact Agent Studio draft API and permission boundary can be settled when that integration slice is implemented.</td></tr>
+    <tr><td>Runtime scope</td><td>Defer request latency and process-spawn hot paths until a reproducible workload and sampling contract exist; keep Web Vitals field data separate.</td><td>This prevents test timing from standing in for production-user performance.</td></tr>
+  </tbody></table></div>
+</section>
+</main>
+</body>
+</html>
