@@ -60,13 +60,16 @@ describe('API request policy', () => {
   });
 
   it('gives up after the configured number of retries', async () => {
-    const loading = firstValueFrom(http.get('/api/repos/default/tree'));
+    // The last attempt rejects while the loop still waits, so the expectation must already be
+    // attached; otherwise the 503 is an unhandled rejection.
+    const gaveUp = expectAsync(firstValueFrom(http.get('/api/repos/default/tree'))).toBeRejectedWith(
+      jasmine.objectContaining({ name: 'HttpErrorResponse', status: 503, url: '/api/repos/default/tree' }));
     for (let attempt = 0; attempt < 3; attempt++) {
       backend.expectOne('/api/repos/default/tree').error(new ProgressEvent('error'), { status: 503, statusText: 'Unavailable' });
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    await expectAsync(loading).toBeRejected();
+    await gaveUp;
     backend.verify();
   });
 

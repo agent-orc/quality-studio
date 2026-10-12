@@ -4,6 +4,15 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — frontend test run reports leaked promise rejections as failures (QS-122)
+
+- The API retry spec `gives up after the configured number of retries` no longer leaves its
+  expected `/api/repos/default/tree` 503 as an unhandled promise rejection, which zone.js
+  printed as an `ERROR: HttpErrorResponse` line in the middle of an otherwise green run.
+- A test-only guard (`frontend/src/testing/unhandled-rejections.spec.ts`) now fails the spec that
+  leaks an unhandled promise rejection, or fails the run if it surfaces after the last spec,
+  instead of logging it to the console only.
+
 ### Fixed — Agent Studio repository preparation (QS-103)
 
 - Frontend tests now select the no-sandbox Chromium launcher on Linux even when the execution

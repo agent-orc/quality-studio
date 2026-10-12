@@ -1,30 +1,41 @@
-# QS-117 status
+# QS-122 status
 
 Result: Done
 
-## Decision and scope
+## Cause
 
-Implemented the shadow-only verdict contract under QS-W6: Quality Studio supplies a policy-bound, rule-cited verdict for a Git change; Agent Studio remains the decision owner. This prepares the QS-118 Dossier's recommended option B without changing any gate. The reviewed `3f0130b3` delivery and subsequent QS-117 commits remain on the task branch with their history intact. Merge commit `59502d45` brought in the refreshed `origin/main` at `a0a5d660` without conflicts; both the prior delivery `032a9a14` and current main tip are ancestors.
+The `ERROR: HttpErrorResponse{… status: 503 … url: '/api/repos/default/tree' …}` line comes from one spec:
+`frontend/src/app/core/api/api-interceptor.spec.ts` → **`API request policy` › `gives up after the configured number of retries`**.
+The spec created `firstValueFrom(http.get('/api/repos/default/tree'))` and attached the rejection expectation only after its retry loop. The third 503 rejects the promise while the loop is still awaiting a 10 ms `setTimeout`. When zone.js drained its microtasks, it found a rejection without a handler and called `console.error(rejection)`. Karma prints that as `ERROR:`. Because Jasmine randomizes spec order, the line moves around (between specs 211/212 in the gate, spec 89 or 194 locally).
 
-## Review findings addressed
+A trace taken in the browser confirms the source: `console.error` ← `api.onUnhandledError` ← `handleUnhandledRejection` ← `drainMicroTaskQueue` (zone.js). zone.js then also tries to dispatch a `PromiseRejectionEvent` so Jasmine can see it. That constructor throws for a raw rejection value (no `promise` member), and zone swallows the error. So Jasmine never failed the spec; the leak only showed up as a console line. The repository-tree `WARN` lines (`qs.repositories.unavailable`, `qs.data.navigation-target-unavailable`) are intended product logs and unrelated.
 
-- **Ten new API test failures:** Removed the duplicate `/api/rules` registrations and obsolete handler; `MapRulePoolEndpoints` now owns both rule-pool routes. Added the required unscoped `POST /api/change-review` twin. The ten specifically reported tests pass. Added positive default-route and scoped-identity regression tests; a foreign repository and an unscoped default route reject identities without access.
-- **Security findings bypass configured blocking policy:** Removed the security-category exception from disposition calculation and the instruction excluding security findings from the reviewer prompt. An applicable security-category code rule now blocks when `.quality/policy.json` names its rule and severity. A focused test also verifies the same finding becomes `concerns` when that rule is not selected to block.
-- **Git-quoted paths can make valid findings unparseable:** Decode Git's C-style quoted `---` and `+++` paths, including escaped quotes and octal UTF-8 bytes, before indexing changed-line anchors. The focused test covers an unquoted space-containing path plus quoted Unicode paths on both the added and removed sides; all findings resolve to their original path.
-- **Quoted diff paths with timestamps are keyed incorrectly:** Split each header at a tab after the closing unescaped quote, then decode the path. A synthetic Git diff regression test checks both base and head anchors for a quoted Unicode path with an embedded quote and a different timestamp on each side. The focused path tests pass (4/4).
-- **Missing 20-task comparison and evidence:** Fetched Agent Studio `develop`, verified all 20 result SHAs appear in remote result refs and that each base is an ancestor of its result, called the change-review endpoint for each selected pair, retained the 20 responses, ran `scripts/compare-shadow-verdicts.mjs`, and wrote [the shadow report](shadow-comparison.md) with a per-record table and all disagreements. Exact agreement is **5/20 (25.0%)**. `AGT-2950` returned `provider-unavailable` for a binary diff and was replaced by operator-provided `AGT-3014` before scoring. The final 20 all have completed verdicts.
-- **Documentation and shadow authority:** Updated the route and policy guide and linked the comparison. No gate consumes the verdict; QS-W6 remains in effect until the dossier decision changes.
-- **Integration recovery:** The reported `merge-into-develop` stage failed because the reviewed delivery did not integrate. [Recovery evidence](integration-recovery-evidence.txt) records the reviewed SHA, both recovery merges, and successful ancestry checks against the refreshed main. The referenced `pipeline-execution.json` was not mounted in this workspace; the reported failure is quoted there and the branch history supplies the replacement evidence.
+### Exit code 1
+
+I could not reproduce exit 1 with all specs green:
+
+- Current `origin/main` (`85d506ed`, 243 specs): `npm --prefix frontend test` → `TOTAL: 243 SUCCESS`, exit 0, with the `ERROR` line present.
+- The QS-116 delivery `bf7278ff` (05.10., exactly **222 specs**): run with `CHROME_NO_SANDBOX=1` through the gate-shaped command `test_status=0; npm --prefix frontend test || test_status=$?; rm -rf .review-tmp; exit "$test_status"`, also with `TMPDIR=.review-tmp`. Each run gave `TOTAL: 222 SUCCESS`, exit 0, with the `ERROR` line present. Without `CHROME_NO_SANDBOX` the same commit exits 1 because Chromium aborts before any spec runs (fixed on main by QS-103 `85d506ed`). That is a different symptom.
+- In karma 6.4.4, `BaseReporter.onRunComplete` prints `TOTAL: N SUCCESS` only when `results.error` and `results.disconnected` are both false and nothing failed. That is exactly when `calculateExitCode` returns 0. In the gate logs as quoted, karma's own exit code was therefore 0. The 1 must have come after karma reported (builder/`ng`/npm teardown, or the elided part of the gate command). The gate logs (`post-steps/pre-main-test-gate-*.log`) are not present on this runner (`tasks/QS-116` and `tasks/QS-104` contain only `results/`), so I could not determine that step.
+
+The leaked rejection is the only defect in the frontend test run that the evidence shows. It is fixed at its source. Leaks like it can no longer stay silent.
+
+## Change
+
+- `api-interceptor.spec.ts`: the spec now attaches `expectAsync(…).toBeRejectedWith(objectContaining({ name: 'HttpErrorResponse', status: 503, url: '/api/repos/default/tree' }))` before the retry loop and awaits it afterwards. The expected 503 is handled and asserted, and nothing is logged.
+- New `frontend/src/testing/unhandled-rejections.spec.ts` (test-only, excluded from the app build by `tsconfig.app.json`): top-level `afterEach` and `afterAll` hooks record every rejection zone.js reports as unhandled. The leaking spec fails with `unhandled promise rejections; … 'HttpErrorResponse 503 for /api/repos/default/tree'`; a leak after the last spec fails the run through `afterAll`. Errors are not ignored globally: zone's console line is replaced by a spec failure, so real failures still fail. The gate command is unchanged.
+- Focused specs `unhandled promise rejection guard`: one checks that a deliberately unhandled `HttpErrorResponse` 503 for `/api/repos/default/tree` is recorded; the other checks that a handled one is not.
+- CHANGELOG entry under Unreleased.
 
 ## Verification
 
 | Command | Result |
 | --- | --- |
-| `dotnet build QualityStudio.slnx --configuration Release` | Passed; 0 warnings, 0 errors. [Log](build.log) |
-| `dotnet test QualityStudio.slnx --configuration Release --no-build --filter 'Category!=MachineBound&Category!=ExternalLive'` | Passed; 280 API tests and 834 code-quality tests, 9 platform skips. Includes the reported route, security, quoted-path, timestamped-header, and verdict regressions. [Log](dotnet-tests.log) |
-| `npm --prefix frontend run build -- --configuration development` | Passed. [Log](frontend-build.log) |
-| `CHROME_NO_SANDBOX=1 npm --prefix frontend test` | Passed 243/243. [Log](frontend-tests.log) |
-| `node scripts/compare-shadow-verdicts.mjs results/shadow-pairs.json "$JOB_RESULTS_DIR/shadow-comparison-recomputed.json"` | Passed; 5/20 exact agreement, byte identical to the committed comparison. [Report](shadow-comparison.md) |
-| Focused quoted-path tests | Passed 4/4, including the timestamped header regression. [Log](focused-tests.log) |
+| `npm --prefix frontend test` on `origin/main` before the fix | 243/243 SUCCESS, exit 0, one `ERROR: HttpErrorResponse … 503 … /api/repos/default/tree` line. `main-before-fix.log` |
+| Same command on QS-116 `bf7278ff` (222 specs, gate-shaped, no-sandbox) | 222/222 SUCCESS, exit 0, same `ERROR` line. `qs116-baseline-222-specs.log` |
+| Old spec + guard (negative check) | Exit 1: `gives up after the configured number of retries FAILED`, rejection named. `guard-negative-check.log` |
+| `bash -lc 'test_status=0; npm --prefix frontend test \|\| test_status=$?; rm -rf .review-tmp; exit "$test_status"'` after the fix | **245/245 SUCCESS, exit 0, no `ERROR` line.** `frontend-test-full-run.log` |
+| `npm --prefix frontend test` second run (another random order) | 245/245 SUCCESS, exit 0, no `ERROR` line |
+| `npm --prefix frontend run lint` | Exit 0. `frontend-lint.log` |
 
-Frontend dependencies were installed with `npm --prefix frontend ci` before the frontend checks because this worktree initially had no `node_modules`. The full .NET run used the final Release build. All logs and comparison evidence are present in the absolute job results directory.
+Logs are in the job results directory. The result SHA is recorded in the job results copy of this file.
