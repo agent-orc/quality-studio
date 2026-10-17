@@ -349,10 +349,11 @@ public sealed class ReviewerIsolationProcessTests
             await process.WaitForExitAsync(cancellationToken);
             if (process.ExitCode != 0)
                 throw new InvalidOperationException($"Publishing the fake claude CLI failed:\n{await stdout}\n{await stderr}");
-            var executable = Path.Combine(publish, OperatingSystem.IsWindows() ? "ReviewerIsolationProcessTests.FakeClaude.exe" : "FakeClaude");
+            // The apphost carries the AssemblyName; any other FakeClaude* file (.dll, .deps.json) is not runnable.
+            var executable = Path.Combine(publish, OperatingSystem.IsWindows() ? "FakeClaude.exe" : "FakeClaude");
             return File.Exists(executable)
                 ? executable
-                : Directory.EnumerateFiles(publish, "FakeClaude*", SearchOption.AllDirectories).First();
+                : throw new InvalidOperationException($"Publishing the fake claude CLI produced no apphost at {executable}:\n{await stdout}");
         }
 
         private static string? RuntimeIdentifier()

@@ -87,14 +87,18 @@ public sealed class RulePoolGlobalScopeTests : IAsyncLifetime
         using var client = application!.CreateClient();
         using var registered = await client.PostAsJsonAsync("/api/repos", new
         {
-            id = "second", displayName = "Second", rootPath = SecondRepositoryRoot,
-            inputBudgetCharacters = 8000, enabledReviewKinds = new[] { "code" },
+            id = "second",
+            displayName = "Second",
+            rootPath = SecondRepositoryRoot,
+            inputBudgetCharacters = 8000,
+            enabledReviewKinds = new[] { "code" },
         }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
 
         using var response = await client.PutAsJsonAsync("/api/rules/custom/HOST-GN-001?scope=global", new
         {
-            content = HostRule(), reason = "Share this rule.",
+            content = HostRule(),
+            reason = "Share this rule.",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

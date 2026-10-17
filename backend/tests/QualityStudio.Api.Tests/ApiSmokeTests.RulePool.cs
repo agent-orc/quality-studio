@@ -242,7 +242,10 @@ public sealed partial class ApiSmokeTests
         rule["title"] = null;
         var ruleSet = new JsonObject
         {
-            ["schemaVersion"] = 1, ["overrides"] = new JsonArray(), ["customRules"] = new JsonArray(rule), ["packs"] = new JsonArray(),
+            ["schemaVersion"] = 1,
+            ["overrides"] = new JsonArray(),
+            ["customRules"] = new JsonArray(rule),
+            ["packs"] = new JsonArray(),
         };
         try
         {

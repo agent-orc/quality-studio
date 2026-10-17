@@ -13,6 +13,10 @@ commands:
     - npm --prefix frontend run test
   lint:
     - npm --prefix frontend run lint
+    # The same checks the GitHub Build workflow runs before its .NET lanes; without them a
+    # formatting or test-lane contract violation passes the gates and turns main red.
+    - dotnet format QualityStudio.slnx --verify-no-changes
+    - npm run test:repository-contracts
 testSuites:
   - id: backend-routine
     category: routine

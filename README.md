@@ -359,7 +359,15 @@ npm --prefix frontend run build
 dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
 npm --prefix frontend run test
 npm --prefix frontend run lint
+dotnet format QualityStudio.slnx --verify-no-changes
+npm run test:repository-contracts
 ```
+
+The last two lint entries are the formatting and repository-contract checks of the GitHub
+Build workflow, so the build-test gate rejects what would otherwise first fail on `main`.
+An integration-recovery merge into `main` runs the full gate suite like any other delivery;
+targeted tests are not acceptance evidence for it (see
+[keep-green](docs/operations/test-baseline/keep-green.md#merges-into-main)).
 
 On Linux, the frontend test wrapper selects Karma's no-sandbox Chromium launcher and disables
 `/dev/shm` usage. Windows continues to use the standard ChromeHeadless launcher.

@@ -80,6 +80,25 @@ semantics, for example — is a platform fact, not a hidden failure. Everything 
 (a missing tool, an absent opt-in, an offline service) must fail the lane it belongs
 to; that is what the categories are for.
 
+A fixture that needs a file the test user cannot read skips on Windows, which has no
+POSIX mode that denies the owner, and asserts the precondition everywhere else
+(`AnalyzerProfileResolutionTests.DenyRead`). Only a POSIX root user can still read such
+a file, and no gate runs the portable lane as root: GitHub-hosted runners and Agent
+Studio workers run as unprivileged users, and the container image builds without tests.
+A root run therefore fails with a message naming the cause instead of passing silently.
+
+## Merges into main
+
+Every gate that accepts a change for `main` runs the complete suite: the
+`commands.build`, `commands.test`, and `commands.lint` entries of
+`.agent-studio/project.yml`. The lint entries include
+`dotnet format QualityStudio.slnx --verify-no-changes` and
+`npm run test:repository-contracts`, the two checks the Build workflow runs before its
+.NET lanes. An integration-recovery merge is no exception: a conflict-free merge can
+still combine changes that each passed alone, so targeted tests of the recovered card
+are not acceptance evidence. QS-112 reached `main` that way and kept the Build workflow
+red from 2026-10-06 until QS-128.
+
 ## Change checklist
 
 1. Keep pure tests uncategorized and deterministic.
@@ -87,4 +106,5 @@ to; that is what the categories are for.
 3. Put timing budgets and host-dependent live-process transports under `Category=MachineBound`; retain repeated canary evidence.
 4. Put transports that require an external CLI or service under `Category=ExternalLive` and require explicit opt-in.
 5. Run `npm run test:pre-review`, then let the complete required gate produce acceptance evidence.
+   This includes integration-recovery merges into `main`.
 6. Raise a coverage floor only after measuring added tests; never lower it to absorb a regression.

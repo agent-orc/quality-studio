@@ -494,8 +494,9 @@ public sealed class AnalyzerProfileResolutionTests
             File.WriteAllText(Path.Combine(root, "frontend", "tsconfig.json"),
                 """{ "files": [], "references": [{ "path": "./tsconfig.lib.json" }] }""");
             File.WriteAllText(referenced, """{ "include": ["lib/**/*.ts"] }""");
-            if (!TryDenyRead(referenced))
-                Assert.Skip("The fixture needs a file the test user cannot read (POSIX, not root).");
+            if (OperatingSystem.IsWindows())
+                Assert.Skip(NoPosixModesOnWindows);
+            DenyRead(referenced);
             var runner = new CallbackRunner((_, _, _) => new SensorCommandResult(0, "Version 5.9.3", string.Empty));
             var sensor = new TypeScriptAnalyzerSensor(runner);
 
@@ -575,8 +576,9 @@ public sealed class AnalyzerProfileResolutionTests
         {
             var capability = Path.Combine(root, "capability.txt");
             File.WriteAllText(capability, string.Empty);
-            if (!TryDenyRead(capability))
-                Assert.Skip("The fixture needs a file the test user cannot read (POSIX, not root).");
+            if (OperatingSystem.IsWindows())
+                Assert.Skip(NoPosixModesOnWindows);
+            DenyRead(capability);
             var runner = new CallbackRunner((_, _, _) =>
             {
                 File.WriteAllText(log, Log("CA1822", "src/A/A.cs", 3));
@@ -743,9 +745,21 @@ public sealed class AnalyzerProfileResolutionTests
         (suppressed ? "\"suppressions\":[{\"kind\":\"inSource\"}]," : string.Empty) +
         $"\"locations\":[{{\"physicalLocation\":{{\"artifactLocation\":{{\"uri\":\"{path}\"}},\"region\":{{\"startLine\":{line},\"startColumn\":1}}}}}}]}}]}}]}}";
 
+    internal const string NoPosixModesOnWindows =
+        "Windows has no POSIX file mode that denies the owner read access.";
+
+    /// <summary>
+    /// Removes every permission from <paramref name="path"/> and fails when the test user can still
+    /// read it. Only a POSIX root user can, and no gate runs the portable lane as root, so a root run
+    /// is a misconfigured environment rather than a boundary to skip.
+    /// </summary>
+    internal static void DenyRead(string path) =>
+        Assert.True(TryDenyRead(path),
+            $"'{path}' stays readable without permissions; run this test as an unprivileged POSIX user, not root.");
+
     /// <summary>
     /// Removes every permission from <paramref name="path"/>. False when the test user can still read
-    /// it (Windows, or a POSIX root user), so a test can skip instead of proving nothing.
+    /// it (Windows, or a POSIX root user).
     /// </summary>
     internal static bool TryDenyRead(string path)
     {

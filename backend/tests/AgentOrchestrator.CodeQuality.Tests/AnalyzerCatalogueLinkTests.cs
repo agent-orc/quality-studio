@@ -115,7 +115,7 @@ public sealed class AnalyzerCatalogueLinkTests
         Assert.Contains("deterministic check of that named rule", linked, StringComparison.Ordinal);
         Assert.DoesNotContain("deterministic check of that named rule", plain, StringComparison.Ordinal);
         // Without links the section renders exactly as before, so unlinked prompts keep their hash.
-        Assert.Contains("judgement; analyzer evidence does not set or cap it.\n\n```json[", plain, StringComparison.Ordinal);
+        Assert.Contains("judgement; analyzer evidence does not set or cap it.\n\n```json[", plain.ReplaceLineEndings("\n"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -220,8 +220,9 @@ public sealed class AnalyzerCatalogueLinkTests
         {
             await store.RecordAsync(Result("roslyn", Finding("CA2016", "src/A.cs")), TestContext.Current.CancellationToken);
             await store.RecordAsync(Result("eslint", Finding("no-eval", "src/a.ts")), TestContext.Current.CancellationToken);
-            if (!AnalyzerProfileResolutionTests.TryDenyRead(denied))
-                Assert.Skip("The fixture needs a file the test user cannot read (POSIX, not root).");
+            if (OperatingSystem.IsWindows())
+                Assert.Skip(AnalyzerProfileResolutionTests.NoPosixModesOnWindows);
+            AnalyzerProfileResolutionTests.DenyRead(denied);
 
             var view = await store.ReadForPathAsync(".", DeterministicRuleMap.Empty, TestContext.Current.CancellationToken);
             var counts = await store.CountByFileAsync(TestContext.Current.CancellationToken);
