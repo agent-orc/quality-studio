@@ -1,3 +1,8 @@
+---
+tags: [gates-and-review, architecture, operations]
+taggingStatus: tagged
+---
+
 # Rule pool management
 
 The rule pool is every named rule a review can apply to a repository: the built-in library in

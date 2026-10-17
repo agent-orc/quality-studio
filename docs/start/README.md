@@ -1,3 +1,8 @@
+---
+tags: [dossiers-and-documentation, docs]
+taggingStatus: tagged
+---
+
 # Documentation index
 
 Where to start with the Quality Studio documentation. The product overview and the build and test
