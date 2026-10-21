@@ -4,7 +4,8 @@ import { QualityApi } from '../../../core/api/quality-api';
 import { ReviewKind, ReviewModelOption, ReviewPreflight, ReviewRun, SensorPlanEntry, StartReviewRequest, TreeNode } from '../../../core/models/contracts';
 import { ResumeCap, ResumeCapDialog } from '../../../shared/dialog/resume-cap-dialog';
 import {
-  formatCost, formatDuration, formatModelSource, formatPriceStatus, formatTokenCount, parseTokenCount, runStateTone,
+  formatCost, formatDuration, formatModelSource, formatPriceStatus, formatRunCost, formatTokenCount, parseTokenCount,
+  runStateTone,
 } from '../../../shared/utils/format';
 
 let reviewActionsInstance = 0;
@@ -339,9 +340,7 @@ export class ReviewActions {
 
   /** What the running review has spent so far, with its cost cap when one applies. */
   runCostLabel(run: ReviewRun): string {
-    if (run.costSpent === null) return `unpriced (${formatPriceStatus(run.priceStatus)})`;
-    const spent = formatCost(run.costSpent, run.currency);
-    return run.costCap !== null ? `${spent} / ${formatCost(run.costCap, run.currency)}` : spent;
+    return formatRunCost(run.costSpent, run.currency, run.priceStatus, run.costCap);
   }
 
   /** Names what the estimate rests on, so a prompt-size guess never reads like measured history. */

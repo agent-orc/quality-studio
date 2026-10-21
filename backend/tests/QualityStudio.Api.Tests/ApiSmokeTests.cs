@@ -253,9 +253,9 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(1, accepted.GetProperty("totalFiles").GetInt32());
     }
 
-    // claude-opus-5 is priced but still unsupported by the routing policy, so the operator's
-    // Claude-first attempt is refused. It must be refused as a model problem: the blanket
-    // ArgumentException mapping used to report "Invalid repository path" for a perfectly valid path.
+    // gpt-5.5 is priced but unsupported by the routing policy, so a run on it is refused. It must be
+    // refused as a model problem: the blanket ArgumentException mapping used to report "Invalid
+    // repository path" for a perfectly valid path.
     [Fact]
     public async Task Unsupported_model_is_refused_by_name_rather_than_as_a_path_error()
     {
@@ -264,16 +264,16 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         {
             path = "Sample.cs",
             kind = "code",
-            cliType = "claude",
-            model = "claude-opus-5",
-            thinkingLevel = "max",
+            cliType = "codex",
+            model = "gpt-5.5",
+            thinkingLevel = "high",
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.Equal("Invalid model selection", problem.GetProperty("title").GetString());
         var detail = problem.GetProperty("detail").GetString();
-        Assert.Contains("claude-opus-5", detail, StringComparison.Ordinal);
+        Assert.Contains("gpt-5.5", detail, StringComparison.Ordinal);
         Assert.Contains("unsupported", detail, StringComparison.Ordinal);
     }
 
@@ -340,7 +340,7 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, estimate.StatusCode);
         var preflight = await estimate.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         Assert.True(preflight.GetProperty("overrideBelowFloor").GetBoolean());
-        Assert.Equal("gpt-5.6-sol", preflight.GetProperty("recommendation").GetProperty("recommendedModel").GetString());
+        Assert.Equal("gpt-6-sol", preflight.GetProperty("recommendation").GetProperty("recommendedModel").GetString());
         Assert.Equal("xhigh", preflight.GetProperty("recommendation").GetProperty("recommendedThinkingLevel").GetString());
         Assert.Equal("sol-xhigh", preflight.GetProperty("recommendation").GetProperty("correctnessFloor").GetString());
         Assert.Equal("model-routing-policy", preflight.GetProperty("recommendation").GetProperty("selectionSource").GetString());
@@ -1049,12 +1049,12 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
 
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal("2026-09-12", json.GetProperty("policyVersion").GetString());
-        Assert.Equal("98ddcc91fba414919231e242de01dc022aed74dd", json.GetProperty("sourceCommit").GetString());
+        Assert.Equal("2026-10-21", json.GetProperty("policyVersion").GetString());
+        Assert.Equal("c6d1de5fcf37cc25d047811138f4e12e71b8de1a", json.GetProperty("sourceCommit").GetString());
         var models = json.GetProperty("models").EnumerateArray().ToArray();
-        Assert.Equal(22, models.Length);
+        Assert.Equal(30, models.Length);
         Assert.All(models, model => Assert.True(model.GetProperty("priceAvailable").GetBoolean()));
-        foreach (var (id, cli) in new[] { ("gpt-6-astra", "codex"), ("claude-fable-5-1", "claude") })
+        foreach (var (id, cli) in new[] { ("claude-fable-5-1", "claude"), ("claude-haiku-5-5", "claude") })
         {
             var supported = Assert.Single(models, model => model.GetProperty("modelId").GetString() == id);
             Assert.Equal(cli, supported.GetProperty("cliType").GetString());

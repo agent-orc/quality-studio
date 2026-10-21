@@ -8,9 +8,9 @@ public sealed class ReviewModelCatalogTests
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {
         Assert.Equal("agent-orc/token-economy", catalog.Snapshot.SourceRepository);
-        Assert.Equal("98ddcc91fba414919231e242de01dc022aed74dd", catalog.Snapshot.SourceCommit);
-        Assert.Equal("2026-09-12", catalog.Snapshot.PolicyVersion);
-        Assert.Equal(22, catalog.Snapshot.Models.Count);
+        Assert.Equal("c6d1de5fcf37cc25d047811138f4e12e71b8de1a", catalog.Snapshot.SourceCommit);
+        Assert.Equal("2026-10-21", catalog.Snapshot.PolicyVersion);
+        Assert.Equal(30, catalog.Snapshot.Models.Count);
         Assert.All(catalog.Snapshot.Models, model => Assert.True(model.PriceAvailable));
 
         var sol = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == "gpt-5.6-sol");
@@ -24,43 +24,47 @@ public sealed class ReviewModelCatalogTests
     }
 
     [Theory]
-    [InlineData("gpt-6-astra", "astra", "codex", "codex")]
-    [InlineData("claude-fable-5-1", "claude-fable-5-1", "claude-code", "claude")]
+    [InlineData("gpt-6-astra", "astra", "codex", "codex", "low,medium,high,xhigh,max,ultra")]
+    [InlineData("claude-fable-5-1", "claude-fable-5-1", "claude-code", "claude", "low,medium,high,xhigh,max")]
+    [InlineData("claude-haiku-5-5", "claude-haiku-5-5", "claude-code", "claude", "low,medium,high,xhigh,max")]
+    [InlineData("gemini-4-argon", "gemini-4-argon-high", "antigravity", "antigravity", "low,medium,high")]
+    [InlineData("gemini-3.8-flash", "gemini-3.8-flash", "antigravity", "antigravity", "low,medium,high")]
     public void Newly_supported_models_are_explicit_provisional_choices_without_default_floor_equivalence(
-        string modelId, string requestedId, string requestedCli, string canonicalCli)
+        string modelId, string requestedId, string requestedCli, string canonicalCli, string thinkingLevels)
     {
         var option = catalog.Find(modelId)!;
         Assert.Equal("selectable", option.RoutingStatus);
-        Assert.Equal("frontier", option.CapabilityTier);
         Assert.True(option.Provisional);
         Assert.Equal("provisional", option.EvidenceStatus);
         Assert.True(option.AvailableForNewRuns);
         Assert.True(option.PriceAvailable);
-        Assert.Equal(new[] { "low", "medium", "high", "xhigh", "max" }, option.SupportedThinkingLevels);
+        Assert.Equal(thinkingLevels.Split(','), option.SupportedThinkingLevels);
 
-        var selected = catalog.Resolve(requestedCli, requestedId, "MAX");
+        var strongest = option.SupportedThinkingLevels[^1];
+        var selected = catalog.Resolve(requestedCli, requestedId, strongest.ToUpperInvariant());
         Assert.Equal(modelId, selected.Model);
         Assert.Equal(canonicalCli, selected.CliType);
-        Assert.Equal("max", selected.ThinkingLevel);
+        Assert.Equal(strongest, selected.ThinkingLevel);
         Assert.True(selected.Catalogued);
-        Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve(requestedCli, requestedId, "ultra"));
+        Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve(requestedCli, requestedId, "minimal"));
         Assert.Throws<ReviewModelSelectionException>(() =>
-            catalog.Resolve(canonicalCli == "codex" ? "claude" : "codex", modelId, "max"));
+            catalog.Resolve(canonicalCli == "codex" ? "claude" : "codex", modelId, strongest));
 
         // Selectable support does not declare a qualified core route or provider fallback.
         var small = catalog.Recommend("code", ReviewLevel.File, 1);
         var security = catalog.Recommend("security", ReviewLevel.File, 1);
         Assert.True(catalog.IsBelowCorrectnessFloor(selected, small));
         Assert.True(catalog.IsBelowCorrectnessFloor(selected, security));
-        Assert.NotEqual(modelId, catalog.ResolveDefault(canonicalCli, small)!.Model);
-        Assert.NotEqual(modelId, catalog.ResolveDefault(canonicalCli, security)!.Model);
+        // Test-only Antigravity pins have no default route at all, which is also not this model.
+        Assert.NotEqual(modelId, catalog.ResolveDefault(canonicalCli, small)?.Model);
+        Assert.NotEqual(modelId, catalog.ResolveDefault(canonicalCli, security)?.Model);
     }
 
     [Theory]
     [InlineData("claude-opus-4-1", "deprecated")]
     [InlineData("gpt-5.5-cyber-preview", "restricted")]
     [InlineData("gpt-5.5", "unsupported")]
-    [InlineData("claude-opus-5", "unsupported")]
+    [InlineData("claude-opus-4-8", "unsupported")]
     public void Non_routable_catalog_models_are_visible_as_evidence_but_rejected_for_new_runs(
         string modelId, string routingStatus)
     {
@@ -115,9 +119,11 @@ public sealed class ReviewModelCatalogTests
 
         Assert.Equal("gpt-5.6-terra", file.RecommendedModel);
         Assert.Equal("luna-medium", file.CorrectnessFloor);
-        Assert.Equal("gpt-5.6-sol", aggregate.RecommendedModel);
+        Assert.Equal("gpt-6-sol", aggregate.RecommendedModel);
+        Assert.Equal("frontier", aggregate.CapabilityTier);
         Assert.Equal("medium", aggregate.RecommendedThinkingLevel);
         Assert.Equal("sol-medium", aggregate.CorrectnessFloor);
+        Assert.Equal("gpt-6-sol", security.RecommendedModel);
         Assert.Equal("xhigh", security.RecommendedThinkingLevel);
         Assert.Equal("sol-xhigh", security.CorrectnessFloor);
         Assert.Contains("Price and quota do not lower", security.Reason, StringComparison.Ordinal);
@@ -131,9 +137,12 @@ public sealed class ReviewModelCatalogTests
         Assert.True(catalog.IsBelowCorrectnessFloor(
             catalog.Resolve("codex", "gpt-5.6-luna", "medium"), recommendation));
         Assert.False(catalog.IsBelowCorrectnessFloor(
-            catalog.Resolve("codex", "gpt-5.6-sol", "xhigh"), recommendation));
+            catalog.Resolve("codex", "gpt-6-sol", "xhigh"), recommendation));
         Assert.False(catalog.IsBelowCorrectnessFloor(
-            catalog.Resolve("codex", "gpt-5.6-sol", "ultra"), recommendation));
+            catalog.Resolve("codex", "gpt-6-sol", "ultra"), recommendation));
+        // Token Economy 0.3.8 re-pointed the Sol routes to gpt-6-sol, so gpt-5.6-sol qualifies at none.
+        Assert.True(catalog.IsBelowCorrectnessFloor(
+            catalog.Resolve("codex", "gpt-5.6-sol", "xhigh"), recommendation));
         Assert.True(catalog.IsBelowCorrectnessFloor(
             catalog.Resolve("codex", "gpt-5.4-mini", "high"), recommendation));
         Assert.True(catalog.IsBelowCorrectnessFloor(
@@ -143,7 +152,7 @@ public sealed class ReviewModelCatalogTests
 
         var broad = catalog.Recommend("code", ReviewLevel.Project, 20);
         Assert.True(catalog.IsBelowCorrectnessFloor(
-            catalog.Resolve("codex", "gpt-5.6-sol", "low"), broad));
+            catalog.Resolve("codex", "gpt-6-sol", "low"), broad));
         Assert.False(catalog.IsBelowCorrectnessFloor(
             catalog.Resolve("claude", "claude-sonnet-5", "high"), broad));
 
@@ -179,23 +188,35 @@ public sealed class ReviewModelCatalogTests
             catalog.Resolve("codex", "gpt-5.6-sol", "xhigh"), recommendation));
     }
 
-    // Pins the upstream routing gap that keeps the operator's Claude-first policy unrunnable:
-    // Token Economy still ships claude-opus-5 as unsupported with no workflow role, so the policy
-    // qualifies it for no core-task route and it can neither start a run nor clear any floor above
-    // the lightest. Promoting it upstream fails this test, which is the signal to re-sync and
-    // record a run on the promoted route.
+    // Token Economy 0.3.8 promoted claude-opus-5 to a selectable core-task model, so a
+    // Claude-first explicit run can start. The policy still names it in no route or provider
+    // fallback, so it clears no floor above the lightest; a qualifying upstream route is a re-sync.
     [Fact]
-    public void Claude_opus_5_is_priced_but_not_yet_qualified_by_the_routing_policy()
+    public void Claude_opus_5_is_selectable_but_not_qualified_at_a_policy_floor()
     {
         var opus = catalog.Find("claude-opus-5")!;
 
-        Assert.Equal("unsupported", opus.RoutingStatus);
-        Assert.False(opus.AvailableForNewRuns);
+        Assert.Equal("selectable", opus.RoutingStatus);
+        Assert.True(opus.AvailableForNewRuns);
         Assert.True(opus.PriceAvailable);
 
+        var selection = catalog.Resolve("claude", "claude-opus-5", "max");
         var broad = catalog.Recommend("code", ReviewLevel.Project, 20);
-        Assert.True(catalog.IsBelowCorrectnessFloor(
-            new ReviewModelSelection("claude", "claude-opus-5", "max", true), broad));
+        Assert.True(catalog.IsBelowCorrectnessFloor(selection, broad));
+    }
+
+    // Recommendations read each route's model from the synchronized policy, so the policy default
+    // always clears the floor it is recommended at.
+    [Theory]
+    [InlineData("code", ReviewLevel.File, 1)]
+    [InlineData("code", ReviewLevel.Project, 80)]
+    [InlineData("security", ReviewLevel.File, 1)]
+    public void Policy_recommendation_meets_its_own_correctness_floor(string kind, ReviewLevel level, int files)
+    {
+        var recommendation = catalog.Recommend(kind, level, files);
+        var route = catalog.ResolveDefault("codex", recommendation)!;
+
+        Assert.False(catalog.IsBelowCorrectnessFloor(route, recommendation));
     }
 
     // The CLI reaches the incompatible-model message, and that message is the one the API echoes as

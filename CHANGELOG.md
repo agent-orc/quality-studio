@@ -4,6 +4,31 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Changed — price catalog synced to Token Economy 0.3.8 (QS-127, covers QS-121)
+
+`npm run catalog:sync` ran against the `v0.3.8` tag (Token Economy `c6d1de5`, policy `2026-10-21`).
+The catalog grows from 22 to 30 models.
+
+- Newly priced and selectable: Claude Haiku 5.5, Gemini 4 Argon and Gemini 3.8 Flash. The QS-121
+  models GPT-6.1 Sol and Claude Sonnet 5.5 are included, as are Claude Opus 5.5, GPT-6 Sol and
+  GPT-6 Luna. The Gemini models are test-only Antigravity pins: they can be chosen explicitly but
+  are never a default. Gemini prices are dated, so the introductory rates switch on 2026-12-01
+  (Argon) and 2027-01-01 (Flash).
+- The policy now points the `luna-medium` route at `gpt-6-luna` and both Sol routes at `gpt-6-sol`.
+  Recommendations take each route's model from the synchronized policy instead of hard-coded ids.
+  Without that, the default security recommendation (`gpt-5.6-sol`/xhigh) would have fallen below
+  its own floor. An explicit `gpt-5.6-sol` run now counts as below every floor.
+- `claude-opus-5` and `claude-haiku-4-5` can now be selected explicitly. Thinking-level lists
+  follow upstream (for example, `gpt-6-astra` gains `ultra` and `gpt-5.6-luna` loses it).
+- Prompt-size tiers are priced. Claude Haiku 5.5 bills a request's whole prompt at the higher rate
+  above 100K tokens; GPT-6.1 Sol does the same above 272K. A ledger operation is a CLI run that can
+  span several requests, so only an operation whose summed prompt stays below the first tier is
+  priced at the base rate. Otherwise its cost has status `ambiguousPromptSize` with `total: null`,
+  not the cheap tier, plus `lowerBound` and `upperBound`. The cost cap counts such an operation at
+  its upper bound, and the run views label that amount "up to … (ambiguous prompt size)". The
+  usage history shows the range. `usage-ledger.v4` and `flow-review.v1` accept the new fields and
+  status.
+
 ### Fixed — Agent Studio repository preparation (QS-103)
 
 - Frontend tests now select the no-sandbox Chromium launcher on Linux even when the execution

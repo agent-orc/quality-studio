@@ -57,6 +57,18 @@ export function formatPriceStatus(status: string | null | undefined): string {
   return status.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
 }
 
+/**
+ * A run's spent cost with its cap. A prompt-size tier the summed usage cannot settle is counted at
+ * its upper bound, so the amount is labelled as a ceiling rather than read as the exact cost.
+ */
+export function formatRunCost(spent: number | null, currency: string | null, priceStatus: string, cap: number | null): string {
+  if (spent === null) return `unpriced (${formatPriceStatus(priceStatus)})`;
+  const amount = priceStatus === 'ambiguousPromptSize'
+    ? `up to ${formatCost(spent, currency)} (${formatPriceStatus(priceStatus)})`
+    : formatCost(spent, currency);
+  return cap !== null ? `${amount} / ${formatCost(cap, currency)}` : amount;
+}
+
 /** Names how the run's model was chosen so a policy or runner default is never read as a choice. */
 export function formatModelSource(source: string | null | undefined): string {
   if (source === 'explicit') return 'chosen';

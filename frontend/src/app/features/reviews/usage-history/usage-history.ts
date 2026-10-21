@@ -43,9 +43,13 @@ export class UsageHistory {
 
   entryCostDetail(entry: UsageEntry): string {
     if (!entry.cost) return 'No cost was recorded for this entry.';
-    return entry.cost.total === null
-      ? `Unpriced: ${formatPriceStatus(entry.cost.status)}.`
-      : `${formatCost(entry.cost.total, entry.cost.currency)} (${formatPriceStatus(entry.cost.status)})`;
+    const { total, currency, status, lowerBound, upperBound } = entry.cost;
+    if (total !== null) return `${formatCost(total, currency)} (${formatPriceStatus(status)})`;
+    // A prompt-size tier the summed usage cannot settle shows its whole range, never the cheap tier.
+    const range = typeof lowerBound === 'number' && typeof upperBound === 'number'
+      ? ` Between ${formatCost(lowerBound, currency)} and ${formatCost(upperBound, currency)}.`
+      : '';
+    return `Unpriced: ${formatPriceStatus(status)}.${range}`;
   }
 
   entryModelSource(entry: UsageEntry): string { return formatModelSource(entry.modelSource); }

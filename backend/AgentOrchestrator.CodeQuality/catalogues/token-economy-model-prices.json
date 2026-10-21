@@ -1,5 +1,200 @@
 [
   {
+    "modelId": "claude-sonnet-5-5",
+    "releaseDate": "2026-09-28",
+    "releaseDateSource": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+    "displayName": "Claude Sonnet 5.5",
+    "vendor": "anthropic",
+    "history": [
+      {
+        "validFrom": "2026-09-28T00:00:00Z",
+        "inputPerMTok": 2,
+        "cacheReadPerMTok": 0.2,
+        "cacheWritePerMTok": 2.5,
+        "outputPerMTok": 10,
+        "currency": "USD",
+        "source": "Anthropic official pricing, model, and release evidence; retrieved 2026-09-29. https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/sonnet-5-5/overview; https://platform.claude.com/docs/en/release-notes/overview#september-28-2026",
+        "sourceUrls": [
+          "https://platform.claude.com/docs/en/about-claude/pricing",
+          "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+          "https://platform.claude.com/docs/en/release-notes/overview#september-28-2026"
+        ],
+        "verifiedOn": "2026-09-29",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard global Claude API rates; cache writes use the 5-minute $2.50/MTok tariff and cache reads the standard 0.1x multiplier. The same source lists the 1-hour cache write at $4/MTok and Batch at $1/$5; fast mode is not offered for this model. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
+        "unconfirmed": false
+      }
+    ],
+    "note": "Current Sonnet since 2026-09-28 at the Sonnet 5 price. Claude Code needs v2.1.284 or later; a 2026-09-29 probe with Claude Code 2.1.281 returned unrecognized_model."
+  },
+  {
+    "modelId": "claude-opus-5-5",
+    "releaseDate": "2026-09-22",
+    "releaseDateSource": "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+    "displayName": "Claude Opus 5.5",
+    "vendor": "anthropic",
+    "aliases": [
+      "claude-opus-5.5"
+    ],
+    "history": [
+      {
+        "validFrom": "2026-09-22T00:00:00Z",
+        "inputPerMTok": 4,
+        "cacheReadPerMTok": 0.2,
+        "cacheWritePerMTok": 5,
+        "outputPerMTok": 20,
+        "currency": "USD",
+        "source": "Anthropic official pricing, model, and release evidence; retrieved 2026-09-24. https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/opus-5-5/overview; https://platform.claude.com/docs/en/release-notes/overview#september-22-2026. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/opus-5-5/overview",
+        "sourceUrls": [
+          "https://platform.claude.com/docs/en/about-claude/pricing",
+          "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+          "https://platform.claude.com/docs/en/release-notes/overview#september-22-2026"
+        ],
+        "verifiedOn": "2026-09-29",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard global Claude API rates; cache writes use the 5-minute $5/MTok tariff and cache reads use the Opus 5.5-specific 0.05x multiplier. The same source lists the 1-hour cache write at $8/MTok, Batch at $2/$10, and Claude-API-only fast mode at $8/$40; those alternate processing modes are not represented by this standard-rate entry. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
+        "unconfirmed": false
+      }
+    ]
+  },
+  {
+    "modelId": "claude-haiku-5-5",
+    "displayName": "Claude Haiku 5.5",
+    "releaseDate": "2026-10-07",
+    "releaseDateSource": "https://platform.claude.com/docs/en/release-notes/overview#october-7-2026",
+    "vendor": "anthropic",
+    "history": [
+      {
+        "validFrom": "2026-10-07T00:00:00Z",
+        "inputPerMTok": 0.1,
+        "outputPerMTok": 0.5,
+        "cacheReadPerMTok": 0.01,
+        "currency": "USD",
+        "source": "Anthropic pricing, model overview, and October 7 release notes; verified 2026-10-16.",
+        "sourceUrls": [
+          "https://platform.claude.com/docs/en/about-claude/pricing",
+          "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+          "https://platform.claude.com/docs/en/release-notes/overview#october-7-2026"
+        ],
+        "verifiedOn": "2026-10-16",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard global Claude API rates. Prompt size includes fresh input and cache reads/writes; above 100K the higher tariff applies to every token of the request. Cache-write rates use 5-minute retention; 1-hour writes are $0.20/$1 per MTok. Batch input/output are 50% of standard.",
+        "unconfirmed": false,
+        "cacheWritePerMTok": 0.125,
+        "promptSizeTiers": [
+          {
+            "minPromptTokens": 100001,
+            "inputPerMTok": 0.5,
+            "outputPerMTok": 2.5,
+            "cacheReadPerMTok": 0.05,
+            "cacheWritePerMTok": 0.625
+          }
+        ]
+      }
+    ],
+    "note": "1M context, 128K max output; adaptive thinking at low/medium/high/xhigh/max (medium default). Claude Code changelog first lists support in v2.1.293; operator probe on 2026-10-16: v2.1.301 returned modelUsage claude-haiku-5-5 and $0.0033, while v2.1.281 rejected the id and silently used claude-haiku-4-5-20251001."
+  },
+  {
+    "modelId": "gemini-4-argon",
+    "displayName": "Gemini 4 Argon",
+    "releaseDate": "2026-10-13",
+    "releaseDateSource": "https://ai.google.dev/gemini-api/docs/changelog",
+    "vendor": "google",
+    "aliases": [
+      "gemini-4-argon-low",
+      "gemini-4-argon-medium",
+      "gemini-4-argon-high"
+    ],
+    "history": [
+      {
+        "validFrom": "2026-10-13T00:00:00Z",
+        "inputPerMTok": 2,
+        "outputPerMTok": 10,
+        "cacheReadPerMTok": 0.1,
+        "currency": "USD",
+        "source": "Google Gemini API pricing and October 13 release notes; verified 2026-10-16.",
+        "sourceUrls": [
+          "https://ai.google.dev/gemini-api/docs/pricing",
+          "https://ai.google.dev/gemini-api/docs/changelog",
+          "https://ai.google.dev/gemini-api/docs/models/gemini-4-argon"
+        ],
+        "verifiedOn": "2026-10-16",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard paid Gemini API text rate; implicit cache reads only, explicit cache writes unsupported. Introductory tariff through November 30, 2026. API rates are not Antigravity subscription charges.",
+        "unconfirmed": false,
+        "validTo": "2026-11-30T23:59:59.9999999Z"
+      },
+      {
+        "validFrom": "2026-12-01T00:00:00Z",
+        "inputPerMTok": 4,
+        "outputPerMTok": 20,
+        "cacheReadPerMTok": 0.2,
+        "currency": "USD",
+        "source": "Google Gemini API announced December 1 tariff; verified 2026-10-16.",
+        "sourceUrls": [
+          "https://ai.google.dev/gemini-api/docs/pricing",
+          "https://ai.google.dev/gemini-api/docs/changelog",
+          "https://ai.google.dev/gemini-api/docs/models/gemini-4-argon"
+        ],
+        "verifiedOn": "2026-10-16",
+        "validFromBasis": "provider-announced-date",
+        "note": "Announced future standard paid Gemini API text rate; implicit cache reads only, explicit cache writes unsupported. API rates are not Antigravity subscription charges.",
+        "unconfirmed": false
+      }
+    ],
+    "note": "1,048,576 unified context tokens; default synchronous output 65,536, long decode up to 1,048,576. Gemini API thinking low/medium/high. Antigravity CLI rollout was announced October 13; agy 1.4.0 operator model listing observed October 16."
+  },
+  {
+    "modelId": "gemini-3.8-flash",
+    "displayName": "Gemini 3.8 Flash",
+    "releaseDate": "2026-09-01",
+    "releaseDateSource": "https://www.antigravity.google/blog/gemini-3-8-flash-in-google-antigravity",
+    "vendor": "google",
+    "aliases": [
+      "gemini-3.8-flash-low",
+      "gemini-3.8-flash-medium",
+      "gemini-3.8-flash-high"
+    ],
+    "history": [
+      {
+        "validFrom": "2026-09-02T00:00:00Z",
+        "inputPerMTok": 0.75,
+        "outputPerMTok": 3.75,
+        "cacheReadPerMTok": 0.075,
+        "currency": "USD",
+        "source": "Google Gemini API pricing and September 2 release notes; verified 2026-10-16.",
+        "sourceUrls": [
+          "https://ai.google.dev/gemini-api/docs/pricing",
+          "https://ai.google.dev/gemini-api/docs/changelog",
+          "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
+        ],
+        "verifiedOn": "2026-10-16",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard paid Gemini API text rate. Explicit caching storage adds $0.50 per million tokens per hour; this time-based charge is outside ComputeCost. API rates are not Antigravity subscription charges.",
+        "unconfirmed": false,
+        "validTo": "2026-12-31T23:59:59.9999999Z"
+      },
+      {
+        "validFrom": "2027-01-01T00:00:00Z",
+        "inputPerMTok": 1.5,
+        "outputPerMTok": 7.5,
+        "cacheReadPerMTok": 0.15,
+        "currency": "USD",
+        "source": "Google Gemini API announced January 1 tariff; verified 2026-10-16.",
+        "sourceUrls": [
+          "https://ai.google.dev/gemini-api/docs/pricing",
+          "https://ai.google.dev/gemini-api/docs/changelog",
+          "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
+        ],
+        "verifiedOn": "2026-10-16",
+        "validFromBasis": "provider-announced-date",
+        "note": "Announced future standard paid Gemini API text rate. Explicit caching storage adds $1.00 per million tokens per hour; this time-based charge is outside ComputeCost. API rates are not Antigravity subscription charges.",
+        "unconfirmed": false
+      }
+    ],
+    "note": "Antigravity announced availability September 1; Gemini API GA release notes date September 2, which begins this API tariff. Input limit 1,048,576 tokens, output limit 65,536. Gemini API thinking low/medium/high; agy 1.4.0 operator model listing observed October 16."
+  },
+  {
     "modelId": "claude-fable-5-1",
     "releaseDate": "2026-09-01",
     "releaseDateSource": "https://platform.claude.com/docs/en/models/fable-5-1/overview",
@@ -13,14 +208,14 @@
         "cacheWritePerMTok": 12.5,
         "currency": "USD",
         "validFrom": "2026-09-01T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/claude-fable-and-mythos-5-1; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/fable-5-1/overview; https://platform.claude.com/docs/en/release-notes/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/claude-fable-and-mythos-5-1; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/fable-5-1/overview; https://platform.claude.com/docs/en/release-notes/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/fable-5-1/overview",
         "sourceUrls": [
           "https://www.anthropic.com/claude-fable-and-mythos-5-1",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://platform.claude.com/docs/en/models/fable-5-1/overview",
           "https://platform.claude.com/docs/en/release-notes/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Fable 5.1 launch confirms $0.25 cache reads, distinct from Fable 5 at $1.",
         "unconfirmed": false
@@ -41,13 +236,13 @@
         "cacheWritePerMTok": 12.5,
         "currency": "USD",
         "validFrom": "2026-06-09T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-fable-5-mythos-5; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/fable-5/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-fable-5-mythos-5; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/fable-5/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-fable-5-mythos-5",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://platform.claude.com/docs/en/models/fable-5/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover.",
         "unconfirmed": false
@@ -68,13 +263,13 @@
         "cacheWritePerMTok": 6.25,
         "currency": "USD",
         "validFrom": "2026-07-24T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-5; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/opus-5/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-5; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/opus-5/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-opus-5",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://platform.claude.com/docs/en/models/opus-5/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover.",
         "unconfirmed": false
@@ -95,20 +290,20 @@
         "cacheWritePerMTok": 2.5,
         "currency": "USD",
         "validFrom": "2026-06-30T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-sonnet-5; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/sonnet-5/overview; https://platform.claude.com/docs/en/release-notes/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-sonnet-5; https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/sonnet-5/overview; https://platform.claude.com/docs/en/release-notes/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/sonnet-5/overview",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-sonnet-5",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://platform.claude.com/docs/en/models/sonnet-5/overview",
           "https://platform.claude.com/docs/en/release-notes/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. The planned 2026-09-01 increase to $3/$15 was cancelled on 2026-08-10 and never took effect; $2/$10 continues from launch.",
         "unconfirmed": false
       }
     ],
-    "note": "Sonnet 5 retains its launch price: the scheduled September increase was cancelled on 2026-08-10."
+    "note": "Sonnet 5 retains its launch price: the scheduled September increase was cancelled on 2026-08-10. Legacy since Claude Sonnet 5.5 launched on 2026-09-28; retirement not sooner than 2027-06-30 (Anthropic model deprecations, retrieved 2026-09-29)."
   },
   {
     "modelId": "claude-opus-4-8",
@@ -124,13 +319,13 @@
         "cacheWritePerMTok": 6.25,
         "currency": "USD",
         "validFrom": "2026-05-28T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-8; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-8; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-opus-4-8",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -151,13 +346,13 @@
         "cacheWritePerMTok": 6.25,
         "currency": "USD",
         "validFrom": "2026-04-16T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-7; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-7; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-opus-4-7",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -178,14 +373,14 @@
         "cacheWritePerMTok": 6.25,
         "currency": "USD",
         "validFrom": "2026-02-05T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-6; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/opus-4-6/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-6; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/opus-4-6/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-opus-4-6",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
           "https://platform.claude.com/docs/en/models/opus-4-6/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -209,14 +404,14 @@
         "cacheWritePerMTok": 6.25,
         "currency": "USD",
         "validFrom": "2025-11-24T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-5; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/opus-4-5/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-5; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/opus-4-5/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-opus-4-5",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
           "https://platform.claude.com/docs/en/models/opus-4-5/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -242,7 +437,7 @@
         "cacheWritePerMTok": 18.75,
         "currency": "USD",
         "validFrom": "2025-08-05T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-1; https://platform.claude.com/docs/en/about-claude/pricing; https://www.anthropic.com/news/claude-4; https://platform.claude.com/docs/en/about-claude/model-deprecations; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-opus-4-1; https://platform.claude.com/docs/en/about-claude/pricing; https://www.anthropic.com/news/claude-4; https://platform.claude.com/docs/en/about-claude/model-deprecations; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/about-claude/model-deprecations",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-opus-4-1",
           "https://platform.claude.com/docs/en/about-claude/pricing",
@@ -250,7 +445,7 @@
           "https://platform.claude.com/docs/en/about-claude/model-deprecations",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Direct Claude API retired on 2026-08-05; historical price lookup does not imply present availability. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -274,14 +469,14 @@
         "cacheWritePerMTok": 3.75,
         "currency": "USD",
         "validFrom": "2026-02-17T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-sonnet-4-6; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/sonnet-4-6/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-sonnet-4-6; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/sonnet-4-6/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-sonnet-4-6",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
           "https://platform.claude.com/docs/en/models/sonnet-4-6/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -305,14 +500,14 @@
         "cacheWritePerMTok": 3.75,
         "currency": "USD",
         "validFrom": "2025-09-29T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-sonnet-4-5; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/sonnet-4-5/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-sonnet-4-5; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/sonnet-4-5/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-sonnet-4-5",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
           "https://platform.claude.com/docs/en/models/sonnet-4-5/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
@@ -337,19 +532,20 @@
         "cacheWritePerMTok": 1.25,
         "currency": "USD",
         "validFrom": "2025-10-15T00:00:00Z",
-        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-haiku-4-5; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/haiku-4-5/overview",
+        "source": "Anthropic official pricing and release evidence; retrieved 2026-09-12. https://www.anthropic.com/news/claude-haiku-4-5; https://platform.claude.com/docs/en/about-claude/pricing; https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf; https://platform.claude.com/docs/en/models/haiku-4-5/overview. Re-verified unchanged on 2026-09-29: https://platform.claude.com/docs/en/about-claude/pricing; https://platform.claude.com/docs/en/models/haiku-4-5/overview",
         "sourceUrls": [
           "https://www.anthropic.com/news/claude-haiku-4-5",
           "https://platform.claude.com/docs/en/about-claude/pricing",
           "https://www-cdn.anthropic.com/files/4zrzovbb/website/3684c2faafb97418665782cea0001f439f74b1d2.pdf",
           "https://platform.claude.com/docs/en/models/haiku-4-5/overview"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard global Claude API rates; cache writes use the 5-minute duration. Base input/output rates are supported at public launch; exact launch-day cache tariffs are not independently dated for every category. Current cache rates verified on 2026-09-12. Dates use midnight UTC as a calendar-day convention, not a published intraday cutover. Also corroborated by the provider list-price PDF dated 2026-05-27.",
         "unconfirmed": false
       }
-    ]
+    ],
+    "note": "Active; Anthropic commits to retirement not sooner than 2026-10-15 and has announced no deprecation (retrieved 2026-09-29)."
   },
   {
     "modelId": "gpt-6-astra",
@@ -368,7 +564,7 @@
         "cacheWritePerMTok": 12.5,
         "outputPerMTok": 50,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/gpt-6-astra/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/guides/prompt-caching; https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/gpt-6-astra/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/guides/prompt-caching; https://developers.openai.com/api/docs/models/gpt-6-astra. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-astra",
         "sourceUrls": [
           "https://openai.com/index/gpt-6-astra/",
           "https://developers.openai.com/api/docs/changelog",
@@ -376,9 +572,100 @@
           "https://developers.openai.com/api/docs/guides/prompt-caching",
           "https://developers.openai.com/api/docs/models/gpt-6-astra"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Standard short-context direct API tariff. Launch date confirmed by API changelog. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
+        "unconfirmed": false
+      }
+    ]
+  },
+  {
+    "modelId": "gpt-6.1-sol",
+    "releaseDate": "2026-09-29",
+    "releaseDateSource": "https://developers.openai.com/api/docs/changelog",
+    "displayName": "GPT-6.1 Sol",
+    "vendor": "openai",
+    "history": [
+      {
+        "validFrom": "2026-09-29T00:00:00Z",
+        "inputPerMTok": 2,
+        "cacheReadPerMTok": 0.1,
+        "cacheWritePerMTok": 2.5,
+        "outputPerMTok": 10,
+        "currency": "USD",
+        "source": "OpenAI API changelog, pricing page and model page; verified 2026-10-04. https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6.1-sol Long-context tariff re-verified 2026-10-16 against the official model and pricing pages.",
+        "sourceUrls": [
+          "https://developers.openai.com/api/docs/changelog",
+          "https://developers.openai.com/api/docs/pricing",
+          "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+        ],
+        "verifiedOn": "2026-10-16",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard short-context direct API tariff for prompts up to 272K input tokens. The provider pricing and model pages print the long-context tariff above 272K as $4 input, $0.20 cached input, $5 cache write and $15 output per MTok for the full request; the long-context tariff is represented by promptSizeTiers. Midnight UTC normalizes the announced calendar date, not a published intraday billing cutover.",
+        "unconfirmed": false,
+        "promptSizeTiers": [
+          {
+            "minPromptTokens": 272001,
+            "inputPerMTok": 4,
+            "outputPerMTok": 15,
+            "cacheReadPerMTok": 0.2,
+            "cacheWritePerMTok": 5
+          }
+        ]
+      }
+    ],
+    "note": "Codex CLI 0.155.0 probe on 2026-10-04 returned HTTP 400: model not supported with this ChatGPT account; CLI execution availability remains unconfirmed."
+  },
+  {
+    "modelId": "gpt-6-sol",
+    "releaseDate": "2026-09-22",
+    "releaseDateSource": "https://developers.openai.com/api/docs/changelog",
+    "displayName": "GPT-6 Sol",
+    "vendor": "openai",
+    "history": [
+      {
+        "validFrom": "2026-09-22T00:00:00Z",
+        "inputPerMTok": 2,
+        "cacheReadPerMTok": 0.2,
+        "cacheWritePerMTok": 2.5,
+        "outputPerMTok": 10,
+        "currency": "USD",
+        "source": "OpenAI official pricing, model, and dated changelog evidence; retrieved 2026-09-24. https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-sol. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-sol",
+        "sourceUrls": [
+          "https://developers.openai.com/api/docs/changelog",
+          "https://developers.openai.com/api/docs/pricing",
+          "https://developers.openai.com/api/docs/models/gpt-6-sol"
+        ],
+        "verifiedOn": "2026-09-29",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard short-context direct API tariff; OpenAI cache writes use 1.25x input. Prompts over 272K input tokens use $4 input, $0.40 cached input, $5 cache write, and $15 output per MTok for the full request. Batch and Flex are 50% of Standard; Fast mode is 2x the applicable rate. Alternate processing modes are not represented by this standard-rate entry. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
+        "unconfirmed": false
+      }
+    ]
+  },
+  {
+    "modelId": "gpt-6-luna",
+    "releaseDate": "2026-09-22",
+    "releaseDateSource": "https://developers.openai.com/api/docs/changelog",
+    "displayName": "GPT-6 Luna",
+    "vendor": "openai",
+    "history": [
+      {
+        "validFrom": "2026-09-22T00:00:00Z",
+        "inputPerMTok": 0.1,
+        "cacheReadPerMTok": 0.01,
+        "cacheWritePerMTok": 0.125,
+        "outputPerMTok": 0.5,
+        "currency": "USD",
+        "source": "OpenAI official pricing, model, and dated changelog evidence; retrieved 2026-09-24. https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-luna. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "sourceUrls": [
+          "https://developers.openai.com/api/docs/changelog",
+          "https://developers.openai.com/api/docs/pricing",
+          "https://developers.openai.com/api/docs/models/gpt-6-luna"
+        ],
+        "verifiedOn": "2026-09-29",
+        "validFromBasis": "provider-announced-date",
+        "note": "Standard short-context direct API tariff; OpenAI cache writes use 1.25x input. Prompts over 272K input tokens use $0.20 input, $0.02 cached input, $0.25 cache write, and $0.75 output per MTok for the full request. Batch and Flex are 50% of Standard; Fast mode is 2x the applicable rate. Alternate processing modes are not represented by this standard-rate entry. Dates use midnight UTC as a calendar-day convention, not a published intraday billing cutover.",
         "unconfirmed": false
       }
     ]
@@ -420,14 +707,14 @@
         "cacheWritePerMTok": 0.25,
         "outputPerMTok": 1.2,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/changelog; https://openai.com/index/gpt-5-6/; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/changelog; https://openai.com/index/gpt-5-6/; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.6-luna. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://developers.openai.com/api/docs/changelog",
           "https://openai.com/index/gpt-5-6/",
           "https://developers.openai.com/api/docs/pricing",
           "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "80% reduction effective July 30. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
         "unconfirmed": false
@@ -471,14 +758,14 @@
         "cacheWritePerMTok": 2.5,
         "outputPerMTok": 12,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/changelog; https://openai.com/index/gpt-5-6/; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/changelog; https://openai.com/index/gpt-5-6/; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.6-terra. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://developers.openai.com/api/docs/changelog",
           "https://openai.com/index/gpt-5-6/",
           "https://developers.openai.com/api/docs/pricing",
           "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "20% reduction effective July 30. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
         "unconfirmed": false
@@ -524,14 +811,14 @@
         "cacheWritePerMTok": 5,
         "outputPerMTok": 20,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/changelog; https://openai.com/index/gpt-5-6/; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/changelog; https://openai.com/index/gpt-5-6/; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.6-sol. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://developers.openai.com/api/docs/changelog",
           "https://openai.com/index/gpt-5-6/",
           "https://developers.openai.com/api/docs/pricing",
           "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Promotion began August 21, not September 3. Guaranteed at least through November 21; no announced reversion date/rate. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
         "unconfirmed": false
@@ -556,7 +843,7 @@
         "cacheReadPerMTok": 0.075,
         "outputPerMTok": 4.5,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-4-mini-and-nano/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/guides/prompt-caching; https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-4-mini-and-nano/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/guides/prompt-caching; https://developers.openai.com/api/docs/models/gpt-5.4-mini. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://openai.com/index/introducing-gpt-5-4-mini-and-nano/",
           "https://developers.openai.com/api/docs/changelog",
@@ -564,12 +851,13 @@
           "https://developers.openai.com/api/docs/guides/prompt-caching",
           "https://developers.openai.com/api/docs/models/gpt-5.4-mini"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Launch input/output rates unchanged in current table. Cached rate confirmed currently; no separately dated cached-rate change found. No cache-write surcharge. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
         "unconfirmed": false
       }
-    ]
+    ],
+    "note": "Retired from Codex with ChatGPT sign-in on 2026-08-31 (replacement: gpt-6-luna); the OpenAI API and API-key Codex are unaffected. A 2026-09-29 runner probe with codex-cli 0.155.0 on a ChatGPT account returned HTTP 400 'not supported when using Codex with a ChatGPT account'."
   },
   {
     "modelId": "gpt-5.5",
@@ -587,7 +875,7 @@
         "cacheReadPerMTok": 0.5,
         "outputPerMTok": 30,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-5/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/guides/prompt-caching; https://developers.openai.com/api/docs/models/gpt-5.5",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-5/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/guides/prompt-caching; https://developers.openai.com/api/docs/models/gpt-5.5. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://openai.com/index/introducing-gpt-5-5/",
           "https://developers.openai.com/api/docs/changelog",
@@ -595,12 +883,13 @@
           "https://developers.openai.com/api/docs/guides/prompt-caching",
           "https://developers.openai.com/api/docs/models/gpt-5.5"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "April 23 announced tariff; API first released April 24. Cached rate confirmed currently; no dated change found. No cache-write surcharge. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published. API availability began on 2026-04-24; ChatGPT/Codex publication on 2026-04-23 is a separate date.",
         "unconfirmed": false
       }
-    ]
+    ],
+    "note": "Retires from ChatGPT, ChatGPT Work and Codex with ChatGPT sign-in on 2026-10-14; the OpenAI API is unaffected (Codex models page, retrieved 2026-09-29)."
   },
   {
     "modelId": "gpt-5.5-pro",
@@ -617,14 +906,14 @@
         "inputPerMTok": 30,
         "outputPerMTok": 180,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-5/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.5-pro",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-5/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5.5-pro. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://openai.com/index/introducing-gpt-5-5/",
           "https://developers.openai.com/api/docs/changelog",
           "https://developers.openai.com/api/docs/pricing",
           "https://developers.openai.com/api/docs/models/gpt-5.5-pro"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "API first released April 24. No cached-input discount and no cache-write surcharge. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published. API availability began on 2026-04-24; ChatGPT/Codex publication on 2026-04-23 is a separate date.",
         "unconfirmed": false
@@ -647,13 +936,13 @@
         "cacheReadPerMTok": 1.25,
         "currency": "USD",
         "validFrom": "2026-05-07T00:00:00Z",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/pricing; https://openai.com/index/gpt-5-5-with-trusted-access-for-cyber/; https://help.openai.com/en/articles/20001259",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://developers.openai.com/api/docs/pricing; https://openai.com/index/gpt-5-5-with-trusted-access-for-cyber/; https://help.openai.com/en/articles/20001259. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://developers.openai.com/api/docs/pricing",
           "https://openai.com/index/gpt-5-5-with-trusted-access-for-cyber/",
           "https://help.openai.com/en/articles/20001259"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "release-date-inference",
         "note": "Current Standard direct API price confirmed on 2026-09-12; price effective date is inferred from the 2026-05-07 release, whose announcement gives no numeric tariff. Restricted Responses API access; not general availability. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
         "unconfirmed": false
@@ -675,14 +964,14 @@
         "cacheReadPerMTok": 0.125,
         "outputPerMTok": 10,
         "currency": "USD",
-        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-for-developers/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5",
+        "source": "OpenAI official direct API pricing and dated release/changelog evidence; retrieved 2026-09-12. https://openai.com/index/introducing-gpt-5-for-developers/; https://developers.openai.com/api/docs/changelog; https://developers.openai.com/api/docs/pricing; https://developers.openai.com/api/docs/models/gpt-5. Re-verified unchanged on 2026-09-29: https://developers.openai.com/api/docs/pricing",
         "sourceUrls": [
           "https://openai.com/index/introducing-gpt-5-for-developers/",
           "https://developers.openai.com/api/docs/changelog",
           "https://developers.openai.com/api/docs/pricing",
           "https://developers.openai.com/api/docs/models/gpt-5"
         ],
-        "verifiedOn": "2026-09-12",
+        "verifiedOn": "2026-09-29",
         "validFromBasis": "provider-announced-date",
         "note": "Backfill omitted published price. Input/output launch rates unchanged in current table. Cached rate confirmed currently; no dated change found. Add gpt-5-2025-08-07 snapshot alias. Dates are normalized to midnight UTC from provider calendar-day announcements; exact intraday billing cutover was not published.",
         "unconfirmed": false
