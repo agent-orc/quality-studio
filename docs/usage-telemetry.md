@@ -74,7 +74,17 @@ Every review operation is priced when it is recorded: the ledger entry carries
 operation timestamp, and the API host logs the same figures per operation
 (event `ReviewOperationUsage`) next to the run id. `total` is `null`, never a
 silent zero, when the model is unknown to the price catalog (`unknownModel`) or
-the catalog has no price for that date (`noPriceForDate`). Entries written
+the catalog has no price for that date (`noPriceForDate`). A model with
+prompt-size tiers (Token Economy 0.3.8: Claude Haiku 5.5 bills a request's whole
+prompt at the higher rate above 100K; GPT-6.1 Sol above 272K) is billed per
+request, while an operation is a CLI run that can span several requests and the
+ledger records only its summed usage. An operation whose summed prompt (fresh
+input plus cache reads and writes) stays below the first tier is priced at the
+base rate, since no request can have been larger. Above it, or with an unknown
+input count, the status is `ambiguousPromptSize`: `total` stays `null` rather
+than showing the cheap tier, and `lowerBound` and `upperBound` carry the
+base-tier and highest-reachable-tier totals. The cost cap counts such an
+operation at its upper bound. Entries written
 before costs were recorded are priced at query time, so `GET /api/usage`
 returns `estimatedCost`, `costCurrency`, and `unpricedRuns` over the whole
 history. The synchronized Token Economy price snapshot is the only price source;
