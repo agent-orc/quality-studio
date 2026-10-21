@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+
 dotnet restore QualityStudio.slnx --locked-mode
 npm --prefix frontend ci --prefer-offline
-npm --prefix frontend run browser:install
+PLAYWRIGHT_BROWSERS_PATH="$repo_root/frontend/node_modules/.playwright-browsers" npm --prefix frontend run browser:install
