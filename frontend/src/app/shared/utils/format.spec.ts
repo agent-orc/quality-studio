@@ -1,4 +1,6 @@
-import { formatBytes, formatCost, formatModelSource, formatOptionalBytes, formatPriceStatus, formatTokenCount, parseTokenCount } from './format';
+import {
+  formatBytes, formatCost, formatModelSource, formatOptionalBytes, formatPriceStatus, formatRunCost, formatTokenCount, parseTokenCount,
+} from './format';
 import { bySortValue } from './sorting';
 
 describe('token count formatting', () => {
@@ -41,6 +43,13 @@ describe('cost formatting', () => {
     expect(formatModelSource('runner-default')).toBe('runner default');
     expect(formatModelSource('explicit')).toBe('chosen');
     expect(formatModelSource(null)).toBe('source unrecorded');
+  });
+
+  it('labels an ambiguous prompt-size run cost as a ceiling, never as the exact cost', () => {
+    expect(formatRunCost(0.153, 'USD', 'ambiguousPromptSize', null)).toBe('up to 0.15 USD (ambiguous prompt size)');
+    expect(formatRunCost(0.153, 'USD', 'ambiguousPromptSize', 1)).toBe('up to 0.15 USD (ambiguous prompt size) / 1.00 USD');
+    expect(formatRunCost(0.0306, 'USD', 'resolved', 1)).toBe('0.0306 USD / 1.00 USD');
+    expect(formatRunCost(null, 'USD', 'ambiguousPromptSize', null)).toBe('unpriced (ambiguous prompt size)');
   });
 });
 

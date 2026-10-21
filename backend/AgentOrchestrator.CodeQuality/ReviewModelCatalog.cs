@@ -245,32 +245,32 @@ public sealed class ReviewModelCatalog
                     + 5;
         score = Math.Clamp(score, 0, 100);
 
-        var scoredRoute = score switch
+        var scoredRouteId = score switch
         {
-            <= 20 => (Id: LunaMediumRoute, Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light"),
-            <= 50 => (Id: TerraMediumRoute, Model: "gpt-5.6-terra", Thinking: "medium", Tier: "balanced"),
-            <= 69 => (Id: SolMediumRoute, Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier"),
-            _ => (Id: SolXhighRoute, Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier"),
+            <= 20 => LunaMediumRoute,
+            <= 50 => TerraMediumRoute,
+            <= 69 => SolMediumRoute,
+            _ => SolXhighRoute,
         };
-        var floor = normalizedKind == "security"
-            ? (Id: SolXhighRoute, Model: "gpt-5.6-sol", Thinking: "xhigh", Tier: "frontier")
-            : aggregate || files > 50
-                ? (Id: SolMediumRoute, Model: "gpt-5.6-sol", Thinking: "medium", Tier: "frontier")
-                : (Id: LunaMediumRoute, Model: "gpt-5.6-luna", Thinking: "medium", Tier: "light");
-        var scoredRank = coreRouteRanks[scoredRoute.Id];
-        var floorRank = coreRouteRanks[floor.Id];
-        var route = scoredRank >= floorRank ? scoredRoute : floor;
+        var floorId = normalizedKind == "security"
+            ? SolXhighRoute
+            : aggregate || files > 50 ? SolMediumRoute : LunaMediumRoute;
+        var scoredRank = coreRouteRanks[scoredRouteId];
+        var floorRank = coreRouteRanks[floorId];
+        // The route ids are the score bands; the model behind each comes from the synchronized
+        // policy, so a re-pointed route (gpt-5.6-sol to gpt-6-sol) is followed without a code change.
+        var (model, thinking) = coreRoutes[scoredRank >= floorRank ? scoredRouteId : floorId];
         var scopeReason = aggregate
             ? $"{level.ToString().ToLowerInvariant()} scope across {files} files"
             : $"{files} file{(files == 1 ? string.Empty : "s")}";
-        var floorReason = floorRank > scoredRank ? $" The {floor.Id} correctness floor raises the scored route." : string.Empty;
+        var floorReason = floorRank > scoredRank ? $" The {floorId} correctness floor raises the scored route." : string.Empty;
         return new ReviewModelRecommendation(
             Snapshot.PolicyVersion,
-            route.Model,
-            route.Thinking,
-            route.Tier,
+            model,
+            thinking,
+            Find(model)!.CapabilityTier,
             score,
-            floor.Id,
+            floorId,
             $"Policy score {score} for {normalizedKind} review at {scopeReason}.{floorReason} Price and quota do not lower this floor.",
             "model-routing-policy");
     }

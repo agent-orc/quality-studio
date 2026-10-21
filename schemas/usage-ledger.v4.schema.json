@@ -92,7 +92,7 @@
         "currency",
         "status"
       ],
-      "description": "Estimated provider cost at the catalog price valid at the operation timestamp. total is null when no price resolved; status names the reason (resolved, unknownModel, noPriceForDate).",
+      "description": "Estimated provider cost at the catalog price valid at the operation timestamp. total is null when no price resolved; status names the reason (resolved, unknownModel, noPriceForDate, ambiguousPromptSize). ambiguousPromptSize means a prompt-size tariff applies but the operation's summed usage cannot establish the tier of each request; total is then null and lowerBound/upperBound carry the base-tier and highest-reachable-tier totals when the input count is known.",
       "properties": {
         "total": {
           "type": [
@@ -113,6 +113,14 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 50
+        },
+        "lowerBound": {
+          "type": "number",
+          "minimum": 0
+        },
+        "upperBound": {
+          "type": "number",
+          "minimum": 0
         }
       }
     },

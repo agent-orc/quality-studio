@@ -1,92 +1,334 @@
 {
   "$schema": "model-routing-policy.schema.json",
   "schemaVersion": 1,
-  "policyVersion": "2026-09-12",
-  "evidenceAsOfDate": "2026-07-24",
+  "policyVersion": "2026-10-21",
+  "evidenceAsOfDate": "2026-10-21",
   "authority": {
     "repositoryPath": "docs/system/domains/model-routing-policy.md",
     "upstreamRepository": "agent-orc/agent-studio",
     "upstreamPath": "docs/system/domains/model-routing-policy.md",
-    "contentSha256": "bd89457335211d510df1ffe219c79980adc896ecffa22ee68bbf4b38594ca6d1",
-    "synchronization": "The core ladder derives from the 2026-07-24 Agent Studio document. The 2026-09-12 Token Economy revision adds local Astra and Fable 5.1 support without changing that ladder or its evidence date; it does not claim an upstream update. Policy changes require a new policyVersion, refreshed hash, updated machine data, regenerated public view, and passing drift tests in one change."
+    "contentSha256": "241781f1c62ee971643036a1287067d9d11e541787430debf03ff3cd5b3d1363",
+    "synchronization": "Token Economy 2026-10-21 revision adds selectable Sonnet 5.5 and documented CLI version gates for Sonnet 5.5 and Haiku 5.5. Defaults, score bands, correctness floors, priors and fallbacks remain unchanged. The policy text also documents the Antigravity provider and test-only Gemini pins. TE-62 and TE-63 catalogue changes are included. No upstream update is claimed."
   },
   "providers": [
-    { "id": "openai", "cliId": "codex", "cliLabel": "Codex CLI", "evidenceStatus": "observed" },
-    { "id": "anthropic", "cliId": "claude-code", "cliLabel": "Claude Code CLI", "evidenceStatus": "observed" }
+    {
+      "id": "openai",
+      "cliId": "codex",
+      "cliLabel": "Codex CLI",
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "anthropic",
+      "cliId": "claude-code",
+      "cliLabel": "Claude Code CLI",
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "google",
+      "cliId": "antigravity",
+      "cliLabel": "Antigravity CLI (agy)",
+      "evidenceStatus": "observed"
+    }
   ],
   "thinkingLevels": [
-    { "id": "minimal", "rank": 0, "evidenceStatus": "observed" },
-    { "id": "low", "rank": 1, "evidenceStatus": "observed" },
-    { "id": "medium", "rank": 2, "evidenceStatus": "observed" },
-    { "id": "high", "rank": 3, "evidenceStatus": "observed" },
-    { "id": "xhigh", "rank": 4, "evidenceStatus": "observed" },
-    { "id": "ultra", "rank": 5, "evidenceStatus": "observed" },
-    { "id": "max", "rank": 6, "evidenceStatus": "observed" }
+    {
+      "id": "minimal",
+      "rank": 0,
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "low",
+      "rank": 1,
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "medium",
+      "rank": 2,
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "high",
+      "rank": 3,
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "xhigh",
+      "rank": 4,
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "ultra",
+      "rank": 5,
+      "evidenceStatus": "observed"
+    },
+    {
+      "id": "max",
+      "rank": 6,
+      "evidenceStatus": "observed"
+    }
   ],
   "models": [
     {
+      "canonicalId": "claude-haiku-5-5",
+      "aliases": [],
+      "minimumCliVersion": "2.1.293",
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-haiku-5-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-haiku-5-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "light",
+      "workflowRoles": [
+        "boundedPipelineDecision"
+      ],
+      "note": "Claude Code documents low/medium/high/xhigh/max with default medium and minimum v2.1.293: https://code.claude.com/docs/en/model-config (retrieved 2026-10-21). Operator reports Claude Code 2.1.305 installed on TUFI2, agent-runner-01 and KORI review containers, with the KORI Dockerfile pinned; agent-runner-01 runner-credential claude -p --model claude-haiku-5-5 answered on 2026-10-20. Earlier v2.1.301 modelUsage confirmed the canonical model; v2.1.281 fell back to Haiku 4.5. Explicit bounded classification, auto-tagging and fixture pin only; Sonnet low remains the coding economy floor. No default route, fallback or automatic migration.",
+      "testOnly": false
+    },
+    {
+      "canonicalId": "gemini-4-argon",
+      "aliases": [
+        "gemini-4-argon-low",
+        "gemini-4-argon-medium",
+        "gemini-4-argon-high"
+      ],
+      "providerId": "google",
+      "cliId": "antigravity",
+      "priceCatalogId": "gemini-4-argon",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gemini-4-argon",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Test-only: explicit operator pin only; no default tier, automatic migration, or fallback. agy 1.4.0 models output on 2026-10-16 listed low/medium/high suffixed ids; agy also accepts --effort low|medium|high|xhigh|max, but the model docs confirm only low/medium/high for this model. Access path for orchestrated runs is unresolved. Vendor FAQ: direct agy -p scripting/CI is intended; wrapping agy in third-party coding agents is not supported under consumer plans; API-key path is documented separately: https://www.antigravity.google/docs/faq/. API prices do not establish CLI subscription costs.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "gemini-3.8-flash",
+      "aliases": [
+        "gemini-3.8-flash-low",
+        "gemini-3.8-flash-medium",
+        "gemini-3.8-flash-high"
+      ],
+      "providerId": "google",
+      "cliId": "antigravity",
+      "priceCatalogId": "gemini-3.8-flash",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gemini-3.8-flash",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "balanced",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Test-only: explicit operator pin only; no default tier, automatic migration, or fallback. agy 1.4.0 models output on 2026-10-16 listed low/medium/high suffixed ids; agy also accepts --effort low|medium|high|xhigh|max, but the model docs confirm only low/medium/high for this model. Access path for orchestrated runs is unresolved. Vendor FAQ: direct agy -p scripting/CI is intended; wrapping agy in third-party coding agents is not supported under consumer plans; API-key path is documented separately: https://www.antigravity.google/docs/faq/. API prices do not establish CLI subscription costs.",
+      "testOnly": true
+    },
+    {
       "canonicalId": "gpt-5.6-luna",
-      "aliases": ["luna"],
+      "aliases": [
+        "luna"
+      ],
       "providerId": "openai",
       "cliId": "codex",
       "priceCatalogId": "gpt-5.6-luna",
       "mediaCatalogModelId": "*",
       "trustModelId": "gpt-5.6-luna",
-      "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh", "ultra"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
       "routingStatus": "selectable",
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "light",
-      "workflowRoles": ["coreTask"],
-      "note": "No Luna cohort existed in the 2026-07-23 benchmark; this is an unvalidated cost-saving hypothesis."
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "No Luna cohort existed in the 2026-07-23 benchmark; this is an unvalidated cost-saving hypothesis. Ladder refreshed 2026-09-29 (TE-59) from the Codex CLI model catalogue served to codex-cli 0.155.0 on 2026-09-29 (and bundled in rust-v0.157.0 through rust-v0.159.0): max added; minimal and ultra removed because the CLI does not advertise them for this model (a CLI that accepts an ultra flag without advertising it is not treated as support)."
     },
     {
       "canonicalId": "gpt-5.6-terra",
-      "aliases": ["terra"],
+      "aliases": [
+        "terra"
+      ],
       "providerId": "openai",
       "cliId": "codex",
       "priceCatalogId": "gpt-5.6-terra",
       "mediaCatalogModelId": "*",
       "trustModelId": "gpt-5.6-terra",
-      "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh", "ultra"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
       "routingStatus": "selectable",
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "balanced",
-      "workflowRoles": ["coreTask"],
-      "note": "Eight historical Terra/medium records had no known grades and no trustworthy terminal cohort."
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Eight historical Terra/medium records had no known grades and no trustworthy terminal cohort. Ladder refreshed 2026-09-29 (TE-59) from the Codex CLI model catalogue served to codex-cli 0.155.0 on 2026-09-29 (and bundled in rust-v0.157.0 through rust-v0.159.0): max added and minimal removed."
     },
     {
       "canonicalId": "gpt-5.6-sol",
-      "aliases": ["gpt-5.6", "sol"],
+      "aliases": [
+        "gpt-5.6",
+        "sol"
+      ],
       "providerId": "openai",
       "cliId": "codex",
       "priceCatalogId": "gpt-5.6-sol",
       "mediaCatalogModelId": "*",
       "trustModelId": "gpt-5.6-sol",
-      "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh", "ultra"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
       "routingStatus": "selectable",
       "evidenceStatus": "observational",
       "provisional": false,
       "capabilityTier": "frontier",
-      "workflowRoles": ["coreTask", "boundedPipelineDecision"],
-      "note": "Sol/medium has the strongest favorable historical signal; Sol/xhigh remains a correctness floor, not a blanket default."
+      "workflowRoles": [
+        "coreTask",
+        "boundedPipelineDecision"
+      ],
+      "note": "Sol/medium has the strongest favorable historical signal; Sol/xhigh remains a correctness floor, not a blanket default. Ladder refreshed 2026-09-29 (TE-59) from the Codex CLI model catalogue served to codex-cli 0.155.0 on 2026-09-29 (and bundled in rust-v0.157.0 through rust-v0.159.0): max added; minimal removed after the API rejected it in a runner probe."
     },
     {
       "canonicalId": "gpt-6-astra",
-      "aliases": ["astra"],
+      "aliases": [
+        "astra"
+      ],
       "providerId": "openai",
       "cliId": "codex",
       "priceCatalogId": "gpt-6-astra",
       "mediaCatalogModelId": "*",
       "trustModelId": "gpt-6-astra",
-      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
       "routingStatus": "selectable",
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "frontier",
-      "workflowRoles": ["coreTask"],
-      "note": "Supported for explicit evaluation, compatibility comparison, and operator-pinned core tasks. External benchmarks and dated prices are retained; no comparable local completion or review cohort is available. Provisional support does not add a default core tier, declare fallback equivalence, or lower a correctness floor."
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Selectable for explicit evaluation and operator pins, provisional. Operator observed two access_programs.cyber HTTP 400s in about eight runs on 2026-09-18. No comparable local completion cohort; not a default tier or equivalent provider fallback."
+    },
+    {
+      "canonicalId": "gpt-6-sol",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6-sol",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6-sol",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Ladder refreshed 2026-09-29 (TE-59): the Codex CLI model catalogue served to codex-cli 0.155.0 on 2026-09-29 (and bundled in rust-v0.157.0 through rust-v0.159.0) lists low/medium/high/xhigh/max/ultra with default medium; runner probes on 2026-09-29 completed at max and ultra, and the API rejects minimal for this generation. This supersedes the 2026-09-25 minimal-through-xhigh observation. Sol runs on the workstation and agent-runner-01 since September 24; policy explicitly selects medium or xhigh. Default core route by operator decision backed by dated prices and vendor claims; local completion and review cohorts remain unqualified. Level availability is not quality evidence: max and ultra have no local cohort."
+    },
+    {
+      "canonicalId": "gpt-6.1-sol",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6.1-sol",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6.1-sol",
+      "supportedThinkingLevels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Additional supported model for explicit evaluation or operator pin only; no default route, task-class prior or fallback equivalence. Production Agent Studio Codex discovery on 2026-10-04 listed minimal/low/medium/high/xhigh (default xhigh). codex-cli 0.155.0 on this ChatGPT account returned HTTP 400 model not supported, so no level could be executed here; minimal is advertised but runtime support is unconfirmed. The OpenAI API model page separately says API minimal is unsupported. Language and media capability are unmeasured."
+    },
+    {
+      "canonicalId": "gpt-6-luna",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6-luna",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6-luna",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "light",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Ladder refreshed 2026-09-29 (TE-59): the Codex CLI model catalogue served to codex-cli 0.155.0 on 2026-09-29 (and bundled in rust-v0.157.0 through rust-v0.159.0) lists low/medium/high/xhigh/max with default medium, and OpenAI states Luna supports efforts up to max but not ultra; a runner probe on 2026-09-29 completed at max and the API rejected minimal. Luna execution succeeded on agent-runner-01 on September 25. Default core route by operator decision backed by dated prices and vendor claims; local completion and review cohorts remain unqualified. Level availability is not quality evidence."
     },
     {
       "canonicalId": "claude-fable-5-1",
@@ -96,29 +338,92 @@
       "priceCatalogId": "claude-fable-5-1",
       "mediaCatalogModelId": "*",
       "trustModelId": "claude-fable-5-1",
-      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
       "routingStatus": "selectable",
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "frontier",
-      "workflowRoles": ["coreTask"],
+      "workflowRoles": [
+        "coreTask"
+      ],
       "note": "Provider-supported model and five-level effort ladder: https://platform.claude.com/docs/en/models/fable-5-1/overview and https://platform.claude.com/docs/en/build-with-claude/effort (retrieved 2026-09-12). Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks. Local completion and review fit remain unvalidated; support does not add a default tier or declare provider-fallback equivalence."
     },
     {
+      "canonicalId": "claude-opus-5-5",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-5-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-5-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Anthropic documents low/medium/high/xhigh/max with provider default medium for Claude Opus 5.5. Claude Code 2.1.281 execution reported the canonical model in modelUsage; 2.1.270 silently fell back after an unrecognized-model warning, so 2.1.281 is the minimum observed CLI version. Selectable for explicit evaluation, compatibility comparison, and operator-pinned core tasks; no comparable local completion or review cohort is available. This support adds no default tier, fallback equivalence, or automatic migration."
+    },
+    {
       "canonicalId": "gpt-5.4-mini",
-      "aliases": ["mini"],
+      "aliases": [
+        "mini"
+      ],
       "providerId": "openai",
       "cliId": "codex",
       "priceCatalogId": "gpt-5.4-mini",
       "mediaCatalogModelId": "*",
       "trustModelId": "gpt-5.4-mini",
-      "supportedThinkingLevels": ["low", "medium", "high"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
       "routingStatus": "selectable",
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "light",
-      "workflowRoles": ["boundedPipelineDecision"],
-      "note": "Role exception for bounded decisions over compact structured evidence; not a core-task route."
+      "workflowRoles": [
+        "boundedPipelineDecision"
+      ],
+      "note": "Role exception for bounded decisions over compact structured evidence; not a core-task route. Availability warning (TE-59, 2026-09-29): OpenAI retired gpt-5.4-mini from Codex with ChatGPT sign-in on 2026-08-31, and a runner probe with codex-cli 0.155.0 on a ChatGPT account returned HTTP 400. The route still resolves for API-key Codex; replacing it (OpenAI names gpt-6-luna) is an open policy decision."
+    },
+    {
+      "canonicalId": "claude-sonnet-5-5",
+      "aliases": [],
+      "minimumCliVersion": "2.1.284",
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-sonnet-5-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-sonnet-5-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": ["coreTask"],
+      "note": "Claude Code documents low/medium/high/xhigh/max with default medium: https://code.claude.com/docs/en/model-config (retrieved 2026-10-21). Minimum Claude Code 2.1.284; 2.1.281 returned unrecognized_model on 2026-09-29. Operator reports Claude Code 2.1.305 installed on TUFI2, agent-runner-01 and KORI review containers, with the KORI Dockerfile pinned; agent-runner-01 runner-credential claude -p --model claude-sonnet-5-5 answered on 2026-10-20. Selectable for explicit evaluation and operator-pinned core tasks only; no correctness-floor equivalence, default route, provider fallback or automatic migration."
     },
     {
       "canonicalId": "claude-sonnet-5",
@@ -128,72 +433,486 @@
       "priceCatalogId": "claude-sonnet-5",
       "mediaCatalogModelId": "*",
       "trustModelId": "claude-sonnet-5",
-      "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"],
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
       "routingStatus": "fallbackOnly",
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "frontier",
-      "workflowRoles": ["coreTask"],
-      "note": "Small favorable Claude Sonnet 5/high feature cohort; use only as an equivalent-capability provider fallback."
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Small favorable Claude Sonnet 5/high feature cohort; use only as an equivalent-capability provider fallback. Legacy since Claude Sonnet 5.5 (2026-09-28); the policy pins the full id, so Claude Code's sonnet alias moving to Sonnet 5.5 in v2.1.284 does not change this fallback."
     },
     {
-      "canonicalId": "claude-opus-4-1", "aliases": ["claude-opus-4-1-20250805"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-1", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-1", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "deprecated", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Retires 2026-08-05."
+      "canonicalId": "claude-opus-4-1",
+      "aliases": [
+        "claude-opus-4-1-20250805"
+      ],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-4-1",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-4-1",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "routingStatus": "deprecated",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Retires 2026-08-05."
     },
     {
-      "canonicalId": "claude-fable-5", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-fable-5", "mediaCatalogModelId": "*", "trustModelId": "claude-fable-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-fable-5",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-fable-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-fable-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
-      "canonicalId": "claude-opus-5", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-5", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-5", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-opus-5",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Retained Anthropic vendor override for explicit operator pins, subject to task correctness floors. No automatic equivalence to Sol/xhigh is established. Claude Code lists low/medium/high/xhigh/max for Opus 5 (xhigh added 2026-09-29, TE-59)."
     },
     {
-      "canonicalId": "claude-opus-4-8", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-8", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-8", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-opus-4-8",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-4-8",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-4-8",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy. Claude Code lists low/medium/high/xhigh/max (xhigh added 2026-09-29, TE-59)."
     },
     {
-      "canonicalId": "claude-opus-4-7", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-7", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-7", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-opus-4-7",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-4-7",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-4-7",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy. Claude Code lists low/medium/high/xhigh/max with default xhigh (xhigh added 2026-09-29, TE-59)."
     },
     {
-      "canonicalId": "claude-opus-4-6", "aliases": [], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-6", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-6", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-opus-4-6",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-4-6",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-4-6",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
-      "canonicalId": "claude-opus-4-5", "aliases": ["claude-opus-4-5-20251101"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-opus-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-opus-4-5", "supportedThinkingLevels": ["low", "medium", "high", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-opus-4-5",
+      "aliases": [
+        "claude-opus-4-5-20251101"
+      ],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-opus-4-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-opus-4-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
-      "canonicalId": "claude-sonnet-4-6", "aliases": ["claude-sonnet-4-6-20260301"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-6", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-6", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-sonnet-4-6",
+      "aliases": [
+        "claude-sonnet-4-6-20260301"
+      ],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-sonnet-4-6",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-sonnet-4-6",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "balanced",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy. Claude Code lists low/medium/high/max; xhigh removed 2026-09-29 (TE-59) because Claude Code runs it as high."
     },
     {
-      "canonicalId": "claude-sonnet-4-5", "aliases": ["claude-sonnet-4-5-20250929"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-sonnet-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-sonnet-4-5", "supportedThinkingLevels": ["low", "medium", "high", "xhigh", "max"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-sonnet-4-5",
+      "aliases": [
+        "claude-sonnet-4-5-20250929"
+      ],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-sonnet-4-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-sonnet-4-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "balanced",
+      "workflowRoles": [],
+      "note": "Known to the price catalog but not qualified by the authoritative routing policy."
     },
     {
-      "canonicalId": "claude-haiku-4-5", "aliases": ["claude-haiku-4-5-20251001"], "providerId": "anthropic", "cliId": "claude-code", "priceCatalogId": "claude-haiku-4-5", "mediaCatalogModelId": "*", "trustModelId": "claude-haiku-4-5", "supportedThinkingLevels": ["low", "medium"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "light", "workflowRoles": [], "note": "Known to the price catalog but not qualified by the authoritative routing policy."
+      "canonicalId": "claude-haiku-4-5",
+      "aliases": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-haiku-4-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-haiku-4-5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "light",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Retained Anthropic vendor override for explicit operator pins, subject to task correctness floors. No automatic equivalence to Sol/xhigh is established. Claude Code and the Claude API do not support effort on Haiku 4.5 (extended thinking only), so the low/medium levels are nominal labels that do not change the request (verified 2026-09-29, TE-59). Retirement not sooner than 2026-10-15."
     },
     {
-      "canonicalId": "gpt-5.5", "aliases": ["gpt-5.5-2026-04-23"], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+      "canonicalId": "gpt-5.5",
+      "aliases": [
+        "gpt-5.5-2026-04-23"
+      ],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.5",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "balanced",
+      "workflowRoles": [],
+      "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24. Retires from ChatGPT, ChatGPT Work and Codex with ChatGPT sign-in on 2026-10-14 (API unaffected). Ladder refreshed 2026-09-29 (TE-59): the Codex CLI lists low through xhigh; minimal failed on the runner because Codex's web_search tool is incompatible with it."
     },
     {
-      "canonicalId": "gpt-5.5-pro", "aliases": ["gpt-5.5-pro-2026-04-23"], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5-pro", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5-pro", "supportedThinkingLevels": ["medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the API/price catalog but not a route in policy version 2026-07-24."
+      "canonicalId": "gpt-5.5-pro",
+      "aliases": [
+        "gpt-5.5-pro-2026-04-23"
+      ],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.5-pro",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.5-pro",
+      "supportedThinkingLevels": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the API/price catalog but not a route in policy version 2026-07-24."
     },
     {
-      "canonicalId": "gpt-5.5-cyber-preview", "aliases": ["gpt-5.5-cyber"], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5.5-cyber-preview", "mediaCatalogModelId": "*", "trustModelId": "gpt-5.5-cyber-preview", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "restricted", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Limited-preview model for separately approved defenders; catalog coverage does not make it a selectable route in policy version 2026-07-24."
+      "canonicalId": "gpt-5.5-cyber-preview",
+      "aliases": [
+        "gpt-5.5-cyber"
+      ],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.5-cyber-preview",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.5-cyber-preview",
+      "supportedThinkingLevels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Limited-preview model for separately approved defenders; catalog coverage does not make it a selectable route in policy version 2026-07-24."
     },
     {
-      "canonicalId": "gpt-5", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5", "mediaCatalogModelId": "*", "trustModelId": "gpt-5", "supportedThinkingLevels": ["minimal", "low", "medium", "high", "xhigh"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "balanced", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+      "canonicalId": "gpt-5",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5",
+      "supportedThinkingLevels": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "balanced",
+      "workflowRoles": [],
+      "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
     },
     {
-      "canonicalId": "gpt-5-codex", "aliases": [], "providerId": "openai", "cliId": "codex", "priceCatalogId": "gpt-5-codex", "mediaCatalogModelId": "*", "trustModelId": "gpt-5-codex", "supportedThinkingLevels": ["low", "medium", "high"], "routingStatus": "unsupported", "evidenceStatus": "unknown", "provisional": false, "capabilityTier": "frontier", "workflowRoles": [], "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+      "canonicalId": "gpt-5-codex",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5-codex",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5-codex",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "routingStatus": "unsupported",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
     }
   ],
   "routes": [
-    { "id": "luna-medium", "label": "Luna / medium", "modelId": "gpt-5.6-luna", "thinkingLevel": "medium", "workflowRole": "coreTask", "minimumScore": 0, "maximumScore": 20, "rank": 0, "evidenceStatus": "provisional", "useFor": ["trivialMechanicalChange", "locallySpecifiedSmallDiff", "obviousVerificationPath"], "doNotUseFor": ["unclearBug", "crossSubsystemBehavior", "publicContract", "migration", "security", "concurrency", "distributedState"] },
-    { "id": "terra-medium", "label": "Terra / medium", "modelId": "gpt-5.6-terra", "thinkingLevel": "medium", "workflowRole": "coreTask", "minimumScore": 21, "maximumScore": 50, "rank": 1, "evidenceStatus": "provisional", "useFor": ["standardFeature", "content", "reversibleSingleSubsystemChange"], "doNotUseFor": ["p0", "fencing", "distributedAuthority", "dataLossPath", "broadArchitecturalReconstruction"] },
-    { "id": "sol-medium", "label": "Sol / medium", "modelId": "gpt-5.6-sol", "thinkingLevel": "medium", "workflowRole": "coreTask", "minimumScore": 51, "maximumScore": 69, "rank": 2, "evidenceStatus": "observational", "useFor": ["demandingImplementation", "investigation", "analysis", "broadContextSearch", "twoOrThreeSubsystems"], "doNotUseFor": ["correctnessCriticalHardFloor"] },
-    { "id": "sol-xhigh", "label": "Sol / xhigh", "modelId": "gpt-5.6-sol", "thinkingLevel": "xhigh", "workflowRole": "coreTask", "minimumScore": 70, "maximumScore": 100, "rank": 3, "evidenceStatus": "correctnessFloor", "useFor": ["p0", "fencing", "leaseOwnership", "distributedAuthority", "securityBoundary", "destructiveMigration", "dataLossPrevention", "subtleConcurrentStateMachine"], "doNotUseFor": ["routineWorkBecauseQuotaIsAvailable"] },
-    { "id": "mini-high", "label": "Mini / high", "modelId": "gpt-5.4-mini", "thinkingLevel": "high", "workflowRole": "boundedPipelineDecision", "rank": 0, "evidenceStatus": "provisional", "useFor": ["boundedOrchestratorDecision", "compactStructuredEvidence", "deterministicOutputContract"], "doNotUseFor": ["coreImplementation", "openEndedArchitecture", "ambiguousProductDecision", "unboundedContext"] }
+    {
+      "id": "luna-medium",
+      "label": "Luna / medium",
+      "modelId": "gpt-6-luna",
+      "thinkingLevel": "medium",
+      "workflowRole": "coreTask",
+      "minimumScore": 0,
+      "maximumScore": 20,
+      "rank": 0,
+      "evidenceStatus": "provisional",
+      "useFor": [
+        "trivialMechanicalChange",
+        "locallySpecifiedSmallDiff",
+        "obviousVerificationPath"
+      ],
+      "doNotUseFor": [
+        "unclearBug",
+        "crossSubsystemBehavior",
+        "publicContract",
+        "migration",
+        "security",
+        "concurrency",
+        "distributedState"
+      ]
+    },
+    {
+      "id": "terra-medium",
+      "label": "Terra / medium",
+      "modelId": "gpt-5.6-terra",
+      "thinkingLevel": "medium",
+      "workflowRole": "coreTask",
+      "minimumScore": 21,
+      "maximumScore": 50,
+      "rank": 1,
+      "evidenceStatus": "provisional",
+      "useFor": [
+        "standardFeature",
+        "content",
+        "reversibleSingleSubsystemChange"
+      ],
+      "doNotUseFor": [
+        "p0",
+        "fencing",
+        "distributedAuthority",
+        "dataLossPath",
+        "broadArchitecturalReconstruction"
+      ]
+    },
+    {
+      "id": "sol-medium",
+      "label": "Sol / medium",
+      "modelId": "gpt-6-sol",
+      "thinkingLevel": "medium",
+      "workflowRole": "coreTask",
+      "minimumScore": 51,
+      "maximumScore": 69,
+      "rank": 2,
+      "evidenceStatus": "provisional",
+      "useFor": [
+        "demandingImplementation",
+        "investigation",
+        "analysis",
+        "broadContextSearch",
+        "twoOrThreeSubsystems"
+      ],
+      "doNotUseFor": [
+        "correctnessCriticalHardFloor"
+      ]
+    },
+    {
+      "id": "sol-xhigh",
+      "label": "Sol / xhigh",
+      "modelId": "gpt-6-sol",
+      "thinkingLevel": "xhigh",
+      "workflowRole": "coreTask",
+      "minimumScore": 70,
+      "maximumScore": 100,
+      "rank": 3,
+      "evidenceStatus": "provisional",
+      "useFor": [
+        "p0",
+        "fencing",
+        "leaseOwnership",
+        "distributedAuthority",
+        "securityBoundary",
+        "destructiveMigration",
+        "dataLossPrevention",
+        "subtleConcurrentStateMachine"
+      ],
+      "doNotUseFor": [
+        "routineWorkBecauseQuotaIsAvailable"
+      ]
+    },
+    {
+      "id": "mini-high",
+      "label": "Mini / high",
+      "modelId": "gpt-5.4-mini",
+      "thinkingLevel": "high",
+      "workflowRole": "boundedPipelineDecision",
+      "rank": 0,
+      "evidenceStatus": "provisional",
+      "useFor": [
+        "boundedOrchestratorDecision",
+        "compactStructuredEvidence",
+        "deterministicOutputContract"
+      ],
+      "doNotUseFor": [
+        "coreImplementation",
+        "openEndedArchitecture",
+        "ambiguousProductDecision",
+        "unboundedContext"
+      ]
+    }
   ],
   "providerFallbacks": [
     {
       "id": "claude-sonnet-5-high",
-      "forRouteIds": ["terra-medium", "sol-medium"],
-      "notForRouteIds": ["sol-xhigh"],
+      "forRouteIds": [
+        "terra-medium",
+        "sol-medium"
+      ],
+      "notForRouteIds": [
+        "sol-xhigh"
+      ],
       "modelId": "claude-sonnet-5",
       "thinkingLevel": "high",
       "evidenceStatus": "provisional",
@@ -202,26 +921,84 @@
     }
   ],
   "scoringCriteria": [
-    { "id": "correctnessRisk", "maximumPoints": 35 },
-    { "id": "expectedScope", "maximumPoints": 20 },
-    { "id": "contextDemand", "maximumPoints": 20 },
-    { "id": "taskTypeAndUncertainty", "maximumPoints": 10 },
-    { "id": "empiricalConfidence", "maximumPoints": 10 },
-    { "id": "quotaAndCostHeadroom", "maximumPoints": 5 }
+    {
+      "id": "correctnessRisk",
+      "maximumPoints": 35
+    },
+    {
+      "id": "expectedScope",
+      "maximumPoints": 20
+    },
+    {
+      "id": "contextDemand",
+      "maximumPoints": 20
+    },
+    {
+      "id": "taskTypeAndUncertainty",
+      "maximumPoints": 10
+    },
+    {
+      "id": "empiricalConfidence",
+      "maximumPoints": 10
+    },
+    {
+      "id": "quotaAndCostHeadroom",
+      "maximumPoints": 5
+    }
   ],
   "hardFloors": [
-    { "id": "correctnessCritical", "minimumRouteId": "sol-xhigh", "triggers": ["p0", "fencing", "leaseOwnership", "staleWriteRejection", "distributedAuthority", "securityBoundary", "credibleDataLoss"] },
-    { "id": "broadContract", "minimumRouteId": "sol-medium", "triggers": ["publicProtocol", "persistentStateMigration", "threeOrMoreRuntimeSubsystems"] },
-    { "id": "unclearBug", "minimumRouteId": "terra-medium", "triggers": ["unclearBug"] }
+    {
+      "id": "correctnessCritical",
+      "minimumRouteId": "sol-xhigh",
+      "triggers": [
+        "p0",
+        "fencing",
+        "leaseOwnership",
+        "staleWriteRejection",
+        "distributedAuthority",
+        "securityBoundary",
+        "credibleDataLoss"
+      ]
+    },
+    {
+      "id": "broadContract",
+      "minimumRouteId": "sol-medium",
+      "triggers": [
+        "publicProtocol",
+        "persistentStateMigration",
+        "threeOrMoreRuntimeSubsystems"
+      ]
+    },
+    {
+      "id": "unclearBug",
+      "minimumRouteId": "terra-medium",
+      "triggers": [
+        "unclearBug"
+      ]
+    }
   ],
   "workflowConstraints": {
     "boundedPipelineDefaultRouteId": "mini-high",
     "ambiguousOrUnboundedAuthorizingDecisionMinimumRouteId": "sol-medium",
-    "authorizingDecisionTriggers": ["destructiveAction", "securityAction", "laneAffectingAction"]
+    "authorizingDecisionTriggers": [
+      "destructiveAction",
+      "securityAction",
+      "laneAffectingAction"
+    ]
   },
   "reissueRules": {
-    "promoteOn": ["substantiveCOrDReview", "semanticReissue"],
-    "doNotPromoteOn": ["environmentalFailure", "staleBase", "brokenTestHost", "cancellation", "quotaTruncation", "missingDeliveryPath"],
+    "promoteOn": [
+      "substantiveCOrDReview",
+      "semanticReissue"
+    ],
+    "doNotPromoteOn": [
+      "environmentalFailure",
+      "staleBase",
+      "brokenTestHost",
+      "cancellation",
+      "quotaTruncation",
+      "missingDeliveryPath"
+    ],
     "empiricalConfidencePointsAfterSemanticFailure": 10,
     "minimumCoreTierIncrease": 1,
     "stopAfterSemanticFailuresAtStrongerTier": 2
