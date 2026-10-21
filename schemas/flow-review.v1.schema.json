@@ -186,7 +186,7 @@
       "required": ["status"],
       "properties": {
         "status": {
-          "enum": ["resolved", "unknownModel", "noPriceForDate", "usageUnavailable"]
+          "enum": ["resolved", "unknownModel", "noPriceForDate", "usageUnavailable", "ambiguousPromptSize"]
         },
         "amount": { "type": "number", "minimum": 0 },
         "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }

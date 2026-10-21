@@ -213,6 +213,43 @@ public sealed class ReviewRunStoreTests
     }
 
     [Fact]
+    public async Task Cost_cap_counts_an_ambiguous_prompt_size_tier_at_its_upper_bound()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixture = await DurableRunFixture.CreateAsync(cancellationToken);
+        // Per operation: 200k input = 10k fresh + 40k cache read + 150k cache write, 1k output. The
+        // sum passes Haiku 5.5's 100K tier, so it counts at the higher tariff: 0.005 + 0.002 +
+        // 0.09375 + 0.0025 = 0.10325 USD. The base tier (0.02065 USD) would leave the cap unreached.
+        var fake = new CappedExecutorFactory(new TokenUsage(200_000, 1_000, 40_000, 0, 1, 150_000));
+        try
+        {
+            await using var application = fixture.CreateApplication(fake);
+            using var client = application.CreateClient();
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = ".",
+                kind = "code",
+                cliType = "test-agent",
+                model = "claude-haiku-5-5",
+                costCap = 0.15m,
+            }, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            var run = await WaitForStateAsync(client, accepted.GetProperty("id").GetString()!, "capped", cancellationToken);
+
+            Assert.Equal(2, fake.OperationCount);
+            Assert.Equal(0.2065m, run.GetProperty("costSpent").GetDecimal());
+            Assert.Equal(ReviewPriceCatalog.AmbiguousPromptSize, run.GetProperty("priceStatus").GetString());
+            Assert.Contains("Cost cap", run.GetProperty("stopReason").GetString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task Preflight_lists_the_sensors_a_run_executes_with_expected_duration_and_opt_in_state()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
