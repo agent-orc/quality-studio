@@ -1,30 +1,37 @@
-# QS-117 status
+# QS-129 status
 
-Result: Done
+Result: Done. Verified on `agent-runner-01` in fresh clones of implementation commit `da61bbba37f1f7c622178207f59b0526410f0464`.
 
-## Decision and scope
+## Decision and change
 
-Implemented the shadow-only verdict contract under QS-W6: Quality Studio supplies a policy-bound, rule-cited verdict for a Git change; Agent Studio remains the decision owner. This prepares the QS-118 Dossier's recommended option B without changing any gate. The reviewed `3f0130b3` delivery and subsequent QS-117 commits remain on the task branch with their history intact. Merge commit `59502d45` brought in the refreshed `origin/main` at `a0a5d660` without conflicts; both the prior delivery `032a9a14` and current main tip are ancestors.
+No Dossier for QS-129 was present in this checkout. Implemented the project-command option: `.agent-studio/prepare` is the sole installer (locked .NET restore, `npm ci`, Chromium) and installs Chromium in an absolute workspace path. The configured frontend test command sets `PLAYWRIGHT_BROWSERS_PATH` to that same absolute path before running `npm --prefix frontend run test`. `CHROME_BIN` remains the browser resolver's first choice. The configured lint command calls `.agent-studio/prepare` if its isolated workspace has no ESLint binary; direct `npm --prefix frontend run lint` emits a BuildProfile preparation message when dependencies are absent.
 
-## Review findings addressed
+## Fresh-clone review sequence
 
-- **Ten new API test failures:** Removed the duplicate `/api/rules` registrations and obsolete handler; `MapRulePoolEndpoints` now owns both rule-pool routes. Added the required unscoped `POST /api/change-review` twin. The ten specifically reported tests pass. Added positive default-route and scoped-identity regression tests; a foreign repository and an unscoped default route reject identities without access.
-- **Security findings bypass configured blocking policy:** Removed the security-category exception from disposition calculation and the instruction excluding security findings from the reviewer prompt. An applicable security-category code rule now blocks when `.quality/policy.json` names its rule and severity. A focused test also verifies the same finding becomes `concerns` when that rule is not selected to block.
-- **Git-quoted paths can make valid findings unparseable:** Decode Git's C-style quoted `---` and `+++` paths, including escaped quotes and octal UTF-8 bytes, before indexing changed-line anchors. The focused test covers an unquoted space-containing path plus quoted Unicode paths on both the added and removed sides; all findings resolve to their original path.
-- **Quoted diff paths with timestamps are keyed incorrectly:** Split each header at a tab after the closing unescaped quote, then decode the path. A synthetic Git diff regression test checks both base and head anchors for a quoted Unicode path with an embedded quote and a different timestamp on each side. The focused path tests pass (4/4).
-- **Missing 20-task comparison and evidence:** Fetched Agent Studio `develop`, verified all 20 result SHAs appear in remote result refs and that each base is an ancestor of its result, called the change-review endpoint for each selected pair, retained the 20 responses, ran `scripts/compare-shadow-verdicts.mjs`, and wrote [the shadow report](shadow-comparison.md) with a per-record table and all disagreements. Exact agreement is **5/20 (25.0%)**. `AGT-2950` returned `provider-unavailable` for a binary diff and was replaced by operator-provided `AGT-3014` before scoring. The final 20 all have completed verdicts.
-- **Documentation and shadow authority:** Updated the route and policy guide and linked the comparison. No gate consumes the verdict; QS-W6 remains in effect until the dossier decision changes.
-- **Integration recovery:** The reported `merge-into-develop` stage failed because the reviewed delivery did not integrate. [Recovery evidence](integration-recovery-evidence.txt) records the reviewed SHA, both recovery merges, and successful ancestry checks against the refreshed main. The referenced `pipeline-execution.json` was not mounted in this workspace; the reported failure is quoted there and the branch history supplies the replacement evidence.
+The first clone contained no `frontend/node_modules`. The runner's injected `PLAYWRIGHT_BROWSERS_PATH` was unset for the sequence to reproduce the review shell. Commands below were run from the checkout root in the order listed, exactly as `.agent-studio/project.yml` specifies. Logs are in the QS-129 job results directory.
 
-## Verification
+| Command | Result | Log |
+| --- | --- | --- |
+| `.agent-studio/prepare` | Pass; .NET restore, 680 npm packages, workspace Chromium installed | `fresh-prepare.log` |
+| `dotnet build QualityStudio.slnx --no-restore` | Pass; 0 warnings, 0 errors | `fresh-dotnet-build.log` |
+| `npm --prefix frontend run build` | Pass; existing Angular warnings | `fresh-frontend-build.log` |
+| `dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"` | Pass; CodeQuality 834 passed, 9 skipped; API 280 passed | `fresh-dotnet-test.log` |
+| `.agent-studio/test-frontend` | Pass; Chrome Headless, 243/243 specs | `fresh-frontend-test.log` |
+| `.agent-studio/lint` | Pass; `prelint` check and ESLint | `fresh-lint.log` |
 
-| Command | Result |
-| --- | --- |
-| `dotnet build QualityStudio.slnx --configuration Release` | Passed; 0 warnings, 0 errors. [Log](build.log) |
-| `dotnet test QualityStudio.slnx --configuration Release --no-build --filter 'Category!=MachineBound&Category!=ExternalLive'` | Passed; 280 API tests and 834 code-quality tests, 9 platform skips. Includes the reported route, security, quoted-path, timestamped-header, and verdict regressions. [Log](dotnet-tests.log) |
-| `npm --prefix frontend run build -- --configuration development` | Passed. [Log](frontend-build.log) |
-| `CHROME_NO_SANDBOX=1 npm --prefix frontend test` | Passed 243/243. [Log](frontend-tests.log) |
-| `node scripts/compare-shadow-verdicts.mjs results/shadow-pairs.json "$JOB_RESULTS_DIR/shadow-comparison-recomputed.json"` | Passed; 5/20 exact agreement, byte identical to the committed comparison. [Report](shadow-comparison.md) |
-| Focused quoted-path tests | Passed 4/4, including the timestamped header regression. [Log](focused-tests.log) |
+The explicit request to prove all review commands pass in a fresh clone governed the full test commands above. No coverage run was made.
 
-Frontend dependencies were installed with `npm --prefix frontend ci` before the frontend checks because this worktree initially had no `node_modules`. The full .NET run used the final Release build. All logs and comparison evidence are present in the absolute job results directory.
+## Focused and isolated checks
+
+- `npm --prefix frontend run test:browser-resolver`: 4/4 passed, including explicit `CHROME_BIN` precedence (`browser-resolver.log`).
+- `dotnet test backend/tests/AgentOrchestrator.CodeQuality.Tests/AgentOrchestrator.CodeQuality.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~.Architecture.|Category=Guard"`: exit 0; no matching tests (`guard-codequality.log`).
+- `dotnet test backend/tests/QualityStudio.Api.Tests/QualityStudio.Api.Tests.csproj --no-build --no-restore --filter "FullyQualifiedName~.Architecture.|Category=Guard"`: exit 0; no matching tests (`guard-api.log`).
+- In a second clean clone with no `node_modules`, `.agent-studio/lint` ran `.agent-studio/prepare` and ESLint successfully (`isolated-lint.log`).
+- Before preparation, direct `npm --prefix frontend run lint` exited 1 with `BuildProfile preparation missing: frontend/node_modules/.bin/eslint was not found`, rather than exit 127 (`unprepared-lint.log`).
+- The complete .NET test logs contain no failed tests. No test process from either QS-129 clone remained at completion. All evidence files are below 8 MB.
+
+## Re-review impact
+
+QS-122, QS-123, QS-127, and QS-128 are eligible for re-review after this infrastructure fix. The supplied QS-127 settlement confirms that its base and candidate passed prepare and build, while both failed only the frontend browser and lint aspects; **QS-127 is the card confirmed blocked only by this ReviewInfra defect**. The source reports the same ReviewInfra escalation for QS-122, QS-123, and QS-128, but their individual review settlements were not supplied here, so an exclusive blocker cannot be asserted for those three.
+
+The final delivery SHA is recorded in the shipped job-results copy of this file.
