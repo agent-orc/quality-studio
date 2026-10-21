@@ -128,6 +128,27 @@ describe('UsageHistory', () => {
     expect(fixture.nativeElement.querySelector('.cost-total strong')?.textContent).toContain('unpriced');
   });
 
+  it('shows an ambiguous prompt-size tier as a range instead of the cheap tier', () => {
+    const usage = api.usage();
+    api.usage.set({
+      ...usage,
+      recent: [{
+        ...usage.recent[0],
+        cliType: 'claude',
+        model: 'claude-haiku-5-5',
+        cost: { total: null, currency: 'USD', status: 'ambiguousPromptSize', lowerBound: 0.05, upperBound: 0.25 },
+      }],
+    });
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.entry-cost')?.textContent).toContain('unpriced');
+
+    (element.querySelector('.entry-summary') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element.querySelector('.entry-details')?.textContent)
+      .toContain('Unpriced: ambiguous prompt size. Between 0.0500 USD and 0.25 USD.');
+  });
+
   it('shows cache writes and flags pre-schema-4 Claude entries as under-priced', () => {
     const usage = api.usage();
     api.usage.set({

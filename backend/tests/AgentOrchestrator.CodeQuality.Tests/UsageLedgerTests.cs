@@ -6,9 +6,8 @@ namespace AgentOrchestrator.CodeQuality.Tests;
 public sealed class UsageLedgerTests
 {
     // JsonSchema.Net registers each schema's $id globally and refuses a second registration, so
-    // the current schema is parsed once for every validation in this class.
-    private static readonly Lazy<JsonSchema> LedgerSchema = new(() => JsonSchema.FromText(File.ReadAllText(Path.Combine(
-        RepositoryTestContext.FindRepositoryRoot(), "schemas", "usage-ledger.v4.schema.json"))));
+    // the current schema comes from the shared catalogue that other ledger tests also validate with.
+    private static readonly Lazy<JsonSchema> LedgerSchema = new(() => SchemaCatalogue.Get("usage-ledger.v4.schema.json"));
 
     [Fact]
     public async Task CurrentEntriesAttributeEveryOperationToAModelSourceAndCarryTheirCost()
