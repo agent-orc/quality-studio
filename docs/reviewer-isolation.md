@@ -1,3 +1,8 @@
+---
+tags: [gates-and-review, security, guideline, decision]
+taggingStatus: tagged
+---
+
 # Reviewer isolation
 
 An agent review is graded by a coding-agent CLI (Claude Code or Codex) running in the reviewed
