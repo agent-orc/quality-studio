@@ -8,6 +8,7 @@
     "watch": "ng build frontend --watch --configuration development",
     "test": "node ./tests/run-tests.mjs",
     "test:coverage": "node ./tests/run-tests.mjs --coverage",
+    "prelint": "node ./lint/require-dependencies.mjs",
     "lint": "eslint src style-reference tests lint --config eslint.config.mjs",
     "lint:sarif": "eslint src style-reference tests lint --config eslint.config.mjs --format node_modules/@microsoft/eslint-formatter-sarif/sarif.js",
     "test:browser-resolver": "node --test ./tests/browser-binary.test.mjs",
