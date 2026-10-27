@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo_root"
+export PLAYWRIGHT_BROWSERS_PATH="$repo_root/frontend/node_modules/.playwright-browsers"
+
+npm --prefix frontend run test

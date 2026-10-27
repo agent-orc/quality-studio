@@ -10,9 +10,9 @@ commands:
     - npm --prefix frontend run build
   test:
     - dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
-    - npm --prefix frontend run test
+    - .agent-studio/test-frontend
   lint:
-    - npm --prefix frontend run lint
+    - .agent-studio/lint
 testSuites:
   - id: backend-routine
     category: routine
@@ -25,7 +25,7 @@ testSuites:
   - id: frontend-unit
     category: routine
     expectedDurationSeconds: 35
-    command: npm --prefix frontend run test
+    command: .agent-studio/test-frontend
 cachePaths:
   - frontend/node_modules
 capabilities: [git, child-process, loopback-network]
