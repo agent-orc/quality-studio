@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "performance-test-speed-aspect",
   "title": "Performance and test speed as a measured quality aspect",
-  "summary": "Decision-ready concept for a sensor-backed performance.test-speed aspect with numeric metric snapshots, repository budgets, explicit measurement gaps, trend evaluation, measured suggestions, and Agent Studio card drafts. Recommends Option B and starts with TRX and Playwright JSON on Agent Studio and Quality Studio.",
+  "summary": "Decision-ready concept for a sensor-backed performance.test-speed aspect with numeric metric snapshots, repository budgets, explicit measurement gaps, trend evaluation, measured suggestions, and Agent Studio card drafts. Recommends Option B and starts with TRX, Playwright JSON, and retained compact summaries on Agent Studio and Quality Studio.",
   "entrypoint": "index.html",
   "status": "decision-pending",
   "phase": "decision-ready",
@@ -13,7 +13,7 @@
   "implementationTasks": [
     {
       "title": "MVP: test-timing sensor and measurement gaps",
-      "promptMarkdown": "Implement Option B from docs/operations/performance-test-speed-aspect/index.html. Add taxonomy aspect `performance.test-speed` without creating a ReviewKind; preserve `performance.general`. Define `MetricSnapshot.v1` with commit, lane, run ID, artifact digest, host context, numeric unit/aggregation/subject and versioned provenance. Add deterministic `test-timing` ingestion for real TRX and Playwright JSON artifacts produced outside the sensor, with configured absolute budgets. Register Agent Studio and Quality Studio as pilot repositories: with no valid fresh artifact each shows an explicit `perf.metric-missing.<metric>` gap and measurement coverage 0; with one valid artifact the relevant gap clears and wall/per-test or per-spec metrics appear. Accept a valid fixture from each format, reject malformed or path-escaping input, deduplicate matching run IDs, and prove no test suite is launched by the sensor. Record which recommended option was implemented."
+      "promptMarkdown": "Implement Option B from docs/operations/performance-test-speed-aspect/index.html. Add taxonomy aspect `performance.test-speed` without creating a ReviewKind; preserve `performance.general`. Define `MetricSnapshot.v1` with commit, lane, run ID, artifact digest, host context, numeric unit/aggregation/subject and versioned provenance. Add deterministic `test-timing` ingestion for real TRX and Playwright JSON artifacts produced outside the sensor, plus Agent Studio's retained compact summary JSON for fields it actually reports, with configured absolute budgets. Register Agent Studio and Quality Studio as pilot repositories: with no valid fresh artifact each shows an explicit `perf.metric-missing.<metric>` gap and measurement coverage 0; with one valid artifact only the evidenced metric gaps clear and wall/per-test or per-spec metrics appear. Accept a valid fixture from each format, reject malformed or path-escaping input, deduplicate matching run IDs, preserve partial versus full-run coverage, and prove no test suite is launched by the sensor. Record which recommended option was implemented."
     },
     {
       "title": "Append-only metric history and comparable budget evaluation",
