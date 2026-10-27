@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en" data-document-pattern="concept">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Performance and test speed as a measured quality aspect | Quality Studio</title>
+  <style data-article-template="v2">
+    :root {
+      color-scheme: light;
+      --article-paper: #fcfcfb;
+      --article-surface: #f2f1ee;
+      --article-surface-strong: #e9e8e3;
+      --article-ink: #151515;
+      --article-muted: #5f5e59;
+      --article-faint: #7c7a74;
+      --article-line: #d8d6cf;
+      --article-link: #1f67b2;
+      --article-link-soft: #eaf1fb;
+      --article-good: #18753a;
+      --article-good-soft: #eaf4ea;
+      --article-warn: #8b6100;
+      --article-warn-soft: #f8f0dd;
+      --article-bad: #b72f2f;
+      --article-bad-soft: #fbecec;
+      --article-serif: Georgia, "Times New Roman", serif;
+      --article-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --article-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --article-paper: #1a1a19;
+        --article-surface: #232322;
+        --article-surface-strong: #2c2c2a;
+        --article-ink: #f7f7f4;
+        --article-muted: #c3c2b7;
+        --article-faint: #9d9c94;
+        --article-line: #3d3d3a;
+        --article-link: #78aef0;
+        --article-link-soft: #1e2a3a;
+        --article-good: #67b867;
+        --article-good-soft: #1f2f1f;
+        --article-warn: #d9a63f;
+        --article-warn-soft: #33301e;
+        --article-bad: #e66767;
+        --article-bad-soft: #382222;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--article-paper); }
+    body {
+      margin: 0;
+      background: var(--article-paper);
+      color: var(--article-ink);
+      font: 17px/1.75 var(--article-serif);
+      text-rendering: optimizeLegibility;
+    }
+    main,
+    .article {
+      width: min(70ch, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 0 0 80px;
+    }
+    header.page {
+      margin-bottom: 12px;
+      padding: 48px 0 28px;
+      border-bottom: 1px solid var(--article-line);
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    .kicker,
+    .meta,
+    .number,
+    nav,
+    table,
+    figcaption,
+    .box,
+    .callout,
+    .evidence-figure,
+    .variant-grid,
+    .evidence-list {
+      font-family: var(--article-sans);
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      margin: 56px 0 10px;
+      font-size: 1.55rem;
+      line-height: 1.25;
+    }
+    h3 { margin: 34px 0 8px; font-size: 1.08rem; line-height: 1.35; }
+    h4 { margin: 0 0 8px; font-size: 0.94rem; }
+    p { margin: 0 0 18px; }
+    p:last-child { margin-bottom: 0; }
+    .kicker,
+    .number {
+      margin: 0 0 12px;
+      color: var(--article-faint);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .lede { margin: 0; color: var(--article-muted); font-size: 1.18rem; line-height: 1.6; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 20px; color: var(--article-faint); font-size: 0.78rem; }
+    .meta b { color: var(--article-muted); font-weight: 650; }
+    a { color: var(--article-link); text-underline-offset: 0.16em; }
+    a:focus-visible { outline: 2px solid var(--article-link); outline-offset: 3px; border-radius: 2px; }
+    code {
+      padding: 0.08em 0.34em;
+      border-radius: 4px;
+      background: var(--article-surface-strong);
+      font: 0.84em/1.5 var(--article-mono);
+      overflow-wrap: anywhere;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 24px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    pre code { padding: 0; background: transparent; }
+    ul,
+    ol { margin: 0 0 18px; padding-left: 24px; }
+    li + li { margin-top: 6px; }
+    table { width: 100%; margin: 24px 0; border-collapse: collapse; font-size: 0.88rem; line-height: 1.5; }
+    th,
+    td { padding: 10px 12px; border-bottom: 1px solid var(--article-line); text-align: left; vertical-align: top; }
+    th { color: var(--article-faint); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .box,
+    .callout {
+      margin: 24px 0;
+      padding: 18px 22px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+    .box.accent,
+    .callout[data-tone="accent"] { border-color: color-mix(in srgb, var(--article-link) 30%, var(--article-line)); background: var(--article-link-soft); }
+    .box.good,
+    .callout[data-tone="good"] { border-color: color-mix(in srgb, var(--article-good) 30%, var(--article-line)); background: var(--article-good-soft); }
+    .box.warn,
+    .callout[data-tone="warn"] { border-color: color-mix(in srgb, var(--article-warn) 35%, var(--article-line)); background: var(--article-warn-soft); }
+    .box.bad,
+    .callout[data-tone="bad"] { border-color: color-mix(in srgb, var(--article-bad) 30%, var(--article-line)); background: var(--article-bad-soft); }
+    figure { margin: 30px 0; }
+    figure > img,
+    figure > svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    figcaption { margin-top: 10px; color: var(--article-muted); font-size: 0.8rem; line-height: 1.5; }
+    .evidence-figure { margin-top: 38px; margin-bottom: 38px; }
+    .evidence-captures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+      gap: 12px;
+    }
+    .evidence-capture {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    .evidence-capture > img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .capture-theme,
+    .figure-annotation {
+      position: absolute;
+      z-index: 1;
+      border: 1px solid var(--article-line);
+      border-radius: 999px;
+      background: var(--article-surface);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      line-height: 1.35;
+    }
+    .capture-theme {
+      top: 10px;
+      left: 10px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+    }
+    .figure-annotation {
+      right: 12px;
+      bottom: 12px;
+      max-width: min(28ch, calc(100% - 24px));
+      padding: 5px 10px;
+      border-color: color-mix(in srgb, var(--article-link) 45%, var(--article-line));
+      background: var(--article-link-soft);
+      color: var(--article-link);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .figure-claim { display: block; color: var(--article-ink); font-size: 0.84rem; }
+    .figure-as-of {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 14px;
+      margin-top: 6px;
+      color: var(--article-faint);
+      font-size: 0.72rem;
+    }
+    .breakout,
+    .media-breakout {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+    }
+    .variant-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 24px 0; }
+    .variant {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    .variant h3 { margin: 0 0 8px; }
+    .variant img,
+    .variant svg { display: block; width: 100%; height: auto; margin-top: 12px; }
+    [data-document-pattern="ui"] .variant-grid {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    [data-document-pattern="ui"] .mockup { width: min(1120px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+    .evidence-list { display: grid; gap: 10px; margin: 24px 0; }
+    .evidence {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px 14px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--article-line);
+      border-radius: 9px;
+      background: var(--article-surface);
+      color: var(--article-ink);
+      text-decoration: none;
+    }
+    .evidence:hover { border-color: var(--article-link); background: var(--article-link-soft); }
+    .evidence-class {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--article-surface-strong);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="observed"] { background: var(--article-good-soft); color: var(--article-good); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="inferred"] { background: var(--article-warn-soft); color: var(--article-warn); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="proposed"] { background: var(--article-link-soft); color: var(--article-link); }
+    .evidence b { display: block; margin-bottom: 2px; font-size: 0.88rem; }
+    .evidence small { display: block; color: var(--article-muted); font-size: 0.78rem; line-height: 1.45; }
+    .dim { color: var(--article-muted); }
+
+    @media (max-width: 760px) {
+      main,
+      .article { width: min(100% - 28px, 70ch); padding-bottom: 52px; }
+      header.page { padding-top: 32px; }
+      .breakout,
+      .media-breakout,
+      [data-document-pattern="ui"] .variant-grid,
+      [data-document-pattern="ui"] .mockup { width: calc(100vw - 20px); }
+      [data-document-pattern="ui"] .variant-grid { grid-template-columns: 1fr; }
+      .evidence { grid-template-columns: 1fr; }
+      .evidence-captures { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }
+    }
+  </style>
+  <style>
+    .table-breakout { width: min(1120px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+    .table-breakout table { margin: 18px 0; }
+    .diagram-label { fill: var(--article-ink); font: 650 15px var(--article-sans); }
+    .diagram-detail { fill: var(--article-muted); font: 12px var(--article-sans); }
+    .diagram-arrow { stroke: var(--article-link); stroke-width: 2; fill: none; }
+    .diagram-node { fill: var(--article-surface); stroke: var(--article-line); }
+    .decision-list li { margin-bottom: 14px; }
+    @media (max-width: 760px) { .table-breakout { width: calc(100vw - 20px); } }
+  </style>
+</head>
+<body>
+<main class="article">
+  <header class="page">
+    <p class="kicker">Quality Studio · QS-123 · Concept dossier</p>
+    <h1>Performance and test speed as a measured quality aspect</h1>
+    <p class="lede">Make test speed observable, evaluable, and actionable. A repository with no recent timing evidence should show an explicit quality gap, while measured slowdowns should lead to specific improvement work.</p>
+    <div class="meta"><span><b>Phase</b> Decision ready</span><span><b>Status</b> Decision pending</span><span><b>Updated</b> 27 October 2026</span><span><b>Working option</b> B</span></div>
+  </header>
+
+  <section data-concept-section="alternatives" data-document-section="alternatives">
+    <h2><span class="number">01</span> Alternatives</h2>
+    <div class="variant-grid">
+      <article class="variant"><h3>Option A · Extend the performance review</h3><p>Ask the existing source-reading <code>ReviewKind.Performance</code> model to infer test speed from code and CI files. This needs little storage work, but cannot establish elapsed time, trends, or whether missing artifacts reflect a slow or an unmeasured repository.</p></article>
+      <article class="variant"><h3>Option B · Separate measured aspect</h3><p>Add taxonomy aspect <code>performance.test-speed</code> backed by deterministic artifact sensors and a versioned metric series. Keep <code>performance.general</code> for source review. Report measured budgets and measurement coverage separately. This is the recommended path.</p></article>
+      <article class="variant"><h3>Option C · CI dashboard only</h3><p>Chart timing artifacts outside Quality Studio. This can display trends quickly, but leaves measurement gaps, findings, repository budgets, and improvement suggestions outside the quality model.</p></article>
+    </div>
+  </section>
+
+  <section data-concept-section="recommendation" data-document-section="recommendation">
+    <h2><span class="number">02</span> Recommendation</h2>
+    <div class="callout" data-tone="accent"><h3>Option B · A sensor-backed test-speed aspect</h3><p>Register <code>performance.test-speed</code> in the taxonomy, not as another review kind. Ingest CI artifacts produced by test runs; do not run the suites inside a review sensor. Ship an initial <code>test-timing</code> sensor for TRX and Playwright JSON, per-repository budgets, and explicit unmeasured gaps for Agent Studio and Quality Studio itself.</p></div>
+
+    <h3>Aspect boundary</h3>
+    <p>The existing Performance kind remains an LLM source review mapped to <code>performance.general</code>. The new aspect receives measurements, provenance, availability, and deterministic findings. Later <code>performance.build</code> and <code>performance.runtime</code> may use the same contract after their own workload definitions and budgets exist; they are not aliases for test speed. The optional model step receives measured hotspots and source locations only after the deterministic result is stored.</p>
+
+    <h3>Metric catalogue</h3>
+    <div class="table-breakout"><table><thead><tr><th>Metric and unit</th><th>Source</th><th>Collection cost and first slice</th></tr></thead><tbody>
+      <tr><td>Suite wall time, ms; scope and lane</td><td>CI command start/end record, or TRX run start/finish when available</td><td>Near zero after the run; MVP. Keep command wall and report span distinct.</td></tr>
+      <tr><td>Summed test time, ms; slowest N tests/classes; top 1%, 4%, 10% share; p50/p90/p99</td><td>TRX <code>UnitTestResult</code>, JUnit XML, Vitest JUnit</td><td>Linear parse over artifact size; MVP TRX, later JUnit. Summed durations may overlap and must never be labelled wall time.</td></tr>
+      <tr><td>Playwright per-spec wall, test status, retries/flaky rate, skipped/quarantined count</td><td>Playwright JSON and project metadata</td><td>Linear parse; MVP. Quarantine requires an explicit tag or manifest, not a guess from skips.</td></tr>
+      <tr><td>Unit test lane wall and build wall, ms</td><td>CI timestamps plus Vitest JUnit; dotnet/ng logs or binlog for phase detail</td><td>Near zero for command wall; binlog can be large and is optional. Next slice.</td></tr>
+      <tr><td>Fixed-sleep call sites and configured parallelism</td><td>Static scan of <code>Task.Delay</code>, <code>Thread.Sleep</code>, <code>waitForTimeout</code>; xUnit and Playwright config</td><td>Linear source scan; later. Count call sites, not total sleep duration; exclude production delays by scope.</td></tr>
+      <tr><td>Optional request hot paths and process spawns per request</td><td>Request traces/instrumentation and a declared workload</td><td>Separate runtime instrumentation cost; later <code>performance.runtime</code>, never inferred from test timing alone.</td></tr>
+    </tbody></table></div>
+
+    <h3>Metric snapshot and storage</h3>
+    <p>Use a separate immutable <code>MetricSnapshot.v1</code> rather than adding arbitrary numbers to finding prose. A snapshot has <code>repositoryId</code>, <code>commit</code>, <code>branch</code>, <code>runId</code>, <code>lane</code>, <code>capturedAt</code>, <code>producer</code>, <code>toolVersions</code>, <code>hostClass</code>, <code>concurrentSuites</code>, artifact digest and format, test counts, and metric entries with <code>id</code>, <code>value</code>, <code>unit</code>, <code>aggregation</code>, and <code>subject</code>. Per-test entries use a stable framework/test identity and optional repository-relative source path. Preserve source artifacts by digest or trusted artifact URI, not by copying every raw report into the Quality Studio database.</p>
+    <p>Append snapshots by repository, commit, lane, and run ID; repeated runs at one commit remain separate points. Reject duplicate run IDs with conflicting digests. The API exposes latest comparable snapshot, bounded time series, metric availability, budget result, and top offenders. A finding references snapshot ID, metric ID, observed value, threshold, and comparison window through a typed evidence reference; free-text <code>evidence</code> remains human-readable. Keep old snapshot versions readable when the producer changes.</p>
+
+    <h3>Evaluation</h3>
+    <p>Configure budgets in each repository's sensor configuration: an absolute ceiling and a relative baseline rule. Use five comparable full-run samples for the baseline median; compare only like lane, selection, runner class, and coverage mode. Mark an absolute ceiling breach immediately. Create a regression finding when at least three of the latest five comparable runs exceed the pinned baseline median by both 20% and 60 seconds. Keep a single breach as a warning until repeated evidence exists. Record changed test count and lane selection so a targeted run cannot replace a full-suite trend.</p>
+    <p>For contention, flag a test only after at least three same-commit or unchanged-test samples have a max/min duration ratio of at least 3, with host load or concurrent-suite evidence attached. It is a diagnostic suggestion, not a code regression. Retry rate is retries divided by executed tests; flaky rate counts tests that failed then passed in the same run. Skipped and quarantined counts remain separate. An unavailable source yields no numeric zero.</p>
+
+    <h3>Measurement quality</h3>
+    <p>Make freshness a repository setting, defaulting to 14 days for a full-suite run on the tracked branch. Required metrics are suite wall time and per-test duration where a test framework is configured, plus per-spec timing where Playwright is configured. Show a <b>measurement coverage score</b> of 0–100 for <code>performance.test-speed</code>: 100 × fresh required metrics / applicable required metrics, with equal weights. Thus a repository with no timing artifacts scores 0 on measurement coverage and receives <code>perf.metric-missing.&lt;metric&gt;</code> or <code>perf.metric-stale.&lt;metric&gt;</code> gap findings. An inapplicable metric is excluded only with a recorded reason. This score describes evidence completeness, not speed or a combined performance grade; budget statuses remain individual. Historical field Web Vitals stay unavailable when absent.</p>
+
+    <h3>Suggestions and destination</h3>
+    <p>Deterministic rules first: concentration plus repeated full-host setup suggests sharing a class fixture; many fixed sleeps suggest condition-based waits; one Playwright worker with independent specs suggests an isolated parallel pilot; full-suite rerun after one failure suggests failed-class replay. Each suggestion carries triggering metrics, threshold, estimated upper-bound time saving when calculable, confidence, and source location. Static patterns alone are labelled hypotheses. The optional LLM step may inspect only the measured hotspot's code and propose a concrete refactor with file and line references; it cannot invent timing values or auto-apply changes.</p>
+    <p>Export an idempotent suggestion payload to Agent Studio with repository, measured commit, metric snapshot IDs, finding fingerprint, title, proposed acceptance, and evidence links. Agent Studio creates a reviewable card draft through its existing task intake; a human or established task policy promotes it. Repeated runs update evidence on the same fingerprint rather than create duplicate cards.</p>
+
+    <h3>Presentation</h3>
+    <p>The proposed aspect view shows measurement coverage, freshness, one budget status per metric, a trend chart with baseline and absolute ceiling, and ranked tests/classes/specs with duration and source links. It must label wall time separately from summed test time and show unavailable for absent data. These are proposed surfaces; no present UI state is asserted here.</p>
+
+    <h3>MVP order</h3>
+    <ol><li>Define the snapshot contract and ingest TRX and Playwright JSON from real Agent Studio runs; configure budgets and display the unmeasured gap on both Agent Studio and Quality Studio until valid artifacts arrive.</li><li>Persist append-only series and comparable-run regression evaluation.</li><li>Add JUnit/Vitest and build wall time, then static sleep and parallelism signals.</li><li>Show the trend and offender view, then export measured suggestions as Agent Studio card drafts.</li></ol>
+  </section>
+
+  <section data-concept-section="evidence" data-document-section="evidence">
+    <h2><span class="number">03</span> Evidence</h2>
+    <p>The first data set is Agent Studio's <a href="https://github.com/agent-orc/agent-studio/blob/605fe7bdf1944d23dcc3d289c416928131c04baf/docs/operations/test-acceleration/index.html">Test acceleration Dossier</a>, checked in the local <code>develop</code> checkout at <code>605fe7bdf</code> on 27 October 2026. Its 11 October Linux-runner baseline is a small, contended sample. Later track entries describe partial artifact retention and faster focused paths; they do not replace that baseline with a comparable complete series.</p>
+    <div class="table-breakout"><table><thead><tr><th>Observed baseline, 11 October 2026</th><th>Implication for the aspect</th></tr></thead><tbody>
+      <tr><td>One review verification ≈131 min; tests 88%; backend suite 68%, 85–93 min for about 8,980 tests.</td><td>Store run wall and lane wall separately. A single slow lane can dominate review latency.</td></tr>
+      <tr><td>Median backend test 0–1 ms; roughly 4% of tests consume 97% of test time; p99 24–30 s.</td><td>Rank tests and classes and compute concentration, rather than relying on the median alone.</td></tr>
+      <tr><td>The same trivial test took 6 s and 54 s across runs; six suites shared 12 cores.</td><td>Store host contention context and require comparable samples before declaring a code regression.</td></tr>
+      <tr><td>Playwright: 499 spec files, one worker, 365 <code>waitForTimeout</code> calls (about 297 s); <code>dotnet run</code> and <code>ng serve</code> compile servers for runs.</td><td>Collect per-spec timing; report fixed sleeps and startup/build separately. Static count does not prove 297 s of avoidable wall time.</td></tr>
+      <tr><td>On 11 October no timing data was persisted. The backend P1 track later retained a compact JSON summary while keeping TRX runner-local; full live review/API consumption remained unmeasured in its report.</td><td>At baseline this repository is unmeasured. Verify the artifact path and provenance before claiming the gap is closed.</td></tr>
+    </tbody></table></div>
+
+    <figure class="media-breakout">
+      <svg viewBox="0 0 1080 230" role="img" aria-labelledby="flow-title flow-desc">
+        <title id="flow-title">Test timing evidence flow</title><desc id="flow-desc">A test run writes artifacts. A deterministic sensor validates and normalizes them into an append-only metric series. Evaluation creates budget findings and measured improvement suggestions.</desc>
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--article-link)"/></marker></defs>
+        <rect class="diagram-node" x="24" y="42" width="170" height="126" rx="10"/><text class="diagram-label" x="109" y="91" text-anchor="middle">Test run</text><text class="diagram-detail" x="109" y="118" text-anchor="middle">commit · lane · host</text>
+        <path class="diagram-arrow" d="M 197 105 H 235" marker-end="url(#arrow)"/>
+        <rect class="diagram-node" x="240" y="42" width="170" height="126" rx="10"/><text class="diagram-label" x="325" y="88" text-anchor="middle">Artifacts</text><text class="diagram-detail" x="325" y="114" text-anchor="middle">TRX · Playwright JSON</text><text class="diagram-detail" x="325" y="134" text-anchor="middle">JUnit · build log</text>
+        <path class="diagram-arrow" d="M 413 105 H 451" marker-end="url(#arrow)"/>
+        <rect class="diagram-node" x="456" y="42" width="170" height="126" rx="10"/><text class="diagram-label" x="541" y="89" text-anchor="middle">Sensor</text><text class="diagram-detail" x="541" y="115" text-anchor="middle">validate · normalize</text><text class="diagram-detail" x="541" y="135" text-anchor="middle">record provenance</text>
+        <path class="diagram-arrow" d="M 629 105 H 667" marker-end="url(#arrow)"/>
+        <rect class="diagram-node" x="672" y="42" width="170" height="126" rx="10"/><text class="diagram-label" x="757" y="89" text-anchor="middle">Metric series</text><text class="diagram-detail" x="757" y="115" text-anchor="middle">append by run + commit</text><text class="diagram-detail" x="757" y="135" text-anchor="middle">compare like lanes</text>
+        <path class="diagram-arrow" d="M 845 105 H 883" marker-end="url(#arrow)"/>
+        <rect class="diagram-node" x="888" y="42" width="170" height="126" rx="10"/><text class="diagram-label" x="973" y="88" text-anchor="middle">Findings</text><text class="diagram-detail" x="973" y="114" text-anchor="middle">gaps · regressions</text><text class="diagram-detail" x="973" y="134" text-anchor="middle">card suggestions</text>
+        <text class="diagram-detail" x="540" y="202" text-anchor="middle">Proposed data flow; the sensor reads artifacts and does not start the test suite.</text>
+      </svg>
+      <figcaption><b>Data flow.</b> Run artifacts become versioned metric snapshots, then budget findings and suggestions. This diagram is a proposed contract, not a capture of a product surface.</figcaption>
+    </figure>
+
+    <div class="evidence-list">
+      <a class="evidence" href="https://github.com/agent-orc/agent-studio/blob/605fe7bdf1944d23dcc3d289c416928131c04baf/docs/operations/test-acceleration/index.html"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Agent Studio timing baseline and acceleration tracks</b><small>Sections 1–2 and 4 give the 11 October timings and Playwright configuration; sections 8–9 record later implementation receipts and limits. Local develop checkout 605fe7bdf, read 27 October 2026.</small></span></a>
+      <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/Sensors.cs"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Existing sensor contract</b><small><code>IReviewSensor</code>, <code>IDeterministicEvidenceSensor</code>, and <code>SensorAvailability</code> support deterministic availability and findings, but <code>SensorScanResult</code> has no numeric metric series.</small></span></a>
+      <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/Coverage.cs"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Coverage precedent</b><small><code>CoverageSensor</code> parses report artifacts. <code>CoverageProducer</code> and the coverage baseline show a ratchet path; timing must preserve its own run comparability and provenance.</small></span></a>
+      <a class="evidence" href="../../../rules/quality-domains.json"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Performance domain boundary</b><small>The planned field Web Vitals check treats absent field data as unavailable, never zero or passing, and defines no combined performance score. The proposed measurement coverage score respects that boundary.</small></span></a>
+      <a class="evidence" href="../../../backend/QualityStudio.Api/RepositoryRegistry.cs"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Repository budgets are feasible</b><small><code>RepositorySensorConfiguration.Configuration</code> is already a per-repository dictionary. A typed budget document should be validated before use.</small></span></a>
+      <a class="evidence" href="../../../backend/AgentOrchestrator.CodeQuality/QualityReport.cs"><span class="evidence-class" data-evidence-class="inferred">Inferred</span><span><b>A separate metric contract is needed</b><small>Quality report findings have descriptive fields and the existing trend is an integer score per kind. Numeric test metrics require their own units, sample scope, run identity, and series.</small></span></a>
+    </div>
+  </section>
+
+  <section data-concept-section="open-decisions" data-document-section="open-decisions">
+    <h2><span class="number">04</span> Open decisions</h2>
+    <p>These are decisions for Robert. The recommended option in each row is the working decision for implementation until an operator records another choice.</p>
+    <ol class="decision-list">
+      <li><b>D1 · Aspect scope.</b> Choose the sensor-backed <code>performance.test-speed</code> aspect now; add build and runtime aspects only when their workload contracts are ready. Keep the existing Performance review kind and <code>performance.general</code>.</li>
+      <li><b>D2 · Missing evidence.</b> Choose explicit missing/stale findings plus a 0–100 measurement coverage score within the test-speed aspect. Default freshness is 14 days for the tracked full-suite lane. Do not roll it into a combined performance score.</li>
+      <li><b>D3 · Budgets.</b> Choose per-repository absolute ceilings and a five-sample comparable baseline. Flag budget status on an absolute breach; open a regression finding after three of five runs exceed the baseline median by both 20% and 60 s. Pilot thresholds on both repositories before using them as gates.</li>
+      <li><b>D4 · Artifact authority and retention.</b> Choose signed or digest-verified CI artifacts and an append-only compact snapshot; keep raw reports in the producer's artifact store. Retain detailed series for 90 days and monthly aggregates thereafter for one year, subject to repository policy.</li>
+      <li><b>D5 · Card creation.</b> Choose deterministic suggestions first and Agent Studio draft cards with human promotion. Enable the LLM refactoring step only for measured hotspots with stable code locations and retain its proposal as advisory evidence.</li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "performance-test-speed-aspect",
+  "title": "Performance and test speed as a measured quality aspect",
+  "summary": "Decision-ready concept for a sensor-backed performance.test-speed aspect with numeric metric snapshots, repository budgets, explicit measurement gaps, trend evaluation, measured suggestions, and Agent Studio card drafts. Recommends Option B and starts with TRX and Playwright JSON on Agent Studio and Quality Studio.",
+  "entrypoint": "index.html",
+  "status": "decision-pending",
+  "phase": "decision-ready",
+  "updatedAt": "2026-10-27T00:00:00Z",
+  "sourceTaskKeys": [
+    "QS-123"
+  ],
+  "implementationTasks": [
+    {
+      "title": "MVP: test-timing sensor and measurement gaps",
+      "promptMarkdown": "Implement Option B from docs/operations/performance-test-speed-aspect/index.html. Add taxonomy aspect `performance.test-speed` without creating a ReviewKind; preserve `performance.general`. Define `MetricSnapshot.v1` with commit, lane, run ID, artifact digest, host context, numeric unit/aggregation/subject and versioned provenance. Add deterministic `test-timing` ingestion for real TRX and Playwright JSON artifacts produced outside the sensor, with configured absolute budgets. Register Agent Studio and Quality Studio as pilot repositories: with no valid fresh artifact each shows an explicit `perf.metric-missing.<metric>` gap and measurement coverage 0; with one valid artifact the relevant gap clears and wall/per-test or per-spec metrics appear. Accept a valid fixture from each format, reject malformed or path-escaping input, deduplicate matching run IDs, and prove no test suite is launched by the sensor. Record which recommended option was implemented."
+    },
+    {
+      "title": "Append-only metric history and comparable budget evaluation",
+      "promptMarkdown": "Implement the MetricSnapshot.v1 append-only store, bounded series API, and per-repository typed budget validation from the QS-123 Dossier. Retain distinct runs at the same commit; reject a run ID reused with a conflicting digest. Compare only matching lane, selection, runner class and coverage mode. Establish a baseline from five comparable full runs; show an immediate absolute budget status, and open a regression finding only when three of the latest five runs exceed the pinned baseline median by both 20% and 60 seconds. Expire required metric freshness after the configured window, default 14 days, without converting missing values to zero. Prove the five-run boundary, targeted-versus-full isolation, freshness boundary, and repeated-run handling."
+    },
+    {
+      "title": "JUnit, build, and static timing signals",
+      "promptMarkdown": "Extend QS-123's measured aspect to JUnit XML including Vitest output, command/build wall records from dotnet/ng logs, and static counts of `Task.Delay`, `Thread.Sleep`, and `waitForTimeout` plus effective test parallelism settings. Preserve suite wall, summed test durations and build wall as separate metrics; classify skipped, quarantined, retry and flaky counts without conflating them. Add bounded parsers and fixture cases for overlapping test durations, missing timestamps, duplicate test names, a quarantined tag, and a repository with no applicable Playwright lane. Show collection cost and provenance per metric."
+    },
+    {
+      "title": "Test-speed trend and offender view",
+      "promptMarkdown": "Build the QS-123 aspect presentation over the metric series API. Show measurement coverage and freshness, per-metric budget status, a trend chart with absolute ceiling and baseline, and ranked tests/classes/specs with durations and source links. Label wall time versus summed test time and unavailable versus zero. A repository without artifacts must visibly score 0 for measurement coverage and show its gap; a fresh run must show its actual values. Verify representative states in light and dark themes with pinned captures, component tests for boundaries, and no claim of a combined performance score."
+    },
+    {
+      "title": "Deterministic hotspot suggestions and contention detection",
+      "promptMarkdown": "Implement QS-123's suggestion rules over measured snapshots: top-test/class concentration, repeated full-host setup corroborated by code location, fixed sleep call sites, one-worker Playwright configuration, and full-suite rerun after one failure. Add contention detection only with at least three comparable same-commit or unchanged-test samples and a max/min duration ratio of at least 3 plus host context. Each suggestion must carry rule ID, triggering numeric values, source location when known, confidence and an evidence link; static-only observations are labelled hypotheses. Prove a 6-to-54-second contention case is not called a code regression and repeated observations do not create duplicate findings."
+    },
+    {
+      "title": "Agent Studio draft cards from measured suggestions",
+      "promptMarkdown": "Connect QS-123 suggestion output to Agent Studio's existing task intake as idempotent draft cards. Send repository, measured commit, snapshot IDs, finding fingerprint, title, proposed acceptance criteria, source locations and evidence links. Repeated runs update evidence on one fingerprint; no card is auto-promoted or code auto-applied. Add an opt-in LLM proposal step restricted to measured hotspots and located code, keeping its output advisory and rejecting invented timings. Verify one real pilot suggestion from Agent Studio reaches one reviewable draft with traceable metrics, and a second ingestion updates that draft instead of creating another."
+    }
+  ]
+}
