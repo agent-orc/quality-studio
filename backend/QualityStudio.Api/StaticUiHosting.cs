@@ -63,7 +63,16 @@ public static partial class StaticUiHosting
         contentTypes.Mappings[".webmanifest"] = "application/manifest+json";
         app.Use(async (context, next) =>
         {
-            if (IsClientRouteNavigation(context, provider)) context.Request.Path = "/" + IndexFile;
+            var shell = IsClientRouteNavigation(context, provider) || IsShellRequest(context);
+            // On a host federated with Agent Studio a page load without a session goes to Studio's
+            // sign-in start, which returns the browser here with a hand-off. Assets stay public.
+            if (shell && FederationEndpoints.SignInRedirect(context) is { } signIn)
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                context.Response.Redirect(signIn);
+                return;
+            }
+            if (shell) context.Request.Path = "/" + IndexFile;
             await next();
         });
         app.UseStaticFiles(new StaticFileOptions
@@ -86,6 +95,10 @@ public static partial class StaticUiHosting
         if (string.IsNullOrEmpty(path) || path == "/") return true;
         return !provider.GetFileInfo(path).Exists;
     }
+
+    private static bool IsShellRequest(HttpContext context) =>
+        (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
+        string.Equals(context.Request.Path.Value, "/" + IndexFile, StringComparison.OrdinalIgnoreCase);
 
     private static bool AcceptsHtml(HttpRequest request)
     {

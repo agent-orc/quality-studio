@@ -4,6 +4,33 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Added — Agent Studio sign-in, capabilities and deep link v1 (QS-132, AGT-3352 slice QSI-2)
+
+- A hosted host configured with `AgentStudio:Federation:Issuer` accepts Agent Studio's signed
+  hand-off at `POST /auth/agent-studio` (Ed25519 JWS, audience, 60 s lifetime with 30 s skew, `ver`,
+  Studio `Origin`, single-use `jti` kept in the data root) and opens its own `__Host-qs-session`
+  (idle 60 min, absolute 12 h). Sessions are authorized per repository from `repos` and by role
+  (viewer, operator, owner), need `Origin` and `X-CSRF-Token` on unsafe requests, and spend against
+  their user. Page loads without a session redirect to Studio's sign-in start. Without the issuer the
+  receiver answers 404 and Local and bearer-hosted modes are unchanged.
+- `POST /api/v1/federation/revoke` (service client) ends sessions by `sid` or `sub`;
+  `GET /api/v1/session` reports the caller; `GET /api/v1/capabilities` declares
+  `agent-studio-integration/1` ([schema](schemas/integration-capabilities.v1.schema.json)). The
+  integration routes also answer under `/api/v1/`.
+- Deep link v1 is documented in [`docs/api.md`](docs/api.md#deep-link-v1): `view=dashboard` and
+  unknown views open the repository dashboard, and `card` renders "Back to <key>".
+
+### Fixed — hosted-mode browser mutations and read-only checkouts (QS-132)
+
+- The browser UI now sends `X-Client-Id` with every mutation in bearer-token hosted mode; before, every
+  browser edit there was refused with `401`.
+- The container image trusts exactly the registered repository roots as Git `safe.directory` instead
+  of `'*'`, and `scripts/check-container-git.mjs` proves Git reads a read-only checkout owned by
+  another uid. The image build now copies the review response schema the analysis library embeds,
+  without which `dotnet publish` failed.
+- Reading the ignore list no longer creates `.quality/findings/` in the checkout, so a read-only
+  mounted checkout serves the tree instead of failing with `500`.
+
 ### Fixed — Agent Studio repository preparation (QS-103)
 
 - Frontend tests now select the no-sandbox Chromium launcher on Linux even when the execution

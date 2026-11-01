@@ -56,6 +56,7 @@ public sealed class RepositoryRegistry
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
     private readonly AnalyzerProfileCatalog profiles;
+    private readonly GitSafeDirectories? safeDirectories;
     private readonly SemaphoreSlim gate = new(1, 1);
 
     /// <summary>
@@ -71,9 +72,10 @@ public sealed class RepositoryRegistry
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
         SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex,
-        AnalyzerProfileCatalog profiles)
+        AnalyzerProfileCatalog profiles, GitSafeDirectories? safeDirectories = null)
     {
         contentRoot = environment.ContentRootPath;
+        this.safeDirectories = safeDirectories;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
@@ -91,7 +93,12 @@ public sealed class RepositoryRegistry
         }
         registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
         entries = LoadOrSeed();
+        TrustActiveRoots();
     }
+
+    /// <summary>Lets Git read every active registration, including checkouts owned by another user.</summary>
+    private void TrustActiveRoots() =>
+        safeDirectories?.Trust(entries.Where(entry => !entry.Archived).Select(entry => entry.RootPath));
 
     public string RegistryPath => registryPath;
 
@@ -166,6 +173,7 @@ public sealed class RepositoryRegistry
             }
 
             entries = [.. entries, entry];
+            TrustActiveRoots();
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1400, "RepositoryOnboarded"),
                 "Onboarded repository {RepositoryId} at {RepositoryRoot}", entry.Id, entry.RootPath);
@@ -195,6 +203,7 @@ public sealed class RepositoryRegistry
                 Sensors = request.Sensors ?? existing.Sensors,
             }, existing.Id);
             entries = Replace(existing, updated);
+            TrustActiveRoots();
             // Validate proved the new root exists inside the allowed roots, so a repaired registration
             // leaves quarantine here rather than waiting for the next restart.
             Release(existing.Id);
@@ -233,6 +242,7 @@ public sealed class RepositoryRegistry
 
             var archived = existing with { Archived = true };
             entries = Replace(existing, archived);
+            TrustActiveRoots();
             Release(existing.Id);
             // Nothing reads an archived repository's sidecars again; release its filesystem watcher.
             metaIndex.Release(existing.RootPath);
@@ -484,6 +494,10 @@ public sealed class RepositoryRegistry
                 "Configured path traverses a symbolic link or junction", exception);
         }
     }
+
+    /// <summary>The id <see cref="CreateAsync"/> would give <paramref name="request"/>.</summary>
+    public static string EffectiveId(RepositoryRegistrationRequest request) =>
+        Slugify(string.IsNullOrWhiteSpace(request.Id) ? request.DisplayName ?? string.Empty : request.Id).ToLowerInvariant();
 
     private static string Slugify(string value)
     {
