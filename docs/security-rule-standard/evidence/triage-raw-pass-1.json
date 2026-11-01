@@ -1,0 +1,446 @@
+{
+ "BASE": [
+  11195,
+  2352,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "P01": [
+  14998,
+  11646,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-006",
+     "line": 23,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P02": [
+  15455,
+  13655,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-007",
+     "line": 11,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-NG-007",
+     "line": 18,
+     "confidence": "high"
+    }
+   ],
+   "escalations": [
+    {
+     "ruleId": "QS-NG-007"
+    }
+   ]
+  }
+ ],
+ "P03": [
+  14067,
+  7715,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-007",
+     "line": 34,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P04": [
+  14831,
+  11737,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-005",
+     "line": 17,
+     "confidence": "high"
+    }
+   ],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-005"
+    }
+   ]
+  }
+ ],
+ "P05": [
+  15170,
+  13050,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-008",
+     "line": 9,
+     "confidence": "high"
+    }
+   ],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-008"
+    }
+   ]
+  }
+ ],
+ "P06": [
+  14283,
+  11480,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-006",
+     "line": 15,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-GN-010",
+     "line": 15,
+     "confidence": "medium"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P07": [
+  13846,
+  7612,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-008",
+     "line": 23,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P08": [
+  14617,
+  11240,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-009",
+     "line": 9,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-GN-012",
+     "line": 9,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P09": [
+  16052,
+  16600,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-010",
+     "line": 18,
+     "confidence": "high"
+    }
+   ],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-007"
+    }
+   ]
+  }
+ ],
+ "P10": [
+  14755,
+  11701,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-011",
+     "line": 6,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-GN-011",
+     "line": 7,
+     "confidence": "medium"
+    },
+    {
+     "ruleId": "QS-GN-012",
+     "line": 6,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P11": [
+  15079,
+  12160,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-001",
+     "line": 17,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P12": [
+  14731,
+  14760,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-009",
+     "line": 31,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P13": [
+  14910,
+  11690,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "ACME-CS-001",
+     "line": 13,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P15": [
+  13726,
+  8315,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-012",
+     "line": 4,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "E01": [
+  13576,
+  8726,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-GN-012",
+     "reason": "group authorization not in diff; ownership check for new route"
+    }
+   ]
+  }
+ ],
+ "N01": [
+  13492,
+  5297,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-005",
+     "reason": "repositoryRoot as WorkingDirectory; caller provenance outside diff"
+    }
+   ]
+  }
+ ],
+ "N02": [
+  13467,
+  5282,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N03": [
+  12860,
+  5323,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N05": [
+  13414,
+  5164,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N06": [
+  13359,
+  4613,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N07": [
+  13047,
+  3594,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "P14": [
+  16789,
+  18001,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-001",
+     "line": 11,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-CS-006",
+     "line": 16,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 16,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-CS-005",
+     "line": 16,
+     "confidence": "medium"
+    },
+    {
+     "ruleId": "QS-CS-005",
+     "line": 19,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "N11": [
+  13015,
+  3827,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N09": [
+  13590,
+  7232,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-NG-006",
+     "reason": "hostOrigin assignment outside diff"
+    }
+   ]
+  }
+ ],
+ "N10": [
+  13678,
+  6281,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-005",
+     "reason": "confirm StoragePathConfinement is the shared helper"
+    }
+   ]
+  }
+ ],
+ "N04": [
+  13399,
+  14317,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N08": [
+  17625,
+  27450,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-001",
+     "line": 17,
+     "confidence": "medium"
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 20,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 21,
+     "confidence": "high"
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 22,
+     "confidence": "high"
+    }
+   ],
+   "escalations": []
+  }
+ ]
+}

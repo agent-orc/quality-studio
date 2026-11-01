@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-11-01",
+  "prompt": "triage-prompt.v1.md",
+  "change": "QS-GN-001 injection-text clause limited to code, configuration, prompts and agent instruction files; quoted attack examples in documentation and test fixtures are not findings.",
+  "baselineSubagentTokens": 11195,
+  "runs": [
+    { "case": "N08", "pass": 1, "verdict": "pass", "citedRuleIds": [], "subagentTokens": 13134, "durationMs": 3418 },
+    { "case": "N08", "pass": 2, "verdict": "pass", "citedRuleIds": [], "subagentTokens": 13799, "durationMs": 7894 },
+    { "case": "P14", "pass": 1, "verdict": "concerns", "citedRuleIds": ["QS-CS-005", "QS-CS-006", "QS-GN-001"], "subagentTokens": 15468, "durationMs": 14665 },
+    { "case": "P14", "pass": 2, "verdict": "concerns", "citedRuleIds": ["QS-CS-005", "QS-CS-006", "QS-GN-001"], "subagentTokens": 17158, "durationMs": 20955 },
+    { "case": "P08", "pass": 1, "verdict": "concerns", "citedRuleIds": ["QS-GN-009", "QS-GN-012"], "subagentTokens": 15140, "durationMs": 12743 },
+    { "case": "P08", "pass": 2, "verdict": "concerns", "citedRuleIds": ["QS-GN-009"], "subagentTokens": 15334, "durationMs": 13837 }
+  ],
+  "result": "The false positive on N08 is gone in both runs; P14 still reports the reviewer-addressed note under QS-GN-001 and the shell call under QS-CS-006; P08 still reports QS-GN-009. The other 24 cases were not re-run under v1."
+}
