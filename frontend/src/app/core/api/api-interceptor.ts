@@ -32,6 +32,7 @@ export const API_REQUEST_POLICY = new InjectionToken<ApiRequestPolicy>('API_REQU
 const LONG_RUNNING = [
   /\/review$/,
   /\/review\/estimate$/,
+  /\/change-review$/,
   /\/security\/attack-coverage(\?|$)/,
   /\/guidelines\/impact$/,
   /\/repos\/import-from-agent-studio$/,

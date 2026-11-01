@@ -71,7 +71,13 @@
     <section class="center-workspace">
       <div class="scope-review-launcher">@defer (on idle) { <qs-review-actions [node]="selectedNode()" [activeKind]="activeKind()" [focusRequest]="reviewFocusRequest()" (kindSelect)="selectKind($event)" /> } @placeholder { <button class="studio-button review-controls-loading" type="button" disabled>Loading review controls…</button> }</div>
       <div class="center-content">
-        @if (isProjectView()) {
+        @if (changeRoute(); as change) {
+          @defer (when changeRoute() !== null) {
+            <qs-change-review [repositoryId]="api.selectedRepositoryId()" [route]="change" (closed)="closeChangeView()" />
+          } @placeholder {
+            <div class="project-view-loading">Opening change set…</div>
+          }
+        } @else if (isProjectView()) {
           @defer (when isProjectView()) {
             <qs-project-dashboard (nodeOpen)="open($event, true, true)" />
           } @placeholder {
