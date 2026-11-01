@@ -39,9 +39,11 @@ the `QualityStudio:AllowedOrigins` array and default to `http://localhost:4200`.
 Repository registrations are server-owned state persisted at
 `<API content root>/.quality-studio/repositories.json`. Each entry stores its id,
 display name, normalized root path, optional global inputs directory, input character
-budget, enabled review kinds, sensor enablement/configuration, and archive state. This is the single canonical registry;
+budget, enabled review kinds, sensor enablement/configuration, archive state, and optional
+external references. This is the single canonical registry;
 there are no environment-specific registry copies. Repository roots must be existing
-directories with a `.git` directory or worktree `.git` file.
+directories with a `.git` directory or worktree `.git` file. The file's shape is
+[`schemas/repository-registry.v1.schema.json`](../schemas/repository-registry.v1.schema.json).
 
 ## Authentication
 
@@ -101,6 +103,77 @@ curl -X DELETE "http://127.0.0.1:5127/api/repos/payments"
 `DELETE` archives a registration and never changes repository files. The last active
 registration and the legacy-compatible `default` registration cannot be archived.
 
+A refused registration answers as a problem document. Where a machine caller has to branch, the
+problem carries a stable `reason` next to the human `title`; titles may be reworded, reasons are not.
+
+| Reason | Status | Meaning |
+| --- | --- | --- |
+| `root-missing` | `400` | `rootPath` does not exist on this host. Nothing was written; retry the same request once the checkout exists. |
+| `root-not-git` | `400` | `rootPath` exists but has no `.git` directory or file, for example a clone still in progress. Retry the same way. |
+| `id-exists` | `400` | Another registration, archived ones included, already has this `id`. |
+| `invalid-external-ref` | `400` | An `externalRefs` entry or an `?externalRef=` value is malformed. |
+| `external-ref-conflict` | `409` | Another registration already holds one of the `externalRefs`. `repositoryId` names it. |
+| `external-ref-ambiguous` | `409` | A lookup matched more than one registration; only a hand-edited registry file can do this. |
+
+The problem never carries the path itself, so a refusal does not disclose the host's layout.
+
+### External references
+
+The path is a registration's identity (see [data-root.md](data-root.md#where)). Another product that
+needs to find "its" repository again — Agent Studio for one of its projects — cannot rely on that path:
+the same checkout appears under a different mount path in a container or on another host. It
+registers the repository with an external reference instead and looks it up by that reference
+(Agent Studio integration Dossier AGT-3352, decision D2 option M2):
+
+```shell
+curl -X POST "https://quality.example/api/repos" \
+  -H "Authorization: Bearer $QUALITY_STUDIO_TOKEN" -H "X-Client-Id: agent-studio" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"proj-002","displayName":"Agent Studio","rootPath":"/srv/runner/PROJ-002/repo","enabledReviewKinds":["code","security","performance"],"externalRefs":[{"system":"agent-studio","id":"PROJ-002","url":"https://robert.omgai.dev/#/projects/PROJ-002"}]}'
+# 201 the registration, including "externalRefs"
+# 400 {"title":"Repository path does not exist","reason":"root-missing"} while the checkout is not there yet
+# 409 {"title":"External reference already registered","reason":"external-ref-conflict","repositoryId":"proj-002"}
+
+curl "https://quality.example/api/v1/repos?externalRef=agent-studio:PROJ-002" \
+  -H "Authorization: Bearer $QUALITY_STUDIO_TOKEN"
+# 200 {"repositories":[{"id":"proj-002",...,"externalRefs":[...]}],"unavailable":[],"defaultRepositoryId":"default"}
+# 404 when no registration the client may reach carries the reference
+```
+
+`externalRefs` is an optional list of `{ "system", "id", "url"? }` on `POST /api/repos`,
+`PUT /api/repos/{repoId}` and every registration the registry routes return:
+
+- `system` is a lowercase slug (`agent-studio`). `id` is the identifier in that system (`PROJ-002`),
+  1 to 200 letters, digits or `-._~:/@+`; its case is kept. `url` is optional, an absolute `http` or
+  `https` link for people, and is never used for lookup or authorization.
+- `system:id` is unique across the registry, compared without regard to case, and checked against
+  every registration including archived and unavailable ones: a reference never silently changes
+  owner. At most 16 references per registration, no key twice.
+- `PUT` without `externalRefs` keeps the stored references, so the repository dialog, which does not
+  edit them, cannot erase them. `"externalRefs": []` removes them and frees the keys.
+- A registration without references stores and returns no `externalRefs` property. Registry files
+  written before the field existed load unchanged.
+
+`GET /api/v1/repos?externalRef=<system>:<id>` returns the listing shape of `GET /api/repos` with at
+most one registration. A match whose checkout has vanished is still found and reported in
+`unavailable`, so a caller can tell a missing checkout from a missing registration. Archived
+registrations are found only with `&includeArchived=true`. Without `externalRef` the route lists like
+`GET /api/repos`. Like the listing, it needs no registrar privilege and only finds registrations the
+calling client may reach; anything else is `404`.
+
+### Capabilities
+
+`GET /api/v1/capabilities` tells Agent Studio which integration surfaces this host offers. Any
+authenticated client may read it.
+
+```shell
+curl "http://127.0.0.1:5127/api/v1/capabilities"
+# 200 {"product":"quality-studio","version":"…","contracts":["agent-studio-integration/1"],"features":["external-ref"]}
+```
+
+A feature is listed only once its routes exist; a caller degrades the surface whose feature is
+missing. `external-ref` stands for the `externalRefs` field and the `?externalRef=` lookup above.
+
 ### One-click import from Agent Studio
 
 ```shell
@@ -116,6 +189,9 @@ before any registry write, so a failure leaves the registry untouched: an offlin
 unreachable Agent Studio returns `502 Bad Gateway`, and a missing/incomplete
 `AgentStudio:BaseUrl` configuration returns `503 Service Unavailable`, both as
 problem-details responses.
+
+The import matches by path and sets no external reference; Agent Studio's own registration does
+(see [External references](#external-references)).
 
 Each project appears exactly once in `results` with one of three statuses:
 

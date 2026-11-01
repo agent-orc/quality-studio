@@ -454,6 +454,8 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             "/api/quotas",                         // host-wide, not per repository
             "/api/models",                         // the governed catalog snapshot
             "/api/models/default",                 // a catalog recommendation, not repository data
+            "/api/v1/repos",                       // the registry collection in the integration contract
+            "/api/v1/capabilities",                // host-wide integration contract description
         ];
 
         var endpoints = fixture.Endpoints();

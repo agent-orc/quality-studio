@@ -234,7 +234,9 @@ The routes the integration uses:
 | --- | --- |
 | List reachable repositories | `GET /api/repos` |
 | Import a repository from Agent Studio | `POST /api/repos/import-from-agent-studio` (registrar) |
-| Register a repository directly | `POST /api/repos` (registrar) |
+| Register a repository directly | `POST /api/repos` (registrar), with `externalRefs` `agent-studio:<project id>`; `400` with `reason: "root-missing"` means retry later |
+| Find a project's repository without matching paths | `GET /api/v1/repos?externalRef=agent-studio:<project id>` |
+| Read the integration features this host offers | `GET /api/v1/capabilities` |
 | Estimate a review before spending | `POST /api/repos/{repoId}/review/estimate` |
 | Start a review | `POST /api/repos/{repoId}/review` (spend-limited) |
 | Poll one run | `GET /api/repos/{repoId}/review/runs/{id}` |

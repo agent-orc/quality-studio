@@ -135,6 +135,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         // operator it is sends them debugging the wrong thing.
         ReviewModelSelectionException => (StatusCodes.Status400BadRequest, "Invalid model selection"),
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
+        RepositoryRegistryConflictException conflict => (StatusCodes.Status409Conflict, conflict.PublicTitle),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
         SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),
         KeyNotFoundException => (StatusCodes.Status404NotFound, "Repository not found"),
@@ -157,7 +158,8 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var detail = exception is ReviewModelSelectionException selection ? selection.Message : null;
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
     logger.LogError(new EventId(1000, "ApiRequestFailed"), exception, "API request failed with status {StatusCode}", status);
-    await Results.Problem(statusCode: status, title: title, detail: detail).ExecuteAsync(context);
+    await Results.Problem(statusCode: status, title: title, detail: detail,
+        extensions: RegistryProblemExtensions(exception)).ExecuteAsync(context);
 }));
 app.UseStatusCodePages();
 app.UseCors("dev-frontend");
@@ -222,7 +224,8 @@ app.Use(async (context, next) =>
     // slashes and casing variants, which must not bypass registrar or collection policies.
     var route = (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText;
     var repositoryId = RouteRepositoryId(context);
-    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(route, "/api/v1/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(route, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(route, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
     var isRepositoryItem = string.Equals(route, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
@@ -244,6 +247,7 @@ app.Use(async (context, next) =>
     }
     else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
              !string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(route, "/api/v1/capabilities", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
@@ -256,26 +260,17 @@ app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
 
-app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
-    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
-{
-    var repositories = registry.List(includeArchived == true)
-        .Where(repository => security.Identity(context).CanAccess(repository.Id))
-        .ToArray();
-    prewarmer.QueueAll(repositories);
-    return Results.Ok(new
-    {
-        repositories,
-        // Registrations this host loaded but cannot serve. They are reported rather than hidden, so a
-        // moved or removed working copy is visible instead of silently absent.
-        unavailable = registry.Unavailable
-            .Where(entry => security.Identity(context).CanAccess(entry.Id))
-            .ToArray(),
-        defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
-            ? RepositoryRegistry.DefaultRepositoryId
-            : null,
-    });
-});
+app.MapGet("/api/repos", ListRepositories);
+
+// The Agent Studio integration contract (agent-studio-integration/1). Without a filter it lists like
+// /api/repos; with ?externalRef=system:id it finds the one registration carrying that reference.
+app.MapGet("/api/v1/repos", (HttpContext context, string? externalRef, bool? includeArchived,
+    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
+    externalRef is null
+        ? ListRepositories(context, includeArchived, registry, prewarmer, security)
+        : FindRepositoryByExternalRef(context, externalRef, includeArchived, registry, security));
+
+app.MapGet("/api/v1/capabilities", () => Results.Ok(IntegrationCapabilities.Describe()));
 
 app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
@@ -1840,6 +1835,77 @@ static async Task<IResult> ImportFromAgentStudio(
         imported, skipped, failed, projects.Count, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new AgentStudioImportResponse(results, imported, skipped, failed));
 }
+
+static IResult ListRepositories(HttpContext context, bool? includeArchived, RepositoryRegistry registry,
+    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security)
+{
+    var repositories = registry.List(includeArchived == true)
+        .Where(repository => security.Identity(context).CanAccess(repository.Id))
+        .ToArray();
+    prewarmer.QueueAll(repositories);
+    return Results.Ok(new
+    {
+        repositories,
+        // Registrations this host loaded but cannot serve. They are reported rather than hidden, so a
+        // moved or removed working copy is visible instead of silently absent.
+        unavailable = registry.Unavailable
+            .Where(entry => security.Identity(context).CanAccess(entry.Id))
+            .ToArray(),
+        defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
+            ? RepositoryRegistry.DefaultRepositoryId
+            : null,
+    });
+}
+
+/// <summary>
+/// Answers in the shape of the listing with at most one repository, so a caller parses one document
+/// either way. A registration whose checkout vanished is still found and reported under
+/// <c>unavailable</c>: the mapping holds, the checkout does not.
+/// </summary>
+static IResult FindRepositoryByExternalRef(HttpContext context, string externalRef, bool? includeArchived,
+    RepositoryRegistry registry, ApiSecurity security)
+{
+    if (!RepositoryExternalReference.TryParse(externalRef, out var system, out var id))
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid external reference",
+            extensions: new Dictionary<string, object?> { ["reason"] = RepositoryRegistryReasons.InvalidExternalRef });
+
+    var identity = security.Identity(context);
+    var matches = registry.FindByExternalRef(system, id, includeArchived == true)
+        .Where(repository => identity.CanAccess(repository.Id))
+        .ToArray();
+    if (matches.Length == 0)
+        return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
+    if (matches.Length > 1)
+        return Results.Problem(statusCode: StatusCodes.Status409Conflict,
+            title: "External reference is held by more than one repository",
+            extensions: new Dictionary<string, object?> { ["reason"] = RepositoryRegistryReasons.ExternalRefAmbiguous });
+
+    var match = matches[0];
+    // An archived registration is not served anyway; it is listed as what it is, like ?includeArchived=true.
+    var servable = match.Archived || !registry.IsUnavailable(match.Id);
+    return Results.Ok(new
+    {
+        repositories = servable ? new[] { match } : [],
+        unavailable = servable
+            ? []
+            : registry.Unavailable.Where(entry =>
+                string.Equals(entry.Id, match.Id, StringComparison.OrdinalIgnoreCase)).ToArray(),
+        defaultRepositoryId = identity.CanAccess(RepositoryRegistry.DefaultRepositoryId)
+            ? RepositoryRegistry.DefaultRepositoryId
+            : null,
+    });
+}
+
+static Dictionary<string, object?>? RegistryProblemExtensions(Exception? exception) => exception switch
+{
+    RepositoryRegistryConflictException conflict => new()
+    {
+        ["reason"] = conflict.Reason,
+        ["repositoryId"] = conflict.ConflictingRepositoryId,
+    },
+    RepositoryRegistryValidationException { Reason: { } reason } => new() { ["reason"] = reason },
+    _ => null,
+};
 
 static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRepository(
     HttpContext context, RepositoryRegistry registry)

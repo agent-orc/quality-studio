@@ -4,6 +4,22 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Added — external references on repository registrations (QS-133, AGT-3352 QSI-3)
+
+Agent Studio can register a repository under its project id and find it again without comparing
+paths (Dossier decision D2, option M2).
+
+- `POST /api/repos`, `PUT /api/repos/{repoId}` and every returned registration carry optional
+  `externalRefs: [{ system, id, url? }]`. `system:id` is unique across the registry; a second
+  registration with the same reference is `409` with `reason: "external-ref-conflict"`.
+- `GET /api/v1/repos?externalRef=agent-studio:PROJ-002` returns at most one registration, `404` when
+  none carries it.
+- A registration whose path does not exist yet is refused with `reason: "root-missing"` (and a path
+  without `.git` with `root-not-git`), so a caller ahead of the clone can retry the same request.
+- `GET /api/v1/capabilities` announces contract `agent-studio-integration/1` and feature `external-ref`.
+- Registry files without references load and persist unchanged; the file's shape is now published as
+  `schemas/repository-registry.v1.schema.json`.
+
 ### Fixed — Agent Studio repository preparation (QS-103)
 
 - Frontend tests now select the no-sandbox Chromium launcher on Linux even when the execution

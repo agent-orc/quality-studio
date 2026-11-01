@@ -47,6 +47,16 @@ clone, a Git worktree, a release branch checked out beside `main` — are separa
 with their own findings and their own review history. Keying on the remote would merge them into one
 ledger and make each look stale to the other.
 
+External references do not change that. A registration in the repository registry
+(`<API content root>/.quality-studio/repositories.json`, shape in
+[`schemas/repository-registry.v1.schema.json`](../schemas/repository-registry.v1.schema.json)) may
+carry `externalRefs`, for example `{ "system": "agent-studio", "id": "PROJ-002" }`, so that Agent
+Studio can find its repository again without comparing paths. The reference is a lookup key and
+nothing else: the project key, and with it every directory below, is still derived from the checkout
+path, and two registrations of one path share one data directory whatever references they carry.
+Registrations without references are stored without the field, exactly as before it existed. The
+field and its rules are in [api.md](api.md#external-references).
+
 Inside a project directory the layout is the one the `.quality` folder used to have, minus the
 `.quality` segment:
 

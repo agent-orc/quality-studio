@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/repository-registry.v1.schema.json",
+  "title": "Quality Studio repository registry v1",
+  "description": "The server-owned registry at <API content root>/.quality-studio/repositories.json, and the shape of one registration as the /api/repos routes return it. The file is a bare array. Two invariants span entries and are enforced by the host, not by this schema: ids are unique, and every externalRefs system:id key is held by at most one entry, both compared without regard to case.",
+  "type": "array",
+  "items": { "$ref": "#/$defs/registration" },
+  "$defs": {
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "rootPath", "inputBudgetCharacters", "enabledReviewKinds"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
+        "displayName": { "type": "string", "minLength": 1 },
+        "rootPath": { "type": "string", "minLength": 1, "description": "Normalized absolute path. The registration's identity for everything except external lookup." },
+        "globalInputsDirectory": { "type": ["string", "null"] },
+        "inputBudgetCharacters": { "type": "integer", "minimum": 1000, "maximum": 1000000 },
+        "enabledReviewKinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["code", "security", "performance"] }
+        },
+        "sensors": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "enabled": { "type": "boolean" },
+              "configuration": {
+                "type": ["object", "null"],
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
+        },
+        "archived": { "type": "boolean" },
+        "defaultReviewTokenCap": { "type": ["integer", "null"], "minimum": 1, "maximum": 1000000000 },
+        "defaultReviewCostCap": { "type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 1000000 },
+        "externalRefs": {
+          "description": "Optional, added for the Agent Studio integration (QSI-3). Absent on registrations that carry none, including every registration written before the field existed.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/externalRef" }
+        }
+      }
+    },
+    "externalRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "id"],
+      "properties": {
+        "system": {
+          "type": "string",
+          "description": "The naming system, a lowercase slug. Agent Studio uses agent-studio.",
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$"
+        },
+        "id": {
+          "type": "string",
+          "description": "The id in that system, for example the Agent Studio project id PROJ-002. Case is kept; lookups ignore it.",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._~:/@+-]{0,199}$"
+        },
+        "url": {
+          "type": ["string", "null"],
+          "description": "Where a person finds the referenced item. Display only; never used for lookup or authorization.",
+          "maxLength": 2048,
+          "pattern": "^https?://"
+        }
+      }
+    }
+  }
+}

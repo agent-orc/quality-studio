@@ -12,6 +12,11 @@ rule-cited findings on changed lines. See [`../docs/change-reviews.md`](../docs/
 [`change-review-policy.v1.schema.json`](change-review-policy.v1.schema.json) describes
 the repository-owned `.quality/policy.json` thresholds.
 
+[`repository-registry.v1.schema.json`](repository-registry.v1.schema.json) describes the
+server-owned repository registry, `.quality-studio/repositories.json`, and one registration as the
+`/api/repos` routes return it, including the optional `externalRefs`. See
+[`../docs/api.md`](../docs/api.md#external-references).
+
 ## Canonical domain
 
 Every `$id` uses `https://agent-orchestrator.dev/quality/schemas/<name>.schema.json`.

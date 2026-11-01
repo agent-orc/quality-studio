@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AgentOrchestrator.CodeQuality;
 using Microsoft.Extensions.Options;
 
@@ -14,7 +15,11 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    // Omitted rather than written as null, so a registration without references keeps the shape
+    // registry files had before the field existed.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<RepositoryExternalReference>? ExternalRefs = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -25,7 +30,44 @@ public sealed record RepositoryRegistrationRequest(
     IReadOnlyList<string>? EnabledReviewKinds,
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    IReadOnlyList<RepositoryExternalReference>? ExternalRefs = null);
+
+/// <summary>
+/// A stable name another system gives a registration, for example Agent Studio's project id. It lets
+/// that system find its repository again without comparing paths, which differ between hosts and
+/// mounts. <c>system:id</c> is unique across the registry, compared without regard to case.
+/// </summary>
+public sealed record RepositoryExternalReference(string System, string Id, string? Url = null)
+{
+    public const int MaxPerRegistration = 16;
+
+    /// <summary>The lookup key, <c>system:id</c>, as callers spell it in <c>?externalRef=</c>.</summary>
+    public static string Key(string system, string id) => $"{system}:{id}";
+
+    /// <summary>
+    /// Splits <c>system:id</c> at the first colon. The system is a lowercase slug and never holds a
+    /// colon, so an id that does is still read whole.
+    /// </summary>
+    public static bool TryParse(string? value, out string system, out string id)
+    {
+        system = id = string.Empty;
+        var separator = value?.IndexOf(':', StringComparison.Ordinal) ?? -1;
+        if (separator <= 0 || separator == value!.Length - 1) return false;
+        system = value[..separator].Trim().ToLowerInvariant();
+        id = value[(separator + 1)..].Trim();
+        return IsValidSystem(system) && IsValidId(id);
+    }
+
+    public static bool IsValidSystem(string system) =>
+        system.Length is >= 1 and <= 64 && char.IsAsciiLetterOrDigit(system[0]) &&
+        system.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) ||
+                                character is '-' or '.');
+
+    public static bool IsValidId(string id) =>
+        id.Length is >= 1 and <= 200 && char.IsAsciiLetterOrDigit(id[0]) &&
+        id.All(character => char.IsAsciiLetterOrDigit(character) || "-._~:/@+".Contains(character));
+}
 
 /// <summary>
 /// A persisted registration this host cannot serve. It is kept in the registry file and reported, so a
@@ -154,6 +196,16 @@ public sealed class RepositoryRegistry
 
     public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
 
+    /// <summary>
+    /// The registrations carrying <c>system:id</c>, quarantined ones included so a caller can tell a
+    /// vanished checkout from a missing registration. Writes keep the key unique, so more than one
+    /// match only happens in a hand-edited registry file.
+    /// </summary>
+    public IReadOnlyList<RepositoryRegistration> FindByExternalRef(string system, string id, bool includeArchived = false) =>
+        entries.Where(entry => (includeArchived || !entry.Archived) && Holds(entry, system, id)).ToArray();
+
+    public bool IsUnavailable(string id) => quarantine.ContainsKey(id);
+
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
@@ -162,8 +214,11 @@ public sealed class RepositoryRegistry
             var entry = Validate(request, null);
             if (entries.Any(existing => string.Equals(existing.Id, entry.Id, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.");
+                throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.",
+                    reason: RepositoryRegistryReasons.IdExists);
             }
+
+            EnsureExternalRefsUnclaimed(entry);
 
             entries = [.. entries, entry];
             await PersistAsync(cancellationToken);
@@ -193,7 +248,10 @@ public sealed class RepositoryRegistry
             {
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
+                // An editor that predates the field sends none; that must not erase what Agent Studio set.
+                ExternalRefs = request.ExternalRefs ?? existing.ExternalRefs,
             }, existing.Id);
+            EnsureExternalRefsUnclaimed(updated);
             entries = Replace(existing, updated);
             // Validate proved the new root exists inside the allowed roots, so a repaired registration
             // leaves quarantine here rather than waiting for the next restart.
@@ -380,12 +438,14 @@ public sealed class RepositoryRegistry
             throw new RepositoryRegistryValidationException("Repository path is required.");
         }
 
+        var externalRefs = ValidateExternalRefs(request.ExternalRefs);
         var root = ResolvePath(request.RootPath, contentRoot);
         if (!Directory.Exists(root))
         {
+            // Typed, because the caller may be ahead of a clone that has not landed yet and should retry.
             throw new RepositoryRegistryValidationException(
                 $"Repository path does not exist or is not a directory: {root}",
-                "Repository path does not exist");
+                "Repository path does not exist", reason: RepositoryRegistryReasons.RootMissing);
         }
 
         EnsureAllowedDirectory(root, "Repository path is outside the configured allowed roots.");
@@ -393,7 +453,7 @@ public sealed class RepositoryRegistry
         if (!Directory.Exists(Path.Combine(root, ".git")) && !File.Exists(Path.Combine(root, ".git")))
         {
             throw new RepositoryRegistryValidationException($"Path is not a Git repository: {root}",
-                "Repository path is not a Git repository");
+                "Repository path is not a Git repository", reason: RepositoryRegistryReasons.RootNotGit);
         }
 
         var budget = request.InputBudgetCharacters ?? InputResolver.DefaultBudgetCharacters;
@@ -444,8 +504,67 @@ public sealed class RepositoryRegistry
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
             ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
             DefaultReviewTokenCap: request.DefaultReviewTokenCap,
-            DefaultReviewCostCap: request.DefaultReviewCostCap);
+            DefaultReviewCostCap: request.DefaultReviewCostCap,
+            ExternalRefs: externalRefs);
     }
+
+    private static IReadOnlyList<RepositoryExternalReference>? ValidateExternalRefs(
+        IReadOnlyList<RepositoryExternalReference>? requested)
+    {
+        if (requested is null || requested.Count == 0) return null;
+        if (requested.Count > RepositoryExternalReference.MaxPerRegistration)
+            throw InvalidExternalRef(
+                $"A repository carries at most {RepositoryExternalReference.MaxPerRegistration} external references.");
+
+        var normalized = new List<RepositoryExternalReference>(requested.Count);
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in requested)
+        {
+            var system = reference?.System?.Trim().ToLowerInvariant() ?? string.Empty;
+            var id = reference?.Id?.Trim() ?? string.Empty;
+            if (!RepositoryExternalReference.IsValidSystem(system))
+                throw InvalidExternalRef("External reference system must be a lowercase slug of at most 64 characters.");
+            if (!RepositoryExternalReference.IsValidId(id))
+                throw InvalidExternalRef("External reference id must be 1 to 200 letters, digits or -._~:/@+.");
+            if (!keys.Add(RepositoryExternalReference.Key(system, id)))
+                throw InvalidExternalRef("External references must be unique per system and id.");
+
+            var url = string.IsNullOrWhiteSpace(reference!.Url) ? null : reference.Url.Trim();
+            if (url is not null && (url.Length > 2048 ||
+                                    !Uri.TryCreate(url, UriKind.Absolute, out var parsed) ||
+                                    parsed.Scheme is not ("http" or "https")))
+                throw InvalidExternalRef("External reference url must be an absolute http or https URL.");
+            normalized.Add(new RepositoryExternalReference(system, id, url));
+        }
+
+        return normalized;
+    }
+
+    private static RepositoryRegistryValidationException InvalidExternalRef(string message) =>
+        new(message, "Invalid external reference", reason: RepositoryRegistryReasons.InvalidExternalRef);
+
+    /// <summary>
+    /// Refuses a reference another registration already holds. Archived and unavailable registrations
+    /// keep theirs, exactly as they keep their id, so a reference never silently changes owner.
+    /// </summary>
+    private void EnsureExternalRefsUnclaimed(RepositoryRegistration candidate)
+    {
+        foreach (var reference in candidate.ExternalRefs ?? [])
+        {
+            var holder = entries.FirstOrDefault(entry =>
+                !string.Equals(entry.Id, candidate.Id, StringComparison.OrdinalIgnoreCase) &&
+                Holds(entry, reference.System, reference.Id));
+            if (holder is not null)
+                throw new RepositoryRegistryConflictException(
+                    $"External reference '{RepositoryExternalReference.Key(reference.System, reference.Id)}' already belongs to repository '{holder.Id}'.",
+                    "External reference already registered", RepositoryRegistryReasons.ExternalRefConflict, holder.Id);
+        }
+    }
+
+    private static bool Holds(RepositoryRegistration entry, string system, string id) =>
+        entry.ExternalRefs?.Any(reference =>
+            string.Equals(reference.System, system, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(reference.Id, id, StringComparison.OrdinalIgnoreCase)) == true;
 
     private async Task PersistAsync(CancellationToken cancellationToken) =>
         await AtomicFile.WriteAllTextAsync(
@@ -608,10 +727,43 @@ public sealed class RepositoryRegistry
     }
 }
 
-public sealed class RepositoryRegistryValidationException : Exception
+public class RepositoryRegistryValidationException : Exception
 {
     public RepositoryRegistryValidationException(string message, string publicTitle = "Invalid repository configuration",
-        Exception? innerException = null) : base(message, innerException) => PublicTitle = publicTitle;
+        Exception? innerException = null, string? reason = null) : base(message, innerException)
+    {
+        PublicTitle = publicTitle;
+        Reason = reason;
+    }
 
     public string PublicTitle { get; }
+
+    /// <summary>
+    /// A stable code from <see cref="RepositoryRegistryReasons"/> a machine caller can branch on, sent as
+    /// the problem's <c>reason</c>. The title is for people and may be reworded; the reason is not.
+    /// </summary>
+    public string? Reason { get; }
+}
+
+/// <summary>A registration refused because another one already holds what it asks for. Answers 409.</summary>
+public sealed class RepositoryRegistryConflictException(
+    string message, string publicTitle, string reason, string conflictingRepositoryId)
+    : RepositoryRegistryValidationException(message, publicTitle, reason: reason)
+{
+    public string ConflictingRepositoryId { get; } = conflictingRepositoryId;
+}
+
+/// <summary>The typed <c>reason</c> values of registry problems. Part of the API contract.</summary>
+public static class RepositoryRegistryReasons
+{
+    /// <summary>The repository path does not exist yet. Retrying once it does succeeds.</summary>
+    public const string RootMissing = "root-missing";
+
+    /// <summary>The path exists but holds no <c>.git</c>, for example a clone still in progress.</summary>
+    public const string RootNotGit = "root-not-git";
+
+    public const string IdExists = "id-exists";
+    public const string InvalidExternalRef = "invalid-external-ref";
+    public const string ExternalRefConflict = "external-ref-conflict";
+    public const string ExternalRefAmbiguous = "external-ref-ambiguous";
 }

@@ -193,6 +193,12 @@ export interface ImpactFinding { id: string; ruleId: string; severity: FindingSe
 export interface FileGuidelineImpact { path: string; before: ImpactFinding[]; after: ImpactFinding[]; added: ImpactFinding[]; removed: ImpactFinding[]; }
 export interface GuidelineImpact { guidelineId: string; kind: ReviewKind; files: FileGuidelineImpact[]; addedCount: number; removedCount: number; changed: boolean; }
 export type ApiConnectionState = 'connecting' | 'live' | 'preview' | 'offline';
+/** A stable name another system gives a registration, e.g. Agent Studio's project id. Unique per `system:id`. */
+export interface RepositoryExternalReference {
+  system: string;
+  id: string;
+  url?: string | null;
+}
 export interface RepositoryRegistration {
   id: string;
   displayName: string;
@@ -203,6 +209,8 @@ export interface RepositoryRegistration {
   archived: boolean;
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
+  /** Absent when the registration carries none. */
+  externalRefs?: RepositoryExternalReference[];
 }
 export interface RepositoryRegistrationRequest {
   id?: string;
@@ -213,6 +221,8 @@ export interface RepositoryRegistrationRequest {
   enabledReviewKinds: ReviewKind[];
   defaultReviewTokenCap?: number | null;
   defaultReviewCostCap?: number | null;
+  /** Omitted on edit to keep the stored references; an empty list clears them. */
+  externalRefs?: RepositoryExternalReference[];
 }
 export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
 export interface AgentStudioImportResult {
