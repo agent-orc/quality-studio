@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en" data-document-pattern="concept">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security scans of public sites | Concept Dossier</title>
+  <style data-article-template="v2">
+    :root {
+      color-scheme: light;
+      --article-paper: #fcfcfb;
+      --article-surface: #f2f1ee;
+      --article-surface-strong: #e9e8e3;
+      --article-ink: #151515;
+      --article-muted: #5f5e59;
+      --article-faint: #7c7a74;
+      --article-line: #d8d6cf;
+      --article-link: #1f67b2;
+      --article-link-soft: #eaf1fb;
+      --article-good: #18753a;
+      --article-good-soft: #eaf4ea;
+      --article-warn: #8b6100;
+      --article-warn-soft: #f8f0dd;
+      --article-bad: #b72f2f;
+      --article-bad-soft: #fbecec;
+      --article-serif: Georgia, "Times New Roman", serif;
+      --article-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --article-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --article-paper: #1a1a19;
+        --article-surface: #232322;
+        --article-surface-strong: #2c2c2a;
+        --article-ink: #f7f7f4;
+        --article-muted: #c3c2b7;
+        --article-faint: #9d9c94;
+        --article-line: #3d3d3a;
+        --article-link: #78aef0;
+        --article-link-soft: #1e2a3a;
+        --article-good: #67b867;
+        --article-good-soft: #1f2f1f;
+        --article-warn: #d9a63f;
+        --article-warn-soft: #33301e;
+        --article-bad: #e66767;
+        --article-bad-soft: #382222;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--article-paper); }
+    body {
+      margin: 0;
+      background: var(--article-paper);
+      color: var(--article-ink);
+      font: 17px/1.75 var(--article-serif);
+      text-rendering: optimizeLegibility;
+    }
+    main,
+    .article {
+      width: min(70ch, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 0 0 80px;
+    }
+    header.page {
+      margin-bottom: 12px;
+      padding: 48px 0 28px;
+      border-bottom: 1px solid var(--article-line);
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    .kicker,
+    .meta,
+    .number,
+    nav,
+    table,
+    figcaption,
+    .box,
+    .callout,
+    .evidence-figure,
+    .variant-grid,
+    .evidence-list {
+      font-family: var(--article-sans);
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2.2rem, 6vw, 3.4rem);
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      margin: 56px 0 10px;
+      font-size: 1.55rem;
+      line-height: 1.25;
+    }
+    h3 { margin: 34px 0 8px; font-size: 1.08rem; line-height: 1.35; }
+    h4 { margin: 0 0 8px; font-size: 0.94rem; }
+    p { margin: 0 0 18px; }
+    p:last-child { margin-bottom: 0; }
+    .kicker,
+    .number {
+      margin: 0 0 12px;
+      color: var(--article-faint);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .lede { margin: 0; color: var(--article-muted); font-size: 1.18rem; line-height: 1.6; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 20px; color: var(--article-faint); font-size: 0.78rem; }
+    .meta b { color: var(--article-muted); font-weight: 650; }
+    a { color: var(--article-link); text-underline-offset: 0.16em; }
+    a:focus-visible { outline: 2px solid var(--article-link); outline-offset: 3px; border-radius: 2px; }
+    code {
+      padding: 0.08em 0.34em;
+      border-radius: 4px;
+      background: var(--article-surface-strong);
+      font: 0.84em/1.5 var(--article-mono);
+      overflow-wrap: anywhere;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 24px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    pre code { padding: 0; background: transparent; }
+    ul,
+    ol { margin: 0 0 18px; padding-left: 24px; }
+    li + li { margin-top: 6px; }
+    table { width: 100%; margin: 24px 0; border-collapse: collapse; font-size: 0.88rem; line-height: 1.5; }
+    th,
+    td { padding: 10px 12px; border-bottom: 1px solid var(--article-line); text-align: left; vertical-align: top; }
+    th { color: var(--article-faint); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .box,
+    .callout {
+      margin: 24px 0;
+      padding: 18px 22px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+      font-size: 0.92rem;
+      line-height: 1.65;
+    }
+    .box.accent,
+    .callout[data-tone="accent"] { border-color: color-mix(in srgb, var(--article-link) 30%, var(--article-line)); background: var(--article-link-soft); }
+    .box.good,
+    .callout[data-tone="good"] { border-color: color-mix(in srgb, var(--article-good) 30%, var(--article-line)); background: var(--article-good-soft); }
+    .box.warn,
+    .callout[data-tone="warn"] { border-color: color-mix(in srgb, var(--article-warn) 35%, var(--article-line)); background: var(--article-warn-soft); }
+    .box.bad,
+    .callout[data-tone="bad"] { border-color: color-mix(in srgb, var(--article-bad) 30%, var(--article-line)); background: var(--article-bad-soft); }
+    figure { margin: 30px 0; }
+    figure > img,
+    figure > svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    figcaption { margin-top: 10px; color: var(--article-muted); font-size: 0.8rem; line-height: 1.5; }
+    .evidence-figure { margin-top: 38px; margin-bottom: 38px; }
+    .evidence-captures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+      gap: 12px;
+    }
+    .evidence-capture {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-paper);
+    }
+    .evidence-capture > img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .capture-theme,
+    .figure-annotation {
+      position: absolute;
+      z-index: 1;
+      border: 1px solid var(--article-line);
+      border-radius: 999px;
+      background: var(--article-surface);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      line-height: 1.35;
+    }
+    .capture-theme {
+      top: 10px;
+      left: 10px;
+      padding: 3px 8px;
+      text-transform: uppercase;
+    }
+    .figure-annotation {
+      right: 12px;
+      bottom: 12px;
+      max-width: min(28ch, calc(100% - 24px));
+      padding: 5px 10px;
+      border-color: color-mix(in srgb, var(--article-link) 45%, var(--article-line));
+      background: var(--article-link-soft);
+      color: var(--article-link);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .figure-claim { display: block; color: var(--article-ink); font-size: 0.84rem; }
+    .figure-as-of {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 14px;
+      margin-top: 6px;
+      color: var(--article-faint);
+      font-size: 0.72rem;
+    }
+    .breakout,
+    .media-breakout {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+    }
+    .variant-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 24px 0; }
+    .variant {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--article-line);
+      border-radius: 10px;
+      background: var(--article-surface);
+    }
+    .variant h3 { margin: 0 0 8px; }
+    .variant img,
+    .variant svg { display: block; width: 100%; height: auto; margin-top: 12px; }
+    [data-document-pattern="ui"] .variant-grid {
+      width: min(1120px, calc(100vw - 48px));
+      margin-left: 50%;
+      transform: translateX(-50%);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    [data-document-pattern="ui"] .mockup { width: min(1120px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+    .evidence-list { display: grid; gap: 10px; margin: 24px 0; }
+    .evidence {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px 14px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--article-line);
+      border-radius: 9px;
+      background: var(--article-surface);
+      color: var(--article-ink);
+      text-decoration: none;
+    }
+    .evidence:hover { border-color: var(--article-link); background: var(--article-link-soft); }
+    .evidence-class {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--article-surface-strong);
+      color: var(--article-muted);
+      font-size: 0.68rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="observed"] { background: var(--article-good-soft); color: var(--article-good); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="inferred"] { background: var(--article-warn-soft); color: var(--article-warn); }
+    [data-document-pattern="concept"] .evidence-class[data-evidence-class="proposed"] { background: var(--article-link-soft); color: var(--article-link); }
+    .evidence b { display: block; margin-bottom: 2px; font-size: 0.88rem; }
+    .evidence small { display: block; color: var(--article-muted); font-size: 0.78rem; line-height: 1.45; }
+    .dim { color: var(--article-muted); }
+
+    @media (max-width: 760px) {
+      main,
+      .article { width: min(100% - 28px, 70ch); padding-bottom: 52px; }
+      header.page { padding-top: 32px; }
+      .breakout,
+      .media-breakout,
+      [data-document-pattern="ui"] .variant-grid,
+      [data-document-pattern="ui"] .mockup { width: calc(100vw - 20px); }
+      [data-document-pattern="ui"] .variant-grid { grid-template-columns: 1fr; }
+      .evidence { grid-template-columns: 1fr; }
+      .evidence-captures { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }
+    }
+  </style>
+  <style data-dossier="site-security-scans">
+    /* Diagram and table helpers. Only the article template's variables are used. */
+    .diagram { font-family: var(--article-sans); }
+    .diagram text { fill: var(--article-ink); font-size: 13px; }
+    .diagram .muted { fill: var(--article-muted); font-size: 11.5px; }
+    .diagram .faint { fill: var(--article-faint); font-size: 11px; }
+    .diagram .box { fill: var(--article-surface); stroke: var(--article-line); stroke-width: 1; }
+    .diagram .box-strong { fill: var(--article-surface-strong); stroke: var(--article-line); stroke-width: 1; }
+    .diagram .box-accent { fill: var(--article-link-soft); stroke: var(--article-link); stroke-width: 1.2; }
+    .diagram .box-good { fill: var(--article-good-soft); stroke: var(--article-good); stroke-width: 1; }
+    .diagram .box-warn { fill: var(--article-warn-soft); stroke: var(--article-warn); stroke-width: 1; }
+    .diagram .box-bad { fill: var(--article-bad-soft); stroke: var(--article-bad); stroke-width: 1; }
+    .diagram .line { stroke: var(--article-muted); stroke-width: 1.3; fill: none; }
+    .diagram .line-dash { stroke: var(--article-faint); stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+    .diagram .head { fill: var(--article-muted); }
+    .diagram .strong { font-weight: 700; }
+    .diagram .accent-text { fill: var(--article-link); }
+    .diagram .good-text { fill: var(--article-good); }
+    .diagram .warn-text { fill: var(--article-warn); }
+    .diagram .bad-text { fill: var(--article-bad); }
+    .diagram .mono { font-family: var(--article-mono); font-size: 11px; }
+    .decision-list { padding-left: 22px; }
+    .decision-list li b { font-family: var(--article-sans); font-size: 0.92rem; }
+    td code, th code { white-space: nowrap; }
+    .verdict { font-family: var(--article-sans); font-weight: 700; font-size: 0.78rem; }
+    .verdict.take { color: var(--article-good); }
+    .verdict.later { color: var(--article-warn); }
+    .verdict.skip { color: var(--article-bad); }
+  </style>
+</head>
+<body>
+<main class="article">
+  <header class="page">
+    <p class="kicker">Concept Dossier · Quality Studio</p>
+    <h1>Security scans of public sites</h1>
+    <p class="lede">Once a project is hosted publicly, Quality Studio should check its site from the outside as well as reviewing its code. This Dossier defines a site scan in three layers, the tools packaged for it, a versioned prompt library for the agent-driven part, the safety rules, where the sensitive results live, and how Agent Studio triggers scans and receives their results.</p>
+    <div class="meta">
+      <span><b>Card</b> QS-130</span>
+      <span><b>Pattern</b> concept</span>
+      <span><b>Status</b> decision-pending</span>
+      <span><b>Phase</b> decision-ready</span>
+      <span><b>Updated</b> <time datetime="2026-11-01">1 November 2026</time></span>
+      <span><b>Base</b> <code>7dd46b54</code> (Quality Studio), <code>a3b98b11</code> (Agent Studio <code>develop</code>)</span>
+    </div>
+  </header>
+
+  <section id="decision-summary">
+    <h2><span class="number">00</span> Decision summary</h2>
+    <p>Each decision has a recommended working option. Implementation proceeds on it unless the operator records another choice.</p>
+    <ol class="decision-list">
+      <li><b>Layers.</b> Three layers: outside view (on for every verified site), safe active checks (off by default; a switch per site with an expiry) and agent-driven review (off by default; a switch per site and environment, and staging unless production is named).</li>
+      <li><b>Tools.</b> A lean set, added in stages. Native checks in the worker, plus testssl.sh and Gitleaks for the outside view. Nuclei with pinned templates for known vulnerabilities. ZAP baseline later, in a separate optional image, for crawling and authenticated crawling. Skip Nmap, sslyze, Nikto, Wapiti, sqlmap and hosted scanners. Defer Trivy and Grype to artefact scanning.</li>
+      <li><b>Scanner placement.</b> One pinned scanner-worker image that pulls jobs from Quality Studio. It runs as a separate container on the Quality Studio host first, and on a host outside the targets' network for production scans.</li>
+      <li><b>Ownership.</b> A site may be scanned only after a token proof, either a DNS TXT record or a file under <code>/.well-known/</code>. The proof is re-checked if it is more than 24 hours old. For sites it hosts, Agent Studio places the token automatically.</li>
+      <li><b>Evidence home.</b> A restricted <code>sites/</code> area in the Quality Studio data root. It is never in a checkout, never in an export, and never in logs. Only a redacted summary leaves Quality Studio.</li>
+      <li><b>Consequences.</b> Advisory first. After a measured trial, block promotion to production on conclusive critical outside-view findings on staging, then on judged critical findings. A production scan after a deploy creates a card and never rolls back automatically.</li>
+    </ol>
+  </section>
+
+  <section id="starting-point">
+    <h2><span class="number">01</span> Starting point</h2>
+    <p>The card's description of the current state was checked against both repositories. Most of it holds. Five points needed correcting or sharpening, and they shape the design.</p>
+    <table>
+      <thead><tr><th>Card statement</th><th>Finding in the code</th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td>Versioned security prompts and rule packs exist.</td><td>Confirmed. <code>backend/AgentOrchestrator.CodeQuality/prompts/</code> holds <code>file-</code>, <code>module-</code> and <code>project-security-review.v1.md</code> and <code>attack-coverage-review.v1.md</code>, embedded as resources (<code>AgentOrchestrator.CodeQuality.csproj:18</code>). <code>rules/</code> holds packs per technology.</td><td>The site prompts follow the same <code>*.v1.md</code> convention and the same untrusted-content markers.</td></tr>
+        <tr><td>The matrix treats an empty cell as no pass.</td><td>Confirmed (<code>docs/attack-coverage.md</code>). The catalogue has 17 entries. Narrow <code>QS-CONTROL-*</code> entries are conclusive in both directions. Broad OWASP entries are never passed by a clean sensor result.</td><td>Site controls become narrow <code>QS-SITE-*</code> entries. Broad entries stay <code>notYetChecked</code> on a live site until an agent judges them.</td></tr>
+        <tr><td>The dependency sensor is the pattern.</td><td>Confirmed. <code>IReviewSensor</code> (<code>Sensors.cs:47</code>) and <code>ReviewFinding</code> with <code>FindingSource(Kind, SensorId, Producer, ProducerVersion)</code> (<code>ReviewMetaContract.cs:155,207</code>). A failed tool is <code>available: false</code> and never a clean result. <code>FindingLocation.Path</code> is a plain string.</td><td>A site finding fits the existing shape with a <code>site://host:port/path</code> location. No contract change is needed for slice 1.</td></tr>
+        <tr><td>"Today's <code>.quality/</code> evidence may be committed."</td><td>Out of date. Since the data-root move, generated evidence lives outside the checkout (<code>docs/data-root.md</code>), and <code>.gitignore</code> ignores <code>.quality/**</code> apart from author inputs. Evidence still reaches the public repository <em>deliberately</em>: <code>quality report --output docs/…</code>, real-run sidecars in <code>samples/</code>, and card results committed under <code>results/</code> (for example <code>results/review-2026-09-19/security-review.md</code>).</td><td>The risk is deliberate export and card results, not automatic writes. Site evidence must be excluded from every export path and from card results.</td></tr>
+        <tr><td>Agent Studio knows what is public.</td><td>Partly. <code>RunTargetHosting</code> has <code>Domains</code>, <code>Edge</code> (<code>acme</code> or <code>cloudflare</code>) and <code>HealthPath</code> (<code>RunTargetContracts.cs:11-18</code>). Environments have <code>Kind</code>, <code>Address</code> and <code>HealthUrl</code>. There is <strong>no public marker</strong>. Domains are filtered against operator-set <code>RunTargetDomainSuffixes</code>, which is an allow-list, not a proof of ownership (<code>RunTargetDesiredStatePolicy.cs:155</code>).</td><td>Hosting identifies scan <em>candidates</em>. Ownership needs its own proof.</td></tr>
+        <tr><td>Deploy runs exist.</td><td>Confirmed. <code>DeploymentRecord</code> holds the state, trigger, steps and timestamps, and the commit is on <code>Release.CommitSha</code>. There is <strong>no webhook or event bus</strong>: completion is found by reconciliation in <code>DeployService.SyncLocked</code>, which already creates production-failure cards. <code>ReleaseCandidateGate</code> checks a fixed list and accepts one external verdict, the release-suite verdict, so it is <strong>not pluggable</strong>.</td><td>Triggers hook into reconciliation. A gate needs a new verdict input modelled on the release-suite verdict.</td></tr>
+      </tbody>
+    </table>
+    <p>Two existing pieces are reused instead of rebuilt. Agent Studio's <code>EnvironmentHealthService</code> already probes <code>http</code>, <code>tcp</code> and <code>tls</code> and warns on certificate expiry. Its <code>HealthCheckAddressPolicy</code> refuses loopback and metadata addresses, and private addresses unless the environment opts in. On the Quality Studio side, <code>AgentStudioTaskClient</code> already creates Agent Studio cards from findings, in dry-run by default.</p>
+  </section>
+
+  <section id="scan-layers">
+    <h2><span class="number">02</span> Scan layers</h2>
+    <p>A site scan has three layers, ordered from harmless to active. A lower layer never depends on a higher one. Each layer has its own switch, request budget and schedule.</p>
+    <figure class="breakout">
+      <svg class="diagram" viewBox="0 0 960 330" role="img" aria-labelledby="layers-title layers-desc">
+        <title id="layers-title">Three scan layers</title>
+        <desc id="layers-desc">Three stacked bands. Outside view: on for every verified site, at most 300 requests at 2 per second, read-only. Safe active checks: off by default with a switch per site, at most 2,000 requests at 5 per second, safe templates and crawl only. Agent-driven review: off by default with a switch per site and environment, staging by default, a method policy and a budget per run.</desc>
+        <rect class="box-good" x="10" y="14" width="940" height="92" rx="10"/>
+        <text x="30" y="42" class="strong">L0 · Outside view</text>
+        <text x="30" y="62" class="muted">TLS, headers, cookies, redirects, DNS, a short port list,</text>
+        <text x="30" y="78" class="muted">exposed files, version disclosure, served secrets</text>
+        <text x="470" y="42" class="good-text strong">On for every verified site</text>
+        <text x="470" y="62" class="muted">≤ 300 requests · ≤ 2 per second · GET, HEAD, OPTIONS</text>
+        <text x="470" y="78" class="muted">TLS handshakes, DNS queries, TCP connect only</text>
+        <text x="470" y="94" class="faint">first public deploy · every production deploy · daily</text>
+        <rect class="box-warn" x="10" y="118" width="940" height="92" rx="10"/>
+        <text x="30" y="146" class="strong">L1 · Safe active checks</text>
+        <text x="30" y="166" class="muted">Known-vulnerability templates (Nuclei), crawl and</text>
+        <text x="30" y="182" class="muted">authenticated crawl with passive rules (ZAP baseline)</text>
+        <text x="470" y="146" class="warn-text strong">Off · switch per site, with expiry</text>
+        <text x="470" y="166" class="muted">≤ 2,000 requests · ≤ 5 per second · no intrusive, DoS,</text>
+        <text x="470" y="182" class="muted">fuzzing or default-login templates</text>
+        <text x="470" y="198" class="faint">weekly · on demand · release candidate on staging</text>
+        <rect class="box-bad" x="10" y="222" width="940" height="96" rx="10"/>
+        <text x="30" y="250" class="strong">L2 · Agent-driven review</text>
+        <text x="30" y="270" class="muted">Access control across roles, business logic, API abuse,</text>
+        <text x="30" y="286" class="muted">triage of L1 hits, with test accounts</text>
+        <text x="470" y="250" class="bad-text strong">Off · switch per site and environment</text>
+        <text x="470" y="270" class="muted">staging by default · scoped HTTP tool only · method policy</text>
+        <text x="470" y="286" class="muted">budget per run (≤ 1,500 requests) · writes only as test tenant</text>
+        <text x="470" y="302" class="faint">on demand · per release candidate on staging</text>
+      </svg>
+      <figcaption>Layers, defaults and budgets. Budgets are working values for slice 1 and can be configured per site, but only downwards in production.</figcaption>
+    </figure>
+
+    <h3>Outside view (L0)</h3>
+    <p>L0 sends only requests that an ordinary visitor's browser, a DNS resolver or a port check would send. Every check is deterministic, and each has its own rule id so that its severity can be configured in a <code>site-baseline</code> rule pack:</p>
+    <table>
+      <thead><tr><th>Area</th><th>Checks</th><th>Rule ids (default severity)</th></tr></thead>
+      <tbody>
+        <tr><td>TLS</td><td>Chain, hostname, expiry, protocol versions offered, weak ciphers, known TLS weaknesses (testssl.sh)</td><td><code>site/tls-certificate-invalid</code> (high), <code>site/tls-certificate-expiring</code> (medium under 14 days, high under 3), <code>site/tls-legacy-protocol</code> (medium), <code>site/tls-weak-cipher</code> (medium)</td></tr>
+        <tr><td>Transport and headers</td><td>HTTP to HTTPS redirect, HSTS and its max-age, CSP present and without <code>unsafe-inline</code> scripts, <code>X-Content-Type-Options</code>, frame-ancestors, Referrer-Policy</td><td><code>site/http-not-redirected</code> (medium), <code>site/hsts-missing</code> (medium), <code>site/hsts-weak</code> (low), <code>site/csp-missing</code> (low), <code>site/header-missing</code> (low or info)</td></tr>
+        <tr><td>Cookies</td><td><code>Secure</code>, <code>HttpOnly</code> and <code>SameSite</code> on cookies set without login</td><td><code>site/cookie-flags</code> (medium for session-like names, otherwise low)</td></tr>
+        <tr><td>Disclosure</td><td>Version in <code>Server</code> or <code>X-Powered-By</code>, stack traces on a 404 probe, directory listing</td><td><code>site/version-disclosure</code> (low), <code>site/error-detail</code> (medium), <code>site/directory-listing</code> (medium)</td></tr>
+        <tr><td>Exposed files</td><td>A fixed list of about 40 paths (version-control metadata, <code>.env</code>, backups, status pages, framework consoles), each confirmed by a content signature and not by status code alone</td><td><code>site/exposed-file</code> (critical for credentials or VCS metadata, otherwise high)</td></tr>
+        <tr><td>Served content</td><td>Gitleaks <code>dir</code> over the HTML, script bundles and source maps fetched from verified hosts, with a size cap</td><td><code>site/served-secret</code> (high)</td></tr>
+        <tr><td>Cross-origin</td><td>One request with a harmless foreign <code>Origin</code> header to the start page and the API root</td><td><code>site/cors-reflects-origin</code> (high when credentials are allowed)</td></tr>
+        <tr><td>DNS</td><td>CAA, CNAME targets that resolve to an unclaimed service, SPF and DMARC when MX records exist</td><td><code>site/dns-dangling-cname</code> (high), <code>site/dns-caa-missing</code> (low), <code>site/mail-policy</code> (info)</td></tr>
+        <tr><td>Ports</td><td>TCP connect to a short fixed list (database, cache, search, container API and admin ports), only on addresses that belong to the operator</td><td><code>site/open-port</code> (high for data stores and container APIs, info for SSH)</td></tr>
+        <tr><td>Contact</td><td><code>/.well-known/security.txt</code> (RFC 9116)</td><td><code>site/security-txt-missing</code> (info)</td></tr>
+      </tbody>
+    </table>
+    <p>L0 does not crawl. It requests the start page, the redirect chain, the assets that page references on the same host, the health URL and the fixed path list. A check whose tool fails is reported as unavailable, never as clean. A scan that hits its budget sets <code>complete: false</code> and lists what it omitted, in the same way the boundary inventory does.</p>
+
+    <h3>Safe active checks (L1)</h3>
+    <p>L1 sends requests that a visitor would not send, but that are designed not to change state. Nuclei runs with a pinned template set restricted to HTTP, SSL and DNS templates. It excludes the <code>intrusive</code>, <code>dos</code>, <code>fuzz</code> and <code>default-login</code> tags, code and headless templates, and DAST fuzzing mode. ZAP baseline crawls for a bounded time and applies only passive rules. Its authenticated variant logs in with a test account. L1 hits are <em>raw</em>: a template match is an observation until it is either conclusive by construction or judged (see <a href="#hit-to-finding">From tool hit to judged finding</a>).</p>
+
+    <h3>Agent-driven review (L2)</h3>
+    <p>L2 covers what tools cannot judge: whether role B can reach role A's objects, whether a business flow can be skipped or repeated, and whether an API exposes more than its client uses. The agent's only tool is a scoped HTTP client in the worker. That client enforces the verified hostnames, the method policy, the budget and the rate limit. It logs in on the agent's behalf and refers to accounts by role name, so the agent never sees a credential. Every exchange is recorded as evidence.</p>
+
+    <h3>Which layer runs when</h3>
+    <table>
+      <thead><tr><th>Trigger</th><th>L0</th><th>L1</th><th>L2</th></tr></thead>
+      <tbody>
+        <tr><td>First public deployment of an environment</td><td>Yes, after the health step</td><td>If switched on</td><td>No</td></tr>
+        <tr><td>Every production deploy</td><td>Yes, after the health step</td><td>No</td><td>No</td></tr>
+        <tr><td>Release candidate on staging, before promotion</td><td>Yes (gate input)</td><td>If switched on (gate input from stage 2)</td><td>If switched on, on demand</td></tr>
+        <tr><td>Schedule</td><td>Daily</td><td>Weekly, if switched on</td><td>No</td></tr>
+        <tr><td>On demand (Quality Studio or Agent Studio)</td><td>Yes</td><td>If switched on</td><td>If switched on</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="alternatives" data-concept-section="alternatives" data-document-section="alternatives">
+    <h2><span class="number">03</span> Alternatives</h2>
+    <p>Two choices drive everything else: which tools to package, and where the scanner runs. A third, where evidence lives, follows from the sensitivity rule and is listed for completeness.</p>
+
+    <h3 id="tool-sets">Tool sets</h3>
+    <div class="variant-grid">
+      <article class="variant" id="option-t1">
+        <h3>T1 · Lean, in stages</h3>
+        <p>Native checks in the worker (HTTP, cookies, redirects, DNS, TCP connect, exposed files), testssl.sh for TLS and the already pinned Gitleaks for L0. Nuclei with pinned templates for L1. ZAP baseline is added later in a separate optional image for crawling and authenticated crawling.</p>
+        <p><b>For:</b> a small first image, permissive licences apart from testssl.sh, and no runtime downloads. Each tool adds a distinct capability.</p>
+        <p><b>Against:</b> crawl coverage arrives only with the ZAP slice. Some checks have to be written natively and maintained.</p>
+      </article>
+      <article class="variant" id="option-t2">
+        <h3>T2 · ZAP-centred</h3>
+        <p>ZAP does almost everything, with baseline, API and authenticated scans driven by its automation framework, plus testssl.sh for TLS depth.</p>
+        <p><b>For:</b> one mature engine with passive rules, crawling, an AJAX spider and authentication support. Its report format is well known.</p>
+        <p><b>Against:</b> it needs a Java runtime and a browser, and the official image is well above 1 GB. That weight is carried even for a daily header check. It is slow to start, there are no template-style known-vulnerability checks, and passive alerts are noisy without triage.</p>
+      </article>
+      <article class="variant" id="option-t3">
+        <h3>T3 · Broad toolbox</h3>
+        <p>ZAP, Nuclei, testssl.sh, Nmap, Trivy or Grype, Gitleaks and Nikto in one image.</p>
+        <p><b>For:</b> the widest coverage on paper.</p>
+        <p><b>Against:</b> overlapping and noisy results. Nmap's NPSL restricts redistribution. Trivy and Grype download a vulnerability database at run time, which breaks the no-download rule, and they scan artefacts rather than sites. Nikto is intrusive. The image is the largest of the three and has the most pins to maintain.</p>
+      </article>
+    </div>
+
+    <table>
+      <thead><tr><th>Tool</th><th>Layer</th><th>Licence</th><th>Footprint</th><th>Pinning</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Native worker checks (.NET <code>HttpClient</code>, <code>SslStream</code>, DNS, TCP connect)</td><td>L0</td><td>Project code</td><td>None extra</td><td>Worker version</td><td><span class="verdict take">Take</span></td></tr>
+        <tr><td>testssl.sh</td><td>L0</td><td>GPL-2.0</td><td>Shell script with bundled OpenSSL builds for legacy protocols. Needs bash and dig.</td><td>Release tag and SHA-256 of the archive, verified at image build</td><td><span class="verdict take">Take</span>. The system OpenSSL refuses the legacy protocols that need to be detected. It runs as a separate process in the scanner image only, and the image ships its licence and source reference.</td></tr>
+        <tr><td>Gitleaks</td><td>L0</td><td>MIT</td><td>Already in the Quality Studio image (8.24.2)</td><td>Existing digest in <code>gitleaks-binaries.json</code></td><td><span class="verdict take">Take</span>, for <code>gitleaks dir</code> over the fetched content</td></tr>
+        <tr><td>Nuclei and nuclei-templates</td><td>L1</td><td>MIT (both)</td><td>A single Go binary and a template tree</td><td>Binary digest plus template commit, update check off</td><td><span class="verdict take">Take</span>, with a tag policy</td></tr>
+        <tr><td>ZAP (baseline, automation framework)</td><td>L1</td><td>Apache-2.0</td><td>A Java runtime and a browser. The official image is well above 1 GB.</td><td>Image digest</td><td><span class="verdict later">Later</span>, as a separate optional image</td></tr>
+        <tr><td>Nmap</td><td>L0</td><td>NPSL (not OSI-approved, redistribution terms)</td><td>Native binary</td><td>n/a</td><td><span class="verdict skip">Skip</span>. A TCP connect check on a short list covers the need.</td></tr>
+        <tr><td>naabu</td><td>L0</td><td>MIT</td><td>Go binary</td><td>n/a</td><td><span class="verdict skip">Skip</span>, for the same reason, and it is one less pin</td></tr>
+        <tr><td>sslyze</td><td>L0</td><td>AGPL-3.0</td><td>Python package</td><td>n/a</td><td><span class="verdict skip">Skip</span>, because testssl.sh is chosen</td></tr>
+        <tr><td>Trivy, Grype</td><td>Artefact</td><td>Apache-2.0</td><td>Binary plus a vulnerability database fetched at run time</td><td>Would need a pinned database snapshot</td><td><span class="verdict later">Defer</span>. They scan images, not sites, so they belong to build or deploy. Lockfile advisories are already covered by the <code>dependencies</code> sensor.</td></tr>
+        <tr><td>Nikto, Wapiti, sqlmap</td><td>Active</td><td>GPL-2.0</td><td>Scripts</td><td>n/a</td><td><span class="verdict skip">Skip</span>. They are intrusive or exploit by design.</td></tr>
+        <tr><td>SSL Labs, HTTP Observatory, hosted DAST</td><td>Any</td><td>Third-party service</td><td>None locally</td><td>n/a</td><td><span class="verdict skip">Skip</span>. The result stays with a third party and, depending on options, is listed publicly.</td></tr>
+      </tbody>
+    </table>
+    <p class="dim">Licences and footprints were checked against upstream descriptions rather than measured in this run. Slice 1 records the measured image size and every tool digest in the scan provenance.</p>
+
+    <h3 id="placements">Where the scanner runs</h3>
+    <div class="variant-grid">
+      <article class="variant" id="option-p1">
+        <h3>P1 · Inside the Quality Studio container</h3>
+        <p>The tools run as child processes of the API, in the same way as Gitleaks today.</p>
+        <p><b>For:</b> nothing new to deploy.</p>
+        <p><b>Against:</b> it sees the site from wherever Quality Studio runs, which may be the target's own network. A scanner defect or a hostile response handler runs next to the repositories, the data root and the API tokens. The Quality Studio image would grow by every scanner. The existing Gitleaks documentation already notes that its process limits "do not isolate the scanner … from the host".</p>
+      </article>
+      <article class="variant" id="option-p2">
+        <h3>P2 · Separate worker container on the Quality Studio host</h3>
+        <p>A <code>quality-site-scanner</code> image claims jobs from Quality Studio over HTTPS and posts results back. It runs non-root with a read-only root filesystem, all capabilities dropped, memory and process limits, and no repository, data-root or Docker-socket mounts.</p>
+        <p><b>For:</b> it isolates the host and is cheap. It is the same image as P3.</p>
+        <p><b>Against:</b> it has the same network vantage as Quality Studio, so it is wrong when Quality Studio and the target share a host or network.</p>
+      </article>
+      <article class="variant" id="option-p3">
+        <h3>P3 · The same worker on an external vantage host</h3>
+        <p>The worker runs on a small host with a different provider and network from every target. It only connects outwards: to Quality Studio for jobs, and to the targets.</p>
+        <p><b>For:</b> it sees exactly what an outsider sees, it cannot reach the operator's internal networks, and its egress address is stable, so site owners can recognise it.</p>
+        <p><b>Against:</b> one more host to run and patch, at a small monthly cost.</p>
+      </article>
+      <article class="variant" id="option-p4">
+        <h3>P4 · Third-party scanning service</h3>
+        <p>A hosted DAST or monitoring service scans the site and Quality Studio imports the report.</p>
+        <p><b>For:</b> no infrastructure.</p>
+        <p><b>Against:</b> unfixed findings sit with a third party, which breaks the sensitivity rule. Provenance and pinning are outside our control, and credentials for authenticated scans would leave the secret provider.</p>
+      </article>
+    </div>
+    <table>
+      <thead><tr><th></th><th>P1 in-process</th><th>P2 worker, QS host</th><th>P3 worker, external</th><th>P4 service</th></tr></thead>
+      <tbody>
+        <tr><td>Sees what an outsider sees</td><td>Only if the QS host is outside the target network</td><td>Same as P1</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Can harm the host it runs on</td><td>Shares the API host and its secrets</td><td>Contained by the container limits</td><td>Contained, and on a separate host</td><td>n/a</td></tr>
+        <tr><td>Evidence stays with the operator</td><td>Yes</td><td>Yes</td><td>Yes (posted to QS, nothing kept locally)</td><td>No</td></tr>
+        <tr><td>Credentials</td><td>In the API process</td><td>Per job, in the worker only</td><td>Per job, in the worker only</td><td>Given to a third party</td></tr>
+        <tr><td>Cost to start</td><td>Lowest</td><td>Low</td><td>One host</td><td>Subscription</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="evidence-homes">Where scan evidence lives</h3>
+    <div class="variant-grid">
+      <article class="variant"><h3>E1 · In the repository (<code>.quality/</code> or <code>results/</code>)</h3><p>Rejected. The repositories are public, and committed history cannot be recalled.</p></article>
+      <article class="variant"><h3>E2 · Restricted area in the Quality Studio data root</h3><p><code>&lt;base&gt;/sites/&lt;site-key&gt;/</code>, outside every checkout, readable only by clients with a site-security grant. This option is the recommendation.</p></article>
+      <article class="variant"><h3>E3 · In Agent Studio</h3><p>Rejected as the primary store. Agent Studio cards are copied into agent prompts and card results, and those can end up in commits. Agent Studio receives a redacted summary only.</p></article>
+    </div>
+  </section>
+
+  <section id="recommendation" data-concept-section="recommendation" data-document-section="recommendation">
+    <h2><span class="number">04</span> Recommendation</h2>
+    <div class="callout" data-tone="accent">
+      <h3>Recommended default</h3>
+      <p>Use tool set <a href="#option-t1">T1</a>, run in one pull-based scanner-worker image that starts as <a href="#option-p2">P2</a> and moves to <a href="#option-p3">P3</a> for production scans. Keep evidence in the restricted data-root area (E2). The outside view is enabled for every site with a token proof. Safe active checks and agent review are switched on explicitly and expire. Results reach Agent Studio as a redacted summary, as cards and, after a measured advisory period, as a gate on promotion to production.</p>
+      <p>The main reason is that this delivers a useful scan of a real site in the first slice with a small image and no runtime downloads, and it keeps unfixed findings away from anything public.</p>
+    </div>
+
+    <figure class="breakout">
+      <svg class="diagram" viewBox="0 0 960 436" role="img" aria-labelledby="arch-title arch-desc">
+        <title id="arch-title">Components and data flow of a site scan</title>
+        <desc id="arch-desc">Agent Studio registers sites and requests scans from Quality Studio, and receives a summary, verdict and redacted card back. The scanner worker pulls jobs from Quality Studio and posts results. It sends bounded requests to the verified target site and receives scan credentials by secret reference from the Agent Studio secret provider. The worker sits inside a dashed boundary marked external vantage host.</desc>
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="box" x="10" y="20" width="250" height="200" rx="10"/>
+        <text x="28" y="46" class="strong">Agent Studio</text>
+        <text x="28" y="72" class="muted">Hosting: Domains, Edge, HealthPath</text>
+        <text x="28" y="92" class="muted">Deploy runs, reconciliation</text>
+        <text x="28" y="112" class="muted">Release-candidate gate</text>
+        <text x="28" y="132" class="muted">Secret provider (secret://…)</text>
+        <text x="28" y="152" class="muted">Cards, environment card,</text>
+        <text x="28" y="168" class="muted">deploy-run drawer, Security rail</text>
+        <text x="28" y="200" class="faint">owns: what is deployed where</text>
+        <rect class="box-accent" x="350" y="20" width="270" height="220" rx="10"/>
+        <text x="368" y="46" class="strong">Quality Studio</text>
+        <text x="368" y="72" class="muted">Site registry and ownership proofs</text>
+        <text x="368" y="92" class="muted">Scan queue, schedule, switches</text>
+        <text x="368" y="112" class="muted">Site prompts (*.v1.md), rule pack</text>
+        <text x="368" y="132" class="muted">Findings, lifecycle, coverage matrix</text>
+        <rect class="box-strong" x="366" y="148" width="238" height="56" rx="8"/>
+        <text x="380" y="170" class="strong">Restricted evidence</text>
+        <text x="380" y="190" class="mono">&lt;base&gt;/sites/&lt;site-key&gt;/</text>
+        <text x="368" y="226" class="faint">owns: judgement and evidence</text>
+        <rect class="line-dash" x="320" y="270" width="330" height="156" rx="12"/>
+        <text x="336" y="416" class="faint">external vantage host (P3), or the QS host (P2)</text>
+        <rect class="box" x="350" y="300" width="270" height="96" rx="10"/>
+        <text x="368" y="324" class="strong">Scanner worker</text>
+        <text x="368" y="344" class="muted">native checks · testssl.sh · Gitleaks</text>
+        <text x="368" y="362" class="muted">Nuclei · (ZAP image) · scoped HTTP tool</text>
+        <text x="368" y="382" class="faint">non-root, no mounts, outbound only</text>
+        <rect class="box-good" x="730" y="300" width="220" height="96" rx="10"/>
+        <text x="748" y="326" class="strong">Target site</text>
+        <text x="748" y="346" class="mono">www.product.example</text>
+        <text x="748" y="366" class="muted">verified by token proof</text>
+        <path class="line" d="M260 70 H346" marker-end="url(#arrow)"/>
+        <text x="268" y="62" class="faint">register, request</text>
+        <path class="line" d="M350 110 H264" marker-end="url(#arrow)"/>
+        <text x="268" y="128" class="faint">summary, verdict,</text>
+        <text x="268" y="142" class="faint">redacted card</text>
+        <path class="line" d="M470 300 V244" marker-end="url(#arrow)"/>
+        <text x="478" y="262" class="faint">claim job, post results</text>
+        <path class="line" d="M620 348 H726" marker-end="url(#arrow)"/>
+        <text x="630" y="340" class="faint">bounded requests</text>
+        <path class="line-dash" d="M135 220 V350 H346" marker-end="url(#arrow)"/>
+        <text x="146" y="326" class="faint">credential by secret:// ref</text>
+        <text x="146" y="342" class="faint">(L1 authenticated, L2)</text>
+      </svg>
+      <figcaption>Components and data flow. The worker opens every connection itself. Neither Agent Studio nor Quality Studio connects to the worker. Credentials never pass through Quality Studio.</figcaption>
+    </figure>
+
+    <h3 id="rec-tools">Tools as sensors</h3>
+    <p>Each tool becomes a Quality Studio sensor with the existing contract. The sensor ids are <code>site-outside-view</code> (native checks plus testssl.sh), <code>site-served-secrets</code> (Gitleaks), <code>site-templates</code> (Nuclei) and <code>site-crawl</code> (ZAP). Each normalises its output into <code>ReviewFinding</code>:</p>
+    <ul>
+      <li><code>Locations[0].Path</code> is <code>site://www.product.example:443/path</code>, with no range.</li>
+      <li><code>Source</code> is <code>FindingSource(Deterministic, sensorId, producer, producerVersion)</code>, for example producer <code>testssl.sh</code> with its pinned version.</li>
+      <li><code>Fingerprint</code> is a hash of the site key, the rule id, the origin and the normalised path, port or parameter, so the same weakness keeps its lifecycle identity across scans.</li>
+      <li><code>Evidence</code> holds a redacted excerpt: response status, the relevant headers, and at most 2 KiB of body after Gitleaks redaction.</li>
+    </ul>
+    <p>The scan provenance records the following:</p>
+    <ul>
+      <li>the worker id and vantage label, its egress address and the image digest;</li>
+      <li>every tool version and the template commit;</li>
+      <li>the hostnames and resolved addresses, and the proof id with its verification time;</li>
+      <li>the layer and the switches in force;</li>
+      <li>the request count, the duration, and <code>complete</code> with its omissions.</li>
+    </ul>
+    <p>The images pin every tool as the Dockerfile pins Gitleaks today. The pinned version and SHA-256 are build arguments, the download is verified during the build stage, and the version is checked at worker start. Nothing is downloaded when a scan runs. The Nuclei template update check is disabled, and templates move only when the image is rebuilt.</p>
+
+    <h3 id="rec-safety">Ownership and safety</h3>
+    <ul>
+      <li><b>Proof.</b> When a site is registered, Quality Studio issues a random token. The operator, or Agent Studio for a site it hosts, publishes the token as a DNS TXT record at <code>_qs-site-verification.www.product.example</code> or as a file at <code>https://www.product.example/.well-known/qs-site-verification/&lt;token-id&gt;</code>. The worker checks the proof before a scan if the last check is more than 24 hours old. A failed check stops the scan with status <code>unverified</code>, which never counts as clean. A run-target hosting declaration does not count as proof, because Agent Studio's domain suffixes are an allow-list.</li>
+      <li><b>Scope.</b> Only the exact verified hostnames are in scope, with no wildcards. Redirects are followed only to other verified hostnames. Third-party resources are listed in the inventory but not requested. A resolved address that is loopback, link-local, private or a cloud metadata address is refused, using the same rule as Agent Studio's <code>HealthCheckAddressPolicy</code>. Tests use an injected seam that production configuration cannot set.</li>
+      <li><b>Port probes.</b> Ports are probed only on addresses that belong to the operator: the Agent Studio host address, or addresses declared on the site record. A site behind a CDN edge (<code>Edge: cloudflare</code>) records <code>omitted: third-party-edge</code> instead, because probing the CDN's address would scan a third party.</li>
+      <li><b>Rate and distress.</b> Each layer has a budget (<a href="#scan-layers">Scan layers</a>). The worker backs off on 429 and 503 responses. It aborts with <code>aborted: target-distress</code> when more than 5% of responses in a minute are server errors, or when median latency triples against the first ten requests.</li>
+      <li><b>Non-destructive defaults.</b> L0 and L1 send only GET, HEAD and OPTIONS requests, TLS handshakes and DNS queries. L2 follows a method policy for each site. State-changing methods are allowed only in a test tenant, and never against production unless production is switched on by name.</li>
+      <li><b>Switches.</b> L1 and L2 have switches per site (L2 also per environment). Each switch records who set it, the reason and an expiry, which defaults to 90 days, and each change is written to the audit log. A global kill switch and a kill switch per site stop running jobs within 10 seconds.</li>
+      <li><b>Identification.</b> The user agent is <code>QualityStudio-SiteScan/&lt;version&gt; (scan &lt;scan-id&gt;)</code>, and the egress address is documented, so the site's own logs can attribute every request.</li>
+      <li><b>Credentials.</b> Quality Studio stores only references such as <code>secret://shop/staging/scan-user-admin</code>. The worker resolves them at job start through an Agent Studio workload grant scoped to <code>&lt;project&gt;/&lt;environment&gt;</code>. <code>ISecretProvider.GetForWorkloadAsync</code> exists today, and exposing it remotely to the worker is part of the Agent Studio credentials slice. Values never reach evidence, logs or prompts.</li>
+      <li><b>Worker containment.</b> The worker runs non-root with a read-only root filesystem, all capabilities dropped, memory, process and CPU limits, and a temporary filesystem for tool output. It has no repository, data-root or Docker-socket mounts. Its worker token can only claim jobs and post results.</li>
+    </ul>
+
+    <h3 id="rec-sensitive">Sensitive results</h3>
+    <ul>
+      <li><b>Where evidence lives.</b> Site data lives in <code>&lt;base&gt;/sites/&lt;site-key&gt;/</code>: <code>site.json</code> (registration, proofs, switches), <code>scans/&lt;scan-id&gt;/</code> (provenance, normalised findings, raw tool output), <code>inventory.json</code>, <code>findings/state.json</code> and <code>attacks/coverage-ledger.jsonl</code>. Directories are created with mode 0700. The site area is not part of any project directory, so <code>quality migrate-data</code>, project exports and run reports never pick it up.</li>
+      <li><b>Who can read it.</b> In Hosted mode a client needs repository access to the site's owning registration <em>and</em> a new <code>CanReadSiteSecurity</code> flag next to <code>CanRegisterRepositories</code>. Without both, site routes answer 404. Local mode keeps its rule that every loopback request is the operator.</li>
+      <li><b>What leaves.</b> Agent Studio and logs receive the scan id, site key, layer, status, completeness, counts by severity and gate verdict. Finding titles, paths, payloads and excerpts never leave Quality Studio. Agent Studio cards carry a redacted title ("Site security finding, high, staging of shop") and a Quality Studio link. A fix run reads the details through a read grant scoped to that card. Delivery rules forbid copying the details into repository files or card results.</li>
+      <li><b>Exports.</b> <code>quality report</code> and the JSON exports leave site findings out. An explicit <code>--include-site-findings</code> flag writes them only to a path outside every registered checkout.</li>
+      <li><b>Retention.</b> Raw tool output is deleted after 90 days. Normalised findings and their lifecycle are kept. Host-specific details are never published, even after a fix. Public documents may cite counts or classes only.</li>
+    </ul>
+
+    <h3 id="rec-prompts">Prompt library</h3>
+    <p>The agent-driven part gets six versioned prompts next to the existing ones. Each prompt treats every site response as untrusted data between the existing content-boundary markers, because a page can contain text written to steer an agent. Each runs with the clean-context reviewer isolation of <code>ReviewerIsolation.cs</code>.</p>
+    <table>
+      <thead><tr><th>Prompt</th><th>Layer</th><th>Input</th><th>Output</th></tr></thead>
+      <tbody>
+        <tr><td><code>site-reconnaissance.v1</code></td><td>L1/L2</td><td>L0 evidence, crawl map, published OpenAPI document, and the code boundary inventory when the site's repository is registered</td><td>Site inventory entries and a test plan per boundary within the budget</td></tr>
+        <tr><td><code>site-hit-triage.v1</code></td><td>L1</td><td>One raw tool hit with its exchange, the template or rule text, and the catalogue entry</td><td><code>confirmed</code>, <code>false-positive</code> or <code>needs-human</code>, with one confirming GET at most</td></tr>
+        <tr><td><code>site-auth-session-review.v1</code></td><td>L2</td><td>Login, logout and reset flows observed with test accounts, and cookies and tokens</td><td>Findings on session fixation, token lifetime, logout invalidation, cookie scope and user enumeration</td></tr>
+        <tr><td><code>site-access-control-review.v1</code></td><td>L2</td><td>Role matrix, two accounts per role, objects owned by each</td><td>Vertical and horizontal access verdicts per route or operation</td></tr>
+        <tr><td><code>site-api-abuse-review.v1</code></td><td>L2</td><td>API operations, rate-limit responses, response shapes against what the client uses</td><td>Findings on missing limits, mass assignment, excessive data exposure and enumeration</td></tr>
+        <tr><td><code>site-attack-coverage-review.v1</code></td><td>L2</td><td>One site boundary, one catalogue entry, the recorded exchanges</td><td><code>pass</code>, <code>finding</code> or <code>not-applicable</code>, with the same rules as <code>attack-coverage-review.v1</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="rec-matrix">Coverage matrix</h3>
+    <p>A live site becomes a second source of boundaries. The worker writes <code>sites/&lt;site-key&gt;/inventory.json</code> (schema <code>site-inventory.v1</code>) with entries of six kinds:</p>
+    <ul>
+      <li><code>site-origin</code>: scheme, host and port;</li>
+      <li><code>site-route</code>: a crawled route template;</li>
+      <li><code>site-api-operation</code>;</li>
+      <li><code>site-auth-flow</code>;</li>
+      <li><code>site-dns</code>;</li>
+      <li><code>site-port</code>.</li>
+    </ul>
+    <p>The catalogue changes in two ways:</p>
+    <ul>
+      <li><b>New narrow entries.</b> <code>QS-SITE-TLS</code>, <code>QS-SITE-HEADERS</code>, <code>QS-SITE-COOKIES</code>, <code>QS-SITE-EXPOSED-FILES</code>, <code>QS-SITE-DNS</code> and <code>QS-SITE-PORTS</code> carry <code>deterministicRuleIds</code> for the <code>site/*</code> rules and are conclusive in both directions, like <code>QS-CONTROL-*</code>. A clean L0 scan is therefore a real pass for those cells.</li>
+      <li><b>Wider existing entries.</b> <code>OWASP-API8-MISCONFIGURATION</code> also applies to <code>site-origin</code> and <code>site-port</code>. <code>OWASP-API9-INVENTORY</code> applies to <code>site-route</code> and <code>site-api-operation</code>, so a route that is live but absent from the code inventory becomes visible. <code>OWASP-API1-BOLA</code>, <code>OWASP-API5-FUNCTION-AUTH</code> and <code>OWASP-A01-ACCESS-CONTROL</code> apply to live routes and operations. <code>OWASP-API2-BROKEN-AUTH</code>, <code>SESSION-CSRF</code> and <code>AUTH-BRUTE-FORCE</code> apply to <code>site-auth-flow</code>. These broad cells stay <code>notYetChecked</code> until L2 judges them, so an L0-only site cannot look covered.</li>
+    </ul>
+    <p>Site judgements go to the site's own ledger, which has the same append-only contract and provenance. Staleness gains <code>deploymentChanged</code> (a new <code>Release.CommitSha</code> is live) and <code>siteInventoryChanged</code>. When the site's repository is registered, a live route is linked to the code boundary with the matching template. The matrix then shows the live behaviour (for example "401 without credentials") next to the code fact "authentication unknown", and that corroborates or contradicts it. The matrix view gains a source filter: code, site, or both.</p>
+
+    <h3 id="hit-to-finding">From tool hit to judged finding</h3>
+    <figure class="breakout">
+      <svg class="diagram" viewBox="0 0 960 250" role="img" aria-labelledby="triage-title triage-desc">
+        <title id="triage-title">From raw tool hit to judged finding</title>
+        <desc id="triage-desc">Raw tool output is normalised into a finding with provenance. Conclusive checks become deterministic findings directly. Other hits become observations and go to the triage prompt, which returns confirmed, false positive or needs human. Confirmed high and critical findings need two independent judgements. Results feed the finding lifecycle and the coverage matrix.</desc>
+        <defs><marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="box" x="10" y="90" width="140" height="64" rx="10"/>
+        <text x="24" y="116" class="strong">Raw tool output</text>
+        <text x="24" y="136" class="muted">JSON, JSONL, report</text>
+        <rect class="box" x="190" y="90" width="160" height="64" rx="10"/>
+        <text x="204" y="116" class="strong">Normalise</text>
+        <text x="204" y="136" class="muted">ReviewFinding + provenance</text>
+        <rect class="box-strong" x="390" y="90" width="140" height="64" rx="10"/>
+        <text x="404" y="116" class="strong">Conclusive?</text>
+        <text x="404" y="136" class="muted">rule declares it</text>
+        <rect class="box-good" x="580" y="14" width="180" height="56" rx="10"/>
+        <text x="594" y="38" class="strong">Deterministic finding</text>
+        <text x="594" y="56" class="muted">no model call</text>
+        <rect class="box-warn" x="580" y="150" width="180" height="86" rx="10"/>
+        <text x="594" y="174" class="strong">site-hit-triage.v1</text>
+        <text x="594" y="194" class="muted">≤ 1 confirming GET</text>
+        <text x="594" y="212" class="muted">2 judgements for high and</text>
+        <text x="594" y="228" class="muted">critical</text>
+        <rect class="box-accent" x="800" y="90" width="150" height="64" rx="10"/>
+        <text x="814" y="116" class="strong">Lifecycle</text>
+        <text x="814" y="136" class="muted">and matrix cell</text>
+        <path class="line" d="M150 122 H186" marker-end="url(#arrow2)"/>
+        <path class="line" d="M350 122 H386" marker-end="url(#arrow2)"/>
+        <path class="line" d="M530 110 L576 50" marker-end="url(#arrow2)"/>
+        <text x="540" y="70" class="faint">yes</text>
+        <path class="line" d="M530 136 L576 180" marker-end="url(#arrow2)"/>
+        <text x="540" y="172" class="faint">no</text>
+        <path class="line" d="M760 42 L820 88" marker-end="url(#arrow2)"/>
+        <path class="line" d="M760 190 L820 156" marker-end="url(#arrow2)"/>
+        <text x="772" y="214" class="faint">confirmed, false positive</text>
+        <text x="772" y="230" class="faint">or needs human</text>
+      </svg>
+      <figcaption>Raw hits and judged findings. A check is conclusive only when its rule says so, for example an expired certificate or a version-control file confirmed by its content signature. Template matches without such a signature always go through triage.</figcaption>
+    </figure>
+    <p>A false-positive verdict is recorded against the fingerprint with the judging model and prompt hash, so the same hit is not triaged again until the template or the deployed commit changes. Contradicting judgements keep the conservative result and raise <code>needsHumanAttention</code>, as the matrix does today.</p>
+
+    <h3 id="rec-triggers">Triggers and consequences</h3>
+    <ul>
+      <li><b>From Agent Studio to Quality Studio.</b> <code>DeployService.SyncLocked</code> already reconciles deployments and creates production-failure cards. After it, a new step finds succeeded deployments of <code>stage</code> or <code>production</code> environments with <code>Hosting.Domains</code>. For each one, it registers or updates the site with <code>PUT /api/sites/{siteKey}</code> (on the first public deployment it also places the proof file on the edge). It then requests the scan with <code>POST /api/sites/{siteKey}/scans</code>, sending <code>layer</code>, <code>reason</code>, <code>deploymentId</code>, <code>releaseId</code>, <code>commitSha</code> and <code>environmentId</code>. The deployment id and layer serve as the idempotency key. Quality Studio owns the schedule, because it knows the layers and switches.</li>
+      <li><b>From Quality Studio to Agent Studio.</b> <code>GET /api/sites/{siteKey}/scans/{scanId}/summary</code> returns the redacted summary. A new critical or high finding becomes a redacted Agent Studio card through <code>AgentStudioTaskClient</code>, idempotent per fingerprint. For the gate, Quality Studio publishes a site-security verdict keyed by project, environment and commit, in the same way the release-suite verdict is published today.</li>
+      <li><b>Gate stages.</b>
+        <ul>
+          <li><em>Stage 0, advisory</em>, from slice 3: the status is shown and nothing blocks.</li>
+          <li><em>Stage 1</em>, after at least 4 weeks and 20 scans of production environments with no more than one conclusive finding later judged false: promotion to production is blocked when the staging scan of the same commit has a conclusive critical L0 finding (exposed credentials or VCS metadata, invalid certificate, data-store port open).</li>
+          <li><em>Stage 2</em>: judged critical findings from L1 or L2 also block.</li>
+        </ul>
+        Every block can be overridden with a recorded reason and an expiry. A scan of production after a deploy cannot block a deploy that has already happened. It creates a card and never rolls back automatically.</li>
+      <li><b>Overlap with health checks.</b> Agent Studio's health checks keep their certificate-expiry warning as an operational signal. Quality Studio does not create a card for <code>site/tls-certificate-expiring</code> while that warning is active for the same environment.</li>
+    </ul>
+
+    <h3 id="rec-surfaces">Surfaces</h3>
+    <p>Quality Studio gets a <b>Sites</b> view next to the existing Security matrix button. The related Agent Studio integration card covers the general integration. Here the surfaces are only named:</p>
+    <ul>
+      <li>the project page's existing Security rail (<code>SecurityPanelComponent</code>), with one line per public environment;</li>
+      <li>the environment status card (<code>DeployEnvironmentCardComponent</code>), with the last scan's status and age;</li>
+      <li>the deploy-run drawer (<code>DeployRunDrawerComponent</code>), with the post-deploy scan step and the gate verdict, linked to Quality Studio.</li>
+    </ul>
+    <figure class="breakout">
+      <svg class="diagram" viewBox="0 0 960 400" role="img" aria-labelledby="mock-title mock-desc">
+        <title id="mock-title">Mockup of the proposed Quality Studio Sites view</title>
+        <desc id="mock-desc">A left list of three example sites. The selected site www.product.example shows verified by file token 3 hours ago, three layer rows: outside view on with the last scan complete 2 hours ago, safe active checks off, agent review off. Below are a restricted findings table with two example rows and a coverage strip with 6 site control cells passed, 1 finding and 24 not yet checked.</desc>
+        <rect class="box" x="10" y="10" width="940" height="380" rx="10"/>
+        <rect class="box-strong" x="10" y="10" width="200" height="380" rx="10"/>
+        <text x="26" y="40" class="faint">SITES</text>
+        <rect class="box-accent" x="20" y="54" width="180" height="34" rx="6"/>
+        <text x="32" y="76" class="mono">www.product.example</text>
+        <text x="32" y="114" class="mono">studio.example</text>
+        <text x="32" y="146" class="mono">shop.example</text>
+        <text x="32" y="164" class="faint">proof pending</text>
+        <text x="232" y="42" class="strong">www.product.example</text>
+        <text x="232" y="62" class="good-text">Verified by file token · 3 h ago</text>
+        <text x="620" y="42" class="faint">Restricted · CanReadSiteSecurity</text>
+        <rect class="box-good" x="232" y="80" width="230" height="64" rx="8"/>
+        <text x="246" y="104" class="strong">Outside view · on</text>
+        <text x="246" y="124" class="muted">2 h ago · complete · 212 req</text>
+        <rect class="box" x="474" y="80" width="230" height="64" rx="8"/>
+        <text x="488" y="104" class="strong">Safe active · off</text>
+        <text x="488" y="124" class="muted">Switch on (expires in 90 d)</text>
+        <rect class="box" x="716" y="80" width="222" height="64" rx="8"/>
+        <text x="730" y="104" class="strong">Agent review · off</text>
+        <text x="730" y="124" class="muted">staging only by default</text>
+        <text x="232" y="176" class="faint">FINDINGS · EXAMPLE DATA</text>
+        <line class="line-dash" x1="232" y1="186" x2="938" y2="186"/>
+        <text x="232" y="208" class="warn-text strong">medium</text>
+        <text x="310" y="208">HSTS header missing on https://www.product.example/</text>
+        <text x="760" y="208" class="mono">site/hsts-missing</text>
+        <text x="232" y="234" class="faint strong">low</text>
+        <text x="310" y="234">Server header discloses version</text>
+        <text x="760" y="234" class="mono">site/version-disclosure</text>
+        <line class="line-dash" x1="232" y1="248" x2="938" y2="248"/>
+        <text x="232" y="282" class="faint">SITE BOUNDARIES IN THE COVERAGE MATRIX</text>
+        <rect class="box-good" x="232" y="296" width="180" height="40" rx="6"/>
+        <text x="246" y="321">6 QS-SITE cells pass</text>
+        <rect class="box-bad" x="424" y="296" width="140" height="40" rx="6"/>
+        <text x="438" y="321">1 finding</text>
+        <rect class="box" x="576" y="296" width="230" height="40" rx="6"/>
+        <text x="590" y="321">24 not yet checked (L2)</text>
+        <text x="232" y="366" class="faint">Scan history · provenance · switches audit · Scan outside view now</text>
+      </svg>
+      <figcaption>Mockup of the proposed view with example hostnames and invented example data. This is not a product capture and does not describe any real site.</figcaption>
+    </figure>
+
+    <h3 id="rec-slices">Delivery slices</h3>
+    <p>Twelve independently reviewable slices, each naming its target project. The first slice runs the outside view against one registered site and shows its findings.</p>
+    <table>
+      <thead><tr><th>#</th><th>Project</th><th>Slice</th><th>Depends on</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Quality Studio</td><td>Outside-view scan of one registered site</td><td>none</td></tr>
+        <tr><td>2</td><td>Quality Studio</td><td>Site evidence access, retention and redaction</td><td>1</td></tr>
+        <tr><td>3</td><td>Agent Studio</td><td>Register hosted sites and request scans on deploy (advisory)</td><td>1, 2</td></tr>
+        <tr><td>4</td><td>Quality Studio</td><td>Scheduled scans and site finding lifecycle</td><td>1</td></tr>
+        <tr><td>5</td><td>Quality Studio</td><td>Served-content secret scan</td><td>1</td></tr>
+        <tr><td>6</td><td>Quality Studio</td><td>Site boundaries in the attack coverage matrix</td><td>1</td></tr>
+        <tr><td>7</td><td>Quality Studio</td><td>Safe active checks with Nuclei</td><td>1, 4</td></tr>
+        <tr><td>8</td><td>Agent Studio</td><td>Scan credentials from the secret provider</td><td>3</td></tr>
+        <tr><td>9</td><td>Quality Studio</td><td>Crawl and authenticated crawl with ZAP baseline</td><td>7, 8</td></tr>
+        <tr><td>10</td><td>Quality Studio</td><td>Triage of tool hits into judged findings</td><td>6, 7</td></tr>
+        <tr><td>11</td><td>Quality Studio</td><td>Agent-driven site review with test accounts</td><td>8, 10</td></tr>
+        <tr><td>12</td><td>Agent Studio</td><td>Site security cards and deploy gate</td><td>2, 3, 4</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="evidence" data-concept-section="evidence" data-document-section="evidence">
+    <h2><span class="number">05</span> Evidence</h2>
+    <p>Each item is classed as observed (read in code or captured in this run), inferred (derived from observed facts or upstream descriptions) or proposed (this Dossier's design).</p>
+    <div class="evidence-list">
+      <a class="evidence" href="#figure-security-matrix"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>The Security matrix has only code-derived rows</b><small><code>GET /api/repos/default/security/attack-coverage</code> on this checkout returned 210 rows. Every row has a source file and line. The kinds are <code>http</code> 115, <code>process</code> 48, <code>outbound-http</code> 22, <code>host-listener</code> 15, <code>scheduled-trigger</code> 4, <code>error-policy</code> 2, <code>cors-policy</code> 2, <code>static-files</code> 1 and <code>file-trigger</code> 1. There are 1,947 applicable cells, 1,682 of them not yet checked. No row describes a running site.</small></span></a>
+      <a class="evidence" href="#starting-point"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Sensor and finding contracts</b><small><code>IReviewSensor</code> (<code>Sensors.cs:47</code>). <code>ReviewFinding</code>, <code>FindingSource</code> and <code>FindingLocation</code> (<code>ReviewMetaContract.cs:155-217</code>). <code>FindingSourceKind</code> has only <code>Deterministic</code>. The unavailable-is-not-clean rule is in <code>docs/dependency-vulnerability-sensor.md</code> and <code>docs/security-gitleaks.md</code>.</small></span></a>
+      <a class="evidence" href="#starting-point"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Pinned tools in the image</b><small>The <code>Dockerfile</code> has a <code>gitleaks</code> stage: <code>GITLEAKS_VERSION=8.24.2</code> and <code>GITLEAKS_SHA256</code>, verified with <code>sha256sum --check</code> and exposed through <code>QUALITY_GITLEAKS_PATH</code>. The image runs as the non-root user <code>quality</code> (uid 10001).</small></span></a>
+      <a class="evidence" href="#rec-matrix"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Attack catalogue</b><small><code>catalogues/attack-catalogue.v1.json</code> has 17 entries: ten OWASP API entries, <code>OWASP-A03</code>, <code>OWASP-A01</code>, <code>SESSION-CSRF</code>, <code>AUTH-BRUTE-FORCE</code> and three <code>QS-CONTROL-*</code>. Applicability is by <code>boundaryKinds</code>, and <code>boundary-inventory.v1</code> leaves <code>kind</code> as a free string.</small></span></a>
+      <a class="evidence" href="#rec-sensitive"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Data root and export paths</b><small><code>docs/data-root.md</code> places generated data under <code>&lt;base&gt;/projects/&lt;project-key&gt;/</code>, and <code>.gitignore</code> ignores <code>/.quality/**</code> except author inputs. Committed exports exist: <code>samples/dependency-vulnerability.real-run.review-meta.security.json</code> and <code>results/review-2026-09-19/</code>.</small></span></a>
+      <a class="evidence" href="#rec-sensitive"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Hosted-mode clients</b><small><code>ApiSecurity.cs</code> builds <code>ApiClientIdentity(id, repositories, canRegisterRepositories)</code>. In Local mode every request is a registrar (<code>LocalModeBindingGuard.cs</code>). There is no site-level privilege yet.</small></span></a>
+      <a class="evidence" href="#starting-point"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Agent Studio hosting, deploy and gate</b><small><code>RunTargetContracts.cs:11-18</code>, <code>RunTargetHostingDeclaration.cs:23-68</code>, <code>RunTargetDesiredStatePolicy.cs:155-184</code>, <code>Deploy/Runs/DeploymentRecord.cs:11-74</code>, <code>DeployContract.cs:9-103</code>, <code>DeployService.cs:1309-1411</code> and <code>ReleaseCandidateGate.cs:20-92</code> on <code>develop</code> at <code>a3b98b11</code>. There is no public marker, no ownership proof, no deploy event and no pluggable gate.</small></span></a>
+      <a class="evidence" href="#rec-safety"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Agent Studio secrets and health checks</b><small><code>ISecretProvider</code> with <code>GetForWorkloadAsync</code>, and references of the form <code>secret://&lt;scope&gt;/&lt;name&gt;[@version]</code> (<code>SecretReference.cs:104-150</code>). <code>EnvironmentHealthService</code> runs <code>http</code>, <code>tcp</code> and <code>tls</code> checks and warns on <code>CertificateNotAfter</code>. <code>HealthCheckAddressPolicy</code> refuses loopback and metadata addresses.</small></span></a>
+      <a class="evidence" href="#rec-triggers"><span class="evidence-class" data-evidence-class="observed">Observed</span><span><b>Existing Quality Studio and Agent Studio links</b><small>Quality Studio's <code>AgentStudioTaskClient</code> posts cards in dry-run by default. Agent Studio's <code>QualityStudioAnalysisCoreAdapter</code> calls <code>api/repos</code> and the ESLint sensor. Agent Studio's pipeline catalogue lists "Quality Studio security" as a stub.</small></span></a>
+      <a class="evidence" href="#tool-sets"><span class="evidence-class" data-evidence-class="inferred">Inferred</span><span><b>Tool licences and footprints</b><small>Taken from the tools' upstream descriptions, not measured here: ZAP Apache-2.0, Nuclei and templates MIT, testssl.sh GPL-2.0, Gitleaks MIT, Nmap NPSL, sslyze AGPL-3.0, Trivy and Grype Apache-2.0. Slice 1 measures the image size and records the digests.</small></span></a>
+      <a class="evidence" href="#recommendation"><span class="evidence-class" data-evidence-class="proposed">Proposed</span><span><b>Layers, budgets, rule ids, prompts, gate stages and slices</b><small>Designed in this Dossier. Thresholds are working values to confirm in the trial.</small></span></a>
+    </div>
+
+    <figure class="evidence-figure media-breakout" id="figure-security-matrix">
+      <div class="evidence-captures">
+        <div class="evidence-capture">
+          <span class="capture-theme">Light</span>
+          <img src="assets/qs-security-matrix-code-boundaries-light.png" alt="Quality Studio attack coverage dialog titled Attack coverage, scope dot. The summary reads 1947 applicable cells, 1682 not yet checked, 0 stale, 0 disagreements, catalogue built-in 1.0.0, prompt attack-coverage-review.v1. The Boundary column lists CheckoutCleanlinessCheck as scheduled-trigger in backend/QualityStudio.Api, followed by outbound HTTP calls in scripts/verify-tree-v2-contract.mjs. The attack columns start with AUTH-BRUTE-FORCE and OWASP entries. A side pane for OWASP-A03-INJECTION says no judgement has been recorded and that this is an explicit work item, not a pass.">
+          <span class="figure-annotation">Every row is a source location</span>
+        </div>
+        <div class="evidence-capture">
+          <span class="capture-theme">Dark</span>
+          <img src="assets/qs-security-matrix-code-boundaries-dark.png" alt="The same attack coverage dialog in the dark theme, with the same summary counts, the same boundary rows naming source files, and the same NotYetChecked side pane.">
+        </div>
+      </div>
+      <figcaption>
+        <span class="figure-claim"><b>Evidence.</b> The Quality Studio Security matrix lists boundaries only as source locations: each row reads <em>kind · file:line</em>, for example <code>scheduled-trigger · backend/QualityStudio.Api/Program.cs:95</code>. The header counts 1947 applicable cells, 1682 of them not yet checked. There is no row for a running site.</span>
+        <span class="figure-as-of">
+          <span><b>Light:</b> captured <time datetime="2026-11-01T17:54Z">1 November 2026, 17:54 UTC</time> by the QS-130 run on the Linux runner (branch <code>runner/agent-runner-01/QS-130</code> at <code>7dd46b54</code>). Real product: <code>scripts/dev-stack.mjs</code> with a temporary data root, repository <code>default</code> is this checkout, headless Chromium through <code>playwright-core</code> 1.62.1 at 1440 × 900. No page or console errors.</span>
+          <span><b>Dark:</b> captured <time datetime="2026-11-01T17:54Z">1 November 2026, 17:54 UTC</time> in the same session and from the same build, with <code>?theme=dark</code> and the dark colour scheme. No page or console errors.</span>
+        </span>
+      </figcaption>
+    </figure>
+    <p>Theme is not part of the claim. Both captures are kept because the same run produced them. The open side pane belongs to the dialog's default state and illustrates the existing rule that a missing judgement is a work item, not a pass. The site design keeps that rule.</p>
+  </section>
+
+  <section id="open-decisions" data-concept-section="open-decisions" data-document-section="open-decisions">
+    <h2><span class="number">06</span> Open decisions</h2>
+    <p>Each row has a recommended working option. Implementation proceeds on it unless the operator records another choice.</p>
+    <table>
+      <thead><tr><th>#</th><th>Decision</th><th>Recommended option</th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Tool set</td><td>T1 in stages: native checks, testssl.sh and Gitleaks, then Nuclei, then ZAP baseline as an optional image. Skip Nmap, sslyze, Nikto, Wapiti, sqlmap and hosted services. Defer Trivy and Grype.</td><td>A small first image, and GPL code only in the separate scanner image.</td></tr>
+        <tr><td>2</td><td>Where the scanner runs</td><td>A pull-based worker image. P2 on the Quality Studio host for slices 1 to 7. P3 on an external vantage host before any production scan is used as a gate input.</td><td>One more host from stage 1 of the gate. Results carry a vantage label.</td></tr>
+        <tr><td>3</td><td>Ownership proof</td><td>A DNS TXT or <code>/.well-known/</code> token, re-checked when older than 24 hours. Agent Studio places it for hosted sites. A hosting declaration alone is not proof.</td><td>Manual placement for sites not hosted by Agent Studio.</td></tr>
+        <tr><td>4</td><td>Active switches</td><td>L1 per site, L2 per site and environment. Each switch expires after 90 days by default, and L2 targets staging unless production is named.</td><td>No active traffic without a recorded, expiring decision.</td></tr>
+        <tr><td>5</td><td>Evidence home and readers</td><td>The restricted <code>&lt;base&gt;/sites/</code> area, a <code>CanReadSiteSecurity</code> client flag, excluded from exports, and raw output kept for 90 days.</td><td>Agent Studio and logs see summaries only. Fix runs use a per-card read grant.</td></tr>
+        <tr><td>6</td><td>Who owns the schedule</td><td>Quality Studio, which knows the layers and switches. Agent Studio sends deploy-driven requests only.</td><td>No duplicate timers. Agent Studio needs no scheduler change.</td></tr>
+        <tr><td>7</td><td>Gate</td><td>Advisory, then stage 1 after 4 weeks and 20 production scans with at most one false conclusive finding, then stage 2. A post-deploy scan never rolls back.</td><td>Blocking starts only where precision has been measured.</td></tr>
+        <tr><td>8</td><td>Port probes behind a CDN</td><td>Skip the probe and record <code>omitted: third-party-edge</code>.</td><td>Direct-origin exposure behind a CDN is not covered until the origin address is declared on the site record.</td></tr>
+        <tr><td>9</td><td>Publication after a fix</td><td>Never publish host-specific details. Counts and classes only.</td><td>Public Dossiers and changelogs stay generic.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- agent-studio:implementation-section:start -->
+  <section id="implementation" data-document-section="implementation">
+    <h2><span class="number">07</span> Implementation</h2>
+    <p>Delivery slices append their current implementation status here. The decision content above remains unchanged. <code>workbench.json</code> holds one <code>implementationTasks</code> entry for each slice in <a href="#rec-slices">Delivery slices</a>, each with a bounded <code>acceptanceScope</code>.</p>
+    <ol class="implementation-log">
+<!-- agent-studio:implementation-log:start -->
+<!-- agent-studio:implementation-log:end -->
+    </ol>
+  </section>
+  <!-- agent-studio:implementation-section:end -->
+</main>
+</body>
+</html>
