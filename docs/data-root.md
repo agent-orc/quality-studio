@@ -61,6 +61,7 @@ Inside a project directory the layout is the one the `.quality` folder used to h
   coverage/coverage.json
   coverage/produced/<profile>/<run-id>/…   (reports retained per coverage producer run)
   changes/<commit>.json
+  change-reviews/<base sha>/<head sha>/<key digest>.json
   flows/<hash>.flow-review.json
   runs/<run-id>/…
   sensor-cache/<sensor-id>/<key>.json
@@ -80,6 +81,12 @@ lived in the checkout, and a checkout's `.quality/analyzers/` may hold repositor
 `sensor-cache/` holds repository-wide sensor results keyed by commit and inputs, plus each sensor's
 last observed duration; it is disposable and rebuilt by the next run (see
 [`review-runs.md`](review-runs.md#sensors-explicit-cached-once-per-run)).
+
+`change-reviews/` is the change-review verdict store: one record per repository, range, policy and
+rule set, computed by this host or ingested from Agent Studio
+([change-reviews.md](change-reviews.md#change-review-store)). Like `analyzers/` it never lived in
+the checkout and is not part of `quality migrate-data`. Deleting a record makes the next request for
+its range pay for a model call again.
 
 Review sidecars are the one family whose layout changed shape. They used to sit in a `.quality`
 folder next to each reviewed file, scattered across the tree. They now live under a single

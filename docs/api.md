@@ -400,3 +400,53 @@ The unscoped routes above remain aliases for the active
 
 Paths are always repository-relative. Absolute paths and traversal outside the
 selected repository root return RFC problem-details responses.
+
+## Agent Studio integration (v1)
+
+Routes under `/api/v1/` belong to the versioned contract `agent-studio-integration/1` between Quality
+Studio and Agent Studio. They follow the same authentication as every other route: none in Local
+mode, a bearer token in hosted mode, and `X-Client-Id` on mutations. They exist only in their v1
+form, without an unscoped alias.
+
+```shell
+curl "http://127.0.0.1:5127/api/v1/capabilities"
+# 200 {"product":"quality-studio","version":"…","contracts":["agent-studio-integration/1"],
+#      "features":["change-review-store"]}
+
+curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
+  -H "Content-Type: application/json" \
+  -d '{"document":{…change-review-verdict.v1…},"provenance":{"producer":"agent-studio-review-plane","cardKey":"AGT-3352","round":2,"attemptId":"…"}}'
+# 201 {"outcome":"stored","record":{…}} · 200 unchanged/replaced · 409 a different verdict is stored
+# 422 unknown schema or schemaVersion, a document outside the v1 schema, or another repository
+
+curl "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews?base=<sha>&head=<sha>&previous=<sha>"
+# 200 {"commits":{"base":true,"head":true,"previous":true},"currentKey":{…},"records":[…],
+#      "excerpts":{…},"roundOnly":{…},"permissions":{"runReview":true}}
+```
+
+The capabilities document names no repository, so any authenticated client can read it. A
+consumer degrades a surface whose feature is missing instead of failing. The change-review store,
+the cache-first `POST /api/repos/{id}/change-review`, and the response shapes are described in
+[change-reviews.md](change-reviews.md#change-review-store).
+
+### Deep link v1
+
+The UI reads its position from query parameters. Every parameter is routing data. None is a
+credential.
+
+| Parameter | Values | Meaning |
+| --- | --- | --- |
+| `repo` | repository id, for example `proj-002` | The repository. Without other parameters, the repository dashboard opens. |
+| `view` | `change` | Opens the change view for a commit range. Other values open the dashboard. |
+| `base`, `head` | 40-character lowercase SHAs | Required for `view=change`. `base` is the merge-base of the reviewed range, never a branch tip. |
+| `previous` | 40-character lowercase SHA | Optional with `view=change`: the previous round's head. Enables "This round only". |
+| `card` | task key, for example `AGT-3352` | Display only: the change view's title. Never used for authorization. |
+| `path`, `kind`, `finding`, `location`, `theme` | as before | Unchanged explorer, review and theme position. |
+
+```
+/?repo=proj-002&view=change&base=<merge-base sha>&head=<result sha>&card=AGT-3352&previous=<round-1 result sha>
+```
+
+Opening a change link never starts a review. A range without a stored verdict shows **Not
+reviewed**. A range whose base or head commit is missing from the checkout shows **Commit not
+present on this host**.
