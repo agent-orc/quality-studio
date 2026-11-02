@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/integration-capabilities.v1.schema.json",
+  "title": "Quality Studio integration capabilities v1",
+  "description": "GET /api/v1/capabilities: what this Quality Studio host offers Agent Studio under the agent-studio-integration contract. A reader ignores features it does not know and degrades a surface whose feature is absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "product", "productVersion", "contracts", "features", "mode", "federation", "spend"],
+  "properties": {
+    "schema": { "const": "https://agent-orchestrator.dev/quality/schemas/integration-capabilities.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "product": { "const": "quality-studio" },
+    "productVersion": { "type": "string", "minLength": 1 },
+    "contracts": {
+      "description": "Integration contract versions this host implements, for example agent-studio-integration/1. A caller picks the highest version both sides support.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*/[1-9][0-9]*$" }
+    },
+    "features": {
+      "description": "Optional parts of the contract this host has: federation (the Agent Studio hand-off receiver is configured), deep-link/1, external-ref, and later change-review-store.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(/[1-9][0-9]*)?$" }
+    },
+    "mode": { "enum": ["local", "hosted"] },
+    "federation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "signInPath", "versions", "audience"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "signInPath": { "type": ["string", "null"], "pattern": "^/" },
+        "versions": {
+          "description": "Hand-off assertion versions (claim ver) the receiver accepts.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "audience": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "spend": {
+      "description": "Whether routes that spend model tokens (review, change-review, handover) can reach a provider on this host. Without one they answer provider-unavailable while every read surface works.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerAvailable", "providers"],
+      "properties": {
+        "providerAvailable": { "type": "boolean" },
+        "providers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}
