@@ -220,7 +220,7 @@ curl "http://127.0.0.1:5127/api/v1/repos?externalRef=agent-studio:PROJ-002"
   `"reason": "root-missing"` in the problem body. Nothing is stored, so the caller retries the same
   request, same `id`, once the directory exists.
 - `GET /api/v1/capabilities` announces contract `agent-studio-integration/1` and the
-  `external-ref`, `change-review-store`, and `deep-link/1` features (see [integration routes](#integration-routes)).
+  `external-ref`, `change-review-store`, and deep-link features, plus federation when enabled.
 
 Everything else keeps path-as-identity: the Agent Studio import below still skips by normalized path.
 
@@ -496,14 +496,16 @@ selected repository root return RFC problem-details responses.
 
 ## Agent Studio integration (v1)
 
-The change-review store belongs to the versioned contract `agent-studio-integration/1`. It follows
-the same authentication and role rules described above. Its `PUT` and `GET` routes exist only under
-`/api/v1/`.
+Routes under `/api/v1/` belong to the versioned contract `agent-studio-integration/1` between Quality
+Studio and Agent Studio. They follow the same authentication as every other route: none in Local
+mode, a bearer token or federated session in hosted mode, and the matching `X-Client-Id` or
+`X-CSRF-Token` on mutations. Repository routes also answer under their unversioned paths; the
+capabilities, session, revocation and verdict store routes belong to the v1 contract.
 
 ```shell
 curl "http://127.0.0.1:5127/api/v1/capabilities"
-# 200 {"product":"quality-studio","version":"…","contract":"agent-studio-integration/1","contracts":["agent-studio-integration/1"],
-#      "features":["external-ref","change-review-store"]}
+# 200 {"product":"quality-studio","productVersion":"…","contracts":["agent-studio-integration/1"],
+#      "features":["deep-link/1","external-ref","change-review-store",…]}
 
 curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
   -H "Content-Type: application/json" \
@@ -520,6 +522,12 @@ The capabilities document names no repository, so any authenticated client can r
 consumer degrades a surface whose feature is missing instead of failing. The change-review store,
 the cache-first `POST /api/repos/{id}/change-review`, and the response shapes are described in
 [change-reviews.md](change-reviews.md#change-review-store).
+
+For example, a change link is:
+
+```text
+/?repo=proj-002&view=change&base=<merge-base sha>&head=<result sha>&card=AGT-3352&previous=<round-1 result sha>
+```
 
 Opening a change link never starts a review. A range without a stored verdict shows **Not
 reviewed**. A range whose base or head commit is missing from the checkout shows **Commit not

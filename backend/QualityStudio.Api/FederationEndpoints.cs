@@ -12,7 +12,7 @@ public sealed record FederationRevokeRequest(string? Sid, string? Sub);
 /// </summary>
 internal static class FederationEndpoints
 {
-    public const string Contract = "agent-studio-integration/1";
+    public const string Contract = IntegrationCapabilities.Contract;
     public const string CapabilitiesSchemaId =
         "https://agent-orchestrator.dev/quality/schemas/integration-capabilities.v1.schema.json";
 
@@ -22,7 +22,6 @@ internal static class FederationEndpoints
         app.MapGet("/api/v1/session", Session);
         app.MapPost("/api/v1/federation/revoke", Revoke);
         app.MapGet("/api/v1/capabilities", Capabilities);
-        app.MapGet("/api/repos/{repoId}/v1/capabilities", Capabilities);
     }
 
     /// <summary>
@@ -152,7 +151,6 @@ internal static class FederationEndpoints
             schema = CapabilitiesSchemaId,
             schemaVersion = 1,
             product = "quality-studio",
-            version = ProductVersion(),
             productVersion = ProductVersion(),
             contracts = new[] { Contract },
             features,

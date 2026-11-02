@@ -39,6 +39,7 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
   without which `dotnet publish` failed.
 - Reading the ignore list no longer creates `.quality/findings/` in the checkout, so a read-only
   mounted checkout serves the tree instead of failing with `500`.
+
 ### Changed — price catalog synced to Token Economy 0.3.8 (QS-127, covers QS-121)
 
 `npm run catalog:sync` ran against the `v0.3.8` tag (Token Economy `c6d1de5`, policy `2026-10-21`).

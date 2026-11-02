@@ -476,6 +476,8 @@ public sealed class FederationTests : IAsyncLifetime
             Assert.True(result.IsValid, JsonSerializer.Serialize(result));
             Assert.Equal(["agent-studio-integration/1"], document.GetProperty("contracts").EnumerateArray().Select(item => item.GetString()));
             Assert.Contains("deep-link/1", document.GetProperty("features").EnumerateArray().Select(item => item.GetString()));
+            Assert.Contains(IntegrationCapabilities.ChangeReviewStore,
+                document.GetProperty("features").EnumerateArray().Select(item => item.GetString()));
         }
         Assert.Contains("federation", federated.GetProperty("features").EnumerateArray().Select(item => item.GetString()));
         Assert.DoesNotContain("federation", standalone.GetProperty("features").EnumerateArray().Select(item => item.GetString()));
