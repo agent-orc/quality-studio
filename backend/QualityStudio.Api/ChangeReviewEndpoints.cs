@@ -41,6 +41,7 @@ internal static partial class ChangeReviewEndpoints
     {
         app.MapPost("/api/change-review", Review).RequireRateLimiting("spend");
         app.MapPost("/api/repos/{repoId}/change-review", Review).RequireRateLimiting("spend");
+        app.MapPost("/api/v1/repos/{repoId}/change-review", Review).RequireRateLimiting("spend");
         app.MapPut("/api/v1/repos/{repoId}/change-reviews", Ingest);
         app.MapGet("/api/v1/repos/{repoId}/change-reviews", Range);
     }
