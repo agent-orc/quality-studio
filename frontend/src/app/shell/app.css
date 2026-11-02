@@ -388,7 +388,12 @@
 }
 
 .brand,
+.back-to-card,
 .health,
 .quota-strip {
   flex: none;
+}
+
+.back-to-card {
+  text-decoration: none;
 }

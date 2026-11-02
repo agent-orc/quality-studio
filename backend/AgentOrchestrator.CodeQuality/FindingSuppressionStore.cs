@@ -53,8 +53,13 @@ public sealed class FindingSuppressionStore
 
     public string SuppressionPath => suppressionPath;
 
+    /// <summary>
+    /// Reads without the writers' lock: a write replaces the file in one move, so a reader sees the
+    /// old or the new list, never half of one. Taking the lock would create <c>.quality/findings/</c>
+    /// in the checkout, which a read-only mounted checkout refuses.
+    /// </summary>
     public Task<FindingSuppressionDocument> ReadAsync(CancellationToken cancellationToken = default) =>
-        ExecuteLockedAsync(() => LoadAsync(cancellationToken), cancellationToken);
+        LoadAsync(cancellationToken);
 
     public Task<FindingSuppressionDocument> AddExactAsync(
         FindingIdentityRecord finding,

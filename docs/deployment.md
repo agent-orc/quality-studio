@@ -75,7 +75,7 @@ back to "no authentication" would publish an unauthenticated registrar API on `0
 
 | Path | What lives there |
 | --- | --- |
-| `/repositories` | The working copies under review. The studio reads them and writes nothing back; the registry may only point inside `QualityStudio__AllowedRoots`. |
+| `/repositories` | The working copies under review. The studio reads them and writes nothing back; the registry may only point inside `QualityStudio__AllowedRoots`. They may be mounted read-only and may belong to another uid; see [Checkouts owned by another user](#checkouts-owned-by-another-user). |
 | `/app/.quality-studio` | The server-owned repository registry (`repositories.json`). Mount it, or every container replacement forgets which repositories were registered. |
 | `/data` | Everything runs generate, one folder per analysed project: findings, grades, run reports, token ledgers, review sidecars, run journals. Mount it, or a container replacement loses every review the host has paid for. See [`data-root.md`](data-root.md). |
 
@@ -102,6 +102,21 @@ and keep the backend port private. The host refuses to start if automatic forwar
 `ASPNETCORE_FORWARDEDHEADERS_ENABLED`; use the explicit allowlist above. For multiple proxy hops,
 terminate the chain at the configured trusted edge instead of trusting arbitrary intermediaries.
 See [Microsoft's proxy guidance](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0).
+
+### Checkouts owned by another user
+
+The image runs as uid 10001. Checkouts mounted from the host usually belong to the account that
+cloned them, and Git refuses such a repository ("dubious ownership") unless `safe.directory` names
+it. The image therefore sets `QualityStudio__Git__TrustRegisteredRoots=true`: the host hands every
+active registered repository root to the Git processes it starts, as `safe.directory` entries in
+command-scope configuration (`GIT_CONFIG_COUNT`), and keeps them in step with registrations, archives
+and repoints. Nothing outside the registry is trusted; the image no longer sets a blanket
+`safe.directory '*'`. The image's Git (2.43) matches exact paths only, which is why the entries follow
+the registry instead of naming the mount root.
+
+`node scripts/check-container-git.mjs --build` builds the image and proves it: it creates a
+root-owned checkout in a Docker volume, mounts it read-only, shows that plain `git` as the image user
+refuses it, and that the API reads its Git state and files.
 
 ## Environment variables
 
@@ -138,6 +153,13 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 | `QUALITY_GITLEAKS_PATH` | unset (`/usr/local/bin/gitleaks` in the image) | An existing pinned Gitleaks binary. Set it and nothing is downloaded. |
 | `QUALITY_GLOBAL_INPUTS` | unset | Fallback global inputs directory when a registration names none. |
 | `AgentStudio__BaseUrl` / `__ClientId` / `__Project` / `__DryRun` | `null` / `null` / `null` / `true` | The Agent Studio host finding handover posts to. |
+| `AgentStudio__Federation__Issuer` | unset | The `iss` of the Agent Studio whose signed hand-off this host accepts. Unset: no hand-off receiver, `/auth/agent-studio` is `404`. Requires Hosted mode. |
+| `AgentStudio__Federation__Audience` | — | The `aud` an assertion must carry, normally this host's public origin. Required with an issuer. |
+| `AgentStudio__Federation__JwksUrl` | — | The issuer's key set, for example `https://robert.omgai.dev/.well-known/agent-studio/jwks.json`. Cached ten minutes, refreshed early for an unknown `kid`. |
+| `AgentStudio__Federation__Keys__N__Kid` / `__X` | — | Pinned Ed25519 public keys (`x` in base64url, as in a JWK), instead of or next to the JWKS. One of the two is required. |
+| `AgentStudio__Federation__StudioPublicUrl` | — | The Studio origin users come from: the required `Origin` of a hand-off, the sign-in redirect for page loads without a session, and the "Back to" link. Required with an issuer. |
+| `AgentStudio__Federation__ServiceClients__N` | `agent-studio` | Bearer clients allowed to call `POST /api/v1/federation/revoke`. |
+| `QualityStudio__Git__TrustRegisteredRoots` | `false` (`true` in the image) | Pass every registered repository root to Git as `safe.directory`, so checkouts owned by another uid are readable. |
 | `ReviewJobs__MaxConcurrency` | `2` | Concurrent review runs. |
 
 ## Analyzer profiles
@@ -221,7 +243,8 @@ node scripts/new-api-token.mjs agent-studio --repositories payments
 ```
 
 Every call carries the bearer token; every mutation additionally carries `X-Client-Id` matching the
-client id, or the request is `401`.
+client id, or the request is `401`. The browser UI does the same: it reads its client id from
+`GET /api/v1/session` before its first mutation.
 
 ```
 Authorization: Bearer <token>
@@ -244,9 +267,44 @@ The routes the integration uses:
 | Read the repository scorecard | `GET /api/repos/{repoId}/report` |
 | Hand findings back as tasks | `POST /api/repos/{repoId}/handover` (spend-limited) |
 | Inspect the handover target | `GET /api/repos/{repoId}/handover` |
+| Read what this host offers | `GET /api/v1/capabilities` |
+| End browser sessions on logout or role change | `POST /api/v1/federation/revoke` (service client) |
 
-Nothing in Agent Studio changes for this; the table records what the integration needs to call. The
-contracts are in [`api.md`](api.md) and [`concepts/handover.md`](concepts/handover.md).
+The repository routes also answer under `/api/v1/` (`/api/v1/repos`, `/api/v1/repos/{repoId}/review`
+and so on); the unversioned paths stay. The contracts are in [`api.md`](api.md#integration-routes)
+and [`concepts/handover.md`](concepts/handover.md).
+
+## Signing in through Agent Studio
+
+With Agent Studio on its own sibling hostname, a signed-in Studio user opens Quality Studio without a
+second sign-in (Agent Studio Dossier AGT-3352, decision D4 option C). Studio signs a 60-second,
+single-use Ed25519 assertion and delivers it in a form `POST` to `/auth/agent-studio`; Quality Studio
+verifies it and opens its own session. Configure the host in Hosted mode, keep at least one bearer
+client (Agent Studio's service client), and add:
+
+```text
+AgentStudio__Federation__Issuer=https://robert.omgai.dev
+AgentStudio__Federation__Audience=https://quality-robert.omgai.dev
+AgentStudio__Federation__JwksUrl=https://robert.omgai.dev/.well-known/agent-studio/jwks.json
+AgentStudio__Federation__StudioPublicUrl=https://robert.omgai.dev
+QualityStudio__Security__RequireHttps=true
+QualityStudio__Security__TrustedProxies__0=<edge proxy IP>
+```
+
+The session cookies are `__Host-` cookies and therefore `Secure`: the browser must reach the host
+over HTTPS, and behind a TLS-terminating proxy the proxy must be a trusted proxy so the request counts
+as HTTPS. A misconfigured federation (missing audience, Studio URL or keys, or Local mode) stops the
+host at startup.
+
+On the Studio side, the page carrying the self-submitting form must keep its origin in the request:
+the hand-off is refused unless `Origin` equals `StudioPublicUrl`, and a browser sends `Origin: null`
+for a cross-origin form post from a page with `Referrer-Policy: no-referrer` or `same-origin`. Use
+`strict-origin` (or `origin`) there; the form body still never reaches a URL or a `Referer` path.
+
+What a session may do, how revocation works and what a page load without a session does are in
+[`api.md`](api.md#signing-in-through-agent-studio). Local mode and bearer-only hosted mode are
+unchanged; in a federated deployment the browser UI is entered through Agent Studio, and bearer tokens
+remain for machine clients.
 
 Locally, none of this applies: Local mode authenticates nobody, `Authorization` and `X-Client-Id` are
 ignored, and every request reaches every registered repository. That is the whole reason the host
