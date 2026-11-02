@@ -454,8 +454,8 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             "/api/quotas",                         // host-wide, not per repository
             "/api/models",                         // the governed catalog snapshot
             "/api/models/default",                 // a catalog recommendation, not repository data
-            "/api/v1/capabilities",               // its scoped alias places {repoId} before v1
-            "/api/v1/repos/{repoId}/change-reviews", // this versioned store route is repository scoped
+            "/api/v1/capabilities",                // its scoped alias places {repoId} before v1
+            "/api/v1/repos/{repoId}/change-reviews", // the store route is repository scoped
         ];
 
         var endpoints = fixture.Endpoints();

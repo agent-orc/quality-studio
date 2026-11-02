@@ -412,8 +412,8 @@ form, without an unscoped alias.
 
 ```shell
 curl "http://127.0.0.1:5127/api/v1/capabilities"
-# 200 {"contract":"agent-studio-integration/1","product":"quality-studio","version":"…",
-#      "contracts":["agent-studio-integration/1"],"features":["external-ref","change-review-store"]}
+# 200 {"product":"quality-studio","version":"…","contract":"agent-studio-integration/1","contracts":["agent-studio-integration/1"],
+#      "features":["external-ref","change-review-store"]}
 
 curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
   -H "Content-Type: application/json" \
