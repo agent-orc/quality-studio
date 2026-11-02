@@ -40,7 +40,7 @@ echo "test-frontend: using browser $chrome_bin"
 
 # A browser without its shared libraries fails inside Karma with little context.
 if [ "$(uname -s)" = "Linux" ] && command -v ldd >/dev/null 2>&1; then
-  missing_libs=$(ldd "$chrome_bin" 2>/dev/null | awk '/not found/ { print $1 }' | sort -u | tr '\n' ' ')
+  missing_libs=$(ldd "$chrome_bin" 2>/dev/null | awk '/not found/ { print $1 }' | sort -u | tr '\n' ' ' | sed 's/ $//')
   if [ -n "$missing_libs" ]; then
     echo "test-frontend: the browser at $chrome_bin cannot start; missing system libraries: $missing_libs" >&2
     echo "test-frontend: install them on the host, for example with: sudo PLAYWRIGHT_BROWSERS_PATH=\"$PLAYWRIGHT_BROWSERS_PATH\" node frontend/node_modules/playwright-core/cli.js install-deps chromium" >&2
