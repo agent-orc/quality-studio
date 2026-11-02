@@ -9,6 +9,8 @@ commands:
     - dotnet build QualityStudio.slnx --no-restore
     - npm --prefix frontend run build
   test:
+    # Covers both GitHub lanes (portable and controlled tool-bound). This host disables MSBuild node
+    # reuse, so lingering build servers stay invisible here; unit tests pin --disable-build-servers.
     - dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
     - .agent-studio/test-frontend
   lint:

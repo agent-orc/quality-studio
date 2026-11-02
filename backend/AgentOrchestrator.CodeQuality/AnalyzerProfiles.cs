@@ -76,7 +76,9 @@ public sealed class AnalyzerProfileCatalog
             "roslyn",
             // --no-incremental: an up-to-date project skips the compiler and would write no log,
             // which reads as a clean result. The import gives each project its own SARIF 2.1 log.
-            "dotnet build {target} --nologo --no-incremental -p:RunAnalyzersDuringBuild=true " +
+            // --disable-build-servers: a reused MSBuild node or compiler server outlives the build
+            // and holds the redirected output open, so the scan would wait for it until it times out.
+            "dotnet build {target} --nologo --no-incremental --disable-build-servers -p:RunAnalyzersDuringBuild=true " +
             "-p:CustomAfterMicrosoftCommonTargets={roslynErrorLogTargets}",
             WorkingDirectory: ".",
             ReportPath: ".quality/preflight/roslyn/",

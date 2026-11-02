@@ -149,7 +149,7 @@ executes. The embedded defaults:
 | --- | --- | --- | --- |
 | `eslint` | `eslint-frontend-sarif` | `frontend/` | The workspace's own ESLint, its nearest `eslint.config.*` and the SARIF formatter, resolved from the nearest `node_modules` up to the repository root. |
 | `eslint` | `eslint-root-sarif` | `.` | The same for a workspace at the repository root. |
-| `roslyn` | `roslyn-build-sarif` | `.` | `dotnet build --no-incremental` with a generated MSBuild import that gives every project its own SARIF 2.1 log in `.quality/preflight/roslyn/`. |
+| `roslyn` | `roslyn-build-sarif` | `.` | `dotnet build --no-incremental --disable-build-servers` with a generated MSBuild import that gives every project its own SARIF 2.1 log in `.quality/preflight/roslyn/`. |
 | `tsc` | `tsc-noemit` | the scanned directory | `node <typescript>/bin/tsc -p <tsconfig> --noEmit`; a `tsconfig.json` with references checks every referenced project, including when it has sources of its own. |
 | `tsc` | `tsc-frontend` | `frontend/` | The same for a workspace in `frontend/`. |
 

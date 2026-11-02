@@ -4,6 +4,15 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — .NET build scans no longer wait for lingering build servers (QS-128)
+
+- The `roslyn-build-sarif` profile and the `dotnet-build` sensor pass `--disable-build-servers`.
+  Without it a reused MSBuild node or the shared compiler server outlived `dotnet build`, kept the
+  redirected output open, and the scan reported `dotnet timed out after 00:05:00` on every host
+  that does not disable node reuse itself, including both GitHub Build runners.
+- The quoted-path change-review test no longer creates a file name with `"` on Windows, where such
+  a name cannot exist; a non-ASCII name exercises git's quoted diff headers on every system.
+
 ### Fixed — frontend test run reports leaked promise rejections as failures (QS-122)
 
 - The API retry spec `gives up after the configured number of retries` no longer leaves its
