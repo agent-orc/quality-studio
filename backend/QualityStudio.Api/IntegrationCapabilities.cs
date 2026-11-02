@@ -20,6 +20,6 @@ internal static class IntegrationCapabilities
         version = typeof(IntegrationCapabilities).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
         contracts = new[] { Contract },
-        features = new[] { ChangeReviewStore },
+        features = new[] { "external-ref", ChangeReviewStore },
     };
 }

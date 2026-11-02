@@ -264,7 +264,6 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
-app.MapGet("/api/v1/capabilities", () => Results.Ok(IntegrationCapabilities.Document));
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
@@ -297,11 +296,7 @@ app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, Reposito
 
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
 
-Func<IResult> capabilities = () => Results.Ok(new
-{
-    contract = "agent-studio-integration/1",
-    features = new[] { "external-ref" },
-});
+Func<IResult> capabilities = () => Results.Ok(IntegrationCapabilities.Document);
 app.MapGet("/api/v1/capabilities", capabilities);
 app.MapGet("/api/repos/{repoId}/v1/capabilities", capabilities);
 

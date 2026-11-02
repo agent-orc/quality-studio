@@ -127,7 +127,8 @@ curl "http://127.0.0.1:5127/api/v1/repos?externalRef=agent-studio:PROJ-002"
 - A registration whose `rootPath` does not exist yet is refused with `400` and the typed reason
   `"reason": "root-missing"` in the problem body. Nothing is stored, so the caller retries the same
   request, same `id`, once the directory exists.
-- `GET /api/v1/capabilities` returns `{"contract":"agent-studio-integration/1","features":["external-ref"]}`.
+- `GET /api/v1/capabilities` announces contract `agent-studio-integration/1` and the
+  `external-ref` and `change-review-store` features.
 
 Everything else keeps path-as-identity: the Agent Studio import below still skips by normalized path.
 
@@ -411,7 +412,7 @@ form, without an unscoped alias.
 ```shell
 curl "http://127.0.0.1:5127/api/v1/capabilities"
 # 200 {"product":"quality-studio","version":"…","contracts":["agent-studio-integration/1"],
-#      "features":["change-review-store"]}
+#      "features":["external-ref","change-review-store"]}
 
 curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
   -H "Content-Type: application/json" \
