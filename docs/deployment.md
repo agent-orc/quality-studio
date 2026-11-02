@@ -244,6 +244,14 @@ The routes the integration uses:
 | Read the repository scorecard | `GET /api/repos/{repoId}/report` |
 | Hand findings back as tasks | `POST /api/repos/{repoId}/handover` (spend-limited) |
 | Inspect the handover target | `GET /api/repos/{repoId}/handover` |
+| Read the integration contract and features | `GET /api/v1/capabilities` |
+| Store a Review Plane change-review verdict | `PUT /api/v1/repos/{repoId}/change-reviews` |
+| Read the stored verdicts of a range | `GET /api/v1/repos/{repoId}/change-reviews?base=…&head=…` |
+
+Verdict documents travel in the request body, so `QualityStudio__Security__MaxRequestBodyBytes`
+(64 KiB by default) bounds the largest document the ingest accepts. Raise it if documents with many
+findings are refused with `413`. The store is described in
+[`change-reviews.md`](change-reviews.md#change-review-store).
 
 Nothing in Agent Studio changes for this; the table records what the integration needs to call. The
 contracts are in [`api.md`](api.md) and [`concepts/handover.md`](concepts/handover.md).

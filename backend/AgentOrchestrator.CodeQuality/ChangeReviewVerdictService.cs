@@ -19,6 +19,36 @@ public sealed record ChangeReviewVerdictResponse(
     string? Model = null, string? ThinkingLevel = null, TokenUsage? Usage = null,
     long? DurationMilliseconds = null);
 
+/// <summary>
+/// What makes two change-review verdicts the same answer: the repository, the exact range and the
+/// rule set and policy it was judged against. A verdict is computed at most once per key.
+/// </summary>
+public sealed record ChangeReviewKey(string Repository, string BaseSha, string HeadSha, string PolicyHash,
+    string RuleSetHash, string CatalogueVersion)
+{
+    /// <summary>A stable digest of every key field, used as the record's storage name.</summary>
+    public string Digest => ChangeReviewPolicy.Hash(Encoding.UTF8.GetBytes(
+        string.Join('\0', Repository, BaseSha, HeadSha, PolicyHash, RuleSetHash, CatalogueVersion)));
+}
+
+/// <summary>A range whose key is resolved and whose review has not run yet.</summary>
+public sealed class PreparedChangeReview
+{
+    internal PreparedChangeReview(ChangeReviewKey key, string root, ChangeReviewPolicy policy,
+        IReadOnlyList<ResolvedRule> rules)
+    {
+        Key = key;
+        Root = root;
+        Policy = policy;
+        Rules = rules;
+    }
+
+    public ChangeReviewKey Key { get; }
+    internal string Root { get; }
+    internal ChangeReviewPolicy Policy { get; }
+    internal IReadOnlyList<ResolvedRule> Rules { get; }
+}
+
 public sealed record ChangeReviewPolicy(int SchemaVersion, IReadOnlyList<string> BlockingRules,
     IReadOnlyList<string> BlockingSeverities)
 {
@@ -58,7 +88,19 @@ public sealed class ChangeReviewVerdictService
 
     public ChangeReviewVerdictService(IReviewAgent agent) => this.agent = agent;
 
+    /// <summary>Reviews the range once; equivalent to <see cref="PrepareAsync"/> followed by the review.</summary>
     public async Task<ChangeReviewVerdictResponse> ReviewAsync(string repository, string root,
+        ChangeReviewVerdictRequest request, string? globalInputsDirectory = null,
+        CancellationToken cancellationToken = default) =>
+        await ReviewAsync(await PrepareAsync(repository, root, request, globalInputsDirectory, cancellationToken)
+            .ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Resolves everything that identifies a verdict - both commits, the effective rule set and the
+    /// policy - without calling the reviewer, so a caller can look the key up before paying for a
+    /// model call.
+    /// </summary>
+    public static async Task<PreparedChangeReview> PrepareAsync(string repository, string root,
         ChangeReviewVerdictRequest request, string? globalInputsDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -75,6 +117,20 @@ public sealed class ChangeReviewVerdictService
         var ruleSet = string.Join("\n", rules.Select(rule =>
             $"{rule.Rule.Id}\0{rule.Rule.Version}\0{rule.EffectiveSeverity}\0{rule.Rule.Statement}\0{rule.Rule.Detection}"));
         var ruleSetHash = ChangeReviewPolicy.Hash(Encoding.UTF8.GetBytes(ruleSet));
+        return new PreparedChangeReview(
+            new ChangeReviewKey(repository, baseSha, headSha, policyHash, ruleSetHash, catalogue.CatalogueVersion),
+            root, policy, rules);
+    }
+
+    /// <summary>Reviews a prepared range. Every call is one reviewer call unless the diff decides it.</summary>
+    public async Task<ChangeReviewVerdictResponse> ReviewAsync(PreparedChangeReview prepared,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(prepared);
+        var (repository, baseSha, headSha, policyHash, ruleSetHash, catalogueVersion) = prepared.Key;
+        var root = prepared.Root;
+        var policy = prepared.Policy;
+        var rules = prepared.Rules;
         var diff = await GitPlumbing.RunAsync(root,
             ["diff", "--no-ext-diff", "--no-textconv", "--unified=3", baseSha, headSha, "--"],
             cancellationToken).ConfigureAwait(false);
@@ -83,7 +139,7 @@ public sealed class ChangeReviewVerdictService
         ChangeReviewVerdictResponse Response(string verdict, IReadOnlyList<ChangeReviewVerdictFinding> findings,
             string? failure = null, TokenUsage? usage = null, string? model = null) =>
             new(SchemaId, 1, repository, baseSha, headSha, verdict, policyHash, ruleSetHash,
-                catalogue.CatalogueVersion, findings, failure, model ?? agent.Model,
+                catalogueVersion, findings, failure, model ?? agent.Model,
                 agent.ThinkingLevel, usage, started.ElapsedMilliseconds);
         if (diff.Contains("GIT binary patch", StringComparison.Ordinal) ||
             diff.Contains("Binary files ", StringComparison.Ordinal))
@@ -182,7 +238,7 @@ public sealed class ChangeReviewVerdictService
         return value[start..(end + 1)];
     }
 
-    private static bool FullSha(string? value) =>
+    internal static bool FullSha(string? value) =>
         value is { Length: 40 } && value.All(character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
@@ -254,7 +310,7 @@ public sealed class ChangeReviewVerdictService
             return result;
         }
 
-        private static string? DiffPath(string header, string prefix)
+        internal static string? DiffPath(string header, string prefix)
         {
             if (header.StartsWith('"'))
             {
@@ -330,7 +386,7 @@ public sealed class ChangeReviewVerdictService
             return header[prefix.Length..];
         }
 
-        private static int Start(string header, char marker)
+        internal static int Start(string header, char marker)
         {
             var index = header.IndexOf(marker);
             var end = header.IndexOfAny([',', ' '], index);

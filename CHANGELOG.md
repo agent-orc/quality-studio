@@ -13,6 +13,25 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
   leaks an unhandled promise rejection, or fails the run if it surfaces after the last spec,
   instead of logging it to the console only.
 
+### Added — change-review store, ingest and change view (QS-134, AGT-3352 QSI-5)
+
+- A change-review verdict is computed at most once per repository, range, policy hash, rule-set hash
+  and catalogue version. `POST /api/repos/{id}/change-review` answers from the store without a model
+  call when the key holds a decisive verdict, and stores every result it computes. Infrastructure
+  verdicts are stored but never reused.
+- `PUT /api/v1/repos/{id}/change-reviews` ingests a `change-review-verdict.v1` document from Agent
+  Studio's Review Plane, with card, round and attempt provenance. Repeating an ingest is safe. An
+  unknown schema version answers `422`.
+- `GET /api/v1/repos/{id}/change-reviews?base=&head=[&previous=]` returns the stored verdicts of a
+  range, newest rule set first, with commit presence, diff excerpts and the "this round only"
+  findings.
+- The deep link `view=change&base=&head=[&card=][&previous=]` opens a change view. It shows the
+  verdict, severity counts, findings above the diff lines they cite, and provenance. A range
+  without a verdict shows "Not reviewed" with an operator "Run review". A missing commit shows
+  "Commit not present on this host". Infrastructure verdicts show as unavailable, never as pass.
+- `GET /api/v1/capabilities` announces contract `agent-studio-integration/1` with feature
+  `change-review-store`.
+
 ### Fixed — Agent Studio repository preparation (QS-103)
 
 - Frontend tests now select the no-sandbox Chromium launcher on Linux even when the execution

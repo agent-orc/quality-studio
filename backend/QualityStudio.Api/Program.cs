@@ -45,6 +45,8 @@ builder.Services.AddSingleton<ReviewModelCatalog>();
 builder.Services.AddSingleton<QualityReportBuilder>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GuidelineStore>();
+builder.Services.AddSingleton(_ => new ChangeReviewStore());
+builder.Services.AddSingleton<IChangeReviewAgentFactory, CodingAgentChangeReviewAgentFactory>();
 builder.Services.AddTransient<GuidelineImpactAnalyzer>();
 builder.Services.AddSingleton<GitleaksBinaryResolver>();
 builder.Services.AddSingleton<GitleaksSecurityScanner>();
@@ -244,6 +246,7 @@ app.Use(async (context, next) =>
     }
     else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
              !string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(route, "/api/v1/capabilities", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
@@ -255,6 +258,7 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
+app.MapGet("/api/v1/capabilities", () => Results.Ok(IntegrationCapabilities.Document));
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
@@ -365,8 +369,7 @@ app.MapDelete("/api/repos/{repoId}/scope/rules/{index:int}", DeleteScopeRule);
 
 app.MapPost("/api/review", StartReview).RequireRateLimiting("spend");
 app.MapPost("/api/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
-app.MapPost("/api/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
-app.MapPost("/api/repos/{repoId}/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
+app.MapChangeReviewEndpoints();
 app.MapPost("/api/review/estimate", EstimateReview);
 app.MapPost("/api/repos/{repoId}/review/estimate", EstimateReview);
 app.MapGet("/api/review/runs", ReviewRuns);
@@ -1168,30 +1171,6 @@ static IResult Inputs(HttpContext context, RepositoryRegistry registry, InputRes
         "Resolved review inputs for {KindCount} kinds in repository {RepositoryId} in {ElapsedMilliseconds} ms",
         kinds.Count, registration.Id, stopwatch.ElapsedMilliseconds);
     return Results.Ok(new { level = "file", kinds });
-}
-
-static async Task<IResult> ChangeReviewVerdict(HttpContext context, ChangeReviewVerdictRequest request,
-    RepositoryRegistry registry, CancellationToken cancellationToken)
-{
-    var (registration, repository) = ResolveRepository(context, registry);
-    try
-    {
-        var agent = string.IsNullOrWhiteSpace(request.Model) && string.IsNullOrWhiteSpace(request.ThinkingLevel)
-            ? CodingAgentReviewAgent.CreateDefault(request.CliType ?? "codex")
-            : new CodingAgentReviewAgent(request.CliType ?? "codex", request.Model, request.ThinkingLevel);
-        var result = await new ChangeReviewVerdictService(agent).ReviewAsync(
-            registration.Id, repository.Root, request, registration.GlobalInputsDirectory, cancellationToken);
-        return Results.Ok(result);
-    }
-    catch (Exception exception) when (exception is ArgumentException or ChangeReviewException or JsonException)
-    {
-        return Results.BadRequest(new ProblemDetails
-        {
-            Status = StatusCodes.Status400BadRequest,
-            Title = "Invalid change-review request",
-            Detail = exception.Message,
-        });
-    }
 }
 
 static IResult Guidelines(HttpContext context, RepositoryRegistry registry, GuidelineStore store)

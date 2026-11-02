@@ -6,8 +6,10 @@
 repository) accepts `baseSha` and `headSha` (Git
 commit names). Optional `cliType`, `model`, and `thinkingLevel` select the
 isolated reviewer; the default is the product's code-review route. The endpoint
-reads the exact Git diff without writing a sidecar or running a build. It sends
-the changed hunks and the effective enabled code rules to the reviewer. The
+reads the exact Git diff without writing into the checkout or running a build. It sends
+the changed hunks and the effective enabled code rules to the reviewer. A range
+whose key already has a stored verdict is answered from the
+[change-review store](#change-review-store) without a model call. The
 response conforms to [`change-review-verdict.v1.schema.json`](../schemas/change-review-verdict.v1.schema.json).
 
 ```json
@@ -42,6 +44,166 @@ this repository; a registered project can commit its own version.
 This prepares the QS-118 Dossier's recommended option B in shadow mode.
 Under the existing QS-W6 decision, Agent Studio remains the decision owner;
 this endpoint does not change its gates or review outcome.
+
+## Change-review store
+
+A verdict for a commit range is computed at most once (AGT-3352 Dossier,
+decisions D5 and D7 option a). Agent Studio's Review Plane computes the verdict
+for a card's range `merge-base(integration ref, Result-SHA)..Result-SHA` and
+pushes it here. Quality Studio stores its own results in the same place, so
+opening a range never pays for a second model call.
+
+### Key and record
+
+A verdict is identified by its **key**: repository id, `baseSha`, `headSha`,
+`policyHash`, `ruleSetHash` and `catalogueVersion`. The model, thinking level
+and reviewer CLI are not part of the key. A stored verdict answers every later
+request for its key, whichever model that request names.
+
+Records live in the project's [data root](data-root.md), outside the checkout:
+
+```
+<data root>/projects/<project-key>/change-reviews/<baseSha>/<headSha>/<key digest>.json
+```
+
+```json
+{
+  "schemaVersion": 1,
+  "key": { "repository": "proj-002", "baseSha": "…", "headSha": "…", "policyHash": "sha256:…",
+           "ruleSetHash": "sha256:…", "catalogueVersion": "1.6.0", "digest": "sha256:…" },
+  "keyDigest": "sha256:…",
+  "provenance": { "producer": "agent-studio-review-plane", "cardKey": "AGT-3352", "round": 2,
+                  "attemptId": "…", "clientId": "agent-studio" },
+  "recordedAt": "2026-11-01T14:32:00+00:00",
+  "documentDigest": "sha256:…",
+  "document": { "schema": "…change-review-verdict.v1.schema.json", "schemaVersion": 1, "verdict": "concerns", … }
+}
+```
+
+`document` is the `change-review-verdict.v1` document exactly as it was
+produced. `producer` is `quality-studio` (computed by `POST change-review` on
+this host) or `agent-studio-review-plane` (ingested). `cardKey`, `round` and
+`attemptId` name the Agent Studio card round that was judged. `clientId` is the
+API client that stored the record. Records are disposable like all data-root
+content, but deleting one means the next request for its key pays for a model
+call again.
+
+A key holds one record:
+
+| Stored record | New document for the same key | Result |
+| --- | --- | --- |
+| none | any | stored |
+| same document (same compact JSON) | | unchanged, nothing written |
+| `pass`, `concerns` or `block` | a different document | kept; ingest answers `409` |
+| `provider-unavailable`, `timeout`, `auth-failure` or `unparseable` | any other document | replaced |
+
+An infrastructure verdict is stored so the range can show it as
+**unavailable**. It never answers a lookup, so the next request for the key
+calls the reviewer again.
+
+### Cache-first `POST change-review`
+
+`POST /api/repos/{id}/change-review` first resolves the key: both commits, the
+effective rule set and `.quality/policy.json` of the registered checkout. It
+reads the store before it creates a reviewer:
+
+- A decisive record for the key is returned unchanged. No model call is made.
+  The response header `Quality-Studio-Change-Review: stored` says so.
+- On a miss, or when only an infrastructure verdict is stored, the reviewer
+  runs once. The result is stored with producer `quality-studio`, and the
+  response carries `Quality-Studio-Change-Review: computed`.
+
+Concurrent requests for one key wait for the first, so a burst of identical
+requests costs one model call. The response body is the stored document, so a
+repeated request returns a byte-identical answer. The route stays on the
+`spend` rate limit, including when the answer comes from the store.
+
+### Ingest from Agent Studio
+
+`PUT /api/v1/repos/{id}/change-reviews` stores a document that Agent Studio's
+Review Plane computed. It authenticates like every other mutation: a bearer
+token, plus `X-Client-Id` in hosted mode. In local mode there are no tokens.
+
+```json
+{
+  "document": { "schema": "https://agent-orchestrator.dev/quality/schemas/change-review-verdict.v1.schema.json",
+                "schemaVersion": 1, "repository": "proj-002", "baseSha": "…", "headSha": "…", "verdict": "pass",
+                "policyHash": "sha256:…", "ruleSetHash": "sha256:…", "catalogueVersion": "1.6.0", "findings": [] },
+  "provenance": { "producer": "agent-studio-review-plane", "cardKey": "AGT-3352", "round": 2, "attemptId": "…" }
+}
+```
+
+| Answer | When |
+| --- | --- |
+| `201` `{"outcome":"stored","record":…}` | The key had no record. |
+| `200` `{"outcome":"unchanged",…}` | The same document is already stored. Repeating an ingest is safe. |
+| `200` `{"outcome":"replaced",…}` | An infrastructure verdict for the key was replaced. |
+| `409` | A different decisive verdict is already stored. The response names `keyDigest` and `storedDocumentDigest`. Retrying cannot succeed. |
+| `422 Unsupported change-review document version` | `schema` or `schemaVersion` is not `change-review-verdict.v1` / `1`. |
+| `422 Change-review document is invalid` | The document departs from the v1 schema, `repository` is not the route's id, or `provenance.producer` is unknown. |
+
+The key is read from the document. Commits do not have to exist on this host,
+so a verdict can be stored before the checkout has fetched them. Requests are
+limited by `QualityStudio:Security:MaxRequestBodyBytes` (64 KiB by default).
+Raise it if documents with many findings are refused with `413`.
+
+### Reading a range
+
+`GET /api/v1/repos/{id}/change-reviews?base=<sha>&head=<sha>[&previous=<sha>]`
+returns every stored record for the range, the newest first: the record whose
+rule set was recorded last comes first. It never calls a reviewer. All three
+SHAs must be full 40-character lowercase commit names; anything else answers
+`400`.
+
+```json
+{
+  "repository": "proj-002", "baseSha": "…", "headSha": "…",
+  "commits": { "base": true, "head": true, "previous": true },
+  "currentKey": { … },
+  "permissions": { "runReview": true },
+  "records": [ { "key": …, "provenance": …, "recordedAt": "…", "current": true, "decisive": true, "document": … } ],
+  "excerpts": { "<finding fingerprint>": [ { "kind": "added", "baseLine": null, "headLine": 88, "text": "…", "anchor": true } ] },
+  "roundOnly": { "previousHeadSha": "…", "available": true, "fingerprints": [ "sha256:…" ] }
+}
+```
+
+- `commits` says whether each SHA exists in this host's checkout. A missing
+  commit does not hide stored verdicts. It does make `currentKey`, `excerpts`
+  and `roundOnly` unavailable.
+- `currentKey` is the key `POST change-review` would use now. `current` marks
+  the record stored under it. Other records were judged under another rule set
+  or policy and stay valid for their own key.
+- `excerpts` holds the diff lines around each finding, from the same two-dot
+  diff the reviewer saw. `anchor` marks the cited line.
+- `roundOnly` appears when `previous` (the previous round's head) is given. It
+  lists the findings on lines that `previous..head` changed: head-side findings
+  on a line that round added, and base-side findings in a file from which that
+  round removed lines. This is decision D5's "this round only" view inside the
+  cumulative merge-base range.
+- `permissions.runReview` is true for every caller this host authenticates
+  today, that is Local mode and bearer clients.
+
+### Change view
+
+The deep link `/?repo=<id>&view=change&base=<sha>&head=<sha>[&card=<key>][&previous=<sha>]`
+opens the range in the UI (see [api.md](api.md#deep-link-v1)). The view shows:
+
+- the verdict: Pass, Concerns or Block. All four infrastructure verdicts show
+  as **Unavailable** with their reason, never as Pass;
+- severity counts, and each finding with its rule, location and evidence, above
+  the diff lines it cites;
+- provenance: producer, card, round, attempt, time, model, rule set and policy;
+- a "This round only" filter when `previous` is given;
+- **Not reviewed** when the range has no verdict. Opening the view never starts
+  a review. Operators get **Run review**, which calls the spend route
+  `POST change-review`. It is offered only when no decisive verdict is stored
+  and both commits are present. After an infrastructure verdict it acts as a
+  retry;
+- **Commit not present on this host**, with the missing SHA, when the checkout
+  lacks the base or head commit.
+
+`GET /api/v1/capabilities` announces this store as feature
+`change-review-store` under contract `agent-studio-integration/1`.
 
 The [20-task shadow comparison](../results/shadow-comparison.md) records the
 operator-provided SHA pairs, retained endpoint responses, exact agreement rate,

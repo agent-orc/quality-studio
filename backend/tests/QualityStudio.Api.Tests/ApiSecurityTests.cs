@@ -94,6 +94,37 @@ public sealed partial class ApiSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Change_review_store_routes_keep_the_hosted_client_rules()
+    {
+        var range = $"/api/v1/repos/default/change-reviews?base={new string('a', 40)}&head={new string('b', 40)}";
+        var ingest = new { document = new { schemaVersion = 1 }, provenance = new { producer = "agent-studio-review-plane" } };
+        using var anonymous = CreateClient();
+        using var unauthenticated = await anonymous.GetAsync(range, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+
+        using var missingClientId = CreateClient("alice", AliceToken, includeClientId: false);
+        using var withoutHeader = await missingClientId.PutAsJsonAsync("/api/v1/repos/default/change-reviews", ingest,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, withoutHeader.StatusCode);
+
+        using var bob = CreateClient("bob", BobToken);
+        using var foreignRead = await bob.GetAsync(range, TestContext.Current.CancellationToken);
+        using var foreignIngest = await bob.PutAsJsonAsync("/api/v1/repos/default/change-reviews", ingest,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, foreignRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignIngest.StatusCode);
+
+        // The capabilities document names no repository, so a client without the default one reads it too.
+        using var capabilities = await bob.GetAsync("/api/v1/capabilities", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, capabilities.StatusCode);
+
+        using var alice = CreateClient("alice", AliceToken);
+        using var unsupported = await alice.PutAsJsonAsync("/api/v1/repos/default/change-reviews", ingest,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, unsupported.StatusCode);
+    }
+
+    [Fact]
     public async Task Repository_scoped_identity_cannot_update_or_archive_its_repository()
     {
         var registryBefore = await File.ReadAllTextAsync(RegistryPath, TestContext.Current.CancellationToken);
