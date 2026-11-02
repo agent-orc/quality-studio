@@ -87,6 +87,7 @@ builder.Services.AddSingleton(serviceProvider =>
     serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AgentStudioTaskOptions>>().Value);
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton<AgentStudioTaskClient>();
+builder.Services.AddSingleton<RepositoryWriteHandover>();
 builder.Services.Configure<ReviewJobsOptions>(builder.Configuration.GetSection(ReviewJobsOptions.SectionName));
 builder.Services.AddSingleton<IReviewExecutorFactory, ReviewExecutorFactory>();
 builder.Services.AddSingleton<ProviderAuthStateTracker>(_ => new ProviderAuthStateTracker());
@@ -561,36 +562,46 @@ static IResult PreviewScopeRule(HttpContext context, ScopeRuleMutationRequest re
         preview.MatchedFiles, preview.WiderPattern));
 }
 
-static IResult AddScopeRule(HttpContext context, ScopeRuleMutationRequest request,
-    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+static Task<IResult> AddScopeRule(HttpContext context, ScopeRuleMutationRequest request,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
     var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
-    var configuration = store.Add(new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
-        candidates, request.ConfirmExpansion);
-    return Results.Created($"{context.Request.Path}/{configuration.Rules.Count - 1}",
-        ScopeRuleResponse(configuration, candidates, store));
+    return handover.ExecuteAsync(context, repository.Root, "Add scope rule", request.Reason, root =>
+    {
+        var store = new RepositoryScopeConfigurationStore(root);
+        var configuration = store.Add(new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
+            candidates, request.ConfirmExpansion);
+        return Results.Created($"{context.Request.Path}/{configuration.Rules.Count - 1}",
+            ScopeRuleResponse(configuration, candidates, store));
+    });
 }
 
-static IResult UpdateScopeRule(HttpContext context, int index, ScopeRuleMutationRequest request,
-    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+static Task<IResult> UpdateScopeRule(HttpContext context, int index, ScopeRuleMutationRequest request,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
     var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
-    var configuration = store.Update(index, new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
-        candidates, request.ConfirmExpansion);
-    return Results.Ok(ScopeRuleResponse(configuration, candidates, store));
+    return handover.ExecuteAsync(context, repository.Root, "Update scope rule " + index, request.Reason, root =>
+    {
+        var store = new RepositoryScopeConfigurationStore(root);
+        var configuration = store.Update(index, new RepositoryScopeRule(request.Action, request.Pattern, request.Reason),
+            candidates, request.ConfirmExpansion);
+        return Results.Ok(ScopeRuleResponse(configuration, candidates, store));
+    });
 }
 
-static IResult DeleteScopeRule(HttpContext context, int index,
-    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
+static Task<IResult> DeleteScopeRule(HttpContext context, int index,
+    RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var store = new RepositoryScopeConfigurationStore(repository.Root);
     var candidates = ScopeCandidateFiles(repository.Root, hierarchyCache);
-    return Results.Ok(ScopeRuleResponse(store.Delete(index), candidates, store));
+    return handover.ExecuteAsync(context, repository.Root, "Delete scope rule " + index,
+        context.Request.Query["reason"].ToString(), root =>
+        {
+            var store = new RepositoryScopeConfigurationStore(root);
+            return Results.Ok(ScopeRuleResponse(store.Delete(index), candidates, store));
+        });
 }
 
 static ScopeRulesResponse ScopeRuleResponse(
@@ -1110,10 +1121,18 @@ static async Task<IResult> FindingSuppressions(HttpContext context, RepositoryRe
 }
 
 static async Task<IResult> AddScopedFindingSuppression(HttpContext context, ScopedSuppressionMutationRequest request,
-    RepositoryRegistry registry, CancellationToken cancellationToken)
+    RepositoryRegistry registry, RepositoryWriteHandover handover, CancellationToken cancellationToken)
 {
     var (_, repository) = ResolveRepository(context, registry);
     var path = repository.NormalizeRelativePath(request.Path);
+    if (handover.Enabled)
+        return await handover.ExecuteAsync(context, repository.Root, "Add scoped finding suppression", request.Reason,
+            async root =>
+            {
+                await new FindingSuppressionStore(root).AddScopedAsync(request.RuleId, path, request.Author,
+                    request.Reason, request.ExpiresAt, request.ExpectedRevision, cancellationToken);
+                return Results.Ok();
+            });
     var updated = await new FindingSuppressionStore(repository.Root).AddScopedAsync(
         request.RuleId, path, request.Author, request.Reason, request.ExpiresAt,
         request.ExpectedRevision, cancellationToken);
@@ -1122,7 +1141,7 @@ static async Task<IResult> AddScopedFindingSuppression(HttpContext context, Scop
 }
 
 static async Task<IResult> AddFindingSuppression(HttpContext context, FindingSuppressionMutationRequest request,
-    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+    RepositoryRegistry registry, RepositoryWriteHandover handover, ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
@@ -1144,6 +1163,14 @@ static async Task<IResult> AddFindingSuppression(HttpContext context, FindingSup
         title = finding.GetProperty("title").GetString()!;
     }
 
+    if (handover.Enabled)
+        return await handover.ExecuteAsync(context, repository.Root, "Add finding suppression", request.Reason,
+            async root =>
+            {
+                await new FindingSuppressionStore(root).AddExactAsync(identity, title, request.Author,
+                    request.Reason, request.ExpiresAt, request.ExpectedRevision, cancellationToken);
+                return Results.Ok();
+            });
     var updated = await new FindingSuppressionStore(repository.Root).AddExactAsync(
         identity, title, request.Author, request.Reason, request.ExpiresAt, request.ExpectedRevision, cancellationToken);
     logger.LogInformation(new EventId(1502, "FindingSuppressed"),
@@ -1154,10 +1181,17 @@ static async Task<IResult> AddFindingSuppression(HttpContext context, FindingSup
 }
 
 static async Task<IResult> DeleteFindingSuppression(HttpContext context, string id, long? expectedRevision,
-    RepositoryRegistry registry, ILogger<Program> logger, CancellationToken cancellationToken)
+    RepositoryRegistry registry, RepositoryWriteHandover handover, ILogger<Program> logger, CancellationToken cancellationToken)
 {
     var stopwatch = Stopwatch.StartNew();
     var (registration, repository) = ResolveRepository(context, registry);
+    if (handover.Enabled)
+        return await handover.ExecuteAsync(context, repository.Root, "Remove finding suppression " + id,
+            context.Request.Query["reason"].ToString(), async root =>
+            {
+                await new FindingSuppressionStore(root).DeleteAsync(id, expectedRevision, cancellationToken);
+                return Results.Ok();
+            });
     var updated = await new FindingSuppressionStore(repository.Root)
         .DeleteAsync(id, expectedRevision, cancellationToken);
     logger.LogInformation(new EventId(1503, "FindingUnsuppressed"),
@@ -1312,32 +1346,45 @@ static IResult Guidelines(HttpContext context, RepositoryRegistry registry, Guid
     });
 }
 
-static IResult CreateGuideline(HttpContext context, GuidelineDraft request, RepositoryRegistry registry, GuidelineStore store)
+static Task<IResult> CreateGuideline(HttpContext context, GuidelineDraft request, RepositoryRegistry registry,
+    GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var created = store.Create(repository.Root, request);
-    return Results.Created($"{context.Request.Path}/{Uri.EscapeDataString(created.Id)}", created);
+    return handover.ExecuteAsync(context, repository.Root, "Create guideline " + request.Id, null, root =>
+    {
+        var created = store.Create(root, request);
+        return Results.Created($"{context.Request.Path}/{Uri.EscapeDataString(created.Id)}", created);
+    });
 }
 
-static IResult UpdateGuideline(HttpContext context, string guidelineId, GuidelineDraft request,
-    RepositoryRegistry registry, GuidelineStore store)
+static Task<IResult> UpdateGuideline(HttpContext context, string guidelineId, GuidelineDraft request,
+    RepositoryRegistry registry, GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    return Results.Ok(store.Update(repository.Root, guidelineId, request));
+    return handover.ExecuteAsync(context, repository.Root, "Update guideline " + guidelineId, null,
+        root => Results.Ok(store.Update(root, guidelineId, request)));
 }
 
-static IResult DeleteGuideline(HttpContext context, string guidelineId, RepositoryRegistry registry, GuidelineStore store)
+static Task<IResult> DeleteGuideline(HttpContext context, string guidelineId, RepositoryRegistry registry,
+    GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    store.Delete(repository.Root, guidelineId);
-    return Results.NoContent();
+    return handover.ExecuteAsync(context, repository.Root, "Delete guideline " + guidelineId, null, root =>
+    {
+        store.Delete(root, guidelineId);
+        return Results.NoContent();
+    });
 }
 
-static IResult InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry, GuidelineStore store)
+static Task<IResult> InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry,
+    GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    var installed = store.Install(repository.Root, catalogueId);
-    return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
+    return handover.ExecuteAsync(context, repository.Root, "Install guideline " + catalogueId, null, root =>
+    {
+        var installed = store.Install(root, catalogueId);
+        return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
+    });
 }
 
 static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactRequest request,

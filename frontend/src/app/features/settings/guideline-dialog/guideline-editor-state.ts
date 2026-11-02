@@ -44,7 +44,7 @@ export class GuidelineEditorState {
       const draft = this.guidelineDraft();
       const existing = this.editingGuidelineId();
       const saved = existing ? await this.api.updateGuideline(existing, draft) : await this.api.createGuideline(draft);
-      this.editGuideline(saved);
+      if (!this.api.repositoryWriteRequest()) this.editGuideline(saved);
     } catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
     finally { this.guidelineSaving.set(false); }
   }
@@ -65,6 +65,7 @@ export class GuidelineEditorState {
   private async confirmDeleteGuideline(id: string): Promise<void> {
     try {
       await this.api.deleteGuideline(id);
+      if (this.api.repositoryWriteRequest()) return;
       if (this.api.guidelines().length) this.editGuideline(this.api.guidelines()[0]);
       else this.newGuideline();
     } catch (error) {
@@ -73,7 +74,10 @@ export class GuidelineEditorState {
   }
 
   async installGuideline(id: string): Promise<void> {
-    try { this.editGuideline(await this.api.installGuideline(id)); }
+    try {
+      const guideline = await this.api.installGuideline(id);
+      if (!this.api.repositoryWriteRequest()) this.editGuideline(guideline);
+    }
     catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
   }
 

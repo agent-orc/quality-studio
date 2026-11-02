@@ -122,6 +122,7 @@ export class QualityApi {
   readonly handoverConfigured = this.findingsApi.handoverConfigured;
   readonly handoverDryRun = this.findingsApi.handoverDryRun;
   readonly findingSuppressions = this.findingsApi.findingSuppressions;
+  readonly repositoryWriteRequest = this.context.repositoryWriteRequest;
   readonly scopeRules = this.scopeApi.scopeRules;
   readonly guidelines = this.scopeApi.guidelines;
   readonly guidelineCatalogue = this.scopeApi.guidelineCatalogue;

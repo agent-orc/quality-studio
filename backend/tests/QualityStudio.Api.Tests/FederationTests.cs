@@ -431,6 +431,151 @@ public sealed class FederationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Suppression_on_read_only_federated_checkout_creates_one_patch_card_without_writing()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        await WriteFindingAsync();
+        var handler = new StaticResponseHandler("{\"id\":\"AGT-123\"}");
+        await using var live = new FederatedApplication(this, liveHandover: true, handoverHandler: handler);
+        using var client = CreateClient(live);
+        var originalMode = File.GetUnixFileMode(RepositoryRoot);
+        File.SetUnixFileMode(RepositoryRoot, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/repos/default/findings/suppressions")
+            {
+                Content = JsonContent.Create(new
+                {
+                    path = "Sample.cs",
+                    kind = "code",
+                    fingerprint = Fingerprint,
+                    author = "Robert",
+                    reason = "Covered by migration policy",
+                    expectedRevision = 0,
+                }),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AliceToken);
+            request.Headers.Add(ApiSecurity.ClientIdHeader, "alice");
+            using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            Assert.Equal("AGT-123", result.GetProperty("taskId").GetString());
+            Assert.Equal("https://studio.example/#/tasks/AGT-123", result.GetProperty("url").GetString());
+            Assert.Single(handler.Requests);
+            Assert.Equal(new Uri("http://agent-studio.test/api/tasks"), handler.Requests[0]);
+            var body = Assert.Single(handler.Bodies);
+            using var card = JsonDocument.Parse(body);
+            var prompt = card.RootElement.GetProperty("promptMarkdown").GetString()!;
+            Assert.Contains("Acting user: alice", prompt, StringComparison.Ordinal);
+            Assert.Contains("Reason: Covered by migration policy", prompt, StringComparison.Ordinal);
+            Assert.Contains("diff --git a/.quality/findings/suppressions.json b/.quality/findings/suppressions.json", prompt, StringComparison.Ordinal);
+            Assert.Contains(Fingerprint, prompt, StringComparison.Ordinal);
+            Assert.False(File.Exists(Path.Combine(RepositoryRoot, FindingSuppressionStore.RelativePath)));
+        }
+        finally
+        {
+            File.SetUnixFileMode(RepositoryRoot, originalMode);
+        }
+    }
+
+    [Fact]
+    public async Task Federated_suppression_defaults_to_a_dry_run_record()
+    {
+        await WriteFindingAsync();
+        using var client = BearerClient(AliceToken, "alice");
+        using var response = await client.PostAsJsonAsync("/api/repos/default/findings/suppressions", new
+        {
+            path = "Sample.cs",
+            kind = "code",
+            fingerprint = Fingerprint,
+            author = "Robert",
+            reason = "Covered by migration policy",
+            expectedRevision = 0,
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var receipt = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.True(receipt.GetProperty("dryRun").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, receipt.GetProperty("taskId").ValueKind);
+        Assert.Contains(Fingerprint, receipt.GetProperty("card").GetProperty("promptMarkdown").GetString(), StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(RepositoryRoot, FindingSuppressionStore.RelativePath)));
+    }
+
+    [Fact]
+    public async Task Hosted_without_federation_still_writes_suppression_directly()
+    {
+        await WriteFindingAsync();
+        await using var plain = new FederatedApplication(this, federated: false);
+        using var client = CreateClient(plain);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/repos/default/findings/suppressions")
+        {
+            Content = JsonContent.Create(new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                fingerprint = Fingerprint,
+                author = "Robert",
+                reason = "Covered by migration policy",
+                expectedRevision = 0,
+            }),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AliceToken);
+        request.Headers.Add(ApiSecurity.ClientIdHeader, "alice");
+        var path = Path.Combine(RepositoryRoot, FindingSuppressionStore.RelativePath);
+        try
+        {
+            using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.True(File.Exists(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Federated_rule_scope_and_guideline_edits_each_create_a_patch_card()
+    {
+        var handler = new StaticResponseHandler("{\"id\":\"AGT-123\"}");
+        await using var live = new FederatedApplication(this, liveHandover: true, handoverHandler: handler);
+        using var client = CreateClient(live);
+
+        async Task<HttpResponseMessage> ChangeAsync(HttpMethod method, string path, object body)
+        {
+            using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AliceToken);
+            request.Headers.Add(ApiSecurity.ClientIdHeader, "alice");
+            return await client.SendAsync(request, TestContext.Current.CancellationToken);
+        }
+
+        using var rule = await ChangeAsync(HttpMethod.Put, "/api/repos/default/rules/overrides/QS-CS-004",
+            new { enabled = false, reason = "Sample policy" });
+        using var scope = await ChangeAsync(HttpMethod.Post, "/api/repos/default/scope/rules",
+            new { action = "exclude", pattern = "Sample.cs", reason = "Generated sample" });
+        using var guideline = await ChangeAsync(HttpMethod.Post, "/api/repos/default/guidelines",
+            new
+            {
+                id = "sample-guideline",
+                enabled = true,
+                priority = 50,
+                kinds = new[] { "code" },
+                levels = new[] { "file" },
+                content = "Review this sample.",
+            });
+
+        Assert.Equal(HttpStatusCode.OK, rule.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, scope.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, guideline.StatusCode);
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.Contains(".quality/rules/overrides.json", handler.Bodies[0], StringComparison.Ordinal);
+        Assert.Contains(".quality/scope.json", handler.Bodies[1], StringComparison.Ordinal);
+        Assert.Contains(".quality/inputs/sample-guideline.md", handler.Bodies[2], StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(RepositoryRoot, ".quality/rules/overrides.json")));
+        Assert.False(File.Exists(Path.Combine(RepositoryRoot, ".quality/scope.json")));
+        Assert.False(File.Exists(Path.Combine(RepositoryRoot, ".quality/inputs/sample-guideline.md")));
+    }
+
+    [Fact]
     public async Task A_bearer_browser_learns_its_client_id_and_can_change_a_finding_state()
     {
         // Regression: the frontend never sent X-Client-Id, so hosted-mode browsers could not mutate.
@@ -680,14 +825,16 @@ public sealed class FederationTests : IAsyncLifetime
     private sealed class StaticResponseHandler(string body) : HttpMessageHandler
     {
         public List<Uri> Requests { get; } = [];
+        public List<string> Bodies { get; } = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request.RequestUri!);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            Bodies.Add(request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            });
+            };
         }
     }
 
@@ -697,6 +844,8 @@ public sealed class FederationTests : IAsyncLifetime
         string mode = "Hosted",
         int spendRequestsPerMinute = 100,
         HttpMessageHandler? jwksHandler = null,
+        bool liveHandover = false,
+        HttpMessageHandler? handoverHandler = null,
         CapturingLoggerProvider? logs = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -719,7 +868,9 @@ public sealed class FederationTests : IAsyncLifetime
                 ["QualityStudio:Security:Clients:1:CredentialSha256"] = Hash(AliceToken),
                 ["QualityStudio:Security:Clients:1:Repositories:0"] = "default",
                 ["AgentStudio:BaseUrl"] = "http://agent-studio.test",
-                ["AgentStudio:DryRun"] = "true",
+                ["AgentStudio:ClientId"] = "quality-studio",
+                ["AgentStudio:Project"] = "QS",
+                ["AgentStudio:DryRun"] = liveHandover ? "false" : "true",
             };
             if (federated)
             {
@@ -741,6 +892,7 @@ public sealed class FederationTests : IAsyncLifetime
             {
                 services.AddSingleton<TimeProvider>(owner.time);
                 if (jwksHandler is not null) services.AddSingleton(new HttpClient(jwksHandler));
+                if (handoverHandler is not null) services.AddSingleton(new HttpClient(handoverHandler));
             });
             if (logs is not null) builder.ConfigureLogging(logging => logging.AddProvider(logs));
         }

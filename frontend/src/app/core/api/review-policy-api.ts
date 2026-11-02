@@ -21,6 +21,7 @@ export class ReviewPolicyApi {
   private readonly context = inject(ApiContext);
   private sequence = 0;
   readonly repositoryId = this.context.selectedRepositoryId;
+  readonly repositoryWriteRequest = this.context.repositoryWriteRequest;
   readonly catalogue = signal<ReviewRuleCatalogue | null>(null);
   readonly inputPreview = signal<ReviewInputPreview | null>(null);
   readonly loading = signal(false);
@@ -131,6 +132,7 @@ export class ReviewPolicyApi {
     try {
       const result = await firstValueFrom(this.http.post<RuleImportResult>(`${this.base()}/rules/import`,
         { ruleSet, mode, dryRun, reason }, { params: this.scopeParams() }));
+      if (this.context.recordRepositoryWrite(result)) return { valid: true, applied: false, modifiedSinceExport: false, diagnostics: [], changes: [], pool: this.catalogue()! };
       if (result.applied) await this.applied(result.pool);
       return result;
     } catch (error) {
@@ -152,6 +154,7 @@ export class ReviewPolicyApi {
     this.saving.set(true);
     try {
       const pool = await firstValueFrom(request(this.base()));
+      if (this.context.recordRepositoryWrite(pool)) return this.catalogue()!;
       await this.applied(pool);
       return pool;
     } catch (error) {

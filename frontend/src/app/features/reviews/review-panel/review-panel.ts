@@ -145,7 +145,7 @@ export class ReviewPanel {
         });
         this.ignoreFinding.set(null);
         this.ignoreManagerOpen.set(true);
-        this.ignoreStatus.set('Rule and path scope ignored. Matching observations remain available under Suppressed.');
+        this.ignoreStatus.set(this.api.repositoryWriteRequest() ? '' : 'Rule and path scope ignored. Matching observations remain available under Suppressed.');
         return;
       }
       const updated = await this.api.addFindingSuppression({
@@ -156,7 +156,7 @@ export class ReviewPanel {
       if (updated) this.findingSelect.emit(updated);
       this.ignoreFinding.set(null);
       this.ignoreManagerOpen.set(true);
-      this.ignoreStatus.set('Finding ignored. The observation remains available under Suppressed.');
+      this.ignoreStatus.set(this.api.repositoryWriteRequest() ? '' : 'Finding ignored. The observation remains available under Suppressed.');
     } catch (error) {
       if ((error as { status?: number }).status === 409) await this.api.loadFindingSuppressions();
       this.ignoreStatus.set((error as { status?: number }).status === 409
@@ -176,7 +176,7 @@ export class ReviewPanel {
     this.ignoreStatus.set('Removing from Ignore list…');
     try {
       await this.api.deleteFindingSuppression(rule.id, this.api.findingSuppressions().revision);
-      this.ignoreStatus.set('Finding restored to the review queue.');
+      this.ignoreStatus.set(this.api.repositoryWriteRequest() ? '' : 'Finding restored to the review queue.');
     } catch (error) {
       if ((error as { status?: number }).status === 409) await this.api.loadFindingSuppressions();
       this.ignoreStatus.set((error as { status?: number }).status === 409
@@ -350,7 +350,7 @@ export class ReviewPanel {
       const editingIndex = this.editingScopeRuleIndex();
       if (editingIndex === null) await this.api.addScopeRule(request);
       else await this.api.updateScopeRule(editingIndex, request);
-      this.scopeStatus.set(`Scope rule ${editingIndex === null ? 'saved' : 'updated'}. It applies to future reviews.`);
+      this.scopeStatus.set(this.api.repositoryWriteRequest() ? '' : `Scope rule ${editingIndex === null ? 'saved' : 'updated'}. It applies to future reviews.`);
       this.scopePreview.set(null);
       this.editingScopeRuleIndex.set(null);
     } catch (error) {
@@ -381,7 +381,7 @@ export class ReviewPanel {
     this.scopeStatus.set('Removing rule…');
     try {
       await this.api.deleteScopeRule(index);
-      this.scopeStatus.set('Rule removed. Matching paths are eligible on the next review.');
+      this.scopeStatus.set(this.api.repositoryWriteRequest() ? '' : 'Rule removed. Matching paths are eligible on the next review.');
     } catch (error) {
       this.scopeStatus.set(this.api.errorMessage(error));
     }

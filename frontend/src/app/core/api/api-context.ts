@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 
 import { describeHttpError, isUnreachable } from './api-errors';
-import { ApiConnectionState } from '../models/contracts';
+import { ApiConnectionState, RepositoryWriteRequest } from '../models/contracts';
 
 /**
  * What every API service needs to agree on: which repository is selected, where its routes live,
@@ -12,6 +12,16 @@ import { ApiConnectionState } from '../models/contracts';
  */
 @Injectable({ providedIn: 'root' })
 export class ApiContext {
+  readonly repositoryWriteRequest = signal<RepositoryWriteRequest | null>(null);
+
+  recordRepositoryWrite(response: unknown): response is RepositoryWriteRequest {
+    if (response !== null && typeof response === 'object' && 'requested' in response && response.requested === true) {
+      this.repositoryWriteRequest.set(response as RepositoryWriteRequest);
+      return true;
+    }
+    this.repositoryWriteRequest.set(null);
+    return false;
+  }
   /** True once a request found a server without the repository registry, which serves /api/... flat. */
   readonly legacyApi = signal(false);
   readonly selectedRepositoryId = signal('default');

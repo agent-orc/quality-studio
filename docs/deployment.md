@@ -162,6 +162,14 @@ Every `QualityStudio:*` configuration key maps to an environment variable by rep
 | `QualityStudio__Git__TrustRegisteredRoots` | `false` (`true` in the image) | Pass every registered repository root to Git as `safe.directory`, so checkouts owned by another uid are readable. |
 | `ReviewJobs__MaxConcurrency` | `2` | Concurrent review runs. |
 
+When Hosted mode and Agent Studio federation are both enabled, the handover target above is required
+for repository configuration mutations. The API plans each change in a temporary copy and sends one
+card with the exact patch, acting identity and reason. The checkout remains untouched, including on a
+read-only mount. `AgentStudio__DryRun=true` records the card payload without posting it; set it to
+`false` only when the operator enables live handover. Local mode and Hosted mode without federation
+continue to write repository configuration directly. Finding state, review runs and change-review
+records remain in the data root.
+
 ## Analyzer profiles
 
 Repository sensor configuration selects a **profile id**; it can never carry the command the host
