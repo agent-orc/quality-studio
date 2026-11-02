@@ -4,5 +4,48 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 export PLAYWRIGHT_BROWSERS_PATH="$repo_root/frontend/node_modules/.playwright-browsers"
+install_timeout="${QS_BROWSER_INSTALL_TIMEOUT_SECONDS:-600}"
+
+if [ ! -f frontend/node_modules/@angular/cli/bin/ng.js ] || [ ! -f frontend/node_modules/playwright-core/cli.js ]; then
+  echo "test-frontend: frontend dependencies are missing; running .agent-studio/prepare."
+  .agent-studio/prepare
+fi
+
+# npm ci removes frontend/node_modules, and with it the browser folder above. Install
+# Chromium again when no browser is found, so a clean host still runs the tests.
+if ! chrome_bin=$(node frontend/tests/locate-browser.mjs); then
+  echo "test-frontend: no Chrome-compatible browser found; installing Playwright Chromium into $PLAYWRIGHT_BROWSERS_PATH (limit ${install_timeout}s)."
+  install_started=$(date +%s)
+  install_status=0
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$install_timeout" npm --prefix frontend run browser:install || install_status=$?
+  else
+    npm --prefix frontend run browser:install || install_status=$?
+  fi
+  if [ "$install_status" -eq 124 ]; then
+    echo "test-frontend: browser install did not finish within ${install_timeout}s. Check network access to the Playwright CDN, raise QS_BROWSER_INSTALL_TIMEOUT_SECONDS, or set CHROME_BIN." >&2
+    exit 1
+  fi
+  if [ "$install_status" -ne 0 ]; then
+    echo "test-frontend: browser install failed with exit code $install_status. Set CHROME_BIN to an installed Chrome or Chromium to skip the download." >&2
+    exit 1
+  fi
+  echo "test-frontend: browser install finished in $(( $(date +%s) - install_started ))s."
+  if ! chrome_bin=$(node frontend/tests/locate-browser.mjs); then
+    echo "test-frontend: browser install reported success, but no browser was found under $PLAYWRIGHT_BROWSERS_PATH." >&2
+    exit 1
+  fi
+fi
+echo "test-frontend: using browser $chrome_bin"
+
+# A browser without its shared libraries fails inside Karma with little context.
+if [ "$(uname -s)" = "Linux" ] && command -v ldd >/dev/null 2>&1; then
+  missing_libs=$(ldd "$chrome_bin" 2>/dev/null | awk '/not found/ { print $1 }' | sort -u | tr '\n' ' ')
+  if [ -n "$missing_libs" ]; then
+    echo "test-frontend: the browser at $chrome_bin cannot start; missing system libraries: $missing_libs" >&2
+    echo "test-frontend: install them on the host, for example with: sudo PLAYWRIGHT_BROWSERS_PATH=\"$PLAYWRIGHT_BROWSERS_PATH\" node frontend/node_modules/playwright-core/cli.js install-deps chromium" >&2
+    exit 1
+  fi
+fi
 
 npm --prefix frontend run test
