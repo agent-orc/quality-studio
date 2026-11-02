@@ -19,6 +19,7 @@ internal static class IntegrationCapabilities
         product = "quality-studio",
         version = typeof(IntegrationCapabilities).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+        contract = Contract,
         contracts = new[] { Contract },
         features = new[] { "external-ref", ChangeReviewStore },
     };
