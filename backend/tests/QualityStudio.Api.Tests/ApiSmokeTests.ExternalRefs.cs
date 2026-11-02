@@ -64,6 +64,35 @@ public sealed partial class ApiSmokeTests
             Assert.Contains("\"PROJ-002\"", await File.ReadAllTextAsync(
                 Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken));
 
+            using var normalizedEdit = await client.PutAsJsonAsync("/api/repos/proj-002", new
+            {
+                displayName = "Renamed",
+                rootPath = firstRoot,
+                enabledReviewKinds = new[] { "code" },
+                externalRefs = new[] { new
+                {
+                    system = "  AGENT-STUDIO  ",
+                    id = "  PROJ-002  ",
+                    url = "  https://studio.example/projects/PROJ-002  ",
+                } },
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, normalizedEdit.StatusCode);
+            var updatedJson = await normalizedEdit.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+            var normalizedRef = Assert.Single(updatedJson.GetProperty("externalRefs").EnumerateArray());
+            Assert.Equal("agent-studio", normalizedRef.GetProperty("system").GetString());
+            Assert.Equal("PROJ-002", normalizedRef.GetProperty("id").GetString());
+            Assert.Equal("https://studio.example/projects/PROJ-002", normalizedRef.GetProperty("url").GetString());
+            var registryJson = await File.ReadAllTextAsync(
+                Path.Combine(hostRoot, ".quality-studio", "repositories.json"), TestContext.Current.CancellationToken);
+            Assert.DoesNotContain("  AGENT-STUDIO  ", registryJson);
+            Assert.DoesNotContain("  PROJ-002  ", registryJson);
+            using var registryDocument = JsonDocument.Parse(registryJson);
+            var persistedRepository = Assert.Single(registryDocument.RootElement.EnumerateArray(),
+                repository => repository.GetProperty("id").GetString() == "proj-002");
+            var persistedRef = Assert.Single(persistedRepository.GetProperty("externalRefs").EnumerateArray());
+            Assert.Equal("agent-studio", persistedRef.GetProperty("system").GetString());
+            Assert.Equal("PROJ-002", persistedRef.GetProperty("id").GetString());
+
             // The seeded registration predates the field and still loads without it.
             var listed = await client.GetFromJsonAsync<JsonElement>("/api/repos", TestContext.Current.CancellationToken);
             var legacy = Assert.Single(listed.GetProperty("repositories").EnumerateArray(),
