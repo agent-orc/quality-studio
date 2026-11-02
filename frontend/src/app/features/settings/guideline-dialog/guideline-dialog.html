@@ -25,6 +25,7 @@
         </div>
         <label class="enabled-field"><input class="studio-check" name="guidelineEnabled" [(ngModel)]="form().enabled" type="checkbox"><span>Enabled for the next review</span></label>
         <label class="content-field"><span>Guideline content</span><textarea class="studio-field" name="guidelineContent" [(ngModel)]="form().content" required maxlength="100000" placeholder="Describe a concrete, reviewable engineering rule…"></textarea></label>
+        <label class="content-field"><span>Reason for change <small>also used for catalogue installs</small></span><input class="studio-field" name="guidelineReason" [(ngModel)]="form().reason" maxlength="1000" placeholder="Why is this guideline changing?"></label>
         @if (editingGuidelineId(); as id) {
           <section class="trace-panel"><span class="eyebrow">Finding trace</span><strong>{{ trace(id)?.findingsCount ?? 0 }} findings produced</strong>
             @for (finding of trace(id)?.findings ?? []; track finding.metaPath + ':' + finding.id) { <button class="studio-row-button" type="button" (click)="traceRequested.emit(finding.unitPath)"><span class="studio-badge severity" [class]="'severity ' + finding.severity">{{ finding.severity }}</span><span><b>{{ finding.title }}</b><small>{{ finding.kind }} · {{ finding.unitPath }}</small></span></button> }

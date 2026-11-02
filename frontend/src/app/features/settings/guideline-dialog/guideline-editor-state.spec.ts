@@ -17,7 +17,7 @@ describe('Guideline editor state', () => {
     expect(deleted).not.toHaveBeenCalled();
     expect(confirmations.pending()?.heading).toContain('architecture');
     await confirmations.run();
-    expect(deleted).toHaveBeenCalledOnceWith('architecture');
+    expect(deleted).toHaveBeenCalledOnceWith('architecture', '');
     expect(confirmations.pending()).toBeNull();
     expect(state.editingGuidelineId()).toBeNull();
   });

@@ -552,7 +552,7 @@ public sealed class FederationTests : IAsyncLifetime
             new { enabled = false, reason = "Sample policy" });
         using var scope = await ChangeAsync(HttpMethod.Post, "/api/repos/default/scope/rules",
             new { action = "exclude", pattern = "Sample.cs", reason = "Generated sample" });
-        using var guideline = await ChangeAsync(HttpMethod.Post, "/api/repos/default/guidelines",
+        using var guideline = await ChangeAsync(HttpMethod.Post, "/api/repos/default/guidelines?reason=Sample%20review%20policy",
             new
             {
                 id = "sample-guideline",
@@ -562,14 +562,26 @@ public sealed class FederationTests : IAsyncLifetime
                 levels = new[] { "file" },
                 content = "Review this sample.",
             });
+        using var missingReason = await ChangeAsync(HttpMethod.Post, "/api/repos/default/guidelines",
+            new
+            {
+                id = "another-guideline",
+                enabled = true,
+                priority = 50,
+                kinds = new[] { "code" },
+                levels = new[] { "file" },
+                content = "Review another sample.",
+            });
 
         Assert.Equal(HttpStatusCode.OK, rule.StatusCode);
         Assert.Equal(HttpStatusCode.OK, scope.StatusCode);
         Assert.Equal(HttpStatusCode.OK, guideline.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, missingReason.StatusCode);
         Assert.Equal(3, handler.Requests.Count);
         Assert.Contains(".quality/rules/overrides.json", handler.Bodies[0], StringComparison.Ordinal);
         Assert.Contains(".quality/scope.json", handler.Bodies[1], StringComparison.Ordinal);
         Assert.Contains(".quality/inputs/sample-guideline.md", handler.Bodies[2], StringComparison.Ordinal);
+        Assert.Contains("Reason: Sample review policy", handler.Bodies[2], StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(RepositoryRoot, ".quality/rules/overrides.json")));
         Assert.False(File.Exists(Path.Combine(RepositoryRoot, ".quality/scope.json")));
         Assert.False(File.Exists(Path.Combine(RepositoryRoot, ".quality/inputs/sample-guideline.md")));

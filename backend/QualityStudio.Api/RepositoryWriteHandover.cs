@@ -21,9 +21,11 @@ internal sealed class RepositoryWriteHandover(
     public bool Enabled => !security.IsLocal && federation.Enabled;
 
     public async Task<IResult> ExecuteAsync(HttpContext context, string repositoryRoot, string action,
-        string? reason, Func<string, Task<IResult>> mutation)
+        string? reason, Func<string, Task<IResult>> mutation, bool requireReason = false)
     {
         if (!Enabled) return await mutation(repositoryRoot);
+        if (requireReason && string.IsNullOrWhiteSpace(reason))
+            return Results.BadRequest(new { title = "A reason is required for a repository change request." });
         if (!options.IsTargetConfigured)
             return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
                 title: "Agent Studio handover target is not configured");
@@ -67,8 +69,8 @@ internal sealed class RepositoryWriteHandover(
     }
 
     public Task<IResult> ExecuteAsync(HttpContext context, string repositoryRoot, string action,
-        string? reason, Func<string, IResult> mutation) =>
-        ExecuteAsync(context, repositoryRoot, action, reason, root => Task.FromResult(mutation(root)));
+        string? reason, Func<string, IResult> mutation, bool requireReason = false) =>
+        ExecuteAsync(context, repositoryRoot, action, reason, root => Task.FromResult(mutation(root)), requireReason);
 
     private static void CopyOwned(string sourceRoot, string shadowRoot, string relative)
     {

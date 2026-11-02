@@ -61,29 +61,29 @@ export class ScopeApi {
     return response;
   }
 
-  async createGuideline(draft: GuidelineDraft): Promise<Guideline> {
-    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines`, draft));
-    if (this.context.recordRepositoryWrite(guideline)) return { ...draft, fileName: `${draft.id}.md` } as Guideline;
+  async createGuideline(draft: GuidelineDraft, reason = ''): Promise<Guideline | null> {
+    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines`, draft, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(guideline)) return null;
     await this.onScopeChanged?.();
     return guideline;
   }
 
-  async updateGuideline(existingId: string, draft: GuidelineDraft): Promise<Guideline> {
-    const guideline = await firstValueFrom(this.http.put<Guideline>(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(existingId)}`, draft));
-    if (this.context.recordRepositoryWrite(guideline)) return this.guidelines().find(item => item.id === existingId)!;
+  async updateGuideline(existingId: string, draft: GuidelineDraft, reason = ''): Promise<Guideline | null> {
+    const guideline = await firstValueFrom(this.http.put<Guideline>(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(existingId)}`, draft, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(guideline)) return null;
     await this.onScopeChanged?.();
     return guideline;
   }
 
-  async deleteGuideline(id: string): Promise<void> {
-    const response = await firstValueFrom(this.http.delete(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(id)}`));
+  async deleteGuideline(id: string, reason = ''): Promise<void> {
+    const response = await firstValueFrom(this.http.delete(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(id)}`, { params: { reason } }));
     if (this.context.recordRepositoryWrite(response)) return;
     await this.onScopeChanged?.();
   }
 
-  async installGuideline(catalogueId: string): Promise<Guideline> {
-    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}));
-    if (this.context.recordRepositoryWrite(guideline)) return this.guidelineCatalogue().find(item => item.id === catalogueId)!.guideline as Guideline;
+  async installGuideline(catalogueId: string, reason = ''): Promise<Guideline | null> {
+    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(guideline)) return null;
     await this.onScopeChanged?.();
     return guideline;
   }

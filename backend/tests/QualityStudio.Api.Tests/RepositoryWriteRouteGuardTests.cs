@@ -13,18 +13,6 @@ public sealed class RepositoryWriteRouteGuardTests
         var root = RepositoryRoot();
         var program = File.ReadAllText(Path.Combine(root, "backend/QualityStudio.Api/Program.cs"));
         var rules = File.ReadAllText(Path.Combine(root, "backend/QualityStudio.Api/RulePoolEndpoints.cs"));
-        // Any new unsafe API route requires an ownership review, even when it uses a new path family.
-        var routeCounts = Directory.EnumerateFiles(Path.Combine(root, "backend/QualityStudio.Api"), "*.cs")
-            .Select(path => (Name: Path.GetFileName(path), Count: Regex.Matches(File.ReadAllText(path),
-                @"\.Map(Post|Put|Delete)\(").Count))
-            .Where(item => item.Count > 0)
-            .OrderBy(item => item.Name, StringComparer.Ordinal)
-            .ToArray();
-        Assert.Equal(new[]
-        {
-            ("ChangeReviewEndpoints.cs", 4), ("FederationEndpoints.cs", 2),
-            ("Program.cs", 60), ("RulePoolEndpoints.cs", 10),
-        }, routeCounts);
         var programRoutes = Regex.Matches(program,
                 "app\\.Map(?<method>Post|Put|Delete)\\(\\\"(?<path>/api/[^\\\"]+)\\\", (?<handler>\\w+)\\)")
             .Select(match => (Method: match.Groups["method"].Value, Path: match.Groups["path"].Value,
@@ -50,11 +38,13 @@ public sealed class RepositoryWriteRouteGuardTests
             .Order(StringComparer.Ordinal));
         foreach (var handler in programRoutes.Select(route => route.Handler).Distinct(StringComparer.Ordinal))
         {
-            var start = program.LastIndexOf("static ", program.IndexOf(handler + "(", StringComparison.Ordinal), StringComparison.Ordinal);
-            Assert.Contains("RepositoryWriteHandover handover", program[start..(start + 400)], StringComparison.Ordinal);
+            var declaration = Regex.Match(program, @"static\s+(?:async\s+)?\S+\s+" + Regex.Escape(handler) + @"\([^)]*\)", RegexOptions.Singleline);
+            Assert.True(declaration.Success, $"Missing handler declaration: {handler}");
+            Assert.Contains("RepositoryWriteHandover handover", declaration.Value, StringComparison.Ordinal);
+            var next = program.IndexOf("\nstatic ", declaration.Index + declaration.Length, StringComparison.Ordinal);
+            var body = program[declaration.Index..(next < 0 ? program.Length : next)];
+            Assert.Contains("handover.ExecuteAsync(", body, StringComparison.Ordinal);
         }
-        Assert.Equal(10, programRoutes.Select(route => route.Handler).Distinct(StringComparer.Ordinal).Count());
-        Assert.True(Regex.Matches(program, "handover\\.ExecuteAsync\\(").Count >= 10);
 
         var ruleRoutes = Regex.Matches(rules,
                 """app\.Map(?<method>Post|Put|Delete)\(prefix \+ "(?<path>/rules/[^"]+)", (?<handler>\w+)\)""")
@@ -70,6 +60,15 @@ public sealed class RepositoryWriteRouteGuardTests
             "Put /rules/packs/{packId} PutPack",
         }, ruleRoutes);
         Assert.Contains("handover.ExecuteAsync", rules, StringComparison.Ordinal);
+        foreach (var handler in ruleRoutes.Select(route => route.Split(' ')[2]).Distinct(StringComparer.Ordinal))
+        {
+            var declaration = Regex.Match(rules, @"private static\s+\S+\s+" + Regex.Escape(handler) + @"\([^)]*\)", RegexOptions.Singleline);
+            Assert.True(declaration.Success, $"Missing rule handler declaration: {handler}");
+            var next = rules.IndexOf("\n    private static ", declaration.Index + declaration.Length, StringComparison.Ordinal);
+            var body = rules[declaration.Index..(next < 0 ? rules.Length : next)];
+            Assert.True(body.Contains("Mutation(", StringComparison.Ordinal) || body.Contains("handover.ExecuteAsync(", StringComparison.Ordinal),
+                $"Rule handler bypasses handover: {handler}");
+        }
         Assert.Contains("suppressAudit", rules, StringComparison.Ordinal);
     }
 

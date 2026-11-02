@@ -15,12 +15,20 @@ export class ApiContext {
   readonly repositoryWriteRequest = signal<RepositoryWriteRequest | null>(null);
 
   recordRepositoryWrite(response: unknown): response is RepositoryWriteRequest {
-    if (response !== null && typeof response === 'object' && 'requested' in response && response.requested === true) {
-      this.repositoryWriteRequest.set(response as RepositoryWriteRequest);
+    if (this.isRepositoryWriteRequest(response)) {
+      this.repositoryWriteRequest.set(response);
       return true;
     }
     this.repositoryWriteRequest.set(null);
     return false;
+  }
+
+  private isRepositoryWriteRequest(value: unknown): value is RepositoryWriteRequest {
+    if (value === null || typeof value !== 'object') return false;
+    return 'requested' in value && value.requested === true
+      && 'dryRun' in value && typeof value.dryRun === 'boolean'
+      && 'taskId' in value && (value.taskId === null || typeof value.taskId === 'string')
+      && 'url' in value && (value.url === null || typeof value.url === 'string');
   }
   /** True once a request found a server without the repository registry, which serves /api/... flat. */
   readonly legacyApi = signal(false);

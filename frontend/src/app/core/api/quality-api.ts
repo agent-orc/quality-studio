@@ -468,10 +468,10 @@ export class QualityApi {
   addScopeRule(request: ScopeRuleMutation): Promise<ScopeRulesResponse> { return this.scopeApi.addScopeRule(request); }
   updateScopeRule(index: number, request: ScopeRuleMutation): Promise<ScopeRulesResponse> { return this.scopeApi.updateScopeRule(index, request); }
   deleteScopeRule(index: number): Promise<ScopeRulesResponse> { return this.scopeApi.deleteScopeRule(index); }
-  createGuideline(draft: GuidelineDraft): Promise<Guideline> { return this.scopeApi.createGuideline(draft); }
-  updateGuideline(existingId: string, draft: GuidelineDraft): Promise<Guideline> { return this.scopeApi.updateGuideline(existingId, draft); }
-  deleteGuideline(id: string): Promise<void> { return this.scopeApi.deleteGuideline(id); }
-  installGuideline(catalogueId: string): Promise<Guideline> { return this.scopeApi.installGuideline(catalogueId); }
+  createGuideline(draft: GuidelineDraft, reason = ''): Promise<Guideline | null> { return this.scopeApi.createGuideline(draft, reason); }
+  updateGuideline(existingId: string, draft: GuidelineDraft, reason = ''): Promise<Guideline | null> { return this.scopeApi.updateGuideline(existingId, draft, reason); }
+  deleteGuideline(id: string, reason = ''): Promise<void> { return this.scopeApi.deleteGuideline(id, reason); }
+  installGuideline(catalogueId: string, reason = ''): Promise<Guideline | null> { return this.scopeApi.installGuideline(catalogueId, reason); }
   guidelineImpact(guideline: GuidelineDraft, samplePaths: string[], kind: ReviewKind): Promise<GuidelineImpact> {
     return this.scopeApi.guidelineImpact(guideline, samplePaths, kind);
   }

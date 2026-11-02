@@ -1350,41 +1350,45 @@ static Task<IResult> CreateGuideline(HttpContext context, GuidelineDraft request
     GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    return handover.ExecuteAsync(context, repository.Root, "Create guideline " + request.Id, null, root =>
+    return handover.ExecuteAsync(context, repository.Root, "Create guideline " + request.Id,
+        context.Request.Query["reason"].ToString(), root =>
     {
         var created = store.Create(root, request);
         return Results.Created($"{context.Request.Path}/{Uri.EscapeDataString(created.Id)}", created);
-    });
+    }, requireReason: true);
 }
 
 static Task<IResult> UpdateGuideline(HttpContext context, string guidelineId, GuidelineDraft request,
     RepositoryRegistry registry, GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    return handover.ExecuteAsync(context, repository.Root, "Update guideline " + guidelineId, null,
-        root => Results.Ok(store.Update(root, guidelineId, request)));
+    return handover.ExecuteAsync(context, repository.Root, "Update guideline " + guidelineId,
+        context.Request.Query["reason"].ToString(),
+        root => Results.Ok(store.Update(root, guidelineId, request)), requireReason: true);
 }
 
 static Task<IResult> DeleteGuideline(HttpContext context, string guidelineId, RepositoryRegistry registry,
     GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    return handover.ExecuteAsync(context, repository.Root, "Delete guideline " + guidelineId, null, root =>
+    return handover.ExecuteAsync(context, repository.Root, "Delete guideline " + guidelineId,
+        context.Request.Query["reason"].ToString(), root =>
     {
         store.Delete(root, guidelineId);
         return Results.NoContent();
-    });
+    }, requireReason: true);
 }
 
 static Task<IResult> InstallGuideline(HttpContext context, string catalogueId, RepositoryRegistry registry,
     GuidelineStore store, RepositoryWriteHandover handover)
 {
     var (_, repository) = ResolveRepository(context, registry);
-    return handover.ExecuteAsync(context, repository.Root, "Install guideline " + catalogueId, null, root =>
+    return handover.ExecuteAsync(context, repository.Root, "Install guideline " + catalogueId,
+        context.Request.Query["reason"].ToString(), root =>
     {
         var installed = store.Install(root, catalogueId);
         return Results.Created($"{context.Request.PathBase}/api/guidelines/{Uri.EscapeDataString(installed.Id)}", installed);
-    });
+    }, requireReason: true);
 }
 
 static async Task<IResult> GuidelineImpact(HttpContext context, GuidelineImpactRequest request,

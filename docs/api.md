@@ -508,6 +508,9 @@ the acting user and the reason. With `AgentStudio:DryRun=true` (the default), `d
 Missing target configuration returns 503 without writing. The same routes retain their existing
 responses and direct writes in Local mode or Hosted mode without federation. Global rule scope and
 data-root stores keep their existing behavior.
+Guideline create, update, delete and catalogue install requests take a `reason` query parameter.
+In integrated Hosted mode, an empty reason returns 400 without creating a card; other modes retain
+their existing write behavior.
 
 The change-review store belongs to the versioned contract `agent-studio-integration/1`. It follows
 the same authentication and role rules described above. Its `PUT` and `GET` routes exist only under

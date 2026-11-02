@@ -77,12 +77,12 @@ export class ReviewPolicyApi {
     }
   }
 
-  setOverride(ruleId: string, change: RuleOverrideMutation): Promise<ReviewRuleCatalogue> {
+  setOverride(ruleId: string, change: RuleOverrideMutation): Promise<ReviewRuleCatalogue | null> {
     return this.mutate(base => this.http.put<ReviewRuleCatalogue>(
       `${base}/rules/overrides/${encodeURIComponent(ruleId)}`, change, { params: this.scopeParams() }));
   }
 
-  removeOverride(ruleId: string, reason: string): Promise<ReviewRuleCatalogue> {
+  removeOverride(ruleId: string, reason: string): Promise<ReviewRuleCatalogue | null> {
     return this.mutate(base => this.http.delete<ReviewRuleCatalogue>(
       `${base}/rules/overrides/${encodeURIComponent(ruleId)}`, { params: this.scopeParams({ reason }) }));
   }
@@ -92,22 +92,22 @@ export class ReviewPolicyApi {
       `${this.base()}/rules/custom/validate`, { content }, { params: this.scopeParams() }));
   }
 
-  saveCustomRule(ruleId: string, content: string, reason: string): Promise<ReviewRuleCatalogue> {
+  saveCustomRule(ruleId: string, content: string, reason: string): Promise<ReviewRuleCatalogue | null> {
     return this.mutate(base => this.http.put<ReviewRuleCatalogue>(
       `${base}/rules/custom/${encodeURIComponent(ruleId)}`, { content, reason }, { params: this.scopeParams() }));
   }
 
-  deleteCustomRule(ruleId: string, reason: string): Promise<ReviewRuleCatalogue> {
+  deleteCustomRule(ruleId: string, reason: string): Promise<ReviewRuleCatalogue | null> {
     return this.mutate(base => this.http.delete<ReviewRuleCatalogue>(
       `${base}/rules/custom/${encodeURIComponent(ruleId)}`, { params: this.scopeParams({ reason }) }));
   }
 
-  setApplicability(packs: string[], reason: string): Promise<ReviewRuleCatalogue> {
+  setApplicability(packs: string[], reason: string): Promise<ReviewRuleCatalogue | null> {
     return this.mutate(base => this.http.put<ReviewRuleCatalogue>(
       `${base}/rules/applicability`, { packs, reason }, { params: this.scopeParams() }));
   }
 
-  clearApplicability(reason: string): Promise<ReviewRuleCatalogue> {
+  clearApplicability(reason: string): Promise<ReviewRuleCatalogue | null> {
     return this.mutate(base => this.http.delete<ReviewRuleCatalogue>(
       `${base}/rules/applicability`, { params: this.scopeParams({ reason }) }));
   }
@@ -127,12 +127,12 @@ export class ReviewPolicyApi {
     return { fileName, text: response.body ?? '' };
   }
 
-  async importRuleSet(ruleSet: unknown, mode: RuleImportMode, dryRun: boolean, reason: string): Promise<RuleImportResult> {
+  async importRuleSet(ruleSet: unknown, mode: RuleImportMode, dryRun: boolean, reason: string): Promise<RuleImportResult | null> {
     this.saving.set(true);
     try {
       const result = await firstValueFrom(this.http.post<RuleImportResult>(`${this.base()}/rules/import`,
         { ruleSet, mode, dryRun, reason }, { params: this.scopeParams() }));
-      if (this.context.recordRepositoryWrite(result)) return { valid: true, applied: false, modifiedSinceExport: false, diagnostics: [], changes: [], pool: this.catalogue()! };
+      if (this.context.recordRepositoryWrite(result)) return null;
       if (result.applied) await this.applied(result.pool);
       return result;
     } catch (error) {
@@ -150,11 +150,11 @@ export class ReviewPolicyApi {
     return { message: this.context.errorMessage(error), diagnostics };
   }
 
-  private async mutate(request: (base: string) => Observable<ReviewRuleCatalogue>): Promise<ReviewRuleCatalogue> {
+  private async mutate(request: (base: string) => Observable<ReviewRuleCatalogue>): Promise<ReviewRuleCatalogue | null> {
     this.saving.set(true);
     try {
       const pool = await firstValueFrom(request(this.base()));
-      if (this.context.recordRepositoryWrite(pool)) return this.catalogue()!;
+      if (this.context.recordRepositoryWrite(pool)) return null;
       await this.applied(pool);
       return pool;
     } catch (error) {
