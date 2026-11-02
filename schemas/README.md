@@ -16,6 +16,11 @@ the repository-owned `.quality/policy.json` thresholds.
 the host's repository registry, `.quality-studio/repositories.json`, including the optional
 `externalRefs` (see [`../docs/data-root.md`](../docs/data-root.md#the-repository-registry)).
 
+[`integration-capabilities.v1.schema.json`](integration-capabilities.v1.schema.json) describes
+`GET /api/v1/capabilities`, the document Agent Studio reads to learn which contract versions and
+features of `agent-studio-integration` this host offers. See
+[`../docs/api.md`](../docs/api.md#integration-routes).
+
 ## Canonical domain
 
 Every `$id` uses `https://agent-orchestrator.dev/quality/schemas/<name>.schema.json`.

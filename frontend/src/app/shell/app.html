@@ -1,6 +1,9 @@
 <div class="shell" [class.api-blocked]="!api.connected()">
   <header class="topbar">
     <div class="brand"><span class="brand-mark">Q</span><span>Quality Studio</span></div>
+    @if (backToCard(); as back) {
+      <a class="studio-button secondary-button back-to-card" [href]="back.url" rel="noopener">&larr; Back to {{ back.key }}</a>
+    }
     <div class="repository-switcher">
       <button class="studio-row-button repository-trigger" type="button" [disabled]="!api.connected()" (click)="repositoryMenuOpen.set(!repositoryMenuOpen())" aria-haspopup="menu" [attr.aria-expanded]="repositoryMenuOpen()">
         <span class="repository-label">Repository</span>
