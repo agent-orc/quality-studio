@@ -781,7 +781,7 @@
     </figure>
 
     <h3 id="rec-slices">Delivery slices</h3>
-    <p>Twelve independently reviewable slices, each naming its target project. The first slice runs the outside view against one registered site and shows its findings.</p>
+    <p>Eleven independently reviewable slices, each naming its target project. The first slice runs every outside-view check, including the served-content secret scan, against one registered site and shows its findings.</p>
     <table>
       <thead><tr><th>#</th><th>Project</th><th>Slice</th><th>Depends on</th></tr></thead>
       <tbody>
@@ -789,14 +789,13 @@
         <tr><td>2</td><td>Quality Studio</td><td>Site evidence access, retention and redaction</td><td>1</td></tr>
         <tr><td>3</td><td>Agent Studio</td><td>Register hosted sites and request scans on deploy (advisory)</td><td>1, 2</td></tr>
         <tr><td>4</td><td>Quality Studio</td><td>Scheduled scans and site finding lifecycle</td><td>1</td></tr>
-        <tr><td>5</td><td>Quality Studio</td><td>Served-content secret scan</td><td>1</td></tr>
-        <tr><td>6</td><td>Quality Studio</td><td>Site boundaries in the attack coverage matrix</td><td>1</td></tr>
-        <tr><td>7</td><td>Quality Studio</td><td>Safe active checks with Nuclei</td><td>1, 4</td></tr>
-        <tr><td>8</td><td>Agent Studio</td><td>Scan credentials from the secret provider</td><td>3</td></tr>
-        <tr><td>9</td><td>Quality Studio</td><td>Crawl and authenticated crawl with ZAP baseline</td><td>7, 8</td></tr>
-        <tr><td>10</td><td>Quality Studio</td><td>Triage of tool hits into judged findings</td><td>6, 7</td></tr>
-        <tr><td>11</td><td>Quality Studio</td><td>Agent-driven site review with test accounts</td><td>8, 10</td></tr>
-        <tr><td>12</td><td>Agent Studio</td><td>Site security cards and deploy gate</td><td>2, 3, 4</td></tr>
+        <tr><td>5</td><td>Quality Studio</td><td>Site boundaries in the attack coverage matrix</td><td>1</td></tr>
+        <tr><td>6</td><td>Quality Studio</td><td>Safe active checks with Nuclei</td><td>1, 4</td></tr>
+        <tr><td>7</td><td>Agent Studio</td><td>Scan credentials from the secret provider</td><td>3</td></tr>
+        <tr><td>8</td><td>Quality Studio</td><td>Crawl and authenticated crawl with ZAP baseline</td><td>6, 7</td></tr>
+        <tr><td>9</td><td>Quality Studio</td><td>Triage of tool hits into judged findings</td><td>5, 6</td></tr>
+        <tr><td>10</td><td>Quality Studio</td><td>Agent-driven site review with test accounts</td><td>7, 9</td></tr>
+        <tr><td>11</td><td>Agent Studio</td><td>Site security cards and deploy gate</td><td>2, 3, 4</td></tr>
       </tbody>
     </table>
   </section>
