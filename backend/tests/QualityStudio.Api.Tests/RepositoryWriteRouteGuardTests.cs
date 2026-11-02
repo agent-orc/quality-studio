@@ -13,6 +13,36 @@ public sealed class RepositoryWriteRouteGuardTests
         var root = RepositoryRoot();
         var program = File.ReadAllText(Path.Combine(root, "backend/QualityStudio.Api/Program.cs"));
         var rules = File.ReadAllText(Path.Combine(root, "backend/QualityStudio.Api/RulePoolEndpoints.cs"));
+        // Review every mutating API handler when a route is added. A new checkout writer
+        // cannot hide behind a new path that the repository-route checks below do not know.
+        var safeHandlers = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "CreateRepository", "ImportFromAgentStudio", "UpdateRepository", "ArchiveRepository",
+            "EstimateReview", "StartReview", "Handover", "SensorScan", "GuidelineImpact",
+            "RecordAttackJudgement", "PreviewScopeRule", "PauseReview", "ResumeReview",
+            "CancelReview", "PinReviewRun", "UnpinReviewRun", "MutateThread", "MutateFindingState",
+            "SignIn", "Revoke", "Review", "Ingest", "ValidateCustomRule",
+        };
+        var handoverHandlers = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "CreateGuideline", "UpdateGuideline", "DeleteGuideline", "InstallGuideline",
+            "AddScopeRule", "UpdateScopeRule", "DeleteScopeRule", "AddFindingSuppression",
+            "AddScopedFindingSuppression", "DeleteFindingSuppression", "Import", "SetOverride",
+            "RemoveOverride", "PutCustomRule", "DeleteCustomRule", "PutPack", "DeletePack",
+            "SetApplicability", "ClearApplicability",
+        };
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "backend/QualityStudio.Api"), "*.cs"))
+        {
+            var source = File.ReadAllText(file);
+            Assert.DoesNotContain("MapMethods(", source, StringComparison.Ordinal);
+            foreach (Match route in Regex.Matches(source,
+                @"\bMap(?:Post|Put|Delete|Patch)\([^\n]*,\s*(?<handler>\w+)\)"))
+            {
+                var handler = route.Groups["handler"].Value;
+                Assert.True(safeHandlers.Contains(handler) || handoverHandlers.Contains(handler),
+                    $"Classify new mutating route {Path.GetFileName(file)}: {route.Value}");
+            }
+        }
         var programRoutes = Regex.Matches(program,
                 "app\\.Map(?<method>Post|Put|Delete)\\(\\\"(?<path>/api/[^\\\"]+)\\\", (?<handler>\\w+)\\)")
             .Select(match => (Method: match.Groups["method"].Value, Path: match.Groups["path"].Value,

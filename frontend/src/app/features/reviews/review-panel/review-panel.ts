@@ -175,7 +175,8 @@ export class ReviewPanel {
   async removeFindingSuppression(rule: Pick<FindingSuppressionRule, 'id'>): Promise<void> {
     this.ignoreStatus.set('Removing from Ignore list…');
     try {
-      await this.api.deleteFindingSuppression(rule.id, this.api.findingSuppressions().revision);
+      await this.api.deleteFindingSuppression(rule.id, this.api.findingSuppressions().revision,
+        'Restore the finding to the review queue');
       this.ignoreStatus.set(this.api.repositoryWriteRequest() ? '' : 'Finding restored to the review queue.');
     } catch (error) {
       if ((error as { status?: number }).status === 409) await this.api.loadFindingSuppressions();
@@ -380,7 +381,7 @@ export class ReviewPanel {
   async deleteScopeRule(index: number): Promise<void> {
     this.scopeStatus.set('Removing rule…');
     try {
-      await this.api.deleteScopeRule(index);
+      await this.api.deleteScopeRule(index, 'Remove the scope rule so matching paths are eligible for review');
       this.scopeStatus.set(this.api.repositoryWriteRequest() ? '' : 'Rule removed. Matching paths are eligible on the next review.');
     } catch (error) {
       this.scopeStatus.set(this.api.errorMessage(error));

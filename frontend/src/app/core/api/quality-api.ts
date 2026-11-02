@@ -459,7 +459,7 @@ export class QualityApi {
   loadFindingSuppressions(): Promise<FindingSuppressionsResponse> { return this.findingsApi.loadFindingSuppressions(); }
   addFindingSuppression(request: FindingSuppressionMutation): Promise<ReviewFinding | null> { return this.findingsApi.addFindingSuppression(request); }
   addScopedSuppression(request: ScopedSuppressionMutation): Promise<void> { return this.findingsApi.addScopedSuppression(request); }
-  deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> { return this.findingsApi.deleteFindingSuppression(id, expectedRevision); }
+  deleteFindingSuppression(id: string, expectedRevision: number, reason = ''): Promise<void> { return this.findingsApi.deleteFindingSuppression(id, expectedRevision, reason); }
 
   // --- scope and guidelines -----------------------------------------------------------------
 
@@ -467,7 +467,7 @@ export class QualityApi {
   previewScopeRule(request: ScopeRuleMutation): Promise<ScopeRuleView> { return this.scopeApi.previewScopeRule(request); }
   addScopeRule(request: ScopeRuleMutation): Promise<ScopeRulesResponse> { return this.scopeApi.addScopeRule(request); }
   updateScopeRule(index: number, request: ScopeRuleMutation): Promise<ScopeRulesResponse> { return this.scopeApi.updateScopeRule(index, request); }
-  deleteScopeRule(index: number): Promise<ScopeRulesResponse> { return this.scopeApi.deleteScopeRule(index); }
+  deleteScopeRule(index: number, reason = ''): Promise<ScopeRulesResponse> { return this.scopeApi.deleteScopeRule(index, reason); }
   createGuideline(draft: GuidelineDraft, reason = ''): Promise<Guideline | null> { return this.scopeApi.createGuideline(draft, reason); }
   updateGuideline(existingId: string, draft: GuidelineDraft, reason = ''): Promise<Guideline | null> { return this.scopeApi.updateGuideline(existingId, draft, reason); }
   deleteGuideline(id: string, reason = ''): Promise<void> { return this.scopeApi.deleteGuideline(id, reason); }

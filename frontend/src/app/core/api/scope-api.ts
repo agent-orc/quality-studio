@@ -53,8 +53,9 @@ export class ScopeApi {
     return response;
   }
 
-  async deleteScopeRule(index: number): Promise<ScopeRulesResponse> {
-    const response = await firstValueFrom(this.http.delete<ScopeRulesResponse>(`${this.context.repositoryApiBase()}/scope/rules/${index}`));
+  async deleteScopeRule(index: number, reason = ''): Promise<ScopeRulesResponse> {
+    const response = await firstValueFrom(this.http.delete<ScopeRulesResponse>(
+      `${this.context.repositoryApiBase()}/scope/rules/${index}`, { params: { reason } }));
     if (this.context.recordRepositoryWrite(response)) return this.scopeRules();
     this.scopeRules.set(response);
     await this.onScopeChanged?.();

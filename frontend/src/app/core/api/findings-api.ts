@@ -124,10 +124,10 @@ export class FindingsApi {
     await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.onFindingsChanged?.() ?? Promise.resolve()]);
   }
 
-  async deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> {
+  async deleteFindingSuppression(id: string, expectedRevision: number, reason = ''): Promise<void> {
     const response = await firstValueFrom(this.http.delete<FindingSuppressionsResponse>(
       `${this.context.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}`,
-      { params: { expectedRevision } }));
+      { params: { expectedRevision, reason } }));
     if (this.context.recordRepositoryWrite(response)) return;
     this.findingSuppressions.set(response);
     const path = this.file()?.path;
