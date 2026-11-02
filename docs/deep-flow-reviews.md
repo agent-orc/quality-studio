@@ -47,7 +47,7 @@ are atomically written below `flows/` in the same data root. Provenance records:
 - a separate boundary-catalogue hash;
 - input, output, cache, reasoning, and duration usage; and
 - resolved cost and currency, or the explicit `usageUnavailable`,
-  `unknownModel`, or `noPriceForDate` status.
+  `unknownModel`, `noPriceForDate`, or `ambiguousPromptSize` status.
 
 The same operation is appended to the token ledger in `usage/` with kind
 `deep-flow-security` and level `flow`. `EvaluateStalenessAsync` compares current

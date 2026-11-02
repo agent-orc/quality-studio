@@ -65,7 +65,7 @@ describe('App shell deep link v1', () => {
       mode: 'hosted', kind: 'session', clientId: null, subject: 'robert', role: 'operator', repositories: ['default'],
       csrfToken: 'x', federation: { enabled: true, studioPublicUrl: 'https://studio.example' },
     });
-    await settle();
+    await Promise.resolve();
     fixture!.detectChanges();
 
     const link = fixture!.nativeElement.querySelector('.back-to-card') as HTMLAnchorElement;
@@ -81,7 +81,7 @@ describe('App shell deep link v1', () => {
       mode: 'local', kind: 'local', clientId: null, subject: null, role: null, repositories: ['*'], csrfToken: null,
       federation: { enabled: false, studioPublicUrl: null },
     });
-    await settle();
+    await Promise.resolve();
     fixture!.detectChanges();
 
     expect(fixture!.nativeElement.querySelector('.back-to-card')).toBeNull();
