@@ -65,17 +65,24 @@ public sealed class FederatedSessionStore(TimeProvider time)
     private readonly ConcurrentDictionary<string, FederatedSession> sessions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DateTimeOffset> revokedSubjects = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DateTimeOffset> revokedSessionIds = new(StringComparer.Ordinal);
+    private readonly object revocationGate = new();
 
-    public (string CookieValue, FederatedSession Session) Create(HandoffClaims claims)
+    public (string CookieValue, FederatedSession Session)? TryCreate(HandoffClaims claims)
     {
         var now = time.GetUtcNow();
-        Prune(now);
-        var cookieValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        var csrf = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        var session = new FederatedSession(claims, csrf, now);
-        sessions[Key(cookieValue)] = session;
-        return (cookieValue, session);
+        lock (revocationGate)
+        {
+            Prune(now);
+            // Revocation can arrive while signature verification and replay recording are in flight.
+            // Check again at creation under the same gate used to revoke existing sessions.
+            if (IsRevoked(claims.Subject, claims.SessionId, claims.IssuedAt)) return null;
+            var cookieValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            var csrf = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+            var session = new FederatedSession(claims, csrf, now);
+            sessions[Key(cookieValue)] = session;
+            return (cookieValue, session);
+        }
     }
 
     /// <summary>The live session behind <paramref name="cookieValue"/>, or null; a hit slides the idle window.</summary>
@@ -98,17 +105,20 @@ public sealed class FederatedSessionStore(TimeProvider time)
     public int Revoke(string? sessionId, string? subject)
     {
         var now = time.GetUtcNow();
-        Prune(now);
-        if (!string.IsNullOrEmpty(sessionId)) revokedSessionIds[sessionId] = now;
-        if (!string.IsNullOrEmpty(subject)) revokedSubjects[subject] = now;
-        var ended = 0;
-        foreach (var (key, session) in sessions)
+        lock (revocationGate)
         {
-            var matches = (!string.IsNullOrEmpty(sessionId) && session.SessionId == sessionId) ||
-                          (!string.IsNullOrEmpty(subject) && session.Subject == subject);
-            if (matches && sessions.TryRemove(key, out _)) ended++;
+            Prune(now);
+            if (!string.IsNullOrEmpty(sessionId)) revokedSessionIds[sessionId] = now;
+            if (!string.IsNullOrEmpty(subject)) revokedSubjects[subject] = now;
+            var ended = 0;
+            foreach (var (key, session) in sessions)
+            {
+                var matches = (!string.IsNullOrEmpty(sessionId) && session.SessionId == sessionId) ||
+                              (!string.IsNullOrEmpty(subject) && session.Subject == subject);
+                if (matches && sessions.TryRemove(key, out _)) ended++;
+            }
+            return ended;
         }
-        return ended;
     }
 
     /// <summary>True when a revocation after <paramref name="issuedAt"/> covers this user or Studio session.</summary>

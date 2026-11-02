@@ -87,6 +87,39 @@ describe('Mutation identity headers', () => {
     await changing;
   });
 
+  it('does not send a mutation when the session lookup fails', async () => {
+    access.setToken('hosted-token');
+    const changing = firstValueFrom(http.post('/api/review', {}));
+
+    backend.expectOne(SESSION_URL).flush({}, { status: 503, statusText: 'Unavailable' });
+    await expectAsync(changing).toBeRejected();
+    backend.expectNone('/api/review');
+  });
+
+  it('does not send a mutation when the session response has no client id', async () => {
+    access.setToken('hosted-token');
+    const changing = firstValueFrom(http.post('/api/review', {}));
+
+    backend.expectOne(SESSION_URL).flush({ ...clientSession('alice'), clientId: null });
+    await expectAsync(changing).toBeRejected();
+    backend.expectNone('/api/review');
+  });
+
+  it('does not cache an identity from a token that changed during lookup', async () => {
+    access.setToken('first-token');
+    const changing = firstValueFrom(http.post('/api/review', {}));
+    const lookup = backend.expectOne(SESSION_URL);
+    access.setToken('second-token');
+    lookup.flush(clientSession('first'));
+
+    const mutation = backend.expectOne('/api/review');
+    expect(mutation.request.headers.get('Authorization')).toBe('Bearer first-token');
+    expect(mutation.request.headers.get('X-Client-Id')).toBe('first');
+    mutation.flush({});
+    await changing;
+    expect(access.session()).toBeNull();
+  });
+
   it('leaves reads and local-mode mutations untouched', async () => {
     const reading = firstValueFrom(http.get('/api/repos'));
     const read = backend.expectOne('/api/repos');

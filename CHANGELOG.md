@@ -4,6 +4,13 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — federated revocation and hosted browser mutations (QS-142)
+
+- Session creation rechecks revocation under the same lock as the revoke operation, so a hand-off
+  verified while revocation was in flight cannot open a session afterwards.
+- Hosted browser mutations stop when the session lookup fails, except for an older host's missing
+  session route. A late lookup cannot cache a client identity after the bearer token changes.
+
 ### Fixed — .NET build scans no longer wait for lingering build servers (QS-128)
 
 - The `roslyn-build-sarif` profile and the `dotnet-build` sensor pass `--disable-build-servers`.

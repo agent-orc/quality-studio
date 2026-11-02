@@ -349,6 +349,22 @@ public sealed class FederationTests : IAsyncLifetime
     }
 
     [Fact]
+    public void A_handoff_verified_before_revocation_cannot_create_a_session_afterwards()
+    {
+        var sessions = new FederatedSessionStore(time);
+        var issuedAt = time.GetUtcNow();
+        var claims = new HandoffClaims("robert", "studio-session-robert", FederatedRole.Operator,
+            new HashSet<string>(["default"], StringComparer.Ordinal), "/", "pending-handoff", issuedAt,
+            issuedAt + AgentStudioFederation.MaximumLifetime);
+
+        sessions.Revoke(claims.SessionId, null);
+
+        Assert.Null(sessions.TryCreate(claims));
+        time.Advance(TimeSpan.FromSeconds(1));
+        Assert.NotNull(sessions.TryCreate(claims with { IssuedAt = time.GetUtcNow() }));
+    }
+
+    [Fact]
     public async Task Sessions_end_after_60_idle_minutes_and_after_12_hours()
     {
         using var client = CreateClient();

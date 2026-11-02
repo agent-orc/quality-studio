@@ -91,15 +91,22 @@ export function withMutationHeaders(request: HttpRequest<unknown>, access: ApiAc
   })).pipe(
     filter((event): event is HttpResponse<ApiSession> => event instanceof HttpResponse),
     first(),
-    map(response => response.body),
-    tap(body => { if (body) access.session.set(body); }),
+    map(response => {
+      if (!response.body?.clientId) throw new Error('The API session did not identify its bearer client.');
+      return response.body;
+    }),
+    tap(body => { if (body && access.token() === token) access.session.set(body); }),
     // An older API has no session route; the mutation then goes out as it always did.
-    catchError(() => of(null)),
+    catchError(error => error instanceof HttpErrorResponse && error.status === 404
+      ? of(null)
+      : throwError(() => error)),
     defaultIfEmpty(null),
   );
-  return session.pipe(map(identity => identity?.clientId
-    ? request.clone({ setHeaders: { 'X-Client-Id': identity.clientId } })
-    : request));
+  return session.pipe(map(identity => {
+    if (identity === null) return request;
+    if (!identity.clientId) throw new Error('The API session did not identify its bearer client.');
+    return request.clone({ setHeaders: { 'X-Client-Id': identity.clientId } });
+  }));
 }
 
 function readCookies(document: Document): string {

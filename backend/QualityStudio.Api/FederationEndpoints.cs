@@ -73,7 +73,10 @@ internal static class FederationEndpoints
             return Refusal(federation, outcome.StatusCode, outcome.Reason);
         }
 
-        var (cookie, session) = sessions.Create(claims);
+        if (sessions.TryCreate(claims) is not { } created)
+            return Refusal(federation, StatusCodes.Status401Unauthorized,
+                "This Agent Studio session has ended. Sign in to Agent Studio again.");
+        var (cookie, session) = created;
         context.Response.Cookies.Append(FederatedSessionStore.CookieName, cookie, SessionCookieOptions(httpOnly: true));
         // Readable by this origin's pages, which repeat it as X-CSRF-Token; host-only through the
         // __Host- prefix, so a sibling host can neither read nor plant it.
