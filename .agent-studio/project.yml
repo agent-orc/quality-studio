@@ -6,11 +6,15 @@ toolVersions:
 commands:
   prepare: .agent-studio/prepare
   build:
-    - dotnet build QualityStudio.slnx --no-restore
+    # Restores by itself: a review cache hit skips prepare, and the cached obj folders
+    # name the NuGet folder of an earlier attempt.
+    - dotnet build QualityStudio.slnx
     - npm --prefix frontend run build
   test:
     - dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
-    - .agent-studio/test-frontend
+    # Chrome keeps its singleton socket under TMPDIR, and the review temp path exceeds
+    # the length limit of a Unix socket path.
+    - TMPDIR=/tmp .agent-studio/test-frontend
   lint:
     - .agent-studio/lint
     # The same checks the GitHub Build workflow runs before its .NET lanes; without them a
@@ -29,7 +33,7 @@ testSuites:
   - id: frontend-unit
     category: routine
     expectedDurationSeconds: 35
-    command: .agent-studio/test-frontend
+    command: TMPDIR=/tmp .agent-studio/test-frontend
 cachePaths:
   - frontend/node_modules
 capabilities: [git, child-process, loopback-network]

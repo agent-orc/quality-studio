@@ -10,9 +10,13 @@ namespace AgentOrchestrator.CodeQuality;
 /// <summary>
 /// Estimated provider cost of one operation at the catalog price valid at its timestamp.
 /// <see cref="Total"/> is null when no price resolved (unknown model, no price for the date), never a
-/// silent zero; <see cref="Status"/> names the reason in the price catalog's vocabulary.
+/// silent zero; <see cref="Status"/> names the reason in the price catalog's vocabulary. For
+/// <see cref="ReviewPriceCatalog.AmbiguousPromptSize"/>, <see cref="LowerBound"/> and
+/// <see cref="UpperBound"/> are the base-tier and highest-reachable-tier totals when they are known.
 /// </summary>
-public sealed record UsageCost(decimal? Total, string? Currency, string Status);
+public sealed record UsageCost(decimal? Total, string? Currency, string Status,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] decimal? LowerBound = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] decimal? UpperBound = null);
 
 /// <summary>
 /// Token counts of one operation. <see cref="InputTokens"/> is every input token the model
@@ -214,12 +218,9 @@ public static class UsageLedger
     /// are, and recomputed at query time for entries written before costs were recorded.
     /// </summary>
     public static UsageCost EstimateCost(string model, TokenUsage tokens, DateTimeOffset timestamp,
-        ModelPriceCatalog? catalog = null)
-    {
-        var cost = (catalog ?? ReviewPriceCatalog.Default).ComputeCost(model, ToPricingUsage(tokens), timestamp.UtcDateTime);
-        var status = cost.Status.ToString();
-        return new UsageCost(cost.Total, cost.Currency, char.ToLowerInvariant(status[0]) + status[1..]);
-    }
+        ModelPriceCatalog? catalog = null) =>
+        ReviewPriceCatalog.Price(catalog ?? ReviewPriceCatalog.Default, model, ToPricingUsage(tokens),
+            tokens.InputTokens.HasValue, timestamp.UtcDateTime);
 
     /// <summary>
     /// Splits the all-input count into the catalogue's price classes: fresh input, cache reads and
