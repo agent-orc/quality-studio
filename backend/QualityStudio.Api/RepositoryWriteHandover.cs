@@ -108,7 +108,13 @@ internal sealed class RepositoryWriteHandover(
                 var afterBytes = await File.ReadAllBytesAsync(after, cancellationToken);
                 if (Enumerable.SequenceEqual(beforeBytes, afterBytes)) continue;
             }
-            var start = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true };
+            var start = new ProcessStartInfo("git")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
             foreach (var arg in new[] { "diff", "--no-index", "--binary", "--", File.Exists(before) ? before : "/dev/null", File.Exists(after) ? after : "/dev/null" })
                 start.ArgumentList.Add(arg);
             using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start git diff.");

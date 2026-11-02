@@ -8,7 +8,7 @@ describe('Guideline editor state', () => {
   it('defers deletion until confirmation and resets the empty editor afterwards', async () => {
     const deleted = jasmine.createSpy('deleteGuideline').and.resolveTo();
     TestBed.configureTestingModule({ providers: [GuidelineEditorState, ConfirmationState, {
-      provide: QualityApi, useValue: { deleteGuideline: deleted, guidelines: signal([]) },
+      provide: QualityApi, useValue: { deleteGuideline: deleted, guidelines: signal([]), repositoryWriteRequest: signal(null) },
     }] });
     const state = TestBed.inject(GuidelineEditorState);
     const confirmations = TestBed.inject(ConfirmationState);
