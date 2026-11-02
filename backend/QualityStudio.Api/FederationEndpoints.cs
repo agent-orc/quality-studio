@@ -12,7 +12,7 @@ public sealed record FederationRevokeRequest(string? Sid, string? Sub);
 /// </summary>
 internal static class FederationEndpoints
 {
-    public const string Contract = "agent-studio-integration/1";
+    public const string Contract = IntegrationCapabilities.Contract;
     public const string CapabilitiesSchemaId =
         "https://agent-orchestrator.dev/quality/schemas/integration-capabilities.v1.schema.json";
 
