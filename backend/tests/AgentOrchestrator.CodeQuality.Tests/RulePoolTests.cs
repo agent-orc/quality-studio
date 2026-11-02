@@ -370,7 +370,7 @@ public sealed class RulePoolTests : IDisposable
             CustomRule(), "Wrong route.", "operator"));
         Assert.Contains("file name must start with the rule id", string.Join(" ", mismatch.Diagnostics), StringComparison.Ordinal);
 
-        store.PutCustomRule(RuleScopes.Project, "ACME-CS-001", CustomRule().Replace("\n", "\r\n", StringComparison.Ordinal),
+        store.PutCustomRule(RuleScopes.Project, "ACME-CS-001", CustomRule().ReplaceLineEndings("\r\n"),
             "Adopt logging rule.", "operator");
         store.SetOverride(RuleScopes.Project, new RuleOverride("ACME-CS-001", null, FindingSeverity.High, "Logging incidents."), "operator");
         var path = Path.Combine(ProjectRules, "custom", "ACME-CS-001.md");
@@ -803,7 +803,10 @@ public sealed class RulePoolTests : IDisposable
     {
         var set = new JsonObject
         {
-            ["schemaVersion"] = 1, ["overrides"] = new JsonArray(), ["customRules"] = new JsonArray(), ["packs"] = new JsonArray(),
+            ["schemaVersion"] = 1,
+            ["overrides"] = new JsonArray(),
+            ["customRules"] = new JsonArray(),
+            ["packs"] = new JsonArray(),
         };
         foreach (var (name, value) in fragment.ToArray())
         {

@@ -308,8 +308,15 @@ public sealed class ChangeReviewVerdictService
                     {
                         var escaped = character switch
                         {
-                            'a' => '\a', 'b' => '\b', 'f' => '\f', 'n' => '\n',
-                            'r' => '\r', 't' => '\t', 'v' => '\v', '\\' => '\\', '"' => '"',
+                            'a' => '\a',
+                            'b' => '\b',
+                            'f' => '\f',
+                            'n' => '\n',
+                            'r' => '\r',
+                            't' => '\t',
+                            'v' => '\v',
+                            '\\' => '\\',
+                            '"' => '"',
                             _ => throw new ChangeReviewException("Git returned an invalid quoted diff path."),
                         };
                         bytes.WriteByte((byte)escaped);

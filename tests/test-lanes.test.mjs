@@ -32,6 +32,14 @@ test('required and canary workflows select named lanes and retain all-lane evide
   assert.match(canary, /--filter "Category=ExternalLive"/);
 });
 
+test('Agent Studio lint keeps the Build formatting and repository contracts', async () => {
+  const project = await readFile(resolve(repoRoot, '.agent-studio/project.yml'), 'utf8');
+  const lint = project.split('\n  lint:\n', 2)[1]?.split('\ntestSuites:', 1)[0];
+  assert.ok(lint, 'Agent Studio must define lint commands.');
+  assert.match(lint, /^    - dotnet format QualityStudio\.slnx --verify-no-changes$/m);
+  assert.match(lint, /^    - npm run test:repository-contracts$/m);
+});
+
 test('real process fixtures are centralized and every consumer declares ToolBound', async () => {
   const files = await sourceFiles(resolve(repoRoot, 'backend/tests'));
   assert.ok(files.some(file => file.endsWith('.cs')), 'The backend fixture contract must inspect C# test sources.');
