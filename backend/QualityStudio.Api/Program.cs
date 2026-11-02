@@ -246,7 +246,7 @@ app.Use(async (context, next) =>
     }
     else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
              !string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
-             !string.Equals(route, IntegrationCapabilities.Route, StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(route, "/api/v1/capabilities", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
@@ -258,7 +258,7 @@ app.Use(async (context, next) =>
 app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
-app.MapGet(IntegrationCapabilities.Route, () => Results.Ok(IntegrationCapabilities.Document));
+app.MapGet("/api/v1/capabilities", () => Results.Ok(IntegrationCapabilities.Document));
 
 app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>

@@ -9,7 +9,6 @@ namespace QualityStudio.Api;
 /// </summary>
 internal static class IntegrationCapabilities
 {
-    public const string Route = "/api/v1/capabilities";
     public const string Contract = "agent-studio-integration/1";
 
     /// <summary>The verdict store: <c>PUT</c>/<c>GET /api/v1/repos/{id}/change-reviews</c> and cache-first <c>change-review</c>.</summary>
