@@ -454,6 +454,9 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             "/api/quotas",                         // host-wide, not per repository
             "/api/models",                         // the governed catalog snapshot
             "/api/models/default",                 // a catalog recommendation, not repository data
+            // The versioned integration contract (agent-studio-integration/1) always names its repository.
+            "/api/v1/capabilities",
+            "/api/v1/repos/{repoId}/change-reviews",
         ];
 
         var endpoints = fixture.Endpoints();

@@ -1,0 +1,110 @@
+<section class="change-review" aria-labelledby="change-heading">
+  <header class="change-heading">
+    <div>
+      <span class="eyebrow">Change set</span>
+      <h1 id="change-heading">{{ route().card ?? 'Commit range' }}</h1>
+      <p class="range"><code [title]="route().base">{{ short(route().base) }}</code>..<code [title]="route().head">{{ short(route().head) }}</code>
+        @if (route().previous) { <span> · previous round head <code [title]="route().previous">{{ short(route().previous) }}</code></span> }
+      </p>
+    </div>
+    <button class="studio-button" type="button" (click)="closed.emit()">Repository dashboard</button>
+  </header>
+
+  @if (!route().valid) {
+    <div class="studio-state" data-state="error" data-change-state="invalid">This link needs full 40-character lowercase <code>base</code> and <code>head</code> commit SHAs.</div>
+  } @else if (loading() && !range()) {
+    <div class="studio-state" data-state="loading" role="status">Loading the stored verdict…</div>
+  } @else if (error()) {
+    <div class="studio-state" data-state="error" data-change-state="error">{{ error() }} <button class="studio-button" type="button" (click)="load()">Retry</button></div>
+  } @else if (range(); as range) {
+    @if (missingCommits().length) {
+      <div class="studio-state" data-state="error" data-change-state="missing-commit" role="status">
+        <b>Commit not present on this host.</b>
+        @for (missing of missingCommits(); track missing.role) { <span class="missing-commit">{{ missing.role }} <code>{{ missing.sha }}</code></span> }
+        <small>The diff cannot be read here and no review can run until the checkout holds both commits.</small>
+      </div>
+    }
+
+    @if (record(); as record) {
+      <section class="verdict" [attr.data-verdict-state]="verdict()?.tone" aria-label="Verdict">
+        <div class="verdict-line">
+          <span class="studio-badge verdict-badge" [attr.data-tone]="verdict()?.tone === 'unavailable' ? null : verdict()?.tone">{{ verdict()?.label }}</span>
+          @if (verdict()?.tone === 'unavailable') {
+            <span class="unavailable-reason">{{ verdict()?.reason }} No verdict about the code exists for this range. @if (record.document.failureReason) { <small>{{ record.document.failureReason }}</small> }</span>
+          } @else {
+            <span class="verdict-note">Code-quality verdict for this range{{ record.current ? '' : ' (stored under an earlier rule set or policy)' }}</span>
+          }
+        </div>
+        @if (verdict()?.tone !== 'unavailable') {
+          <div class="severity-strip" aria-label="Findings by severity">
+            @for (severity of severities; track severity) { <span [class]="'severity ' + severity">{{ severityCounts()[severity] }} {{ severity }}</span> }
+          </div>
+        }
+        <dl class="provenance" aria-label="Provenance">
+          <div><dt>Producer</dt><dd>{{ producer(record) }}</dd></div>
+          @if (record.provenance.cardKey) { <div><dt>Card</dt><dd>{{ record.provenance.cardKey }}</dd></div> }
+          @if (record.provenance.round) { <div><dt>Round</dt><dd>{{ record.provenance.round }}</dd></div> }
+          @if (record.provenance.attemptId) { <div><dt>Attempt</dt><dd>{{ record.provenance.attemptId }}</dd></div> }
+          <div><dt>Recorded</dt><dd>{{ recordedAt(record.recordedAt) }}</dd></div>
+          @if (record.document.model) { <div><dt>Model</dt><dd>{{ record.document.model }}</dd></div> }
+          <div><dt>Rule set</dt><dd [title]="record.key.ruleSetHash">{{ shortHash(record.key.ruleSetHash) }} · catalogue {{ record.key.catalogueVersion }}</dd></div>
+          <div><dt>Policy</dt><dd [title]="record.key.policyHash">{{ shortHash(record.key.policyHash) }}</dd></div>
+        </dl>
+      </section>
+
+      @if (range.roundOnly; as round) {
+        <label class="round-toggle">
+          <input class="studio-check" type="checkbox" [checked]="roundOnly()" [disabled]="!round.available" (change)="roundOnly.set($any($event.target).checked)" />
+          This round only
+          <small>{{ round.available ? 'Findings on lines changed since ' + short(round.previousHeadSha) : 'The previous round head is not present on this host.' }}</small>
+        </label>
+      }
+
+      @if (verdict()?.tone !== 'unavailable') {
+        <ol class="change-findings" aria-label="Findings">
+          @for (finding of findings(); track finding.fingerprint) {
+            <li class="change-finding">
+              <div class="finding-head">
+                <span [class]="'severity ' + finding.severity">{{ finding.severity }}</span>
+                <b>{{ finding.ruleId }}</b>
+                <code class="finding-location">{{ finding.path }}:{{ finding.line }}</code>
+                <small>{{ finding.side === 'head' ? 'added line' : 'removed line' }} · {{ finding.disposition }}</small>
+              </div>
+              <p>{{ finding.message }}</p>
+              <p class="finding-evidence"><span>Checked:</span> {{ finding.evidenceChecked }} <span>Missing:</span> {{ finding.missing }}</p>
+              @if (excerpt(finding).length) {
+                <pre class="diff-excerpt" aria-label="Diff around the finding">@for (line of excerpt(finding); track $index) {<span class="diff-line" [class]="'diff-line ' + line.kind" [class.anchor]="line.anchor"><span class="line-number">{{ lineNumber(line) }}</span>{{ linePrefix(line) }}{{ line.text }}</span>}</pre>
+              }
+            </li>
+          } @empty {
+            <li class="studio-empty-state">{{ roundOnly() ? 'No finding sits on a line this round changed.' : 'No findings for this range.' }}</li>
+          }
+        </ol>
+      }
+
+      @if (otherRecords().length) {
+        <section class="other-records" aria-label="Other stored verdicts">
+          <h2>Other stored verdicts</h2>
+          <ul>
+            @for (other of otherRecords(); track other.keyDigest) {
+              <li>{{ verdictOf(other) }} · {{ producer(other) }} · rules {{ shortHash(other.key.ruleSetHash) }} · {{ recordedAt(other.recordedAt) }}</li>
+            }
+          </ul>
+        </section>
+      }
+    } @else {
+      <div class="studio-empty-state not-reviewed" data-change-state="not-reviewed">
+        <b>Not reviewed</b>
+        <p>No verdict is stored for this range. Opening it never starts a review.</p>
+      </div>
+    }
+
+    @if (canRunReview()) {
+      <div class="run-review">
+        <button class="studio-button studio-button-primary" type="button" [attr.aria-busy]="running() ? 'true' : null" [disabled]="running()" (click)="runReview()">Run review</button>
+        <small>Spends one model call on this range; the verdict is stored and reused.</small>
+        @if (runError()) { <span class="run-error" role="alert">{{ runError() }}</span> }
+      </div>
+    }
+  }
+</section>
