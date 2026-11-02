@@ -320,28 +320,29 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualitySt
 app.MapFederationEndpoints();
 
 // The routes Agent Studio calls (agent-studio-integration/1) also answer under /api/v1. The
-// unversioned paths stay; the middleware folds both spellings onto one policy.
-foreach (var prefix in new[] { "/api", "/api/v1" })
-{
-    app.MapGet(prefix + "/repos", ListRepositories);
-    app.MapPost(prefix + "/repos", CreateRepository);
-    app.MapPost(prefix + "/repos/import-from-agent-studio", ImportFromAgentStudio);
-    app.MapPut(prefix + "/repos/{repoId}", UpdateRepository);
-    app.MapDelete(prefix + "/repos/{repoId}", ArchiveRepository);
-}
-
-const string IntegrationRepository = "/api/v1/repos/{repoId}";
-app.MapGet(IntegrationRepository + "/file", FileContent);
-app.MapGet(IntegrationRepository + "/report", Report);
-app.MapPost(IntegrationRepository + "/review/estimate", EstimateReview);
-app.MapPost(IntegrationRepository + "/review", StartReview).RequireRateLimiting("spend");
-app.MapGet(IntegrationRepository + "/review/runs", ReviewRuns);
-app.MapGet(IntegrationRepository + "/review/runs/{id}", ReviewRun);
-app.MapGet(IntegrationRepository + "/review/runs/{id}/report", ReviewRunReport);
-app.MapPost(IntegrationRepository + "/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
-app.MapGet(IntegrationRepository + "/handover", HandoverConfiguration);
-app.MapPost(IntegrationRepository + "/handover", Handover).RequireRateLimiting("spend");
-app.MapPost(IntegrationRepository + "/sensors/{id}/scan", SensorScan);
+// unversioned paths stay; the middleware folds both spellings onto one policy. Routes stay
+// literal so the boundary inventory sensor can see each registration.
+app.MapGet("/api/repos", ListRepositories);
+app.MapGet("/api/v1/repos", ListRepositories);
+app.MapPost("/api/repos", CreateRepository);
+app.MapPost("/api/v1/repos", CreateRepository);
+app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
+app.MapPost("/api/v1/repos/import-from-agent-studio", ImportFromAgentStudio);
+app.MapPut("/api/repos/{repoId}", UpdateRepository);
+app.MapPut("/api/v1/repos/{repoId}", UpdateRepository);
+app.MapDelete("/api/repos/{repoId}", ArchiveRepository);
+app.MapDelete("/api/v1/repos/{repoId}", ArchiveRepository);
+app.MapGet("/api/v1/repos/{repoId}/file", FileContent);
+app.MapGet("/api/v1/repos/{repoId}/report", Report);
+app.MapPost("/api/v1/repos/{repoId}/review/estimate", EstimateReview);
+app.MapPost("/api/v1/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
+app.MapGet("/api/v1/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/v1/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapGet("/api/v1/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapPost("/api/v1/repos/{repoId}/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
+app.MapGet("/api/v1/repos/{repoId}/handover", HandoverConfiguration);
+app.MapPost("/api/v1/repos/{repoId}/handover", Handover).RequireRateLimiting("spend");
+app.MapPost("/api/v1/repos/{repoId}/sensors/{id}/scan", SensorScan);
 
 app.MapGet("/api/tree", Tree);
 app.MapGet("/api/repos/{repoId}/tree", Tree);
