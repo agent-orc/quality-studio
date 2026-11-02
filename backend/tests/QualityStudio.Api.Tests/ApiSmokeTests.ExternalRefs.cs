@@ -101,8 +101,14 @@ public sealed partial class ApiSmokeTests
 
             var capabilities = await client.GetFromJsonAsync<JsonElement>("/api/v1/capabilities",
                 TestContext.Current.CancellationToken);
+            Assert.Contains(capabilities.GetProperty("contracts").EnumerateArray(),
+                contract => contract.GetString() == "agent-studio-integration/1");
             Assert.Contains(capabilities.GetProperty("features").EnumerateArray(),
                 feature => feature.GetString() == "external-ref");
+            var scopedCapabilities = await client.GetFromJsonAsync<JsonElement>(
+                "/api/repos/proj-002/v1/capabilities", TestContext.Current.CancellationToken);
+            Assert.Equal(capabilities.GetProperty("schema").GetString(),
+                scopedCapabilities.GetProperty("schema").GetString());
         }
         finally
         {

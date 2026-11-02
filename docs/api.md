@@ -82,6 +82,97 @@ the configuration.
 | More than `MaxConcurrentRequests` in flight, or `SpendRequestsPerMinute` exceeded on a spending route | `429` |
 | Body larger than `MaxRequestBodyBytes` | `413 Request body is too large` |
 
+The browser UI sends the token in `Authorization` and, on every mutation, the matching `X-Client-Id`.
+It learns the client id from `GET /api/v1/session` before its first mutation, so an operator enters
+only the token.
+
+### Signing in through Agent Studio
+
+A hosted deployment can additionally accept browser sessions from one Agent Studio
+(contract `agent-studio-integration/1`, Agent Studio Dossier AGT-3352, decision D4 option C). It is
+configured by `AgentStudio:Federation:Issuer`; see [`deployment.md`](deployment.md#signing-in-through-agent-studio).
+Without that key `POST /auth/agent-studio` answers `404`, and nothing below applies.
+
+Agent Studio answers its `/api/integrations/quality-studio/open` route with a self-submitting form that
+posts one field, `handoff`, to `POST /auth/agent-studio`. The value is a compact JWS signed with
+Ed25519 (`alg: EdDSA`) whose claims are `iss`, `aud`, `sub`, `sid`, `role` (`viewer`, `operator`,
+`owner`), `repos` (repository ids), `target`, `jti`, `iat`, `exp` and `ver: 1`. The receiver checks,
+in this order, and answers the browser with a short page naming the reason:
+
+| Check | Refusal |
+| --- | --- |
+| `Origin` is exactly the origin of `StudioPublicUrl` | `403` |
+| a `handoff` field is present | `400` |
+| the signature verifies against the pinned keys or the issuer's JWKS, `alg` is `EdDSA` | `401` |
+| `iss` and `aud` match the configuration | `401` |
+| `ver` is a supported version (`1`) | `422` |
+| `iat`/`exp` span at most 60 seconds and `now` lies inside them, with 30 seconds of clock skew | `401` |
+| `sub`, `sid`, `jti`, `role` and `repos` are well-formed | `401` |
+| `target` is a relative path (one leading `/`, no `//`, no backslash) | `400` |
+| no revocation covers the `sid` or `sub` since `iat` | `401` |
+| the `jti` was never used before | `401` |
+
+Used `jti` values are kept in `<data root>/federation/used-assertions.json` until the assertion
+could no longer be valid, so a replayed body is refused after a restart too. On success the response
+is `303 See Other` to `target`, with `Cache-Control: no-store` and two cookies: `__Host-qs-session`
+(HttpOnly, Secure, SameSite=Lax, Path=/) holding a random session handle, and `__Host-qs-csrf`
+holding the session's CSRF token for this origin's script. The request body is never logged; the log
+names the `sub` and the role.
+
+A session ends after 60 idle minutes, 12 hours after it was opened, when the host restarts, or when
+Agent Studio revokes it. Its rights come from the assertion alone:
+
+| Role | May |
+| --- | --- |
+| `viewer` | every read, and the side-effect-free `POST`s (`review/estimate`, `guidelines/impact`, `scope/rules/preview`, `rules/custom/validate`) |
+| `operator` | also finding states, threads, starting, pausing, resuming, cancelling and pinning reviews, `change-review`, sensor scans, attack-coverage judgements and handover |
+| `owner` | also the repository's rule pool, guidelines, scope rules and ignore list, and registering, changing or archiving a repository named in `repos` |
+
+A repository outside `repos` is `404`, as for a bearer client. A session never holds the host-wide
+standing of a registrar client: global rule changes and the Agent Studio import stay `403`. Every
+`POST`, `PUT`, `PATCH` and `DELETE` of a session must carry `Origin` equal to this host's own origin
+and `X-CSRF-Token` equal to the session's token (`403 Cross-origin request refused`,
+`403 A valid X-CSRF-Token header is required`); it needs no `X-Client-Id`. Spending routes count
+against the session's user, whatever headers the browser adds. A request that carries
+`Authorization` is judged by its token alone, never by a cookie next to it.
+
+A page load without a session (`/`, `/index.html` or a client route) is redirected to
+`<StudioPublicUrl>/api/integrations/quality-studio/open?project=<repo>&return=<relative path>`, so
+a bookmark signs in through Agent Studio and returns to the same place; `project` is the `repo`
+query parameter until registrations carry an Agent Studio `externalRef`. Static assets are not gated.
+An API `401` without `Authorization` carries `X-QS-Sign-In: agent-studio`, and the UI then reloads
+into that redirect.
+
+### Integration routes
+
+| Route | Who | Answer |
+| --- | --- | --- |
+| `GET /api/v1/session` | any authenticated caller | `mode`, `kind` (`local`, `client`, `session`), `clientId` for a bearer client, `subject`, `role`, `repositories` and `csrfToken` for a session, and `federation` (`enabled`, `studioPublicUrl`) |
+| `POST /api/v1/federation/revoke` | a bearer client listed in `AgentStudio:Federation:ServiceClients` (default `agent-studio`) | body `{"sid": "…"}` and/or `{"sub": "…"}`; ends every matching session at once and refuses hand-offs for them issued before the call. `{"revoked": <count>}` |
+| `GET /api/v1/capabilities` | any authenticated caller | [`integration-capabilities.v1`](../schemas/integration-capabilities.v1.schema.json): product version, `contracts: ["agent-studio-integration/1"]`, `features` (`deep-link/1`, `external-ref`, `change-review-store`, and `federation` when configured), the hand-off versions and audience, and whether spending routes have a reviewer CLI (`spend.providerAvailable`) |
+
+The routes Agent Studio calls also answer under `/api/v1`, with the same rights and limits:
+`/api/v1/repos` (`GET`, `POST`), `/api/v1/repos/import-from-agent-studio`, `/api/v1/repos/{id}`
+(`PUT`, `DELETE`), and below `/api/v1/repos/{id}`: `file`, `report`, `review/estimate`, `review`,
+`review/runs`, `review/runs/{runId}`, `review/runs/{runId}/report`, `change-review`, `handover` and
+`sensors/{sensor}/scan`. The unversioned paths remain.
+
+## Deep link v1
+
+Quality Studio owns its URLs; Agent Studio builds links from this table only. Every parameter is
+routing data, none is a credential.
+
+| Parameter | Values | Meaning |
+| --- | --- | --- |
+| `repo` | repository id, for example `proj-002` | Required. Without other parameters, opens the repository dashboard. |
+| `view` | `dashboard`, `change`, `finding`, `explorer` | Target view. `dashboard` and any value this version does not implement open the repository dashboard; `change` does so until the change view exists (`change-review-store` absent from the capabilities). `finding` and `explorer` keep the position of the parameters below. |
+| `base`, `head` | 40-character lowercase SHAs | For `view=change`. `base` is the merge-base, never a branch tip. |
+| `finding`, `path`, `kind`, `location` | as before | Finding fingerprint, repository-relative path, review kind and location index, unchanged. |
+| `card` | Agent Studio card key, for example `AGT-3352` | Display only: renders "Back to AGT-3352", a link to `StudioPublicUrl`. Never used for authorization, and ignored unless it looks like a card key and the host names a Studio. |
+
+The UI drops `view` from the address once it has opened the target; `path`, `finding` and `card`
+then describe the position.
+
 ## Repository registry
 
 ```shell
@@ -128,7 +219,7 @@ curl "http://127.0.0.1:5127/api/v1/repos?externalRef=agent-studio:PROJ-002"
   `"reason": "root-missing"` in the problem body. Nothing is stored, so the caller retries the same
   request, same `id`, once the directory exists.
 - `GET /api/v1/capabilities` announces contract `agent-studio-integration/1` and the
-  `external-ref` and `change-review-store` features.
+  `external-ref`, `change-review-store`, and deep-link features, plus federation when enabled.
 
 Everything else keeps path-as-identity: the Agent Studio import below still skips by normalized path.
 
@@ -406,13 +497,14 @@ selected repository root return RFC problem-details responses.
 
 Routes under `/api/v1/` belong to the versioned contract `agent-studio-integration/1` between Quality
 Studio and Agent Studio. They follow the same authentication as every other route: none in Local
-mode, a bearer token in hosted mode, and `X-Client-Id` on mutations. They exist only in their v1
-form, without an unscoped alias.
+mode, a bearer token or federated session in hosted mode, and the matching `X-Client-Id` or
+`X-CSRF-Token` on mutations. Repository routes also answer under their unversioned paths; the
+capabilities, session, revocation and verdict store routes belong to the v1 contract.
 
 ```shell
 curl "http://127.0.0.1:5127/api/v1/capabilities"
-# 200 {"product":"quality-studio","version":"…","contracts":["agent-studio-integration/1"],
-#      "features":["external-ref","change-review-store"]}
+# 200 {"product":"quality-studio","productVersion":"…","contracts":["agent-studio-integration/1"],
+#      "features":["deep-link/1","external-ref","change-review-store",…]}
 
 curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
   -H "Content-Type: application/json" \

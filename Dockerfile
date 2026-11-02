@@ -20,6 +20,8 @@ RUN npm run build -- --configuration production
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api
 WORKDIR /src
 COPY Directory.Build.props ./
+# The analysis library embeds the review response schema from the repository's schemas/ folder.
+COPY schemas/review-response.v1.schema.json ./schemas/
 COPY backend/ ./backend/
 RUN dotnet publish backend/QualityStudio.Api/QualityStudio.Api.csproj \
         --configuration Release \
@@ -48,10 +50,12 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
 # git: the API starts git processes for hierarchy state, churn and change sets.
 # curl: the container health check.
+# No blanket safe.directory: the mounted checkouts belong to the account that cloned them, and the
+# API trusts exactly the registered repository roots instead (QualityStudio__Git__TrustRegisteredRoots
+# below, see docs/deployment.md). scripts/check-container-git.sh proves it on a built image.
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends ca-certificates curl git \
- && rm -rf /var/lib/apt/lists/* \
- && git config --system --add safe.directory '*'
+ && rm -rf /var/lib/apt/lists/*
 
 COPY --from=gitleaks /usr/local/bin/gitleaks /usr/local/bin/gitleaks
 COPY --from=api /publish /app
@@ -73,6 +77,7 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     QualityStudio__RepositoryRoot=/repositories \
     QualityStudio__AllowedRoots__0=/repositories \
     QualityStudio__DataRoot=/data \
+    QualityStudio__Git__TrustRegisteredRoots=true \
     QualityStudio__AllowedOrigins__0=http://localhost:8080
 
 EXPOSE 8080
