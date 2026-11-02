@@ -240,6 +240,7 @@ export class App implements OnDestroy {
     const params = new URLSearchParams(location.search);
     writeFindingRoute(params, position.fingerprint, position.locationIndex);
     writeChangeRoute(params, position.change);
+    // For ordinary navigation the path and finding carry the position; change links keep their view.
     if (!position.change) params.delete('view');
     const href = new URL(location.href);
     href.search = params.toString();

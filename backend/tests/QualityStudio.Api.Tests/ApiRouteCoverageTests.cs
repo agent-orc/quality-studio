@@ -487,7 +487,7 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             "/api/v1/session",           // the caller's identity
             "/api/v1/capabilities",      // agent-studio-integration capabilities
             "/api/v1/federation/revoke", // ends hand-off sessions
-            "/api/v1/repos/{repoId}/change-reviews", // versioned Review Plane verdict store
+            "/api/v1/repos/{repoId}/change-reviews", // versioned verdict store contract
         ];
 
         var endpoints = fixture.Endpoints();

@@ -10,7 +10,6 @@
     "schema": { "const": "https://agent-orchestrator.dev/quality/schemas/integration-capabilities.v1.schema.json" },
     "schemaVersion": { "const": 1 },
     "product": { "const": "quality-studio" },
-    "version": { "type": "string", "minLength": 1 },
     "productVersion": { "type": "string", "minLength": 1 },
     "contracts": {
       "description": "Integration contract versions this host implements, for example agent-studio-integration/1. A caller picks the highest version both sides support.",

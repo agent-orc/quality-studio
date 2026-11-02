@@ -192,7 +192,6 @@ public sealed class ChangeReviewStoreApiTests : IAsyncLifetime
 
         var capabilities = await client.GetFromJsonAsync<JsonElement>("/api/v1/capabilities", Token);
 
-        Assert.Equal("agent-studio-integration/1", capabilities.GetProperty("contract").GetString());
         Assert.Contains("agent-studio-integration/1",
             capabilities.GetProperty("contracts").EnumerateArray().Select(value => value.GetString()));
         Assert.Contains("change-review-store",

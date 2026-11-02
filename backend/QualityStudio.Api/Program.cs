@@ -282,7 +282,8 @@ app.Use(async (context, next) =>
         string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(route, "/api/session", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(route, "/api/capabilities", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(route, "/api/federation/revoke", StringComparison.OrdinalIgnoreCase);
+        string.Equals(route, "/api/federation/revoke", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(route, "/api/repos/{repoId}/v1/capabilities", StringComparison.OrdinalIgnoreCase);
     if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutation)
     {
         if (identity.Session is not null && isRepositoryMutation && repositoryId is not null && !identity.CanAccess(repositoryId))
@@ -331,34 +332,14 @@ app.MapFederationEndpoints();
 // unversioned paths stay; the middleware folds both spellings onto one policy. Routes stay
 // literal so the boundary inventory sensor can see each registration.
 app.MapGet("/api/repos", ListRepositories);
+app.MapGet("/api/v1/repos", ListRepositories);
 app.MapPost("/api/repos", CreateRepository);
 app.MapPost("/api/v1/repos", CreateRepository);
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
-
-// Lookup by a stable external reference, so a caller such as Agent Studio finds its registration
-// without matching paths. Without externalRef it lists like /api/repos.
-Func<HttpContext, string?, RepositoryRegistry, ApiSecurity, IResult> listV1Repositories =
-    (context, externalRef, registry, security) =>
-{
-    var identity = security.Identity(context);
-    if (externalRef is null)
-        return Results.Ok(new
-        {
-            repositories = registry.List().Where(repository => identity.CanAccess(repository.Id)).ToArray(),
-        });
-    if (!RepositoryExternalRef.TryParse(externalRef, out var system, out var id))
-        return Results.Problem(statusCode: StatusCodes.Status400BadRequest,
-            title: "externalRef must have the form system:id");
-    var match = registry.FindByExternalRef(system, id);
-    return match is not null && identity.CanAccess(match.Id)
-        ? Results.Ok(new { repositories = new[] { match } })
-        : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
-};
-app.MapGet("/api/v1/repos", listV1Repositories);
-app.MapGet("/api/repos/{repoId}/v1/repos", listV1Repositories);
-
-
 app.MapPost("/api/v1/repos/import-from-agent-studio", ImportFromAgentStudio);
+app.MapGet("/api/repos/{repoId}/v1/capabilities", (ApiSecurity security, AgentStudioFederation federation) =>
+    Results.Ok(FederationEndpoints.CapabilitiesDocument(security, federation)));
+app.MapGet("/api/repos/{repoId}/v1/repos", ListRepositories);
 app.MapPut("/api/repos/{repoId}", UpdateRepository);
 app.MapPut("/api/v1/repos/{repoId}", UpdateRepository);
 app.MapDelete("/api/repos/{repoId}", ArchiveRepository);
@@ -491,18 +472,19 @@ app.Run();
 static IResult ListRepositories(HttpContext context, bool? includeArchived, string? externalRef, RepositoryRegistry registry,
     RepositorySnapshotPrewarmer prewarmer, ApiSecurity security)
 {
+    var identity = security.Identity(context);
     if (externalRef is not null)
     {
         if (!RepositoryExternalRef.TryParse(externalRef, out var system, out var id))
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest,
                 title: "externalRef must have the form system:id");
         var match = registry.FindByExternalRef(system, id);
-        return match is not null && security.Identity(context).CanAccess(match.Id)
+        return match is not null && identity.CanAccess(match.Id)
             ? Results.Ok(new { repositories = new[] { match } })
             : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
     }
     var repositories = registry.List(includeArchived == true)
-        .Where(repository => security.Identity(context).CanAccess(repository.Id))
+        .Where(repository => identity.CanAccess(repository.Id))
         .ToArray();
     prewarmer.QueueAll(repositories);
     return Results.Ok(new
@@ -511,9 +493,9 @@ static IResult ListRepositories(HttpContext context, bool? includeArchived, stri
         // Registrations this host loaded but cannot serve. They are reported rather than hidden, so a
         // moved or removed working copy is visible instead of silently absent.
         unavailable = registry.Unavailable
-            .Where(entry => security.Identity(context).CanAccess(entry.Id))
+            .Where(entry => identity.CanAccess(entry.Id))
             .ToArray(),
-        defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
+        defaultRepositoryId = identity.CanAccess(RepositoryRegistry.DefaultRepositoryId)
             ? RepositoryRegistry.DefaultRepositoryId
             : null,
     });
