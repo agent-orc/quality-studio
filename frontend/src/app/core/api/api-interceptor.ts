@@ -91,7 +91,7 @@ export function withMutationHeaders(request: HttpRequest<unknown>, access: ApiAc
     filter((event): event is HttpResponse<ApiSession> => event instanceof HttpResponse),
     first(),
     map(response => response.body),
-    tap(body => { if (body) access.session.set(body); }),
+    tap(body => { if (body && access.token() === token) access.session.set(body); }),
     // An older API has no session route; the mutation then goes out as it always did.
     catchError(() => of(null)),
     defaultIfEmpty(null),

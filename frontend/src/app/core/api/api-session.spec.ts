@@ -76,6 +76,45 @@ describe('Mutation identity headers', () => {
     await changing;
   });
 
+  it('does not cache an earlier token identity when its lookup finishes late', async () => {
+    access.setToken('first-token');
+    const firstChange = firstValueFrom(http.post('/api/repos/default/findings/state', {}));
+    const firstLookup = backend.expectOne(SESSION_URL);
+
+    access.setToken('second-token');
+    const secondChange = firstValueFrom(http.post('/api/repos/default/findings/state', {}));
+    const secondLookup = backend.expectOne(SESSION_URL);
+    secondLookup.flush(clientSession('second'));
+    const secondMutation = backend.expectOne('/api/repos/default/findings/state');
+    expect(secondMutation.request.headers.get('X-Client-Id')).toBe('second');
+    secondMutation.flush({});
+    await secondChange;
+
+    firstLookup.flush(clientSession('first'));
+    const firstMutation = backend.expectOne('/api/repos/default/findings/state');
+    expect(firstMutation.request.headers.get('Authorization')).toBe('Bearer first-token');
+    expect(firstMutation.request.headers.get('X-Client-Id')).toBe('first');
+    firstMutation.flush({});
+    await firstChange;
+    expect(access.session()?.clientId).toBe('second');
+  });
+
+  it('does not let an earlier token session load replace the current identity', async () => {
+    access.setToken('first-token');
+    const firstLoad = access.loadSession();
+    const firstLookup = backend.expectOne(SESSION_URL);
+
+    access.setToken('second-token');
+    const secondLoad = access.loadSession();
+    const secondLookup = backend.expectOne(SESSION_URL);
+    secondLookup.flush(clientSession('second'));
+    await secondLoad;
+    firstLookup.flush(clientSession('first'));
+    await firstLoad;
+
+    expect(access.session()?.clientId).toBe('second');
+  });
+
   it('still sends the mutation when an older API has no session route', async () => {
     access.setToken('hosted-token');
     const changing = firstValueFrom(http.post('/api/review', {}));

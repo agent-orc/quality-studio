@@ -64,9 +64,10 @@ export class ApiAccess {
 
   /** Reads the caller identity. An API without the route (an older host) leaves it null. */
   async loadSession(): Promise<ApiSession | null> {
+    const token = this.token();
     try {
       const session = await firstValueFrom(this.http.get<ApiSession>(SESSION_URL));
-      this.session.set(session);
+      if (this.token() === token) this.session.set(session);
       return session;
     } catch {
       return null;
