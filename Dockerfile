@@ -52,7 +52,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 # curl: the container health check.
 # No blanket safe.directory: the mounted checkouts belong to the account that cloned them, and the
 # API trusts exactly the registered repository roots instead (QualityStudio__Git__TrustRegisteredRoots
-# below, see docs/deployment.md). scripts/check-container-git.sh proves it on a built image.
+# below, see docs/deployment.md). scripts/check-container-git.mjs proves it on a built image.
 RUN apt-get update \
  && apt-get install --yes --no-install-recommends ca-certificates curl git \
  && rm -rf /var/lib/apt/lists/*

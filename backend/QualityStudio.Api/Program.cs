@@ -269,8 +269,7 @@ app.Use(async (context, next) =>
     var route = ApiRoutes.Canonical(
         (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText);
     var repositoryId = RouteRepositoryId(context);
-    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(route, "/api/v1/repos", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(route, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(route, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
     var isRepositoryItem = string.Equals(route, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
