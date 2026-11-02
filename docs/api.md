@@ -101,6 +101,36 @@ curl -X DELETE "http://127.0.0.1:5127/api/repos/payments"
 `DELETE` archives a registration and never changes repository files. The last active
 registration and the legacy-compatible `default` registration cannot be archived.
 
+### External references
+
+A registration may carry `externalRefs`, stable references to the repository in another system.
+`POST` and `PUT /api/repos` accept them; `PUT` without the field keeps the stored ones, `[]` clears
+them. Every repository response returns them.
+
+```shell
+curl -X POST "http://127.0.0.1:5127/api/repos" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"proj-002","displayName":"Agent Studio","rootPath":"/repos/agent-studio","inputBudgetCharacters":12000,"enabledReviewKinds":["code"],"externalRefs":[{"system":"agent-studio","id":"PROJ-002","url":"https://studio.example/projects/PROJ-002"}]}'
+
+curl "http://127.0.0.1:5127/api/v1/repos?externalRef=agent-studio:PROJ-002"
+# 200 {"repositories":[{"id":"proj-002", ..., "externalRefs":[{"system":"agent-studio","id":"PROJ-002","url":"..."}]}]}
+```
+
+- `system` is lowercase letters, digits, dots and hyphens; `id` is 1 to 128 non-whitespace
+  characters; `url` is optional and must be absolute `http(s)`. At most 16 references.
+- A `system:id` pair is unique across the registry, archived registrations included, and compares
+  case-insensitively. A second registration with the same pair is refused with
+  `409 Conflict`, title `External reference already registered`.
+- `GET /api/v1/repos?externalRef=<system>:<id>` returns at most one active, servable repository in
+  `repositories`, or `404` when none carries the reference. A malformed value returns `400`. Without
+  `externalRef` the route lists the active repositories the caller may access.
+- A registration whose `rootPath` does not exist yet is refused with `400` and the typed reason
+  `"reason": "root-missing"` in the problem body. Nothing is stored, so the caller retries the same
+  request, same `id`, once the directory exists.
+- `GET /api/v1/capabilities` returns `{"contract":"agent-studio-integration/1","features":["external-ref"]}`.
+
+Everything else keeps path-as-identity: the Agent Studio import below still skips by normalized path.
+
 ### One-click import from Agent Studio
 
 ```shell

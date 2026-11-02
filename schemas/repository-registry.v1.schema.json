@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-orchestrator.dev/quality/schemas/repository-registry.v1.schema.json",
+  "title": "Quality Studio repository registry (.quality-studio/repositories.json)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["id", "displayName", "rootPath", "inputBudgetCharacters", "enabledReviewKinds"],
+    "properties": {
+      "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
+      "displayName": { "type": "string", "minLength": 1 },
+      "rootPath": { "type": "string", "minLength": 1 },
+      "globalInputsDirectory": { "type": ["string", "null"] },
+      "inputBudgetCharacters": { "type": "integer", "minimum": 1000, "maximum": 1000000 },
+      "enabledReviewKinds": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "enum": ["code", "security", "performance"] }
+      },
+      "sensors": { "type": ["array", "null"] },
+      "archived": { "type": "boolean" },
+      "defaultReviewTokenCap": { "type": ["integer", "null"] },
+      "defaultReviewCostCap": { "type": ["number", "null"] },
+      "externalRefs": {
+        "description": "Stable references to this repository in other systems. Unique per system:id across the whole registry, archived entries included. Absent in registries written before the field existed.",
+        "type": ["array", "null"],
+        "maxItems": 16,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["system", "id"],
+          "properties": {
+            "system": { "type": "string", "pattern": "^[a-z0-9.-]{1,64}$" },
+            "id": { "type": "string", "pattern": "^\\S{1,128}$" },
+            "url": { "type": ["string", "null"], "format": "uri" }
+          }
+        }
+      }
+    }
+  }
+}
