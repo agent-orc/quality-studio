@@ -86,6 +86,18 @@ folder next to each reviewed file, scattered across the tree. They now live unde
 `reviews/` lane that mirrors the subject's directory, so one folder holds every sidecar of a project
 while a sidecar is still attributable to its folder without opening it.
 
+## The repository registry
+
+The registrations themselves are host configuration, not project data: they live in
+`<content root>/.quality-studio/repositories.json`
+([schema](../schemas/repository-registry.v1.schema.json)). A registration is identified by its `id`
+and its `rootPath`. It may also carry `externalRefs`, stable references into other systems, for
+example `{ "system": "agent-studio", "id": "PROJ-002", "url": "https://…" }`. A `system:id` pair is
+unique across the whole file, archived entries included, so Agent Studio can find its registration
+again with `GET /api/v1/repos?externalRef=agent-studio:PROJ-002` instead of matching paths (Dossier
+AGT-3352, decision D2 option M2). Registrations written before the field existed have no
+`externalRefs` and load unchanged; every other lookup still uses the path and the id.
+
 ## What stays in the checkout
 
 Author-owned inputs. These are hand-written configuration of the analysed project, they are meant to

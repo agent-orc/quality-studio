@@ -136,6 +136,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         ReviewModelSelectionException => (StatusCodes.Status400BadRequest, "Invalid model selection"),
         ArgumentException => (StatusCodes.Status400BadRequest, "Invalid repository path"),
         RepositoryRegistryValidationException validation => (StatusCodes.Status400BadRequest, validation.PublicTitle),
+        RepositoryRegistryConflictException conflict => (StatusCodes.Status409Conflict, conflict.PublicTitle),
         SensorNotFoundException => (StatusCodes.Status404NotFound, "Sensor not found"),
         KeyNotFoundException => (StatusCodes.Status404NotFound, "Repository not found"),
         FileNotFoundException => (StatusCodes.Status404NotFound, "File not found"),
@@ -157,7 +158,11 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     var detail = exception is ReviewModelSelectionException selection ? selection.Message : null;
     var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("QualityStudio.Api.Errors");
     logger.LogError(new EventId(1000, "ApiRequestFailed"), exception, "API request failed with status {StatusCode}", status);
-    await Results.Problem(statusCode: status, title: title, detail: detail).ExecuteAsync(context);
+    // A typed reason lets a machine caller tell a retryable refusal (root-missing) from a final one.
+    var extensions = exception is RepositoryRegistryValidationException { Reason: { } reason }
+        ? new Dictionary<string, object?> { ["reason"] = reason }
+        : null;
+    await Results.Problem(statusCode: status, title: title, detail: detail, extensions: extensions).ExecuteAsync(context);
 }));
 app.UseStatusCodePages();
 app.UseCors("dev-frontend");
@@ -222,7 +227,8 @@ app.Use(async (context, next) =>
     // slashes and casing variants, which must not bypass registrar or collection policies.
     var route = (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText;
     var repositoryId = RouteRepositoryId(context);
-    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(route, "/api/v1/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(route, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(route, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
     var isRepositoryItem = string.Equals(route, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
@@ -244,6 +250,7 @@ app.Use(async (context, next) =>
     }
     else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
              !string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(route, "/api/v1/capabilities", StringComparison.OrdinalIgnoreCase) &&
              !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
@@ -286,6 +293,32 @@ app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, Reposito
 });
 
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
+
+app.MapGet("/api/v1/capabilities", () => Results.Ok(new
+{
+    contract = "agent-studio-integration/1",
+    features = new[] { "external-ref" },
+}));
+
+// Lookup by a stable external reference, so a caller such as Agent Studio finds its registration
+// without matching paths. Without externalRef it lists like /api/repos.
+app.MapGet("/api/v1/repos", (HttpContext context, string? externalRef, RepositoryRegistry registry,
+    ApiSecurity security) =>
+{
+    var identity = security.Identity(context);
+    if (externalRef is null)
+        return Results.Ok(new
+        {
+            repositories = registry.List().Where(repository => identity.CanAccess(repository.Id)).ToArray(),
+        });
+    if (!RepositoryExternalRef.TryParse(externalRef, out var system, out var id))
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest,
+            title: "externalRef must have the form system:id");
+    var match = registry.FindByExternalRef(system, id);
+    return match is not null && identity.CanAccess(match.Id)
+        ? Results.Ok(new { repositories = new[] { match } })
+        : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
+});
 
 app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
     RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>

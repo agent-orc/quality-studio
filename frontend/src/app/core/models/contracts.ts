@@ -203,7 +203,10 @@ export interface RepositoryRegistration {
   archived: boolean;
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
+  externalRefs?: RepositoryExternalRef[] | null;
 }
+/** A stable reference to the repository in another system, unique per `system:id`. */
+export interface RepositoryExternalRef { system: string; id: string; url?: string | null; }
 export interface RepositoryRegistrationRequest {
   id?: string;
   displayName: string;
@@ -213,6 +216,7 @@ export interface RepositoryRegistrationRequest {
   enabledReviewKinds: ReviewKind[];
   defaultReviewTokenCap?: number | null;
   defaultReviewCostCap?: number | null;
+  externalRefs?: RepositoryExternalRef[] | null;
 }
 export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
 export interface AgentStudioImportResult {
