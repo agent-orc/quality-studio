@@ -79,7 +79,8 @@ export interface ReviewThread { id: string; anchor: { path: string; fingerprint:
 /** `inputTokens` counts all input, including cache reads (`cachedInputTokens`) and cache writes (`cacheWriteInputTokens`). */
 export interface TokenUsage { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; reasoningOutputTokens: number | null; durationMs: number; cacheWriteInputTokens?: number | null; }
 /** What a priced operation cost. `total` is null exactly when `status` says the price is unknown. */
-export interface UsageCost { total: number | null; currency: string | null; status: string; }
+/** For status `ambiguousPromptSize`, `total` is null and the bounds hold the base-tier and highest-reachable-tier totals. */
+export interface UsageCost { total: number | null; currency: string | null; status: string; lowerBound?: number | null; upperBound?: number | null; }
 /** How the run's model was chosen: named by the operator, resolved from policy, or left to the CLI. */
 export type ReviewModelSource = 'explicit' | 'policy-default' | 'runner-default';
 export interface ReviewGrade { score: number; band: string; rationale: string; }

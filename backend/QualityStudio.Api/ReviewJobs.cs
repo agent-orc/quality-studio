@@ -1200,10 +1200,14 @@ public sealed class ReviewJobService : BackgroundService
                 // Input counts cache reads and writes, so the token cap sees all input and the cost
                 // cap prices every class at its catalogue rate.
                 var operationCost = UsageLedger.EstimateCost(entry.Model, operationUsage, entry.Timestamp);
-                priceStatus = operationCost.Status;
+                // An ambiguous prompt-size tier counts at its upper bound, so the cost cap never trusts
+                // the cheap tier, and the run keeps naming the ambiguity once an operation had it.
+                var operationTotal = operationCost.Total ?? operationCost.UpperBound;
+                if (usageOperations == 1 || priceStatus != ReviewPriceCatalog.AmbiguousPromptSize || operationTotal is null)
+                    priceStatus = operationCost.Status;
                 currency = operationCost.Currency ?? currency;
-                costSpent = operationCost.Total.HasValue && (costSpent.HasValue || usageOperations == 1)
-                    ? (costSpent ?? 0m) + operationCost.Total.Value
+                costSpent = operationTotal.HasValue && (costSpent.HasValue || usageOperations == 1)
+                    ? (costSpent ?? 0m) + operationTotal.Value
                     : null;
                 PersistStatus();
             }

@@ -294,16 +294,18 @@ app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, Reposito
 
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
 
-app.MapGet("/api/v1/capabilities", () => Results.Ok(new
+Func<IResult> capabilities = () => Results.Ok(new
 {
     contract = "agent-studio-integration/1",
     features = new[] { "external-ref" },
-}));
+});
+app.MapGet("/api/v1/capabilities", capabilities);
+app.MapGet("/api/repos/{repoId}/v1/capabilities", capabilities);
 
 // Lookup by a stable external reference, so a caller such as Agent Studio finds its registration
 // without matching paths. Without externalRef it lists like /api/repos.
-app.MapGet("/api/v1/repos", (HttpContext context, string? externalRef, RepositoryRegistry registry,
-    ApiSecurity security) =>
+Func<HttpContext, string?, RepositoryRegistry, ApiSecurity, IResult> listV1Repositories =
+    (context, externalRef, registry, security) =>
 {
     var identity = security.Identity(context);
     if (externalRef is null)
@@ -318,7 +320,9 @@ app.MapGet("/api/v1/repos", (HttpContext context, string? externalRef, Repositor
     return match is not null && identity.CanAccess(match.Id)
         ? Results.Ok(new { repositories = new[] { match } })
         : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
-});
+};
+app.MapGet("/api/v1/repos", listV1Repositories);
+app.MapGet("/api/repos/{repoId}/v1/repos", listV1Repositories);
 
 app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
     RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
