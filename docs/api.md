@@ -496,6 +496,22 @@ selected repository root return RFC problem-details responses.
 
 ## Agent Studio integration (v1)
 
+### Repository change requests
+
+With Hosted mode and federation configured, mutations of the finding suppression list,
+repository scope rules, guideline files and project rule pool return a request receipt instead of
+writing the checkout. The receipt is `{ "requested": true, "dryRun": false, "taskId": "AGT-123",
+"url": "https://studio.example/#/tasks/AGT-123", "card": { ... } }`. The card contains a Git patch,
+the acting user and the reason. With `AgentStudio:DryRun=true` (the default), `dryRun` is true and
+`taskId` and `url` are null; the payload is recorded by the handover client. Configure
+`AgentStudio:BaseUrl`, `AgentStudio:ClientId` and `AgentStudio:Project` before requesting a change.
+Missing target configuration returns 503 without writing. The same routes retain their existing
+responses and direct writes in Local mode or Hosted mode without federation. Global rule scope and
+data-root stores keep their existing behavior.
+Guideline create, update, delete and catalogue install requests take a `reason` query parameter.
+In integrated Hosted mode, an empty reason returns 400 without creating a card; other modes retain
+their existing write behavior.
+
 The change-review store belongs to the versioned contract `agent-studio-integration/1`. It follows
 the same authentication and role rules described above. Its `PUT` and `GET` routes exist only under
 `/api/v1/`.

@@ -182,6 +182,7 @@ export interface ScanFile { relativePath: string; state: ReviewState; reviewKind
 export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; invalidCount: number; }
 export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
 export interface HandoverResult { dryRun: boolean; taskId: string | null; card: { title: string }; }
+export interface RepositoryWriteRequest { requested: true; dryRun: boolean; taskId: string | null; url: string | null; }
 export interface ResolvedInput { id: string; source: string; scope: 'global' | 'project'; priority: number; includedContent: string; content: string; truncated: boolean; }
 export interface InputOmission { id: string; source: string; reason: string; omittedCharacters: number; }
 export interface ResolvedInputs { kind: ReviewKind; level: string; budgetCharacters: number; includedCharacters: number; complete: boolean; inputs: ResolvedInput[]; omissions: InputOmission[]; }

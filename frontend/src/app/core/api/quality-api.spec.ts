@@ -20,6 +20,28 @@ describe('QualityApi', () => {
 
   afterEach(() => http.verify());
 
+  it('keeps a requested suppression pending and exposes its Studio card link', async () => {
+    const request = api.addFindingSuppression({ path: 'src/A.cs', kind: 'code', fingerprint: `sha256:${'a'.repeat(64)}`,
+      author: 'Ada', reason: 'Covered elsewhere', expectedRevision: 0 });
+    http.expectOne('/api/repos/default/findings/suppressions').flush({ requested: true, dryRun: false,
+      taskId: 'AGT-123', url: 'https://studio.example/#/tasks/AGT-123' });
+    expect(await request).toBeNull();
+    expect(api.repositoryWriteRequest()?.taskId).toBe('AGT-123');
+    expect(api.findingSuppressions().revision).toBe(0);
+    expect(api.repositoryWriteRequest()?.url).toBe('https://studio.example/#/tasks/AGT-123');
+  });
+
+  it('requires a deletion reason and sends the trimmed reason with a guideline handover', async () => {
+    await expectAsync(api.deleteGuideline('old-rule', '  ')).toBeRejectedWithError('A reason is required to delete a guideline.');
+    http.expectNone('/api/repos/default/guidelines/old-rule');
+
+    const deleting = api.deleteGuideline('old-rule', '  Superseded by new rule  ');
+    const request = http.expectOne(request => request.url === '/api/repos/default/guidelines/old-rule');
+    expect(request.request.params.get('reason')).toBe('Superseded by new rule');
+    request.flush({ requested: true, dryRun: false, taskId: 'AGT-123', url: null });
+    await deleting;
+  });
+
   it('resolves exact file links without replacing the explorer filter and retains them after it clears', async () => {
     const filterRows = [{ id: 'filter', name: 'Filter match', level: 'file', path: 'other.cs', kinds: {}, children: [] }] satisfies TreeNode[];
     api.treeSearchResults.set(filterRows);

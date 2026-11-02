@@ -6,4 +6,5 @@ export interface GuidelineForm {
   kinds: string;
   levels: string;
   content: string;
+  reason: string;
 }

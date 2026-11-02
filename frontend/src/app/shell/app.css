@@ -397,3 +397,7 @@
 .back-to-card {
   text-decoration: none;
 }
+.repository-write-request {
+  padding: .5rem 1rem;
+  border-bottom: 1px solid var(--border, #59616d);
+}

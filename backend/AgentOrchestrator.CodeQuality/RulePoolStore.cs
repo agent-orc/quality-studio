@@ -88,18 +88,21 @@ public sealed class RulePoolStore
     private readonly RuleCatalogueResolver resolver;
     private readonly TimeProvider time;
     private readonly IReadOnlyList<RulePoolRepository> repositories;
+    private readonly bool suppressAudit;
 
     public RulePoolStore(
         string repositoryRoot,
         string? globalInputsDirectory = null,
         string? globalRulesDirectory = null,
         TimeProvider? timeProvider = null,
-        IReadOnlyList<RulePoolRepository>? repositories = null)
+        IReadOnlyList<RulePoolRepository>? repositories = null,
+        bool suppressAudit = false)
     {
         resolver = new RuleCatalogueResolver(globalRulesDirectory);
         Locations = resolver.Locate(repositoryRoot, globalInputsDirectory);
         time = timeProvider ?? TimeProvider.System;
         this.repositories = repositories ?? [];
+        this.suppressAudit = suppressAudit;
     }
 
     public RulePoolLocations Locations { get; }
@@ -359,7 +362,7 @@ public sealed class RulePoolStore
                 return new RuleImportResult(true, false, modified, changes, [], catalogue);
 
             Write(current, next, removeUnreadableOverrides: repairOverrides && unreadableOverrideFile);
-            AppendAudit(scope, actor, "rule-set.import", string.IsNullOrWhiteSpace(set.Name) ? "rule set" : set.Name.Trim(), why,
+            if (!suppressAudit) AppendAudit(scope, actor, "rule-set.import", string.IsNullOrWhiteSpace(set.Name) ? "rule set" : set.Name.Trim(), why,
                 null, new JsonObject
                 {
                     ["mode"] = mode,
@@ -439,7 +442,7 @@ public sealed class RulePoolStore
                 throw new RulePoolValidationException("The change would make the rule pool invalid.", introduced);
             if (dryRun || Same(current, next)) return catalogue;
             Write(current, next);
-            AppendAudit(scope, actor, action, target, reason, before, after);
+            if (!suppressAudit) AppendAudit(scope, actor, action, target, reason, before, after);
             return catalogue;
         }
     }

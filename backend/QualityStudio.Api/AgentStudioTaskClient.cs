@@ -83,7 +83,16 @@ public sealed class AgentStudioTaskClient
                 "Agent Studio target requires an absolute BaseUrl, ClientId, and Project.");
         }
 
-        var card = BuildCard(finding, options.Project!);
+        return await CreateTaskAsync(BuildCard(finding, options.Project!), cancellationToken);
+    }
+
+    public async Task<AgentStudioTaskResult> CreateTaskAsync(
+        AgentStudioTaskCard card, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+        if (!options.IsTargetConfigured)
+            throw new InvalidOperationException("Agent Studio target requires an absolute BaseUrl, ClientId, and Project.");
+        card = card with { Project = options.Project! };
         if (options.DryRun)
         {
             await dryRunOutput.WriteLineAsync(

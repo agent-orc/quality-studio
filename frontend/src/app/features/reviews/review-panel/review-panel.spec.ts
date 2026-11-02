@@ -42,6 +42,7 @@ describe('ReviewPanel session flow', () => {
     handoverConfigured: signal(false), handoverDryRun: signal(true), focusedThreadId: signal(null),
     scopeRules: signal({ schema: 'scope.v1', rules: [] }),
     findingSuppressions: signal({ schemaVersion: 1 as const, revision: 0, rules: [] as any[] }),
+    repositoryWriteRequest: signal(null),
     mutateFindingState: jasmine.createSpy('mutateFindingState'),
     loadFile: jasmine.createSpy('loadFile'), loadTree: jasmine.createSpy('loadTree'),
     loadScopeRules: jasmine.createSpy('loadScopeRules'), previewScopeRule: jasmine.createSpy('previewScopeRule'),
