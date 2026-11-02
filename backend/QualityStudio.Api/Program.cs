@@ -279,8 +279,7 @@ app.Use(async (context, next) =>
         string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(route, "/api/session", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(route, "/api/capabilities", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(route, "/api/federation/revoke", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(route, "/api/repos/{repoId}/v1/capabilities", StringComparison.OrdinalIgnoreCase);
+        string.Equals(route, "/api/federation/revoke", StringComparison.OrdinalIgnoreCase);
     if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutation)
     {
         if (identity.Session is not null && isRepositoryMutation && repositoryId is not null && !identity.CanAccess(repositoryId))
