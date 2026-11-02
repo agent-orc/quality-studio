@@ -10,9 +10,9 @@ commands:
     - npm --prefix frontend run build
   test:
     - dotnet test QualityStudio.slnx --filter "Category!=MachineBound&Category!=ExternalLive"
-    - npm --prefix frontend run test
+    - .agent-studio/test-frontend
   lint:
-    - npm --prefix frontend run lint
+    - .agent-studio/lint
     # The same checks the GitHub Build workflow runs before its .NET lanes; without them a
     # formatting or test-lane contract violation passes the gates and turns main red.
     - dotnet format QualityStudio.slnx --verify-no-changes
@@ -29,7 +29,7 @@ testSuites:
   - id: frontend-unit
     category: routine
     expectedDurationSeconds: 35
-    command: npm --prefix frontend run test
+    command: .agent-studio/test-frontend
 cachePaths:
   - frontend/node_modules
 capabilities: [git, child-process, loopback-network]
