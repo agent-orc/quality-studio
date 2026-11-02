@@ -5,7 +5,7 @@ import {
 } from '../../../core/models/contracts';
 import { ResumeCap, ResumeCapDialog } from '../../../shared/dialog/resume-cap-dialog';
 import {
-  formatCost, formatDateTime, formatModelSource, formatPriceStatus, formatTokenCount, runStateTone,
+  formatDateTime, formatModelSource, formatRunCost, formatTokenCount, runStateTone,
 } from '../../../shared/utils/format';
 import { QualityApi } from '../../../core/api/quality-api';
 import { FlatNode } from '../../../shared/utils/tree-utils';
@@ -222,9 +222,7 @@ export class RunHistory {
 
   /** The money the run has actually spent, with its cap when one applies. "unpriced" stays unpriced. */
   costLabel(run: ReviewRun): string {
-    const spent = formatCost(run.costSpent, run.currency);
-    if (run.costSpent === null) return `unpriced (${formatPriceStatus(run.priceStatus)})`;
-    return run.costCap !== null ? `${spent} / ${formatCost(run.costCap, run.currency)}` : spent;
+    return formatRunCost(run.costSpent, run.currency, run.priceStatus, run.costCap);
   }
 
   modelLabel(run: ReviewRun): string { return run.model ?? 'runner default model'; }
