@@ -20,6 +20,8 @@ import { ReviewActions } from '../features/reviews/review-actions/review-actions
 import { ProjectDashboardView } from '../features/dashboard/project-dashboard/project-dashboard';
 import { UsageHistory } from '../features/reviews/usage-history/usage-history';
 import { readFindingRoute, writeFindingRoute } from '../core/navigation/review-navigation';
+import { ChangeRoute, readChangeRoute, writeChangeRoute } from '../core/navigation/change-route';
+import { ChangeReviewView } from '../features/reviews/change-review/change-review';
 import { reportUrlPreviewNavigation } from '../core/navigation/url-preview-embed';
 import { formatTokenCount } from '../shared/utils/format';
 import { RepositoryDialog } from '../features/repositories/repository-dialog/repository-dialog';
@@ -43,11 +45,12 @@ interface ShellPosition {
   kind: ReviewKind;
   fingerprint: string | null;
   locationIndex: number;
+  change: ChangeRoute | null;
 }
 @Component({
   selector: 'app-root',
   providers: [WorkspaceLayoutState, ConfirmationState, GuidelineEditorState, RepositoryEditorState],
-  imports: [ApiConnectionState, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog, ConfirmDialog, GuidelineDialog, AgentStudioImport],
+  imports: [ApiConnectionState, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, ChangeReviewView, RepositoryDialog, ApiAccessDialog, ConfirmDialog, GuidelineDialog, AgentStudioImport],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -78,6 +81,8 @@ export class App implements OnDestroy {
   private readonly initialFindingRoute = readFindingRoute(location.search);
   readonly selectedFindingFingerprint = signal<string | null>(this.initialFindingRoute.fingerprint);
   readonly selectedLocationIndex = signal(this.initialFindingRoute.locationIndex);
+  /** A commit range opened by deep link (`view=change`); it replaces the dashboard or editor until closed. */
+  readonly changeRoute = signal<ChangeRoute | null>(readChangeRoute(location.search));
   readonly reviewFocusRequest = signal(0);
   readonly repositoryMenuOpen = signal(false);
   readonly repositoryDialogOpen = this.repositories.repositoryDialogOpen;
@@ -156,6 +161,7 @@ export class App implements OnDestroy {
         kind: this.activeKind(),
         fingerprint: this.selectedFindingFingerprint(),
         locationIndex: this.selectedLocationIndex(),
+        change: this.changeRoute(),
       };
       this.pendingPosition = position;
       if (this.urlSyncTimer !== null) return;
@@ -218,6 +224,7 @@ export class App implements OnDestroy {
   private syncUrl(position: ShellPosition): void {
     const params = new URLSearchParams(location.search);
     writeFindingRoute(params, position.fingerprint, position.locationIndex);
+    writeChangeRoute(params, position.change);
     const href = new URL(location.href);
     href.search = params.toString();
     const push = this.historyPosition !== null
@@ -239,6 +246,7 @@ export class App implements OnDestroy {
     const path = params.get('path') || '.';
     this.selectedFindingFingerprint.set(route.fingerprint);
     this.selectedLocationIndex.set(route.locationIndex);
+    this.changeRoute.set(readChangeRoute(location.search));
     if (kind && this.reviewKinds.includes(kind)) this.activeKind.set(kind);
     // The popped entry already exists, so the next sync must replace it rather than push again.
     this.historyPosition = { repository: repository ?? this.api.selectedRepositoryId(), path };
@@ -301,6 +309,8 @@ export class App implements OnDestroy {
     const isCurrent = () => sequence === this.openSequence
       && this.selected() === path && this.api.selectedRepositoryId() === repositoryId;
     this.selected.set(path);
+    // A user navigation leaves the change view; restoring a position on start or Back keeps it.
+    if (track) this.changeRoute.set(null);
     this.api.clearFile();
     if (!preserveFinding) this.clearFindingSelection();
     let node = this.api.nodeAt(path);
@@ -359,6 +369,8 @@ export class App implements OnDestroy {
       this.selectedFinding.set(restored ?? event.finding);
     }
   }
+
+  closeChangeView(): void { this.changeRoute.set(null); }
 
   focusReviewLauncher(): void { this.reviewFocusRequest.update(value => value + 1); }
 
