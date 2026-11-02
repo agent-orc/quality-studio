@@ -460,6 +460,8 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
         var unscoped = endpoints
             .Where(endpoint => endpoint.Pattern.StartsWith("/api/", StringComparison.Ordinal))
             .Where(endpoint => !endpoint.Pattern.StartsWith("/api/repos/{repoId}/", StringComparison.Ordinal))
+            // Versioned integration routes; Every_v1_route_is_an_alias_or_a_contract_route covers them.
+            .Where(endpoint => !endpoint.Pattern.StartsWith("/api/v1/", StringComparison.Ordinal))
             .Where(endpoint => !deliberatelyUnpaired.Contains(endpoint.Pattern, StringComparer.Ordinal))
             .ToArray();
 
@@ -471,6 +473,31 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void Every_v1_route_is_an_alias_or_a_contract_route()
+    {
+        string[] contractOnly =
+        [
+            "/api/v1/session",           // the caller's identity
+            "/api/v1/capabilities",      // agent-studio-integration capabilities
+            "/api/v1/federation/revoke", // ends hand-off sessions
+        ];
+
+        var endpoints = fixture.Endpoints();
+        var versioned = endpoints
+            .Where(endpoint => endpoint.Pattern.StartsWith("/api/v1/", StringComparison.Ordinal))
+            .ToArray();
+        var missing = versioned
+            .Where(endpoint => !contractOnly.Contains(endpoint.Pattern, StringComparer.Ordinal))
+            .Where(endpoint => !endpoints.Contains(endpoint with { Pattern = "/api/" + endpoint.Pattern["/api/v1/".Length..] }))
+            .Select(endpoint => $"{endpoint.Method} {endpoint.Pattern}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.NotEmpty(versioned);
         Assert.Empty(missing);
     }
 

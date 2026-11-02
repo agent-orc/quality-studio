@@ -32,6 +32,7 @@ measuring cannot be run against its own repository without the two purposes figh
 | Override, per process | `QUALITY_STUDIO_DATA_ROOT` |
 | Per project | `<base>/projects/<project-key>/` |
 | Host-wide rule pool | `<base>/rules/` — global applicability, overrides, custom rules, packs and their `audit.jsonl` ([rule pool management](rule-pool-management.md)) |
+| Host-wide federation replay ledger | `<base>/federation/used-assertions.json` — accepted Agent Studio hand-off IDs retained until their assertions expire |
 
 The `quality` CLI has no ASP.NET configuration, so it reads both environment variables and prefers
 `QUALITY_STUDIO_DATA_ROOT`. That matters because the API's own startup warning tells an operator to
@@ -41,6 +42,11 @@ container replacement would delete.
 
 The project key is a readable slug of the checkout's directory name plus twelve hex characters of a
 digest of its canonical absolute path — `quality-studio-3f1c9a02b7d4`, for instance.
+
+The federation replay ledger sits directly below the base directory because a hand-off is for this
+host, not one analysed project. It stores hashes of accepted `jti` values with their expiry times,
+so a hand-off cannot be used again after a host restart. Keep it on the persistent data volume in a
+container. The adjacent `used-assertions.json.lock` file serialises writers that share the volume.
 
 **The path is the identity, not the Git remote.** Two working copies of the same remote — a second
 clone, a Git worktree, a release branch checked out beside `main` — are separately analysed projects

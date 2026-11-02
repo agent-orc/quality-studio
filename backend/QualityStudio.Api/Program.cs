@@ -30,7 +30,13 @@ builder.Services.AddSingleton(serviceProvider => AnalyzerProfileOptions.CreateCa
     serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<RepositoryOptions>>().Value.AnalyzerProfiles,
     serviceProvider.GetRequiredService<IHostEnvironment>().ContentRootPath));
 builder.Services.AddSingleton<ApiSecurity>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<AgentStudioFederationOptions>(
+    builder.Configuration.GetSection(AgentStudioFederationOptions.SectionName));
+builder.Services.AddSingleton<FederatedSessionStore>();
+builder.Services.AddSingleton<AgentStudioFederation>();
 builder.Services.AddSingleton<ReviewMetaIndex>();
+builder.Services.AddSingleton<GitSafeDirectories>();
 builder.Services.AddSingleton<RepositoryRegistry>();
 builder.Services.AddSingleton<RepositoryHierarchyCache>();
 builder.Services.AddSingleton<ComplexityCache>();
@@ -109,10 +115,14 @@ builder.Services.AddRateLimiter(options =>
             PermitLimit = context.RequestServices.GetRequiredService<ApiSecurity>().MaxConcurrentRequests,
             QueueLimit = 0,
         }));
+    // A hand-off session spends against its user, whatever headers the browser adds; a client
+    // spends against the X-Client-Id the security middleware has already matched to its token.
     options.AddPolicy("spend", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Request.Headers[ApiSecurity.ClientIdHeader].ToString() is { Length: > 0 } clientId
-            ? clientId
-            : context.Connection.RemoteIpAddress?.ToString() ?? "local",
+        context.RequestServices.GetRequiredService<ApiSecurity>().TryIdentity(context)?.Session is { } session
+            ? "agent-studio-user:" + session.Subject
+            : context.Request.Headers[ApiSecurity.ClientIdHeader].ToString() is { Length: > 0 } clientId
+                ? clientId
+                : context.Connection.RemoteIpAddress?.ToString() ?? "local",
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = context.RequestServices.GetRequiredService<ApiSecurity>().SpendRequestsPerMinute,
@@ -170,6 +180,9 @@ app.UseStaticUi();
 app.UseRouting();
 
 var apiSecurity = app.Services.GetRequiredService<ApiSecurity>();
+// Resolved here so a half-configured federation stops the host at startup, not at the first sign-in.
+var federation = app.Services.GetRequiredService<AgentStudioFederation>();
+var federatedSessions = app.Services.GetRequiredService<FederatedSessionStore>();
 if (apiSecurity.RequireHttps)
 {
     app.UseHsts();
@@ -204,9 +217,19 @@ app.Use(async (context, next) =>
     if (bodySizeFeature is { IsReadOnly: false }) bodySizeFeature.MaxRequestBodySize = apiSecurity.MaxRequestBodyBytes;
 
     var identity = apiSecurity.Authenticate(context);
+    // A browser that came through the Agent Studio hand-off carries a session cookie instead of a
+    // token. A request that presents a bearer token is judged on the token alone.
+    if (identity is null && federation.Enabled && context.Request.Headers.Authorization.Count == 0 &&
+        federatedSessions.Find(context.Request.Cookies[FederatedSessionStore.CookieName]) is { } federatedSession)
+    {
+        identity = ApiClientIdentity.ForSession(federatedSession);
+    }
     if (identity is null)
     {
         context.Response.Headers.WWWAuthenticate = "Bearer";
+        // A browser of a federated host signs in again through Agent Studio by reloading the page.
+        if (federation.Enabled && context.Request.Headers.Authorization.Count == 0)
+            context.Response.Headers["X-QS-Sign-In"] = "agent-studio";
         await Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Authentication required").ExecuteAsync(context);
         return;
     }
@@ -215,7 +238,25 @@ app.Use(async (context, next) =>
     if (HttpMethods.IsPost(context.Request.Method) || HttpMethods.IsPut(context.Request.Method) ||
         HttpMethods.IsPatch(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method))
     {
-        if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
+        if (identity.Session is { } session)
+        {
+            // The cookie is SameSite=Lax and Agent Studio's sibling hosts are same-site, so the
+            // cookie alone proves nothing on an unsafe request: it must come from this origin and
+            // repeat the session's CSRF token, which only this origin's pages can read.
+            if (!IsSameOriginRequest(context))
+            {
+                await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                    title: "Cross-origin request refused").ExecuteAsync(context);
+                return;
+            }
+            if (!session.CsrfMatches(context.Request.Headers[FederatedSessionStore.CsrfHeader].ToString()))
+            {
+                await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+                    title: $"A valid {FederatedSessionStore.CsrfHeader} header is required").ExecuteAsync(context);
+                return;
+            }
+        }
+        else if (!apiSecurity.IsMutationClientHeaderValid(context, identity))
         {
             await Results.Problem(statusCode: StatusCodes.Status401Unauthorized,
                 title: "A matching X-Client-Id is required for mutations").ExecuteAsync(context);
@@ -225,7 +266,8 @@ app.Use(async (context, next) =>
 
     // Authorize the selected endpoint, not its URL spelling. ASP.NET also matches trailing
     // slashes and casing variants, which must not bypass registrar or collection policies.
-    var route = (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText;
+    var route = ApiRoutes.Canonical(
+        (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText);
     var repositoryId = RouteRepositoryId(context);
     var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(route, "/api/v1/repos", StringComparison.OrdinalIgnoreCase);
@@ -234,9 +276,24 @@ app.Use(async (context, next) =>
     var isRepositoryItem = string.Equals(route, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
     var isRepositoryMutation = isRepositoryItem &&
         (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+    var isHostRoute = isRepositoryCollection || isReportCollection ||
+        string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(route, "/api/session", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(route, "/api/capabilities", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(route, "/api/federation/revoke", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(route, "/api/repos/{repoId}/v1/capabilities", StringComparison.OrdinalIgnoreCase);
     if ((HttpMethods.IsPost(context.Request.Method) && isRepositoryCollection) || isImport || isRepositoryMutation)
     {
-        if (!identity.CanRegisterRepositories)
+        if (identity.Session is not null && isRepositoryMutation && repositoryId is not null && !identity.CanAccess(repositoryId))
+        {
+            await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
+            return;
+        }
+        // An owner session may register and change the repositories it was handed, never import
+        // or reach beyond them; POST /api/repos checks the requested id itself.
+        var mayRegister = identity.CanRegisterRepositories ||
+            (identity.Session is { Role: FederatedRole.Owner } && !isImport);
+        if (!mayRegister)
         {
             await Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted")
                 .ExecuteAsync(context);
@@ -248,12 +305,16 @@ app.Use(async (context, next) =>
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
         return;
     }
-    else if (repositoryId is null && !isRepositoryCollection && !isReportCollection &&
-             !string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) &&
-             !string.Equals(route, "/api/v1/capabilities", StringComparison.OrdinalIgnoreCase) &&
-             !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
+    else if (repositoryId is null && !isHostRoute && !identity.CanAccess(RepositoryRegistry.DefaultRepositoryId))
     {
         await Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found").ExecuteAsync(context);
+        return;
+    }
+
+    if (identity.Session is { } caller && caller.Role < FederatedAccessPolicy.RequiredRole(context.Request.Method, route))
+    {
+        await Results.Problem(statusCode: StatusCodes.Status403Forbidden,
+            title: $"The {caller.Role.ToString().ToLowerInvariant()} role does not permit this action").ExecuteAsync(context);
         return;
     }
 
@@ -263,77 +324,35 @@ app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualityStudio.Api" }));
 
-app.MapGet("/api/repos", (HttpContext context, bool? includeArchived, RepositoryRegistry registry,
-    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security) =>
-{
-    var repositories = registry.List(includeArchived == true)
-        .Where(repository => security.Identity(context).CanAccess(repository.Id))
-        .ToArray();
-    prewarmer.QueueAll(repositories);
-    return Results.Ok(new
-    {
-        repositories,
-        // Registrations this host loaded but cannot serve. They are reported rather than hidden, so a
-        // moved or removed working copy is visible instead of silently absent.
-        unavailable = registry.Unavailable
-            .Where(entry => security.Identity(context).CanAccess(entry.Id))
-            .ToArray(),
-        defaultRepositoryId = security.Identity(context).CanAccess(RepositoryRegistry.DefaultRepositoryId)
-            ? RepositoryRegistry.DefaultRepositoryId
-            : null,
-    });
-});
+app.MapFederationEndpoints();
 
-app.MapPost("/api/repos", async (RepositoryRegistrationRequest request, RepositoryRegistry registry,
-    RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
-{
-    var created = await registry.CreateAsync(request, cancellationToken);
-    prewarmer.Queue(created);
-    return Results.Created($"/api/repos/{created.Id}", created);
-});
-
+// The routes Agent Studio calls (agent-studio-integration/1) also answer under /api/v1. The
+// unversioned paths stay; the middleware folds both spellings onto one policy. Routes stay
+// literal so the boundary inventory sensor can see each registration.
+app.MapGet("/api/repos", ListRepositories);
+app.MapGet("/api/v1/repos", ListRepositories);
+app.MapPost("/api/repos", CreateRepository);
+app.MapPost("/api/v1/repos", CreateRepository);
 app.MapPost("/api/repos/import-from-agent-studio", ImportFromAgentStudio);
-
-Func<IResult> capabilities = () => Results.Ok(new
-{
-    contract = "agent-studio-integration/1",
-    features = new[] { "external-ref" },
-});
-app.MapGet("/api/v1/capabilities", capabilities);
-app.MapGet("/api/repos/{repoId}/v1/capabilities", capabilities);
-
-// Lookup by a stable external reference, so a caller such as Agent Studio finds its registration
-// without matching paths. Without externalRef it lists like /api/repos.
-Func<HttpContext, string?, RepositoryRegistry, ApiSecurity, IResult> listV1Repositories =
-    (context, externalRef, registry, security) =>
-{
-    var identity = security.Identity(context);
-    if (externalRef is null)
-        return Results.Ok(new
-        {
-            repositories = registry.List().Where(repository => identity.CanAccess(repository.Id)).ToArray(),
-        });
-    if (!RepositoryExternalRef.TryParse(externalRef, out var system, out var id))
-        return Results.Problem(statusCode: StatusCodes.Status400BadRequest,
-            title: "externalRef must have the form system:id");
-    var match = registry.FindByExternalRef(system, id);
-    return match is not null && identity.CanAccess(match.Id)
-        ? Results.Ok(new { repositories = new[] { match } })
-        : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
-};
-app.MapGet("/api/v1/repos", listV1Repositories);
-app.MapGet("/api/repos/{repoId}/v1/repos", listV1Repositories);
-
-app.MapPut("/api/repos/{repoId}", async (string repoId, RepositoryRegistrationRequest request,
-    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken) =>
-{
-    var updated = await registry.UpdateAsync(repoId, request, cancellationToken);
-    prewarmer.Queue(updated);
-    return Results.Ok(updated);
-});
-
-app.MapDelete("/api/repos/{repoId}", async (string repoId, RepositoryRegistry registry, CancellationToken cancellationToken) =>
-    Results.Ok(await registry.ArchiveAsync(repoId, cancellationToken)));
+app.MapPost("/api/v1/repos/import-from-agent-studio", ImportFromAgentStudio);
+app.MapGet("/api/repos/{repoId}/v1/capabilities", (ApiSecurity security, AgentStudioFederation federation) =>
+    Results.Ok(FederationEndpoints.CapabilitiesDocument(security, federation)));
+app.MapGet("/api/repos/{repoId}/v1/repos", ListRepositories);
+app.MapPut("/api/repos/{repoId}", UpdateRepository);
+app.MapPut("/api/v1/repos/{repoId}", UpdateRepository);
+app.MapDelete("/api/repos/{repoId}", ArchiveRepository);
+app.MapDelete("/api/v1/repos/{repoId}", ArchiveRepository);
+app.MapGet("/api/v1/repos/{repoId}/file", FileContent);
+app.MapGet("/api/v1/repos/{repoId}/report", Report);
+app.MapPost("/api/v1/repos/{repoId}/review/estimate", EstimateReview);
+app.MapPost("/api/v1/repos/{repoId}/review", StartReview).RequireRateLimiting("spend");
+app.MapGet("/api/v1/repos/{repoId}/review/runs", ReviewRuns);
+app.MapGet("/api/v1/repos/{repoId}/review/runs/{id}", ReviewRun);
+app.MapGet("/api/v1/repos/{repoId}/review/runs/{id}/report", ReviewRunReport);
+app.MapPost("/api/v1/repos/{repoId}/change-review", ChangeReviewVerdict).RequireRateLimiting("spend");
+app.MapGet("/api/v1/repos/{repoId}/handover", HandoverConfiguration);
+app.MapPost("/api/v1/repos/{repoId}/handover", Handover).RequireRateLimiting("spend");
+app.MapPost("/api/v1/repos/{repoId}/sensors/{id}/scan", SensorScan);
 
 app.MapGet("/api/tree", Tree);
 app.MapGet("/api/repos/{repoId}/tree", Tree);
@@ -449,6 +468,62 @@ app.MapDelete("/api/findings/suppressions/{id}", DeleteFindingSuppression);
 app.MapDelete("/api/repos/{repoId}/findings/suppressions/{id}", DeleteFindingSuppression);
 
 app.Run();
+
+static IResult ListRepositories(HttpContext context, bool? includeArchived, string? externalRef, RepositoryRegistry registry,
+    RepositorySnapshotPrewarmer prewarmer, ApiSecurity security)
+{
+    var identity = security.Identity(context);
+    if (externalRef is not null)
+    {
+        if (!RepositoryExternalRef.TryParse(externalRef, out var system, out var id))
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest,
+                title: "externalRef must have the form system:id");
+        var match = registry.FindByExternalRef(system, id);
+        return match is not null && identity.CanAccess(match.Id)
+            ? Results.Ok(new { repositories = new[] { match } })
+            : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
+    }
+    var repositories = registry.List(includeArchived == true)
+        .Where(repository => identity.CanAccess(repository.Id))
+        .ToArray();
+    prewarmer.QueueAll(repositories);
+    return Results.Ok(new
+    {
+        repositories,
+        // Registrations this host loaded but cannot serve. They are reported rather than hidden, so a
+        // moved or removed working copy is visible instead of silently absent.
+        unavailable = registry.Unavailable
+            .Where(entry => identity.CanAccess(entry.Id))
+            .ToArray(),
+        defaultRepositoryId = identity.CanAccess(RepositoryRegistry.DefaultRepositoryId)
+            ? RepositoryRegistry.DefaultRepositoryId
+            : null,
+    });
+}
+
+static async Task<IResult> CreateRepository(HttpContext context, RepositoryRegistrationRequest request,
+    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, ApiSecurity security,
+    CancellationToken cancellationToken)
+{
+    // An owner session registers only repositories its hand-off named; a registrar client is unrestricted.
+    var identity = security.Identity(context);
+    if (identity.Session is not null && !identity.CanAccess(RepositoryRegistry.EffectiveId(request)))
+        return Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Repository registration is not permitted");
+    var created = await registry.CreateAsync(request, cancellationToken);
+    prewarmer.Queue(created);
+    return Results.Created($"/api/repos/{created.Id}", created);
+}
+
+static async Task<IResult> UpdateRepository(string repoId, RepositoryRegistrationRequest request,
+    RepositoryRegistry registry, RepositorySnapshotPrewarmer prewarmer, CancellationToken cancellationToken)
+{
+    var updated = await registry.UpdateAsync(repoId, request, cancellationToken);
+    prewarmer.Queue(updated);
+    return Results.Ok(updated);
+}
+
+static async Task<IResult> ArchiveRepository(string repoId, RepositoryRegistry registry, CancellationToken cancellationToken) =>
+    Results.Ok(await registry.ArchiveAsync(repoId, cancellationToken));
 
 static IResult ScopeRules(HttpContext context, RepositoryRegistry registry, RepositoryHierarchyCache hierarchyCache)
 {
@@ -1888,6 +1963,13 @@ static (RepositoryRegistration Registration, RepositoryAccess Access) ResolveRep
 
 static string? RouteRepositoryId(HttpContext context) =>
     context.Request.RouteValues.TryGetValue("repoId", out var routeId) ? routeId?.ToString() : null;
+
+static bool IsSameOriginRequest(HttpContext context)
+{
+    var origins = context.Request.Headers.Origin;
+    return origins.Count == 1 && string.Equals(origins[0], $"{context.Request.Scheme}://{context.Request.Host.Value}",
+        StringComparison.OrdinalIgnoreCase);
+}
 
 static IEnumerable<HierarchyNode> Flatten(IEnumerable<HierarchyNode> roots)
 {
