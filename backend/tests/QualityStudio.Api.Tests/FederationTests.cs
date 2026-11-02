@@ -474,6 +474,7 @@ public sealed class FederationTests : IAsyncLifetime
         {
             var result = schema.Evaluate(document, new EvaluationOptions { OutputFormat = OutputFormat.List });
             Assert.True(result.IsValid, JsonSerializer.Serialize(result));
+            Assert.Equal(IntegrationCapabilities.Contract, document.GetProperty("contract").GetString());
             Assert.Equal(["agent-studio-integration/1"], document.GetProperty("contracts").EnumerateArray().Select(item => item.GetString()));
             Assert.Contains("deep-link/1", document.GetProperty("features").EnumerateArray().Select(item => item.GetString()));
             Assert.Contains(IntegrationCapabilities.ChangeReviewStore,

@@ -152,6 +152,7 @@ internal static class FederationEndpoints
             schemaVersion = 1,
             product = "quality-studio",
             productVersion = ProductVersion(),
+            contract = Contract,
             contracts = new[] { Contract },
             features,
             mode = security.IsLocal ? "local" : "hosted",

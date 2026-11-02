@@ -5,12 +5,13 @@
   "description": "GET /api/v1/capabilities: what this Quality Studio host offers Agent Studio under the agent-studio-integration contract. A reader ignores features it does not know and degrades a surface whose feature is absent.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "schemaVersion", "product", "productVersion", "contracts", "features", "mode", "federation", "spend"],
+  "required": ["schema", "schemaVersion", "product", "productVersion", "contract", "contracts", "features", "mode", "federation", "spend"],
   "properties": {
     "schema": { "const": "https://agent-orchestrator.dev/quality/schemas/integration-capabilities.v1.schema.json" },
     "schemaVersion": { "const": 1 },
     "product": { "const": "quality-studio" },
     "productVersion": { "type": "string", "minLength": 1 },
+    "contract": { "const": "agent-studio-integration/1" },
     "contracts": {
       "description": "Integration contract versions this host implements, for example agent-studio-integration/1. A caller picks the highest version both sides support.",
       "type": "array",

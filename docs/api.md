@@ -149,7 +149,7 @@ into that redirect.
 | --- | --- | --- |
 | `GET /api/v1/session` | any authenticated caller | `mode`, `kind` (`local`, `client`, `session`), `clientId` for a bearer client, `subject`, `role`, `repositories` and `csrfToken` for a session, and `federation` (`enabled`, `studioPublicUrl`) |
 | `POST /api/v1/federation/revoke` | a bearer client listed in `AgentStudio:Federation:ServiceClients` (default `agent-studio`) | body `{"sid": "…"}` and/or `{"sub": "…"}`; ends every matching session at once and refuses hand-offs for them issued before the call. `{"revoked": <count>}` |
-| `GET /api/v1/capabilities` | any authenticated caller | [`integration-capabilities.v1`](../schemas/integration-capabilities.v1.schema.json): product version, `contracts: ["agent-studio-integration/1"]`, `features` (`deep-link/1`, `external-ref`, `change-review-store`, and `federation` when configured), the hand-off versions and audience, and whether spending routes have a reviewer CLI (`spend.providerAvailable`) |
+| `GET /api/v1/capabilities` | any authenticated caller | [`integration-capabilities.v1`](../schemas/integration-capabilities.v1.schema.json): product version, `contract: "agent-studio-integration/1"`, `contracts: ["agent-studio-integration/1"]`, `features` (`deep-link/1`, `external-ref`, `change-review-store`, and `federation` when configured), the hand-off versions and audience, and whether spending routes have a reviewer CLI (`spend.providerAvailable`) |
 
 The routes Agent Studio calls also answer under `/api/v1`, with the same rights and limits:
 `/api/v1/repos` (`GET`, `POST`), `/api/v1/repos/import-from-agent-studio`, `/api/v1/repos/{id}`
@@ -503,7 +503,7 @@ capabilities, session, revocation and verdict store routes belong to the v1 cont
 
 ```shell
 curl "http://127.0.0.1:5127/api/v1/capabilities"
-# 200 {"product":"quality-studio","productVersion":"…","contracts":["agent-studio-integration/1"],
+# 200 {"product":"quality-studio","productVersion":"…","contract":"agent-studio-integration/1","contracts":["agent-studio-integration/1"],
 #      "features":["deep-link/1","external-ref","change-review-store",…]}
 
 curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
