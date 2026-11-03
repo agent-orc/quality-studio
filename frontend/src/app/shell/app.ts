@@ -19,7 +19,7 @@ import { ReviewPanel } from '../features/reviews/review-panel/review-panel';
 import { ReviewActions } from '../features/reviews/review-actions/review-actions';
 import { ProjectDashboardView } from '../features/dashboard/project-dashboard/project-dashboard';
 import { UsageHistory } from '../features/reviews/usage-history/usage-history';
-import { readFindingRoute, writeFindingRoute } from '../core/navigation/review-navigation';
+import { readDeepLink, readFindingRoute, writeFindingRoute } from '../core/navigation/review-navigation';
 import { ChangeRoute, readChangeRoute, writeChangeRoute } from '../core/navigation/change-route';
 import { ChangeReviewView } from '../features/reviews/change-review/change-review';
 import { reportUrlPreviewNavigation } from '../core/navigation/url-preview-embed';
@@ -74,11 +74,14 @@ export class App implements OnDestroy {
   readonly explorer = viewChild<Explorer>('explorerPane');
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
+  private readonly deepLink = readDeepLink(location.search);
   readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (readPreference('qs-theme') as 'dark' | 'light') || 'dark');
-  readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
+  readonly selected = signal(this.deepLink.dashboard ? '.' : new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
-  private readonly initialFindingRoute = readFindingRoute(location.search);
+  private readonly initialFindingRoute = this.deepLink.dashboard
+    ? { fingerprint: null, locationIndex: 0 }
+    : readFindingRoute(location.search);
   readonly selectedFindingFingerprint = signal<string | null>(this.initialFindingRoute.fingerprint);
   readonly selectedLocationIndex = signal(this.initialFindingRoute.locationIndex);
   /** A commit range opened by deep link (`view=change`); it replaces the dashboard or editor until closed. */
@@ -114,6 +117,11 @@ export class App implements OnDestroy {
   readonly usageTotalLabel = computed(() => new Intl.NumberFormat('en-US').format(
     this.api.usage().inputTokens + this.api.usage().outputTokens));
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
+  /** "Back to <card>" for a link from an Agent Studio card, once the API names the Studio it belongs to. */
+  readonly backToCard = computed(() => {
+    const studio = this.access.session()?.federation?.studioPublicUrl;
+    return this.deepLink.card && studio ? { key: this.deepLink.card, url: studio } : null;
+  });
   get repositoryForm(): RepositoryRegistrationRequest { return this.repositories.repositoryForm; }
   set repositoryForm(value: RepositoryRegistrationRequest) { this.repositories.repositoryForm = value; }
   get repositoryTokenCapText(): string { return this.repositories.repositoryTokenCapText; }
@@ -187,6 +195,13 @@ export class App implements OnDestroy {
       this.apiAccessRejected.set(true);
       this.apiAccessDialogOpen.set(true);
     });
+    // A hand-off session ended (idle, revoked, restart): reloading lets the host send this
+    // browser through Agent Studio's sign-in and back to the same place.
+    effect(() => {
+      if (this.access.sessionEndedAt() === 0) return;
+      location.reload();
+    });
+    if (this.deepLink.card) void this.access.loadSession();
     void this.initialize();
     this.quotaRefreshTimer = setInterval(() => void this.api.loadQuotas(), 60_000);
   }
@@ -225,6 +240,7 @@ export class App implements OnDestroy {
     const params = new URLSearchParams(location.search);
     writeFindingRoute(params, position.fingerprint, position.locationIndex);
     writeChangeRoute(params, position.change);
+    if (!position.change) params.delete('view');
     const href = new URL(location.href);
     href.search = params.toString();
     const push = this.historyPosition !== null

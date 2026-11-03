@@ -1,6 +1,9 @@
 <div class="shell" [class.api-blocked]="!api.connected()">
   <header class="topbar">
     <div class="brand"><span class="brand-mark">Q</span><span>Quality Studio</span></div>
+    @if (backToCard(); as back) {
+      <a class="studio-button secondary-button back-to-card" [href]="back.url" rel="noopener">&larr; Back to {{ back.key }}</a>
+    }
     <div class="repository-switcher">
       <button class="studio-row-button repository-trigger" type="button" [disabled]="!api.connected()" (click)="repositoryMenuOpen.set(!repositoryMenuOpen())" aria-haspopup="menu" [attr.aria-expanded]="repositoryMenuOpen()">
         <span class="repository-label">Repository</span>
@@ -56,6 +59,13 @@
     <button class="studio-icon-button icon-button" type="button" (click)="toggleReview()" [attr.aria-label]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel'" [title]="(reviewVisible() ? 'Hide' : 'Show') + ' review panel · Ctrl+Alt+B'">◨</button>
     <button class="studio-icon-button icon-button" (click)="setTheme()" [attr.aria-label]="'Switch to ' + (theme() === 'dark' ? 'light' : 'dark') + ' theme'">{{ theme() === 'dark' ? '☼' : '◐' }}</button>
   </header>
+
+  @if (api.repositoryWriteRequest(); as request) {
+    <div class="repository-write-request" role="status">
+      @if (request.url) { <a [href]="request.url" target="_blank" rel="noopener noreferrer">Requested as {{ request.taskId }}</a> }
+      @else { Request dry run recorded. }
+    </div>
+  }
 
   @if (!api.connected()) {
     <qs-api-connection-state [state]="api.connectionState()" [error]="api.connectionError()" [retrying]="api.retryingConnection()" (retry)="api.retryConnection()" (configure)="openApiAccess()" />
