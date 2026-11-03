@@ -22,7 +22,6 @@ internal static class FederationEndpoints
         app.MapGet("/api/v1/session", Session);
         app.MapPost("/api/v1/federation/revoke", Revoke);
         app.MapGet("/api/v1/capabilities", Capabilities);
-        app.MapGet("/api/repos/{repoId}/v1/capabilities", Capabilities);
     }
 
     /// <summary>
