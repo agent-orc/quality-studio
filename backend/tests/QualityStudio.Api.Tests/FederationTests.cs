@@ -385,6 +385,10 @@ public sealed class FederationTests : IAsyncLifetime
         var location = page.Headers.Location!.OriginalString;
         Assert.Equal(Handoffs.StudioOrigin + AgentStudioFederation.StudioOpenPath +
                      "?project=default&return=" + Uri.EscapeDataString("/?repo=default&path=Sample.cs&view=dashboard"), location);
+        // A registration that carries an Agent Studio external reference names that project instead.
+        using var referenced = await client.SendAsync(Page("/?repo=foreign"), TestContext.Current.CancellationToken);
+        Assert.Equal(Handoffs.StudioOrigin + AgentStudioFederation.StudioOpenPath +
+                     "?project=PROJ-FOREIGN&return=" + Uri.EscapeDataString("/?repo=foreign"), referenced.Headers.Location!.OriginalString);
         using var deep = await client.SendAsync(Page("/some/client/route"), TestContext.Current.CancellationToken);
         Assert.Equal(Handoffs.StudioOrigin + AgentStudioFederation.StudioOpenPath + "?return=" + Uri.EscapeDataString("/some/client/route"),
             deep.Headers.Location!.OriginalString);
@@ -823,7 +827,8 @@ public sealed class FederationTests : IAsyncLifetime
         await File.WriteAllTextAsync(registry, JsonSerializer.Serialize(new[]
         {
             new RepositoryRegistration("default", "Default", RepositoryRoot, null, 12000, ["code", "security", "performance"]),
-            new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000, ["code", "security", "performance"]),
+            new RepositoryRegistration("foreign", "Foreign", ForeignRepositoryRoot, null, 12000, ["code", "security", "performance"],
+                ExternalRefs: [new RepositoryExternalRef(AgentStudioFederation.ExternalRefSystem, "PROJ-FOREIGN")]),
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
         application = new FederatedApplication(this);
     }

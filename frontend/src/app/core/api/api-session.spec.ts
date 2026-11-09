@@ -10,7 +10,7 @@ const TOKEN_STORAGE_KEY = 'qs-api-token';
 
 function clientSession(clientId: string): ApiSession {
   return {
-    mode: 'hosted', kind: 'client', clientId, subject: null, role: null, repositories: ['default'], csrfToken: null,
+    mode: 'hosted', kind: 'client', clientId, subject: null, role: null, repositories: ['default'], csrfToken: null, expiresAt: null,
     federation: { enabled: false, studioPublicUrl: null },
   };
 }

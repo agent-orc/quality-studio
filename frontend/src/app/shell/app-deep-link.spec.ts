@@ -63,7 +63,7 @@ describe('App shell deep link v1', () => {
 
     http.expectOne('/api/v1/session').flush({
       mode: 'hosted', kind: 'session', clientId: null, subject: 'robert', role: 'operator', repositories: ['default'],
-      csrfToken: 'x', federation: { enabled: true, studioPublicUrl: 'https://studio.example' },
+      csrfToken: 'x', expiresAt: '2026-11-09T20:00:00Z', federation: { enabled: true, studioPublicUrl: 'https://studio.example' },
     });
     await Promise.resolve();
     fixture!.detectChanges();
@@ -78,7 +78,7 @@ describe('App shell deep link v1', () => {
     await open('?repo=default&card=AGT-3352');
 
     http.expectOne('/api/v1/session').flush({
-      mode: 'local', kind: 'local', clientId: null, subject: null, role: null, repositories: ['*'], csrfToken: null,
+      mode: 'local', kind: 'local', clientId: null, subject: null, role: null, repositories: ['*'], csrfToken: null, expiresAt: null,
       federation: { enabled: false, studioPublicUrl: null },
     });
     await Promise.resolve();

@@ -138,8 +138,9 @@ against the session's user, whatever headers the browser adds. A request that ca
 
 A page load without a session (`/`, `/index.html` or a client route) is redirected to
 `<StudioPublicUrl>/api/integrations/quality-studio/open?project=<repo>&return=<relative path>`, so
-a bookmark signs in through Agent Studio and returns to the same place; `project` is the `repo`
-query parameter until registrations carry an Agent Studio `externalRef`. Static assets are not gated.
+a bookmark signs in through Agent Studio and returns to the same place; `project` is the id of the
+repository's `agent-studio` external reference when its registration carries one, and otherwise the
+`repo` query parameter in lowercase. Static assets are not gated.
 An API `401` without `Authorization` carries `X-QS-Sign-In: agent-studio`, and the UI then reloads
 into that redirect.
 
@@ -147,7 +148,7 @@ into that redirect.
 
 | Route | Who | Answer |
 | --- | --- | --- |
-| `GET /api/v1/session` | any authenticated caller | `mode`, `kind` (`local`, `client`, `session`), `clientId` for a bearer client, `subject`, `role`, `repositories` and `csrfToken` for a session, and `federation` (`enabled`, `studioPublicUrl`) |
+| `GET /api/v1/session` | any authenticated caller | `mode`, `kind` (`local`, `client`, `session`), `clientId` for a bearer client, `subject`, `role`, `repositories`, `csrfToken` and `expiresAt` (the absolute end) for a session, and `federation` (`enabled`, `studioPublicUrl`) |
 | `POST /api/v1/federation/revoke` | a bearer client listed in `AgentStudio:Federation:ServiceClients` (default `agent-studio`) | body `{"sid": "…"}` and/or `{"sub": "…"}`; ends every matching session at once and refuses hand-offs for them issued before the call. `{"revoked": <count>}` |
 | `GET /api/v1/capabilities` | any authenticated caller | [`integration-capabilities.v1`](../schemas/integration-capabilities.v1.schema.json): product version, `contracts: ["agent-studio-integration/1"]`, `features` (`deep-link/1`, `external-ref`, `change-review-store`, and `federation` when configured), the hand-off versions and audience, and whether spending routes have a reviewer CLI (`spend.providerAvailable`) |
 
@@ -519,7 +520,7 @@ the same authentication and role rules described above. Its `PUT` and `GET` rout
 ```shell
 curl "http://127.0.0.1:5127/api/v1/capabilities"
 # 200 {"product":"quality-studio","version":"…","contract":"agent-studio-integration/1","contracts":["agent-studio-integration/1"],
-#      "features":["external-ref","change-review-store"]}
+#      "features":["deep-link/1","external-ref","change-review-store"], …}
 
 curl -X PUT "http://127.0.0.1:5127/api/v1/repos/proj-002/change-reviews" \
   -H "Content-Type: application/json" \
