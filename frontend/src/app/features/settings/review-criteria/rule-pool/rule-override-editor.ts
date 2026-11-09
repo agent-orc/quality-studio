@@ -62,7 +62,7 @@ export class RuleOverrideEditor {
     this.saved.set('');
     try {
       await action();
-      this.saved.set(message);
+      this.saved.set(this.policy.repositoryWriteRequest() ? '' : message);
     } catch (error) {
       this.failure.set(error as RulePoolFailure);
     }

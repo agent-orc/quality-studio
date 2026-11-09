@@ -65,6 +65,7 @@ public sealed class AnalyzerProfileResolutionTests
 
             Assert.Equal("dotnet", command[0]);
             Assert.Contains("--no-incremental", command);
+            Assert.Contains("--disable-build-servers", command);
             Assert.Contains(
                 "-p:CustomAfterMicrosoftCommonTargets=" +
                 Path.Combine(reports, AnalyzerCommand.RoslynErrorLogTargetsFileName),

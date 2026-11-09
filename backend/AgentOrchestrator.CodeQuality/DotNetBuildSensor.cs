@@ -92,6 +92,8 @@ public sealed partial class DotNetBuildSensor(ISensorCommandRunner? commandRunne
                         "--configuration", "Release",
                         "--no-restore",
                         "--nologo",
+                        // A reused MSBuild node or compiler server would hold the output pipes open.
+                        "--disable-build-servers",
                         "-p:GenerateFullPaths=true",
                     ],
                     root,

@@ -19,7 +19,9 @@ import { ReviewPanel } from '../features/reviews/review-panel/review-panel';
 import { ReviewActions } from '../features/reviews/review-actions/review-actions';
 import { ProjectDashboardView } from '../features/dashboard/project-dashboard/project-dashboard';
 import { UsageHistory } from '../features/reviews/usage-history/usage-history';
-import { readFindingRoute, writeFindingRoute } from '../core/navigation/review-navigation';
+import { readDeepLink, readFindingRoute, writeFindingRoute } from '../core/navigation/review-navigation';
+import { ChangeRoute, readChangeRoute, writeChangeRoute } from '../core/navigation/change-route';
+import { ChangeReviewView } from '../features/reviews/change-review/change-review';
 import { reportUrlPreviewNavigation } from '../core/navigation/url-preview-embed';
 import { formatTokenCount } from '../shared/utils/format';
 import { RepositoryDialog } from '../features/repositories/repository-dialog/repository-dialog';
@@ -43,11 +45,12 @@ interface ShellPosition {
   kind: ReviewKind;
   fingerprint: string | null;
   locationIndex: number;
+  change: ChangeRoute | null;
 }
 @Component({
   selector: 'app-root',
   providers: [WorkspaceLayoutState, ConfirmationState, GuidelineEditorState, RepositoryEditorState],
-  imports: [ApiConnectionState, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, RepositoryDialog, ApiAccessDialog, ConfirmDialog, GuidelineDialog, AgentStudioImport],
+  imports: [ApiConnectionState, Explorer, Editor, ReviewPanel, ReviewActions, AttackCoverage, UsageHistory, ProjectDashboardView, ChangeReviewView, RepositoryDialog, ApiAccessDialog, ConfirmDialog, GuidelineDialog, AgentStudioImport],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -71,13 +74,18 @@ export class App implements OnDestroy {
   readonly explorer = viewChild<Explorer>('explorerPane');
   readonly usageButton = viewChild.required<ElementRef<HTMLButtonElement>>('usageButton');
   readonly embedded = signal(this.detectEmbedded());
+  private readonly deepLink = readDeepLink(location.search);
   readonly theme = signal<'dark' | 'light'>((new URLSearchParams(location.search).get('theme') as 'dark' | 'light') || (readPreference('qs-theme') as 'dark' | 'light') || 'dark');
-  readonly selected = signal(new URLSearchParams(location.search).get('path') || '.');
+  readonly selected = signal(this.deepLink.dashboard ? '.' : new URLSearchParams(location.search).get('path') || '.');
   readonly activeKind = signal<ReviewKind>((new URLSearchParams(location.search).get('kind') as ReviewKind) || 'code');
   readonly selectedFinding = signal<ReviewFinding | null>(null);
-  private readonly initialFindingRoute = readFindingRoute(location.search);
+  private readonly initialFindingRoute = this.deepLink.dashboard
+    ? { fingerprint: null, locationIndex: 0 }
+    : readFindingRoute(location.search);
   readonly selectedFindingFingerprint = signal<string | null>(this.initialFindingRoute.fingerprint);
   readonly selectedLocationIndex = signal(this.initialFindingRoute.locationIndex);
+  /** A commit range opened by deep link (`view=change`); it replaces the dashboard or editor until closed. */
+  readonly changeRoute = signal<ChangeRoute | null>(readChangeRoute(location.search));
   readonly reviewFocusRequest = signal(0);
   readonly repositoryMenuOpen = signal(false);
   readonly repositoryDialogOpen = this.repositories.repositoryDialogOpen;
@@ -109,6 +117,11 @@ export class App implements OnDestroy {
   readonly usageTotalLabel = computed(() => new Intl.NumberFormat('en-US').format(
     this.api.usage().inputTokens + this.api.usage().outputTokens));
   readonly reviewKinds: ReviewKind[] = ['code', 'security', 'performance'];
+  /** "Back to <card>" for a link from an Agent Studio card, once the API names the Studio it belongs to. */
+  readonly backToCard = computed(() => {
+    const studio = this.access.session()?.federation?.studioPublicUrl;
+    return this.deepLink.card && studio ? { key: this.deepLink.card, url: studio } : null;
+  });
   get repositoryForm(): RepositoryRegistrationRequest { return this.repositories.repositoryForm; }
   set repositoryForm(value: RepositoryRegistrationRequest) { this.repositories.repositoryForm = value; }
   get repositoryTokenCapText(): string { return this.repositories.repositoryTokenCapText; }
@@ -156,6 +169,7 @@ export class App implements OnDestroy {
         kind: this.activeKind(),
         fingerprint: this.selectedFindingFingerprint(),
         locationIndex: this.selectedLocationIndex(),
+        change: this.changeRoute(),
       };
       this.pendingPosition = position;
       if (this.urlSyncTimer !== null) return;
@@ -181,6 +195,13 @@ export class App implements OnDestroy {
       this.apiAccessRejected.set(true);
       this.apiAccessDialogOpen.set(true);
     });
+    // A hand-off session ended (idle, revoked, restart): reloading lets the host send this
+    // browser through Agent Studio's sign-in and back to the same place.
+    effect(() => {
+      if (this.access.sessionEndedAt() === 0) return;
+      location.reload();
+    });
+    if (this.deepLink.card) void this.access.loadSession();
     void this.initialize();
     this.quotaRefreshTimer = setInterval(() => void this.api.loadQuotas(), 60_000);
   }
@@ -218,6 +239,8 @@ export class App implements OnDestroy {
   private syncUrl(position: ShellPosition): void {
     const params = new URLSearchParams(location.search);
     writeFindingRoute(params, position.fingerprint, position.locationIndex);
+    writeChangeRoute(params, position.change);
+    if (!position.change) params.delete('view');
     const href = new URL(location.href);
     href.search = params.toString();
     const push = this.historyPosition !== null
@@ -239,6 +262,7 @@ export class App implements OnDestroy {
     const path = params.get('path') || '.';
     this.selectedFindingFingerprint.set(route.fingerprint);
     this.selectedLocationIndex.set(route.locationIndex);
+    this.changeRoute.set(readChangeRoute(location.search));
     if (kind && this.reviewKinds.includes(kind)) this.activeKind.set(kind);
     // The popped entry already exists, so the next sync must replace it rather than push again.
     this.historyPosition = { repository: repository ?? this.api.selectedRepositoryId(), path };
@@ -301,6 +325,8 @@ export class App implements OnDestroy {
     const isCurrent = () => sequence === this.openSequence
       && this.selected() === path && this.api.selectedRepositoryId() === repositoryId;
     this.selected.set(path);
+    // A user navigation leaves the change view; restoring a position on start or Back keeps it.
+    if (track) this.changeRoute.set(null);
     this.api.clearFile();
     if (!preserveFinding) this.clearFindingSelection();
     let node = this.api.nodeAt(path);
@@ -359,6 +385,8 @@ export class App implements OnDestroy {
       this.selectedFinding.set(restored ?? event.finding);
     }
   }
+
+  closeChangeView(): void { this.changeRoute.set(null); }
 
   focusReviewLauncher(): void { this.reviewFocusRequest.update(value => value + 1); }
 

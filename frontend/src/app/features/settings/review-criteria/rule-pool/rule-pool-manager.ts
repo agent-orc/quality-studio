@@ -213,6 +213,7 @@ export class RulePoolManager {
     this.notice.set('');
     try {
       const result = await this.policy.importRuleSet(this.importDocument(), this.importMode(), dryRun, this.importReason().trim());
+      if (result === null) { this.importPreview.set(null); return; }
       this.importPreview.set(result);
       if (result.applied) this.notice.set(`Imported ${this.importFileName()} into ${this.scopeLabel()}.`);
     } catch (error) {
@@ -248,7 +249,7 @@ export class RulePoolManager {
     this.notice.set('');
     try {
       await action();
-      this.notice.set(message);
+      this.notice.set(this.policy.repositoryWriteRequest() ? '' : message);
       return true;
     } catch (error) {
       this.failure.set(error as RulePoolFailure);

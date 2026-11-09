@@ -34,6 +34,7 @@ export class FindingsApi {
   readonly handoverConfigured = signal(false);
   readonly handoverDryRun = signal(true);
   readonly findingSuppressions = signal<FindingSuppressionsResponse>({ schemaVersion: 1, revision: 0, rules: [] });
+  readonly repositoryWriteRequest = this.context.repositoryWriteRequest;
 
   /** Called after a mutation that changes review state elsewhere, such as a finding disposition. */
   onFindingsChanged: (() => Promise<void>) | null = null;
@@ -106,6 +107,7 @@ export class FindingsApi {
   async addFindingSuppression(request: FindingSuppressionMutation): Promise<ReviewFinding | null> {
     const response = await firstValueFrom(this.http.post<FindingSuppressionsResponse>(
       `${this.context.repositoryApiBase()}/findings/suppressions`, request));
+    if (this.context.recordRepositoryWrite(response)) return null;
     this.findingSuppressions.set(response);
     await Promise.all([this.loadFile(request.path), this.onFindingsChanged?.() ?? Promise.resolve()]);
     console.info(JSON.stringify({ event: 'qs.finding.suppressed', fingerprint: request.fingerprint, revision: response.revision }));
@@ -116,15 +118,17 @@ export class FindingsApi {
   async addScopedSuppression(request: ScopedSuppressionMutation): Promise<void> {
     const response = await firstValueFrom(this.http.post<FindingSuppressionsResponse>(
       `${this.context.repositoryApiBase()}/findings/suppressions/scoped`, request));
+    if (this.context.recordRepositoryWrite(response)) return;
     this.findingSuppressions.set(response);
     const path = this.file()?.path;
     await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.onFindingsChanged?.() ?? Promise.resolve()]);
   }
 
-  async deleteFindingSuppression(id: string, expectedRevision: number): Promise<void> {
+  async deleteFindingSuppression(id: string, expectedRevision: number, reason = ''): Promise<void> {
     const response = await firstValueFrom(this.http.delete<FindingSuppressionsResponse>(
       `${this.context.repositoryApiBase()}/findings/suppressions/${encodeURIComponent(id)}`,
-      { params: { expectedRevision } }));
+      { params: { expectedRevision, reason } }));
+    if (this.context.recordRepositoryWrite(response)) return;
     this.findingSuppressions.set(response);
     const path = this.file()?.path;
     await Promise.all([path ? this.loadFile(path) : Promise.resolve(), this.onFindingsChanged?.() ?? Promise.resolve()]);

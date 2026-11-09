@@ -4,6 +4,49 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Fixed — .NET build scans no longer wait for lingering build servers (QS-128)
+
+- The `roslyn-build-sarif` profile and the `dotnet-build` sensor pass `--disable-build-servers`.
+  Without it a reused MSBuild node or the shared compiler server outlived `dotnet build`, kept the
+  redirected output open, and the scan reported `dotnet timed out after 00:05:00` on every host
+  that does not disable node reuse itself, including both GitHub Build runners.
+- The quoted-path change-review test no longer creates a file name with `"` on Windows, where such
+  a name cannot exist; a non-ASCII name exercises git's quoted diff headers on every system.
+
+### Fixed — Agent Studio sign-in names the registered project (QS-140, follow-up to QS-132)
+
+- The sign-in redirect for a page load without a session sends `project` as the id of the
+  repository's `agent-studio` external reference when its registration carries one. Before, it
+  always sent the lowercase repository id, although registrations now carry that reference.
+- `GET /api/v1/session` documents `expiresAt`, and the browser's session type declares it. The
+  capabilities example in `docs/api.md` lists `deep-link/1`, which every host announces.
+
+### Added — Agent Studio sign-in, capabilities and deep link v1 (QS-132, AGT-3352 slice QSI-2)
+
+- A hosted host configured with `AgentStudio:Federation:Issuer` accepts Agent Studio's signed
+  hand-off at `POST /auth/agent-studio` (Ed25519 JWS, audience, 60 s lifetime with 30 s skew, `ver`,
+  Studio `Origin`, single-use `jti` kept in the data root) and opens its own `__Host-qs-session`
+  (idle 60 min, absolute 12 h). Sessions are authorized per repository from `repos` and by role
+  (viewer, operator, owner), need `Origin` and `X-CSRF-Token` on unsafe requests, and spend against
+  their user. Page loads without a session redirect to Studio's sign-in start. Without the issuer the
+  receiver answers 404 and Local and bearer-hosted modes are unchanged.
+- `POST /api/v1/federation/revoke` (service client) ends sessions by `sid` or `sub`;
+  `GET /api/v1/session` reports the caller; `GET /api/v1/capabilities` declares
+  `agent-studio-integration/1` ([schema](schemas/integration-capabilities.v1.schema.json)). The
+  integration routes also answer under `/api/v1/`.
+- Deep link v1 is documented in [`docs/api.md`](docs/api.md#deep-link-v1): `view=dashboard` and
+  unknown views open the repository dashboard, and `card` renders "Back to <key>".
+
+### Fixed — hosted-mode browser mutations and read-only checkouts (QS-132)
+
+- The browser UI now sends `X-Client-Id` with every mutation in bearer-token hosted mode; before, every
+  browser edit there was refused with `401`.
+- The container image trusts exactly the registered repository roots as Git `safe.directory` instead
+  of `'*'`, and `scripts/check-container-git.mjs` proves Git reads a read-only checkout owned by
+  another uid. The image build now copies the review response schema the analysis library embeds,
+  without which `dotnet publish` failed.
+- Reading the ignore list no longer creates `.quality/findings/` in the checkout, so a read-only
+  mounted checkout serves the tree instead of failing with `500`.
 ### Changed — price catalog synced to Token Economy 0.3.8 (QS-127, covers QS-121)
 
 `npm run catalog:sync` ran against the `v0.3.8` tag (Token Economy `c6d1de5`, policy `2026-10-21`).
@@ -37,6 +80,25 @@ The catalog grows from 22 to 30 models.
 - A test-only guard (`frontend/src/testing/unhandled-rejections.spec.ts`) now fails the spec that
   leaks an unhandled promise rejection, or fails the run if it surfaces after the last spec,
   instead of logging it to the console only.
+
+### Added — change-review store, ingest and change view (QS-134, AGT-3352 QSI-5)
+
+- A change-review verdict is computed at most once per repository, range, policy hash, rule-set hash
+  and catalogue version. `POST /api/repos/{id}/change-review` answers from the store without a model
+  call when the key holds a decisive verdict, and stores every result it computes. Infrastructure
+  verdicts are stored but never reused.
+- `PUT /api/v1/repos/{id}/change-reviews` ingests a `change-review-verdict.v1` document from Agent
+  Studio's Review Plane, with card, round and attempt provenance. Repeating an ingest is safe. An
+  unknown schema version answers `422`.
+- `GET /api/v1/repos/{id}/change-reviews?base=&head=[&previous=]` returns the stored verdicts of a
+  range, newest rule set first, with commit presence, diff excerpts and the "this round only"
+  findings.
+- The deep link `view=change&base=&head=[&card=][&previous=]` opens a change view. It shows the
+  verdict, severity counts, findings above the diff lines they cite, and provenance. A range
+  without a verdict shows "Not reviewed" with an operator "Run review". A missing commit shows
+  "Commit not present on this host". Infrastructure verdicts show as unavailable, never as pass.
+- `GET /api/v1/capabilities` announces contract `agent-studio-integration/1` with feature
+  `change-review-store`.
 
 ### Fixed — Agent Studio repository preparation (QS-103)
 

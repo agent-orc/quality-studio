@@ -33,7 +33,7 @@ export class GuidelineEditorState {
   editGuideline(guideline: Guideline): void {
     this.editingGuidelineId.set(guideline.id);
     this.guidelineForm = { id: guideline.id, enabled: guideline.enabled, priority: guideline.priority,
-      kinds: guideline.kinds.join(', '), levels: guideline.levels.join(', '), content: guideline.content };
+      kinds: guideline.kinds.join(', '), levels: guideline.levels.join(', '), content: guideline.content, reason: '' };
     this.guidelineError.set('');
     this.guidelineImpact.set(null);
   }
@@ -43,8 +43,9 @@ export class GuidelineEditorState {
     try {
       const draft = this.guidelineDraft();
       const existing = this.editingGuidelineId();
-      const saved = existing ? await this.api.updateGuideline(existing, draft) : await this.api.createGuideline(draft);
-      this.editGuideline(saved);
+      const reason = this.guidelineForm.reason.trim();
+      const saved = existing ? await this.api.updateGuideline(existing, draft, reason) : await this.api.createGuideline(draft, reason);
+      if (saved) this.editGuideline(saved);
     } catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
     finally { this.guidelineSaving.set(false); }
   }
@@ -64,7 +65,8 @@ export class GuidelineEditorState {
 
   private async confirmDeleteGuideline(id: string): Promise<void> {
     try {
-      await this.api.deleteGuideline(id);
+      await this.api.deleteGuideline(id, this.guidelineForm.reason.trim());
+      if (this.api.repositoryWriteRequest()) return;
       if (this.api.guidelines().length) this.editGuideline(this.api.guidelines()[0]);
       else this.newGuideline();
     } catch (error) {
@@ -73,7 +75,10 @@ export class GuidelineEditorState {
   }
 
   async installGuideline(id: string): Promise<void> {
-    try { this.editGuideline(await this.api.installGuideline(id)); }
+    try {
+      const guideline = await this.api.installGuideline(id, this.guidelineForm.reason.trim());
+      if (guideline) this.editGuideline(guideline);
+    }
     catch (error) { this.guidelineError.set(this.api.errorMessage(error)); }
   }
 
@@ -88,7 +93,7 @@ export class GuidelineEditorState {
   }
 
   private emptyGuidelineForm(): GuidelineForm {
-    return { id: '', enabled: true, priority: 50, kinds: 'code', levels: 'file', content: '' };
+    return { id: '', enabled: true, priority: 50, kinds: 'code', levels: 'file', content: '', reason: '' };
   }
 
   private guidelineDraft(): GuidelineDraft {

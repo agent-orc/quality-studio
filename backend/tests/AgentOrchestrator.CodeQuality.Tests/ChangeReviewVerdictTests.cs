@@ -153,17 +153,35 @@ public sealed class ChangeReviewVerdictTests
         Assert.Equal("base", Assert.Single(result.Findings).Side);
     }
 
+    // Git C-quotes a path with non-ASCII bytes or a double quote. Windows file names cannot hold a
+    // double quote, so there the octal-escaped name alone exercises the quoted header; the escaped
+    // quote itself is parsed on every system by the timestamped-header test below.
+    public static TheoryData<string, bool> QuotedPathCases()
+    {
+        var cases = new TheoryData<string, bool>
+        {
+            { "Work with space.cs", false },
+            { "naïve work.cs", false },
+            { "naïve work.cs", true },
+        };
+        if (!OperatingSystem.IsWindows())
+        {
+            cases.Add("naïve \"work\".cs", false);
+            cases.Add("naïve \"work\".cs", true);
+        }
+
+        return cases;
+    }
+
     [Theory]
-    [InlineData("Work with space.cs", false)]
-    [InlineData("naïve \"work\".cs", false)]
-    [InlineData("naïve \"work\".cs", true)]
+    [MemberData(nameof(QuotedPathCases))]
     public async Task Git_quoted_paths_anchor_findings_on_either_side(string fileName, bool deletionOnly)
     {
         using var repository = await Fixture.CreateAsync(deletionOnly, fileName);
         var path = "src/" + fileName;
         var diff = await GitTestRepository.RunForOutputAsync(repository.Root,
             TestContext.Current.CancellationToken, "diff", repository.Base, repository.Head);
-        if (fileName.Contains('"')) Assert.Contains("\"a/", diff);
+        if (fileName.Any(character => character == '"' || character > '\u007f')) Assert.Contains("\"a/", diff);
         var response = JsonSerializer.Serialize(new
         {
             findings = new[] { new

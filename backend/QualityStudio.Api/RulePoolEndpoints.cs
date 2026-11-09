@@ -81,15 +81,17 @@ internal static class RulePoolEndpoints
             return Results.Text(JsonSerializer.Serialize(document, AttackCoverageJson.Options) + "\n", "application/json");
         });
 
-    private static IResult Import(HttpContext context, string? scope, RuleSetImportRequest request,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Guarded(() =>
+    private static Task<IResult> Import(HttpContext context, string? scope, RuleSetImportRequest request,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover)
+    {
+        var (registration, repository) = Resolve(context, registry, security);
+        IResult Apply(string root) => Guarded(() =>
         {
             var selected = Scope(scope);
             if (!request.DryRun && Forbidden(context, security, selected) is { } forbidden) return forbidden;
             if (request.RuleSet is not { ValueKind: JsonValueKind.Object } element)
                 throw new RulePoolValidationException("The request requires a 'ruleSet' object.");
-            var result = Store(context, registry, security).Import(selected, RulePoolStore.ParseRuleSet(element),
+            var result = Store(context, registry, security, root).Import(selected, RulePoolStore.ParseRuleSet(element),
                 request.Mode ?? "merge", request.DryRun, request.Reason ?? string.Empty, Actor(context, security));
             return Results.Ok(new
             {
@@ -101,6 +103,10 @@ internal static class RulePoolEndpoints
                 pool = View(result.Catalogue, null, null, security.Identity(context)),
             });
         });
+        return !request.DryRun && !string.Equals(scope, RuleScopes.Global, StringComparison.OrdinalIgnoreCase)
+            ? handover.ExecuteAsync(context, repository.Root, "Import project rule set", request.Reason, Apply)
+            : Task.FromResult(Apply(repository.Root));
+    }
 
     private static IResult Audit(HttpContext context, string? scope, int? limit, RepositoryRegistry registry,
         ApiSecurity security) =>
@@ -114,9 +120,9 @@ internal static class RulePoolEndpoints
             });
         });
 
-    private static IResult SetOverride(HttpContext context, string ruleId, string? scope, RuleOverrideMutationRequest request,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> SetOverride(HttpContext context, string ruleId, string? scope, RuleOverrideMutationRequest request,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, request.Reason, registry, security, handover, (store, selected, actor) =>
         {
             FindingSeverity? severity = null;
             if (request.Severity is not null)
@@ -128,9 +134,9 @@ internal static class RulePoolEndpoints
             return store.SetOverride(selected, new RuleOverride(ruleId, request.Enabled, severity, request.Reason ?? string.Empty), actor);
         });
 
-    private static IResult RemoveOverride(HttpContext context, string ruleId, string? scope, string? reason,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> RemoveOverride(HttpContext context, string ruleId, string? scope, string? reason,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, reason, registry, security, handover, (store, selected, actor) =>
             store.RemoveOverride(selected, ruleId, reason ?? string.Empty, actor));
 
     private static IResult ValidateCustomRule(HttpContext context, string? scope, CustomRuleValidationRequest request,
@@ -156,50 +162,57 @@ internal static class RulePoolEndpoints
         }
     }
 
-    private static IResult PutCustomRule(HttpContext context, string ruleId, string? scope, CustomRuleMutationRequest request,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> PutCustomRule(HttpContext context, string ruleId, string? scope, CustomRuleMutationRequest request,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, request.Reason, registry, security, handover, (store, selected, actor) =>
             store.PutCustomRule(selected, ruleId, request.Content ?? string.Empty, request.Reason ?? string.Empty, actor));
 
-    private static IResult DeleteCustomRule(HttpContext context, string ruleId, string? scope, string? reason,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> DeleteCustomRule(HttpContext context, string ruleId, string? scope, string? reason,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, reason, registry, security, handover, (store, selected, actor) =>
             store.DeleteCustomRule(selected, ruleId, reason ?? string.Empty, actor));
 
-    private static IResult PutPack(HttpContext context, string packId, string? scope, RulePackMutationRequest request,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> PutPack(HttpContext context, string packId, string? scope, RulePackMutationRequest request,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, request.Reason, registry, security, handover, (store, selected, actor) =>
         {
             if (request.Pack is not { ValueKind: JsonValueKind.Object } element)
                 throw new RulePoolValidationException("The request requires a 'pack' object.");
             return store.PutPack(selected, packId, RulePoolStore.ParsePack(element), request.Reason ?? string.Empty, actor);
         });
 
-    private static IResult DeletePack(HttpContext context, string packId, string? scope, string? reason,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> DeletePack(HttpContext context, string packId, string? scope, string? reason,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, reason, registry, security, handover, (store, selected, actor) =>
             store.DeletePack(selected, packId, reason ?? string.Empty, actor));
 
-    private static IResult SetApplicability(HttpContext context, string? scope, RuleApplicabilityMutationRequest request,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> SetApplicability(HttpContext context, string? scope, RuleApplicabilityMutationRequest request,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, request.Reason, registry, security, handover, (store, selected, actor) =>
             store.SetApplicability(selected, request.Packs ?? throw new RulePoolValidationException("The request requires a 'packs' list."),
                 request.Reason ?? string.Empty, actor));
 
-    private static IResult ClearApplicability(HttpContext context, string? scope, string? reason,
-        RepositoryRegistry registry, ApiSecurity security) =>
-        Mutation(context, scope, registry, security, (store, selected, actor) =>
+    private static Task<IResult> ClearApplicability(HttpContext context, string? scope, string? reason,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover) =>
+        Mutation(context, scope, reason, registry, security, handover, (store, selected, actor) =>
             store.ClearApplicability(selected, reason ?? string.Empty, actor));
 
-    private static IResult Mutation(HttpContext context, string? scope, RepositoryRegistry registry, ApiSecurity security,
-        Func<RulePoolStore, string, string, ResolvedRuleCatalogue> change) =>
-        Guarded(() =>
+    private static Task<IResult> Mutation(HttpContext context, string? scope, string? reason,
+        RepositoryRegistry registry, ApiSecurity security, RepositoryWriteHandover handover,
+        Func<RulePoolStore, string, string, ResolvedRuleCatalogue> change)
+    {
+        var (_, repository) = Resolve(context, registry, security);
+        IResult Apply(string root) => Guarded(() =>
         {
             var selected = Scope(scope);
             if (Forbidden(context, security, selected) is { } forbidden) return forbidden;
-            var catalogue = change(Store(context, registry, security), selected, Actor(context, security));
+            var catalogue = change(Store(context, registry, security, root), selected, Actor(context, security));
             return Results.Ok(View(catalogue, null, null, security.Identity(context)));
         });
+        return !string.Equals(scope, RuleScopes.Global, StringComparison.OrdinalIgnoreCase)
+            ? handover.ExecuteAsync(context, repository.Root, "Change project rule pool", reason, Apply)
+            : Task.FromResult(Apply(repository.Root));
+    }
 
     private static IResult Guarded(Func<IResult> action)
     {
@@ -249,7 +262,7 @@ internal static class RulePoolEndpoints
         return (registration, registry.Access(registration.Id));
     }
 
-    private static RulePoolStore Store(HttpContext context, RepositoryRegistry registry, ApiSecurity security)
+    private static RulePoolStore Store(HttpContext context, RepositoryRegistry registry, ApiSecurity security, string? rootOverride = null)
     {
         var (registration, repository) = Resolve(context, registry, security);
         var globalDirectory = string.IsNullOrWhiteSpace(registration.GlobalInputsDirectory)
@@ -261,8 +274,8 @@ internal static class RulePoolEndpoints
                     ? Environment.GetEnvironmentVariable("QUALITY_GLOBAL_INPUTS")
                     : entry.GlobalInputsDirectory))
             .ToArray();
-        return new RulePoolStore(repository.Root, string.IsNullOrWhiteSpace(globalDirectory) ? null : globalDirectory,
-            repositories: registered);
+        return new RulePoolStore(rootOverride ?? repository.Root, string.IsNullOrWhiteSpace(globalDirectory) ? null : globalDirectory,
+            repositories: registered, suppressAudit: rootOverride is not null && rootOverride != repository.Root);
     }
 
     private static object View(ResolvedRuleCatalogue catalogue, string? kind, string? adapter, ApiClientIdentity identity)

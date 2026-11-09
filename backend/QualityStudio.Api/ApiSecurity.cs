@@ -6,8 +6,18 @@ namespace QualityStudio.Api;
 
 public sealed record ApiClientIdentity(string Id, IReadOnlySet<string> Repositories, bool CanRegisterRepositories)
 {
+    /// <summary>Set when a browser session from an Agent Studio hand-off made the request; null for clients and Local mode.</summary>
+    public FederatedSession? Session { get; init; }
+
     public bool CanAccess(string repositoryId) =>
         Repositories.Contains("*") || Repositories.Contains(repositoryId);
+
+    /// <summary>
+    /// A hand-off session is bound to its user and repositories. It never carries a wildcard, so it
+    /// never holds the host-wide standing of a registrar client.
+    /// </summary>
+    public static ApiClientIdentity ForSession(FederatedSession session) =>
+        new("agent-studio:" + session.Subject, session.Repositories, CanRegisterRepositories: false) { Session = session };
 }
 
 public sealed class ApiSecurity
@@ -129,6 +139,9 @@ public sealed class ApiSecurity
     }
 
     public void SetIdentity(HttpContext context, ApiClientIdentity identity) => context.Items[IdentityItem] = identity;
+
+    public ApiClientIdentity? TryIdentity(HttpContext context) =>
+        context.Items.TryGetValue(IdentityItem, out var value) ? value as ApiClientIdentity : null;
 
     public ApiClientIdentity Identity(HttpContext context) =>
         context.Items.TryGetValue(IdentityItem, out var value) && value is ApiClientIdentity identity

@@ -38,6 +38,7 @@ export class ScopeApi {
 
   async addScopeRule(request: ScopeRuleMutation): Promise<ScopeRulesResponse> {
     const response = await firstValueFrom(this.http.post<ScopeRulesResponse>(`${this.context.repositoryApiBase()}/scope/rules`, request));
+    if (this.context.recordRepositoryWrite(response)) return this.scopeRules();
     this.scopeRules.set(response);
     await this.onScopeChanged?.();
     return response;
@@ -46,37 +47,44 @@ export class ScopeApi {
   async updateScopeRule(index: number, request: ScopeRuleMutation): Promise<ScopeRulesResponse> {
     const response = await firstValueFrom(this.http.put<ScopeRulesResponse>(
       `${this.context.repositoryApiBase()}/scope/rules/${index}`, request));
+    if (this.context.recordRepositoryWrite(response)) return this.scopeRules();
     this.scopeRules.set(response);
     await this.onScopeChanged?.();
     return response;
   }
 
-  async deleteScopeRule(index: number): Promise<ScopeRulesResponse> {
-    const response = await firstValueFrom(this.http.delete<ScopeRulesResponse>(`${this.context.repositoryApiBase()}/scope/rules/${index}`));
+  async deleteScopeRule(index: number, reason = ''): Promise<ScopeRulesResponse> {
+    const response = await firstValueFrom(this.http.delete<ScopeRulesResponse>(
+      `${this.context.repositoryApiBase()}/scope/rules/${index}`, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(response)) return this.scopeRules();
     this.scopeRules.set(response);
     await this.onScopeChanged?.();
     return response;
   }
 
-  async createGuideline(draft: GuidelineDraft): Promise<Guideline> {
-    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines`, draft));
+  async createGuideline(draft: GuidelineDraft, reason = ''): Promise<Guideline | null> {
+    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines`, draft, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(guideline)) return null;
     await this.onScopeChanged?.();
     return guideline;
   }
 
-  async updateGuideline(existingId: string, draft: GuidelineDraft): Promise<Guideline> {
-    const guideline = await firstValueFrom(this.http.put<Guideline>(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(existingId)}`, draft));
+  async updateGuideline(existingId: string, draft: GuidelineDraft, reason = ''): Promise<Guideline | null> {
+    const guideline = await firstValueFrom(this.http.put<Guideline>(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(existingId)}`, draft, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(guideline)) return null;
     await this.onScopeChanged?.();
     return guideline;
   }
 
-  async deleteGuideline(id: string): Promise<void> {
-    await firstValueFrom(this.http.delete(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(id)}`));
+  async deleteGuideline(id: string, reason = ''): Promise<void> {
+    const response = await firstValueFrom(this.http.delete(`${this.context.repositoryApiBase()}/guidelines/${encodeURIComponent(id)}`, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(response)) return;
     await this.onScopeChanged?.();
   }
 
-  async installGuideline(catalogueId: string): Promise<Guideline> {
-    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}));
+  async installGuideline(catalogueId: string, reason = ''): Promise<Guideline | null> {
+    const guideline = await firstValueFrom(this.http.post<Guideline>(`${this.context.repositoryApiBase()}/guidelines/catalog/${encodeURIComponent(catalogueId)}/install`, {}, { params: { reason } }));
+    if (this.context.recordRepositoryWrite(guideline)) return null;
     await this.onScopeChanged?.();
     return guideline;
   }
