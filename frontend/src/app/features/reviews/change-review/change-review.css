@@ -1,0 +1,212 @@
+:host {
+  display: block;
+  height: 100%;
+  overflow: auto;
+}
+
+.change-review {
+  display: grid;
+  gap: var(--studio-space-4);
+  max-width: 1100px;
+  padding: var(--studio-space-5);
+  color: var(--studio-fg);
+}
+
+.change-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--studio-space-4);
+}
+
+.change-heading h1 {
+  margin: var(--studio-space-1) 0;
+  font-size: var(--studio-font-size-title);
+}
+
+.range,
+.range code,
+.finding-location,
+.missing-commit code {
+  font-family: var(--font-mono);
+}
+
+.range {
+  margin: 0;
+  color: var(--studio-fg-muted);
+}
+
+.missing-commit {
+  display: block;
+}
+
+.verdict {
+  display: grid;
+  gap: var(--studio-space-3);
+  padding: var(--studio-space-4);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-card);
+  background: var(--studio-bg-surface);
+}
+
+.verdict-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--studio-space-3);
+  flex-wrap: wrap;
+}
+
+.verdict-badge {
+  font-size: var(--studio-font-size-body);
+  font-weight: var(--studio-font-weight-strong);
+}
+
+.verdict-note,
+.unavailable-reason {
+  color: var(--studio-fg-muted);
+}
+
+.unavailable-reason small {
+  display: block;
+}
+
+.severity-strip {
+  display: flex;
+  gap: var(--studio-space-2);
+  flex-wrap: wrap;
+}
+
+.severity {
+  padding: var(--studio-space-1) var(--studio-space-2);
+  border-radius: var(--studio-radius-badge);
+  background: var(--studio-bg-elevated);
+  font-size: var(--studio-font-size-label);
+  font-weight: var(--studio-font-weight-strong);
+  text-transform: uppercase;
+}
+
+.severity.critical { color: var(--studio-severity-critical); }
+.severity.high { color: var(--studio-severity-high); }
+.severity.medium { color: var(--studio-severity-medium); }
+.severity.low { color: var(--studio-severity-low); }
+.severity.info { color: var(--studio-severity-info); }
+
+.provenance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--studio-space-2) var(--studio-space-4);
+  margin: 0;
+  font-size: var(--studio-font-size-label);
+}
+
+.provenance dt {
+  color: var(--studio-fg-muted);
+}
+
+.provenance dd {
+  margin: 0;
+}
+
+.round-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--studio-space-2);
+  flex-wrap: wrap;
+  cursor: pointer;
+}
+
+.round-toggle small {
+  color: var(--studio-fg-muted);
+}
+
+.change-findings {
+  display: grid;
+  gap: var(--studio-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.change-finding {
+  display: grid;
+  gap: var(--studio-space-2);
+  padding: var(--studio-space-3);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius-card);
+}
+
+.change-finding p {
+  margin: 0;
+}
+
+.finding-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--studio-space-2);
+  flex-wrap: wrap;
+}
+
+.finding-head small,
+.finding-evidence span {
+  color: var(--studio-fg-muted);
+}
+
+.diff-excerpt {
+  margin: 0;
+  padding: var(--studio-space-2) 0;
+  overflow-x: auto;
+  border-radius: var(--studio-radius-badge);
+  background: var(--studio-bg-elevated);
+  font-family: var(--font-mono);
+  font-size: var(--studio-font-size-label);
+}
+
+.diff-line {
+  display: block;
+  padding: 0 var(--studio-space-2);
+  white-space: pre;
+}
+
+.diff-line.added { background: color-mix(in srgb, var(--status-fresh) 10%, transparent); }
+.diff-line.removed { background: color-mix(in srgb, var(--studio-severity-high) 10%, transparent); }
+.diff-line.added.anchor { background: color-mix(in srgb, var(--status-fresh) 24%, transparent); }
+.diff-line.removed.anchor { background: color-mix(in srgb, var(--studio-severity-high) 24%, transparent); }
+.diff-line.anchor { font-weight: var(--studio-font-weight-strong); }
+
+.line-number {
+  display: inline-block;
+  min-width: 5ch;
+  margin-right: var(--studio-space-2);
+  color: var(--studio-fg-muted);
+  text-align: right;
+}
+
+.other-records h2 {
+  margin: 0 0 var(--studio-space-2);
+  font-size: var(--studio-font-size-body);
+}
+
+.other-records ul {
+  margin: 0;
+  padding-left: var(--studio-space-4);
+  color: var(--studio-fg-muted);
+}
+
+.not-reviewed p {
+  margin: var(--studio-space-1) 0 0;
+}
+
+.run-review {
+  display: flex;
+  align-items: center;
+  gap: var(--studio-space-3);
+  flex-wrap: wrap;
+}
+
+.run-review small {
+  color: var(--studio-fg-muted);
+}
+
+.run-error {
+  color: var(--studio-severity-high);
+}

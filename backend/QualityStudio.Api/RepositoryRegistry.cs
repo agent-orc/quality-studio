@@ -14,7 +14,8 @@ public sealed record RepositoryRegistration(
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     bool Archived = false,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    IReadOnlyList<RepositoryExternalRef>? ExternalRefs = null);
 
 public sealed record RepositoryRegistrationRequest(
     string? Id,
@@ -25,7 +26,29 @@ public sealed record RepositoryRegistrationRequest(
     IReadOnlyList<string>? EnabledReviewKinds,
     IReadOnlyList<RepositorySensorConfiguration>? Sensors = null,
     long? DefaultReviewTokenCap = null,
-    decimal? DefaultReviewCostCap = null);
+    decimal? DefaultReviewCostCap = null,
+    IReadOnlyList<RepositoryExternalRef>? ExternalRefs = null);
+
+/// <summary>
+/// A stable reference to this repository in another system, for example the Agent Studio project
+/// <c>agent-studio:PROJ-002</c>. It lets that system find its registration again without matching
+/// paths. Unique per <c>system:id</c> across all registrations, archived ones included.
+/// </summary>
+public sealed record RepositoryExternalRef(string System, string Id, string? Url = null)
+{
+    public string Key => $"{System}:{Id}";
+
+    /// <summary>Parses <c>system:id</c>; the id may itself contain colons.</summary>
+    public static bool TryParse(string? value, out string system, out string id)
+    {
+        system = id = "";
+        var separator = value?.IndexOf(':') ?? -1;
+        if (value is null || separator <= 0 || separator == value.Length - 1) return false;
+        system = value[..separator].Trim();
+        id = value[(separator + 1)..].Trim();
+        return system.Length > 0 && id.Length > 0;
+    }
+}
 
 /// <summary>
 /// A persisted registration this host cannot serve. It is kept in the registry file and reported, so a
@@ -56,6 +79,7 @@ public sealed class RepositoryRegistry
     private readonly ILogger<RepositoryRegistry> logger;
     private readonly ReviewMetaIndex metaIndex;
     private readonly AnalyzerProfileCatalog profiles;
+    private readonly GitSafeDirectories? safeDirectories;
     private readonly SemaphoreSlim gate = new(1, 1);
 
     /// <summary>
@@ -71,9 +95,10 @@ public sealed class RepositoryRegistry
 
     public RepositoryRegistry(IHostEnvironment environment, IOptions<RepositoryOptions> options,
         SensorRegistry sensors, ILogger<RepositoryRegistry> logger, ReviewMetaIndex metaIndex,
-        AnalyzerProfileCatalog profiles)
+        AnalyzerProfileCatalog profiles, GitSafeDirectories? safeDirectories = null)
     {
         contentRoot = environment.ContentRootPath;
+        this.safeDirectories = safeDirectories;
         legacyOptions = options.Value;
         supportedSensors = sensors.List().Select(sensor => sensor.Id).ToArray();
         this.logger = logger;
@@ -91,7 +116,12 @@ public sealed class RepositoryRegistry
         }
         registryPath = Path.Combine(contentRoot, RelativeRegistryPath.Replace('/', Path.DirectorySeparatorChar));
         entries = LoadOrSeed();
+        TrustActiveRoots();
     }
+
+    /// <summary>Lets Git read every active registration, including checkouts owned by another user.</summary>
+    private void TrustActiveRoots() =>
+        safeDirectories?.Trust(entries.Where(entry => !entry.Archived).Select(entry => entry.RootPath));
 
     public string RegistryPath => registryPath;
 
@@ -152,6 +182,36 @@ public sealed class RepositoryRegistry
         string.Equals(entry.Id, id, StringComparison.OrdinalIgnoreCase) &&
         (includeArchived || !entry.Archived));
 
+    /// <summary>
+    /// The servable, non-archived registration that carries the external reference, or null. The
+    /// system compares case-insensitively; the id compares case-insensitively too, because Agent
+    /// Studio project ids are not case-significant.
+    /// </summary>
+    public RepositoryRegistration? FindByExternalRef(string system, string id)
+    {
+        var unavailable = quarantine;
+        return entries.FirstOrDefault(entry => !entry.Archived && !unavailable.ContainsKey(entry.Id) &&
+            (entry.ExternalRefs ?? []).Any(reference => Matches(reference, system, id)));
+    }
+
+    private static bool Matches(RepositoryExternalRef reference, string system, string id) =>
+        string.Equals(reference.System, system, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(reference.Id, id, StringComparison.OrdinalIgnoreCase);
+
+    private void EnsureExternalRefsUnique(RepositoryRegistration candidate)
+    {
+        foreach (var reference in candidate.ExternalRefs ?? [])
+        {
+            var owner = entries.FirstOrDefault(entry =>
+                !string.Equals(entry.Id, candidate.Id, StringComparison.OrdinalIgnoreCase) &&
+                (entry.ExternalRefs ?? []).Any(existing => Matches(existing, reference.System, reference.Id)));
+            if (owner is not null)
+                throw new RepositoryRegistryConflictException(
+                    $"External reference '{reference.Key}' is already registered to repository '{owner.Id}'.",
+                    "External reference already registered");
+        }
+    }
+
     public RepositoryAccess Access(string? id) => new(Get(id).RootPath, metaIndex);
 
     public async Task<RepositoryRegistration> CreateAsync(RepositoryRegistrationRequest request, CancellationToken cancellationToken)
@@ -165,7 +225,10 @@ public sealed class RepositoryRegistry
                 throw new RepositoryRegistryValidationException($"A repository with id '{entry.Id}' already exists.");
             }
 
+            EnsureExternalRefsUnique(entry);
+
             entries = [.. entries, entry];
+            TrustActiveRoots();
             await PersistAsync(cancellationToken);
             logger.LogInformation(new EventId(1400, "RepositoryOnboarded"),
                 "Onboarded repository {RepositoryId} at {RepositoryRoot}", entry.Id, entry.RootPath);
@@ -193,8 +256,11 @@ public sealed class RepositoryRegistry
             {
                 Id = existing.Id,
                 Sensors = request.Sensors ?? existing.Sensors,
+                ExternalRefs = request.ExternalRefs ?? existing.ExternalRefs,
             }, existing.Id);
+            EnsureExternalRefsUnique(updated);
             entries = Replace(existing, updated);
+            TrustActiveRoots();
             // Validate proved the new root exists inside the allowed roots, so a repaired registration
             // leaves quarantine here rather than waiting for the next restart.
             Release(existing.Id);
@@ -233,6 +299,7 @@ public sealed class RepositoryRegistry
 
             var archived = existing with { Archived = true };
             entries = Replace(existing, archived);
+            TrustActiveRoots();
             Release(existing.Id);
             // Nothing reads an archived repository's sidecars again; release its filesystem watcher.
             metaIndex.Release(existing.RootPath);
@@ -385,7 +452,7 @@ public sealed class RepositoryRegistry
         {
             throw new RepositoryRegistryValidationException(
                 $"Repository path does not exist or is not a directory: {root}",
-                "Repository path does not exist");
+                "Repository path does not exist", reason: RepositoryRegistryValidationException.RootMissing);
         }
 
         EnsureAllowedDirectory(root, "Repository path is outside the configured allowed roots.");
@@ -444,7 +511,38 @@ public sealed class RepositoryRegistry
         return new RepositoryRegistration(id, request.DisplayName.Trim(), root,
             ValidateOptionalDirectory(request.GlobalInputsDirectory, root), budget, kinds, sensors,
             DefaultReviewTokenCap: request.DefaultReviewTokenCap,
-            DefaultReviewCostCap: request.DefaultReviewCostCap);
+            DefaultReviewCostCap: request.DefaultReviewCostCap,
+            ExternalRefs: ValidateExternalRefs(request.ExternalRefs));
+    }
+
+    private static IReadOnlyList<RepositoryExternalRef>? ValidateExternalRefs(
+        IReadOnlyList<RepositoryExternalRef>? requested)
+    {
+        if (requested is null || requested.Count == 0) return null;
+        if (requested.Count > 16)
+            throw new RepositoryRegistryValidationException("A repository carries at most 16 external references.");
+        var normalized = new List<RepositoryExternalRef>();
+        foreach (var reference in requested)
+        {
+            var system = reference?.System?.Trim().ToLowerInvariant() ?? "";
+            var id = reference?.Id?.Trim() ?? "";
+            if (system.Length is < 1 or > 64 || system.Any(character =>
+                    !(char.IsAsciiLetterOrDigit(character) || character is '-' or '.')))
+                throw new RepositoryRegistryValidationException(
+                    "External reference system must contain only lowercase letters, numbers, dots, and hyphens.");
+            if (id.Length is < 1 or > 128 || id.Any(char.IsControl) || id.Any(char.IsWhiteSpace))
+                throw new RepositoryRegistryValidationException(
+                    "External reference id is required and may not contain whitespace.");
+            var url = string.IsNullOrWhiteSpace(reference!.Url) ? null : reference.Url.Trim();
+            if (url is not null && (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) ||
+                                    parsed.Scheme is not ("http" or "https")))
+                throw new RepositoryRegistryValidationException("External reference url must be an absolute http(s) URL.");
+            if (normalized.Any(existing => Matches(existing, system, id)))
+                throw new RepositoryRegistryValidationException($"External reference '{system}:{id}' is listed twice.");
+            normalized.Add(new RepositoryExternalRef(system, id, url));
+        }
+
+        return normalized;
     }
 
     private async Task PersistAsync(CancellationToken cancellationToken) =>
@@ -484,6 +582,10 @@ public sealed class RepositoryRegistry
                 "Configured path traverses a symbolic link or junction", exception);
         }
     }
+
+    /// <summary>The id <see cref="CreateAsync"/> would give <paramref name="request"/>.</summary>
+    public static string EffectiveId(RepositoryRegistrationRequest request) =>
+        Slugify(string.IsNullOrWhiteSpace(request.Id) ? request.DisplayName ?? string.Empty : request.Id).ToLowerInvariant();
 
     private static string Slugify(string value)
     {
@@ -610,8 +712,24 @@ public sealed class RepositoryRegistry
 
 public sealed class RepositoryRegistryValidationException : Exception
 {
+    /// <summary>The repository root does not exist yet; the caller may retry once it does.</summary>
+    public const string RootMissing = "root-missing";
+
     public RepositoryRegistryValidationException(string message, string publicTitle = "Invalid repository configuration",
-        Exception? innerException = null) : base(message, innerException) => PublicTitle = publicTitle;
+        Exception? innerException = null, string? reason = null) : base(message, innerException)
+    {
+        PublicTitle = publicTitle;
+        Reason = reason;
+    }
 
     public string PublicTitle { get; }
+
+    /// <summary>A stable, machine-readable reason for the refusal, when the caller can act on it.</summary>
+    public string? Reason { get; }
+}
+
+/// <summary>A registration collides with another one on a value that must be unique.</summary>
+public sealed class RepositoryRegistryConflictException(string message, string publicTitle) : Exception(message)
+{
+    public string PublicTitle { get; } = publicTitle;
 }

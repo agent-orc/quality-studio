@@ -1,4 +1,5 @@
-# The image build needs Directory.Build.props, backend/ and frontend/ sources only.
+# The image build needs Directory.Build.props, backend/ and frontend/ sources, and the one schema the
+# analysis library embeds.
 **/bin
 **/obj
 **/node_modules
@@ -20,6 +21,8 @@ results
 rules
 samples
 schemas
+# Embedded into the analysis library at build time.
+!schemas/review-response.v1.schema.json
 spikes
 tests
 backend/tests

@@ -182,6 +182,7 @@ export interface ScanFile { relativePath: string; state: ReviewState; reviewKind
 export interface ScanReport { files: ScanFile[]; freshCount: number; staleCount: number; policyDriftCount: number; missingCount: number; invalidCount: number; }
 export interface HandoverRequest { findingSummary: string; filePath: string; findingText: string; reviewKind: string; metaReference: string; }
 export interface HandoverResult { dryRun: boolean; taskId: string | null; card: { title: string }; }
+export interface RepositoryWriteRequest { requested: true; dryRun: boolean; taskId: string | null; url: string | null; }
 export interface ResolvedInput { id: string; source: string; scope: 'global' | 'project'; priority: number; includedContent: string; content: string; truncated: boolean; }
 export interface InputOmission { id: string; source: string; reason: string; omittedCharacters: number; }
 export interface ResolvedInputs { kind: ReviewKind; level: string; budgetCharacters: number; includedCharacters: number; complete: boolean; inputs: ResolvedInput[]; omissions: InputOmission[]; }
@@ -204,7 +205,10 @@ export interface RepositoryRegistration {
   archived: boolean;
   defaultReviewTokenCap: number | null;
   defaultReviewCostCap: number | null;
+  externalRefs?: RepositoryExternalRef[] | null;
 }
+/** A stable reference to the repository in another system, unique per `system:id`. */
+export interface RepositoryExternalRef { system: string; id: string; url?: string | null; }
 export interface RepositoryRegistrationRequest {
   id?: string;
   displayName: string;
@@ -214,6 +218,7 @@ export interface RepositoryRegistrationRequest {
   enabledReviewKinds: ReviewKind[];
   defaultReviewTokenCap?: number | null;
   defaultReviewCostCap?: number | null;
+  externalRefs?: RepositoryExternalRef[] | null;
 }
 export type AgentStudioImportStatus = 'imported' | 'skipped' | 'failed';
 export interface AgentStudioImportResult {
@@ -379,4 +384,38 @@ export interface FileError {
   title: string;
   detail: string;
   retryable: boolean;
+}
+
+/** The verdicts of `change-review-verdict.v1`. The last four are infrastructure outcomes and never a pass. */
+export type ChangeReviewVerdict = 'pass' | 'concerns' | 'block' | 'provider-unavailable' | 'timeout' | 'auth-failure' | 'unparseable';
+export interface ChangeReviewFinding {
+  id: string; fingerprint: string; ruleId: string; ruleVersion: string; severity: FindingSeverity;
+  path: string; side: 'base' | 'head'; line: number; message: string; evidenceChecked: string; missing: string;
+  disposition: 'concerns' | 'block';
+}
+export interface ChangeReviewDocument {
+  schema: string; schemaVersion: number; repository: string; baseSha: string; headSha: string;
+  verdict: ChangeReviewVerdict; policyHash: string; ruleSetHash: string; catalogueVersion: string;
+  findings: ChangeReviewFinding[]; failureReason?: string | null; model?: string | null; thinkingLevel?: string | null;
+  durationMilliseconds?: number | null;
+}
+export interface ChangeReviewKey { repository: string; baseSha: string; headSha: string; policyHash: string; ruleSetHash: string; catalogueVersion: string; digest: string; }
+export interface ChangeReviewProvenance {
+  producer: 'quality-studio' | 'agent-studio-review-plane'; cardKey: string | null; round: number | null;
+  attemptId: string | null; clientId: string | null;
+}
+export interface ChangeReviewStoredRecord {
+  key: ChangeReviewKey; keyDigest: string; provenance: ChangeReviewProvenance; recordedAt: string;
+  documentDigest: string; current: boolean; decisive: boolean; document: ChangeReviewDocument;
+}
+export interface ChangeReviewDiffLine { kind: 'added' | 'removed' | 'context'; baseLine: number | null; headLine: number | null; text: string; anchor: boolean; }
+/** `GET /api/v1/repos/{id}/change-reviews`: the stored verdicts of one range and what this host knows about it. */
+export interface ChangeReviewRange {
+  repository: string; baseSha: string; headSha: string;
+  commits: { base: boolean; head: boolean; previous: boolean | null };
+  currentKey: ChangeReviewKey | null;
+  permissions: { runReview: boolean };
+  records: ChangeReviewStoredRecord[];
+  excerpts: Record<string, ChangeReviewDiffLine[]>;
+  roundOnly: { previousHeadSha: string; available: boolean; fingerprints: string[] } | null;
 }

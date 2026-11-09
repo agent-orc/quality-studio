@@ -56,6 +56,7 @@ public sealed class DotNetBuildSensorTests
             Assert.Equal("restore", runner.Calls[1].Arguments[0]);
             Assert.Equal("build", runner.Calls[2].Arguments[0]);
             Assert.Contains("--no-restore", runner.Calls[2].Arguments);
+            Assert.Contains("--disable-build-servers", runner.Calls[2].Arguments);
         }
         finally
         {

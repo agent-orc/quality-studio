@@ -1,4 +1,4 @@
-import { readFindingRoute, writeFindingRoute } from './review-navigation';
+import { readDeepLink, readFindingRoute, writeFindingRoute } from './review-navigation';
 
 describe('finding deep-link route', () => {
   it('restores fingerprint and location while rejecting an invalid location', () => {
@@ -18,5 +18,26 @@ describe('finding deep-link route', () => {
     expect(params.has('finding')).toBeFalse();
     expect(params.has('location')).toBeFalse();
     expect(params.get('kind')).toBe('code');
+  });
+});
+
+describe('Deep link v1', () => {
+  it('opens the repository dashboard for view=dashboard and for views it does not know', () => {
+    expect(readDeepLink('?repo=proj-002&view=dashboard&path=src/A.cs').dashboard).toBeTrue();
+    expect(readDeepLink('?repo=proj-002&view=change&base=a&head=b').dashboard).toBeTrue();
+    expect(readDeepLink('?repo=proj-002&view=').dashboard).toBeTrue();
+  });
+
+  it('keeps the position of explorer, finding and view-less links', () => {
+    expect(readDeepLink('?repo=proj-002&view=explorer&path=src/A.cs').dashboard).toBeFalse();
+    expect(readDeepLink('?repo=proj-002&view=finding&finding=sha256%3Aa').dashboard).toBeFalse();
+    expect(readDeepLink('?repo=proj-002&path=src/A.cs').dashboard).toBeFalse();
+  });
+
+  it('accepts only a card key as card', () => {
+    expect(readDeepLink('?card=AGT-3352').card).toBe('AGT-3352');
+    expect(readDeepLink('?card=%3Cscript%3E').card).toBeNull();
+    expect(readDeepLink('?card=https%3A%2F%2Fevil.example').card).toBeNull();
+    expect(readDeepLink('?repo=proj-002').card).toBeNull();
   });
 });

@@ -32,6 +32,7 @@ measuring cannot be run against its own repository without the two purposes figh
 | Override, per process | `QUALITY_STUDIO_DATA_ROOT` |
 | Per project | `<base>/projects/<project-key>/` |
 | Host-wide rule pool | `<base>/rules/` — global applicability, overrides, custom rules, packs and their `audit.jsonl` ([rule pool management](rule-pool-management.md)) |
+| Host-wide federation replay ledger | `<base>/federation/used-assertions.json` — accepted Agent Studio hand-off IDs retained until their assertions expire |
 
 The `quality` CLI has no ASP.NET configuration, so it reads both environment variables and prefers
 `QUALITY_STUDIO_DATA_ROOT`. That matters because the API's own startup warning tells an operator to
@@ -41,6 +42,11 @@ container replacement would delete.
 
 The project key is a readable slug of the checkout's directory name plus twelve hex characters of a
 digest of its canonical absolute path — `quality-studio-3f1c9a02b7d4`, for instance.
+
+The federation replay ledger sits directly below the base directory because a hand-off is for this
+host, not one analysed project. It stores hashes of accepted `jti` values with their expiry times,
+so a hand-off cannot be used again after a host restart. Keep it on the persistent data volume in a
+container. The adjacent `used-assertions.json.lock` file serialises writers that share the volume.
 
 **The path is the identity, not the Git remote.** Two working copies of the same remote — a second
 clone, a Git worktree, a release branch checked out beside `main` — are separately analysed projects
@@ -61,6 +67,7 @@ Inside a project directory the layout is the one the `.quality` folder used to h
   coverage/coverage.json
   coverage/produced/<profile>/<run-id>/…   (reports retained per coverage producer run)
   changes/<commit>.json
+  change-reviews/<base sha>/<head sha>/<key digest>.json
   flows/<hash>.flow-review.json
   runs/<run-id>/…
   sensor-cache/<sensor-id>/<key>.json
@@ -81,10 +88,28 @@ lived in the checkout, and a checkout's `.quality/analyzers/` may hold repositor
 last observed duration; it is disposable and rebuilt by the next run (see
 [`review-runs.md`](review-runs.md#sensors-explicit-cached-once-per-run)).
 
+`change-reviews/` is the change-review verdict store: one record per repository, range, policy and
+rule set, computed by this host or ingested from Agent Studio
+([change-reviews.md](change-reviews.md#change-review-store)). Like `analyzers/` it never lived in
+the checkout and is not part of `quality migrate-data`. Deleting a record makes the next request for
+its range pay for a model call again.
+
 Review sidecars are the one family whose layout changed shape. They used to sit in a `.quality`
 folder next to each reviewed file, scattered across the tree. They now live under a single
 `reviews/` lane that mirrors the subject's directory, so one folder holds every sidecar of a project
 while a sidecar is still attributable to its folder without opening it.
+
+## The repository registry
+
+The registrations themselves are host configuration, not project data: they live in
+`<content root>/.quality-studio/repositories.json`
+([schema](../schemas/repository-registry.v1.schema.json)). A registration is identified by its `id`
+and its `rootPath`. It may also carry `externalRefs`, stable references into other systems, for
+example `{ "system": "agent-studio", "id": "PROJ-002", "url": "https://…" }`. A `system:id` pair is
+unique across the whole file, archived entries included, so Agent Studio can find its registration
+again with `GET /api/v1/repos?externalRef=agent-studio:PROJ-002` instead of matching paths (Dossier
+AGT-3352, decision D2 option M2). Registrations written before the field existed have no
+`externalRefs` and load unchanged; every other lookup still uses the path and the id.
 
 ## What stays in the checkout
 
