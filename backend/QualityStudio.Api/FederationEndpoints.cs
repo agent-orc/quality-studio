@@ -22,7 +22,6 @@ internal static class FederationEndpoints
         app.MapGet("/api/v1/session", Session);
         app.MapPost("/api/v1/federation/revoke", Revoke);
         app.MapGet("/api/v1/capabilities", Capabilities);
-        app.MapGet("/api/repos/{repoId}/v1/capabilities", Capabilities);
     }
 
     /// <summary>
@@ -206,11 +205,24 @@ internal static class FederationEndpoints
         if (federation is not { Enabled: true }) return null;
         var sessions = context.RequestServices.GetRequiredService<FederatedSessionStore>();
         if (sessions.Find(context.Request.Cookies[FederatedSessionStore.CookieName]) is not null) return null;
-        // Until registrations carry an Agent Studio externalRef (QSI-3), the repository id is the
-        // project reference: D2 makes it the lowercase project id.
         var repository = context.Request.Query["repo"].ToString();
-        var project = AgentStudioFederation.IsRepositoryId(repository) ? repository.ToLowerInvariant() : null;
+        var project = AgentStudioFederation.IsRepositoryId(repository)
+            ? StudioProject(context.RequestServices.GetRequiredService<RepositoryRegistry>(), repository)
+            : null;
         return federation.SignInUrl(project, context.Request.GetEncodedPathAndQuery());
+    }
+
+    /// <summary>
+    /// The Agent Studio project of a repository: its <c>agent-studio</c> external reference when the
+    /// registration carries one, otherwise the repository id, which D2 makes the lowercase project id.
+    /// </summary>
+    private static string StudioProject(RepositoryRegistry registry, string repositoryId)
+    {
+        var registration = registry.List().FirstOrDefault(entry =>
+            string.Equals(entry.Id, repositoryId, StringComparison.OrdinalIgnoreCase));
+        var reference = registration?.ExternalRefs?.FirstOrDefault(item =>
+            string.Equals(item.System, AgentStudioFederation.ExternalRefSystem, StringComparison.OrdinalIgnoreCase));
+        return reference?.Id ?? repositoryId.ToLowerInvariant();
     }
 }
 

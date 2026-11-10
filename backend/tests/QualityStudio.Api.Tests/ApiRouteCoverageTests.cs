@@ -454,9 +454,6 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
             "/api/quotas",                         // host-wide, not per repository
             "/api/models",                         // the governed catalog snapshot
             "/api/models/default",                 // a catalog recommendation, not repository data
-            // The versioned integration contract (agent-studio-integration/1) always names its repository.
-            "/api/v1/capabilities",
-            "/api/v1/repos/{repoId}/change-reviews",
         ];
 
         var endpoints = fixture.Endpoints();
@@ -503,6 +500,9 @@ public sealed class ApiRouteCoverageTests(ApiRouteCoverageTests.Fixture fixture)
 
         Assert.NotEmpty(versioned);
         Assert.Empty(missing);
+        // The version prefix leads the path; a repository-scoped spelling such as
+        // /api/repos/{repoId}/v1/capabilities would be a second, unpoliced contract surface.
+        Assert.DoesNotContain(endpoints, endpoint => endpoint.Pattern.StartsWith("/api/repos/{repoId}/v1/", StringComparison.Ordinal));
     }
 
     [Fact]

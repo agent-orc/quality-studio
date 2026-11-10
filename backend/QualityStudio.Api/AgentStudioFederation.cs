@@ -75,6 +75,8 @@ public sealed class AgentStudioFederation
     public const int SupportedVersion = 1;
     public const string SignInPath = "/auth/agent-studio";
     public const string StudioOpenPath = "/api/integrations/quality-studio/open";
+    /// <summary>The <see cref="RepositoryExternalRef.System"/> naming an Agent Studio project, as in <c>agent-studio:PROJ-002</c>.</summary>
+    public const string ExternalRefSystem = "agent-studio";
     public static readonly TimeSpan MaximumLifetime = TimeSpan.FromSeconds(60);
     public static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(30);
     private const int MaximumAssertionCharacters = 8 * 1024;

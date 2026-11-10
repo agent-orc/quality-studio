@@ -13,6 +13,14 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 - The quoted-path change-review test no longer creates a file name with `"` on Windows, where such
   a name cannot exist; a non-ASCII name exercises git's quoted diff headers on every system.
 
+### Fixed — Agent Studio sign-in names the registered project (QS-140, follow-up to QS-132)
+
+- The sign-in redirect for a page load without a session sends `project` as the id of the
+  repository's `agent-studio` external reference when its registration carries one. Before, it
+  always sent the lowercase repository id, although registrations now carry that reference.
+- `GET /api/v1/session` documents `expiresAt`, and the browser's session type declares it. The
+  capabilities example in `docs/api.md` lists `deep-link/1`, which every host announces.
+
 ### Added — Agent Studio sign-in, capabilities and deep link v1 (QS-132, AGT-3352 slice QSI-2)
 
 - A hosted host configured with `AgentStudio:Federation:Issuer` accepts Agent Studio's signed

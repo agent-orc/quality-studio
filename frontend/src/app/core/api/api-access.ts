@@ -17,6 +17,8 @@ export interface ApiSession {
   repositories: string[];
   /** Repeated as X-CSRF-Token on every unsafe request of a hand-off session. */
   csrfToken: string | null;
+  /** When a hand-off session ends at the latest (12 hours after sign-in); null for every other caller. */
+  expiresAt: string | null;
   federation: { enabled: boolean; studioPublicUrl: string | null };
 }
 

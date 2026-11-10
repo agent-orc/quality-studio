@@ -272,13 +272,13 @@ app.Use(async (context, next) =>
     var route = ApiRoutes.Canonical(
         (context.GetEndpoint() as Microsoft.AspNetCore.Routing.RouteEndpoint)?.RoutePattern.RawText);
     var repositoryId = RouteRepositoryId(context);
-    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(route, "/api/v1/repos", StringComparison.OrdinalIgnoreCase);
+    var isRepositoryCollection = string.Equals(route, "/api/repos", StringComparison.OrdinalIgnoreCase);
     var isReportCollection = string.Equals(route, "/api/report", StringComparison.OrdinalIgnoreCase);
     var isImport = string.Equals(route, "/api/repos/import-from-agent-studio", StringComparison.OrdinalIgnoreCase);
     var isRepositoryItem = string.Equals(route, "/api/repos/{repoId}", StringComparison.OrdinalIgnoreCase);
     var isRepositoryMutation = isRepositoryItem &&
         (HttpMethods.IsPut(context.Request.Method) || HttpMethods.IsDelete(context.Request.Method));
+    // Session, capabilities and revocation are registered under /api/v1 only; these are their canonical forms.
     var isHostRoute = isRepositoryCollection || isReportCollection ||
         string.Equals(route, "/api/quotas", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(route, "/api/session", StringComparison.OrdinalIgnoreCase) ||
@@ -329,8 +329,10 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "QualitySt
 app.MapFederationEndpoints();
 
 // The routes Agent Studio calls (agent-studio-integration/1) also answer under /api/v1. The
-// unversioned paths stay; the middleware folds both spellings onto one policy. Routes stay
-// literal so the boundary inventory sensor can see each registration.
+// unversioned paths stay; the middleware folds both spellings onto one policy. GET /api/v1/repos
+// adds the externalRef lookup, and session, capabilities, revocation and the change-review store
+// exist only under /api/v1. Routes stay literal so the boundary inventory sensor can see each
+// registration.
 app.MapGet("/api/repos", ListRepositories);
 app.MapPost("/api/repos", CreateRepository);
 app.MapPost("/api/v1/repos", CreateRepository);
@@ -356,8 +358,6 @@ Func<HttpContext, string?, RepositoryRegistry, ApiSecurity, IResult> listV1Repos
         : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Repository not found");
 };
 app.MapGet("/api/v1/repos", listV1Repositories);
-app.MapGet("/api/repos/{repoId}/v1/repos", listV1Repositories);
-
 
 app.MapPost("/api/v1/repos/import-from-agent-studio", ImportFromAgentStudio);
 app.MapPut("/api/repos/{repoId}", UpdateRepository);

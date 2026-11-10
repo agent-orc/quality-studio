@@ -1,0 +1,733 @@
+{
+ "schemaVersion": 1,
+ "model": "Claude Code Agent tool, model alias haiku",
+ "measuredAt": "2026-11-01",
+ "method": "One sub-agent per case reading the rendered prompt file; two independent passes; tokens are the harness-reported sub-agent total minus a baseline run with a trivial prompt.",
+ "summary": {
+  "runs": [
+   {
+    "run": 1,
+    "cases": 27,
+    "flagCases": 15,
+    "detected": 15,
+    "detectedWithExpectedRule": 15,
+    "missed": 0,
+    "escalateCaseHandled": 1,
+    "cleanCases": 11,
+    "cleanPass": 7,
+    "cleanEscalated": 3,
+    "falsePositives": 1,
+    "tokensOverBaselineMedian": 2872,
+    "tokensOverBaselineMax": 6430,
+    "durationMsMedian": 11240,
+    "durationMsMax": 27450
+   },
+   {
+    "run": 2,
+    "cases": 27,
+    "flagCases": 15,
+    "detected": 15,
+    "detectedWithExpectedRule": 15,
+    "missed": 0,
+    "escalateCaseHandled": 0,
+    "cleanCases": 11,
+    "cleanPass": 7,
+    "cleanEscalated": 3,
+    "falsePositives": 1,
+    "tokensOverBaselineMedian": 2720,
+    "tokensOverBaselineMax": 6544,
+    "durationMsMedian": 8686,
+    "durationMsMax": 26268
+   }
+  ],
+  "baselineSubagentTokens": 11195,
+  "promptCharsMedian": 3954,
+  "diffCharsMedian": 611
+ },
+ "rows": [
+  {
+   "run": 1,
+   "case": "P01",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-006"
+   ],
+   "result": "detected",
+   "subagentTokens": 14998,
+   "tokensOverBaseline": 3803,
+   "durationMs": 11646
+  },
+  {
+   "run": 1,
+   "case": "P02",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-NG-007"
+   ],
+   "result": "detected",
+   "subagentTokens": 15455,
+   "tokensOverBaseline": 4260,
+   "durationMs": 13655
+  },
+  {
+   "run": 1,
+   "case": "P03",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-007"
+   ],
+   "result": "detected",
+   "subagentTokens": 14067,
+   "tokensOverBaseline": 2872,
+   "durationMs": 7715
+  },
+  {
+   "run": 1,
+   "case": "P04",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-005"
+   ],
+   "result": "detected",
+   "subagentTokens": 14831,
+   "tokensOverBaseline": 3636,
+   "durationMs": 11737
+  },
+  {
+   "run": 1,
+   "case": "P05",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-008"
+   ],
+   "result": "detected",
+   "subagentTokens": 15170,
+   "tokensOverBaseline": 3975,
+   "durationMs": 13050
+  },
+  {
+   "run": 1,
+   "case": "P06",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-010",
+    "QS-NG-006"
+   ],
+   "result": "detected",
+   "subagentTokens": 14283,
+   "tokensOverBaseline": 3088,
+   "durationMs": 11480
+  },
+  {
+   "run": 1,
+   "case": "P07",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-NG-008"
+   ],
+   "result": "detected",
+   "subagentTokens": 13846,
+   "tokensOverBaseline": 2651,
+   "durationMs": 7612
+  },
+  {
+   "run": 1,
+   "case": "P08",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-009",
+    "QS-GN-012"
+   ],
+   "result": "detected",
+   "subagentTokens": 14617,
+   "tokensOverBaseline": 3422,
+   "durationMs": 11240
+  },
+  {
+   "run": 1,
+   "case": "P09",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-007",
+    "QS-GN-010"
+   ],
+   "result": "detected",
+   "subagentTokens": 16052,
+   "tokensOverBaseline": 4857,
+   "durationMs": 16600
+  },
+  {
+   "run": 1,
+   "case": "P10",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-011",
+    "QS-GN-012"
+   ],
+   "result": "detected",
+   "subagentTokens": 14755,
+   "tokensOverBaseline": 3560,
+   "durationMs": 11701
+  },
+  {
+   "run": 1,
+   "case": "P11",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-001"
+   ],
+   "result": "detected",
+   "subagentTokens": 15079,
+   "tokensOverBaseline": 3884,
+   "durationMs": 12160
+  },
+  {
+   "run": 1,
+   "case": "P12",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-NG-009"
+   ],
+   "result": "detected",
+   "subagentTokens": 14731,
+   "tokensOverBaseline": 3536,
+   "durationMs": 14760
+  },
+  {
+   "run": 1,
+   "case": "P13",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "ACME-CS-001"
+   ],
+   "result": "detected",
+   "subagentTokens": 14910,
+   "tokensOverBaseline": 3715,
+   "durationMs": 11690
+  },
+  {
+   "run": 1,
+   "case": "P14",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-005",
+    "QS-CS-006",
+    "QS-GN-001"
+   ],
+   "result": "detected",
+   "subagentTokens": 16789,
+   "tokensOverBaseline": 5594,
+   "durationMs": 18001
+  },
+  {
+   "run": 1,
+   "case": "P15",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-012"
+   ],
+   "result": "detected",
+   "subagentTokens": 13726,
+   "tokensOverBaseline": 2531,
+   "durationMs": 8315
+  },
+  {
+   "run": 1,
+   "case": "E01",
+   "label": "escalate",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-GN-012"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13576,
+   "tokensOverBaseline": 2381,
+   "durationMs": 8726
+  },
+  {
+   "run": 1,
+   "case": "N01",
+   "label": "clean",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-CS-005"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13492,
+   "tokensOverBaseline": 2297,
+   "durationMs": 5297
+  },
+  {
+   "run": 1,
+   "case": "N02",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13467,
+   "tokensOverBaseline": 2272,
+   "durationMs": 5282
+  },
+  {
+   "run": 1,
+   "case": "N03",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 12860,
+   "tokensOverBaseline": 1665,
+   "durationMs": 5323
+  },
+  {
+   "run": 1,
+   "case": "N04",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13399,
+   "tokensOverBaseline": 2204,
+   "durationMs": 14317
+  },
+  {
+   "run": 1,
+   "case": "N05",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13414,
+   "tokensOverBaseline": 2219,
+   "durationMs": 5164
+  },
+  {
+   "run": 1,
+   "case": "N06",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13359,
+   "tokensOverBaseline": 2164,
+   "durationMs": 4613
+  },
+  {
+   "run": 1,
+   "case": "N07",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13047,
+   "tokensOverBaseline": 1852,
+   "durationMs": 3594
+  },
+  {
+   "run": 1,
+   "case": "N08",
+   "label": "clean",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-001"
+   ],
+   "result": "false positive",
+   "subagentTokens": 17625,
+   "tokensOverBaseline": 6430,
+   "durationMs": 27450
+  },
+  {
+   "run": 1,
+   "case": "N09",
+   "label": "clean",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-NG-006"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13590,
+   "tokensOverBaseline": 2395,
+   "durationMs": 7232
+  },
+  {
+   "run": 1,
+   "case": "N10",
+   "label": "clean",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-CS-005"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13678,
+   "tokensOverBaseline": 2483,
+   "durationMs": 6281
+  },
+  {
+   "run": 1,
+   "case": "N11",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13015,
+   "tokensOverBaseline": 1820,
+   "durationMs": 3827
+  },
+  {
+   "run": 2,
+   "case": "P01",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-006"
+   ],
+   "result": "detected",
+   "subagentTokens": 16394,
+   "tokensOverBaseline": 5199,
+   "durationMs": 17646
+  },
+  {
+   "run": 2,
+   "case": "P02",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-NG-007"
+   ],
+   "result": "detected",
+   "subagentTokens": 15021,
+   "tokensOverBaseline": 3826,
+   "durationMs": 20316
+  },
+  {
+   "run": 2,
+   "case": "P03",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-007"
+   ],
+   "result": "detected",
+   "subagentTokens": 14131,
+   "tokensOverBaseline": 2936,
+   "durationMs": 8402
+  },
+  {
+   "run": 2,
+   "case": "P04",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-005"
+   ],
+   "result": "detected",
+   "subagentTokens": 14619,
+   "tokensOverBaseline": 3424,
+   "durationMs": 9968
+  },
+  {
+   "run": 2,
+   "case": "P05",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-008"
+   ],
+   "result": "detected",
+   "subagentTokens": 15071,
+   "tokensOverBaseline": 3876,
+   "durationMs": 12577
+  },
+  {
+   "run": 2,
+   "case": "P06",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-010",
+    "QS-NG-006"
+   ],
+   "result": "detected",
+   "subagentTokens": 14066,
+   "tokensOverBaseline": 2871,
+   "durationMs": 9158
+  },
+  {
+   "run": 2,
+   "case": "P07",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-NG-008"
+   ],
+   "result": "detected",
+   "subagentTokens": 13728,
+   "tokensOverBaseline": 2533,
+   "durationMs": 7551
+  },
+  {
+   "run": 2,
+   "case": "P08",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-009",
+    "QS-GN-012"
+   ],
+   "result": "detected",
+   "subagentTokens": 14719,
+   "tokensOverBaseline": 3524,
+   "durationMs": 11089
+  },
+  {
+   "run": 2,
+   "case": "P09",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-007",
+    "QS-GN-010"
+   ],
+   "result": "detected",
+   "subagentTokens": 15937,
+   "tokensOverBaseline": 4742,
+   "durationMs": 16158
+  },
+  {
+   "run": 2,
+   "case": "P10",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-011",
+    "QS-GN-012"
+   ],
+   "result": "detected",
+   "subagentTokens": 14115,
+   "tokensOverBaseline": 2920,
+   "durationMs": 9584
+  },
+  {
+   "run": 2,
+   "case": "P11",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-001"
+   ],
+   "result": "detected",
+   "subagentTokens": 14523,
+   "tokensOverBaseline": 3328,
+   "durationMs": 9763
+  },
+  {
+   "run": 2,
+   "case": "P12",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-NG-009"
+   ],
+   "result": "detected",
+   "subagentTokens": 13915,
+   "tokensOverBaseline": 2720,
+   "durationMs": 8686
+  },
+  {
+   "run": 2,
+   "case": "P13",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "ACME-CS-001"
+   ],
+   "result": "detected",
+   "subagentTokens": 14824,
+   "tokensOverBaseline": 3629,
+   "durationMs": 10827
+  },
+  {
+   "run": 2,
+   "case": "P14",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-CS-005",
+    "QS-CS-006",
+    "QS-GN-001"
+   ],
+   "result": "detected",
+   "subagentTokens": 14567,
+   "tokensOverBaseline": 3372,
+   "durationMs": 12408
+  },
+  {
+   "run": 2,
+   "case": "P15",
+   "label": "flag",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-012"
+   ],
+   "result": "detected",
+   "subagentTokens": 13310,
+   "tokensOverBaseline": 2115,
+   "durationMs": 4918
+  },
+  {
+   "run": 2,
+   "case": "E01",
+   "label": "escalate",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "missed",
+   "subagentTokens": 13328,
+   "tokensOverBaseline": 2133,
+   "durationMs": 7953
+  },
+  {
+   "run": 2,
+   "case": "N01",
+   "label": "clean",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-CS-005"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13523,
+   "tokensOverBaseline": 2328,
+   "durationMs": 5558
+  },
+  {
+   "run": 2,
+   "case": "N02",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13624,
+   "tokensOverBaseline": 2429,
+   "durationMs": 9616
+  },
+  {
+   "run": 2,
+   "case": "N03",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 12847,
+   "tokensOverBaseline": 1652,
+   "durationMs": 2763
+  },
+  {
+   "run": 2,
+   "case": "N04",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13148,
+   "tokensOverBaseline": 1953,
+   "durationMs": 6717
+  },
+  {
+   "run": 2,
+   "case": "N05",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13368,
+   "tokensOverBaseline": 2173,
+   "durationMs": 5185
+  },
+  {
+   "run": 2,
+   "case": "N06",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13251,
+   "tokensOverBaseline": 2056,
+   "durationMs": 4056
+  },
+  {
+   "run": 2,
+   "case": "N07",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 13161,
+   "tokensOverBaseline": 1966,
+   "durationMs": 4353
+  },
+  {
+   "run": 2,
+   "case": "N08",
+   "label": "clean",
+   "verdict": "concerns",
+   "citedRuleIds": [
+    "QS-GN-001"
+   ],
+   "result": "false positive",
+   "subagentTokens": 17739,
+   "tokensOverBaseline": 6544,
+   "durationMs": 26268
+  },
+  {
+   "run": 2,
+   "case": "N09",
+   "label": "clean",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-NG-006"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13322,
+   "tokensOverBaseline": 2127,
+   "durationMs": 5505
+  },
+  {
+   "run": 2,
+   "case": "N10",
+   "label": "clean",
+   "verdict": "escalate",
+   "citedRuleIds": [
+    "QS-CS-005"
+   ],
+   "result": "escalated",
+   "subagentTokens": 13492,
+   "tokensOverBaseline": 2297,
+   "durationMs": 5521
+  },
+  {
+   "run": 2,
+   "case": "N11",
+   "label": "clean",
+   "verdict": "pass",
+   "citedRuleIds": [],
+   "result": "pass",
+   "subagentTokens": 12973,
+   "tokensOverBaseline": 1778,
+   "durationMs": 3912
+  }
+ ]
+}

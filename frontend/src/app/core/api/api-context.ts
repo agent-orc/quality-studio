@@ -30,6 +30,7 @@ export class ApiContext {
       && 'taskId' in value && (value.taskId === null || typeof value.taskId === 'string')
       && 'url' in value && (value.url === null || typeof value.url === 'string');
   }
+
   /** True once a request found a server without the repository registry, which serves /api/... flat. */
   readonly legacyApi = signal(false);
   readonly selectedRepositoryId = signal('default');

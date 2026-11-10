@@ -195,6 +195,8 @@ public sealed class ChangeReviewStoreApiTests : IAsyncLifetime
         Assert.Equal("agent-studio-integration/1", capabilities.GetProperty("contract").GetString());
         Assert.Contains("agent-studio-integration/1",
             capabilities.GetProperty("contracts").EnumerateArray().Select(value => value.GetString()));
+        Assert.Contains("external-ref",
+            capabilities.GetProperty("features").EnumerateArray().Select(value => value.GetString()));
         Assert.Contains("change-review-store",
             capabilities.GetProperty("features").EnumerateArray().Select(value => value.GetString()));
     }

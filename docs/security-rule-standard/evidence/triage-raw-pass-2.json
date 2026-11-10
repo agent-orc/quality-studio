@@ -1,0 +1,393 @@
+{
+ "P01": [
+  16394,
+  17646,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-006",
+     "line": 23
+    }
+   ],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-006"
+    }
+   ]
+  }
+ ],
+ "P02": [
+  15021,
+  20316,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-007",
+     "line": 11
+    },
+    {
+     "ruleId": "QS-NG-007",
+     "line": 18
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P03": [
+  14131,
+  8402,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-007",
+     "line": 34
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P04": [
+  14619,
+  9968,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-005",
+     "line": 17
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P05": [
+  15071,
+  12577,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-CS-008",
+     "line": 9
+    }
+   ],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-008"
+    }
+   ]
+  }
+ ],
+ "P06": [
+  14066,
+  9158,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-006",
+     "line": 15
+    },
+    {
+     "ruleId": "QS-GN-010",
+     "line": 15
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P07": [
+  13728,
+  7551,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-008",
+     "line": 23
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P08": [
+  14719,
+  11089,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-009",
+     "line": 9
+    },
+    {
+     "ruleId": "QS-GN-012",
+     "line": 9
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P09": [
+  15937,
+  16158,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-010",
+     "line": 18
+    },
+    {
+     "ruleId": "QS-GN-010",
+     "line": 16
+    },
+    {
+     "ruleId": "QS-CS-007",
+     "line": 14
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P10": [
+  14115,
+  9584,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-011",
+     "line": 6
+    },
+    {
+     "ruleId": "QS-GN-012",
+     "line": 6
+    },
+    {
+     "ruleId": "QS-GN-011",
+     "line": 7
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P11": [
+  14523,
+  9763,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-001",
+     "line": 17
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P12": [
+  13915,
+  8686,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-NG-009",
+     "line": 31
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P13": [
+  14824,
+  10827,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "ACME-CS-001",
+     "line": 13
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P14": [
+  14567,
+  12408,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-001",
+     "line": 11
+    },
+    {
+     "ruleId": "QS-CS-006",
+     "line": 16
+    },
+    {
+     "ruleId": "QS-CS-005",
+     "line": 19
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "P15": [
+  13310,
+  4918,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-012",
+     "line": 46
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "E01": [
+  13328,
+  7953,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N01": [
+  13523,
+  5558,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-005"
+    }
+   ]
+  }
+ ],
+ "N02": [
+  13624,
+  9616,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N03": [
+  12847,
+  2763,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N04": [
+  13148,
+  6717,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N05": [
+  13368,
+  5185,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N06": [
+  13251,
+  4056,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N07": [
+  13161,
+  4353,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ],
+ "N08": [
+  17739,
+  26268,
+  {
+   "verdict": "concerns",
+   "findings": [
+    {
+     "ruleId": "QS-GN-001",
+     "line": 17
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 20
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 21
+    },
+    {
+     "ruleId": "QS-GN-001",
+     "line": 22
+    }
+   ],
+   "escalations": []
+  }
+ ],
+ "N09": [
+  13322,
+  5505,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-NG-006"
+    }
+   ]
+  }
+ ],
+ "N10": [
+  13492,
+  5521,
+  {
+   "verdict": "escalate",
+   "findings": [],
+   "escalations": [
+    {
+     "ruleId": "QS-CS-005"
+    }
+   ]
+  }
+ ],
+ "N11": [
+  12973,
+  3912,
+  {
+   "verdict": "pass",
+   "findings": [],
+   "escalations": []
+  }
+ ]
+}
