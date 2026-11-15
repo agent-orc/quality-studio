@@ -66,8 +66,65 @@ public sealed class UsageLedgerTests
                 + UsageLedger.EstimateCost("gpt-5.6-sol", new TokenUsage(25, 5, 10, 1, 300), timestamp.AddMinutes(1)).Total;
             Assert.Equal(expected, report.EstimatedCost);
             Assert.NotEqual(0.5m, report.Recent.Single(entry => entry.RunId == "cli-run-3").Cost!.Total);
+            Assert.Equal("resolved", report.Recent.Single(entry => entry.RunId == "cli-run-3").Cost!.Status);
             Assert.Equal("USD", report.CostCurrency);
             Assert.Equal(0, report.UnpricedRuns);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Theory]
+    [InlineData("unknown-model", 1000L)]
+    [InlineData("gpt-6.1-sol", null)]
+    public async Task Unpriced_repricing_preserves_the_recorded_cost(string model, long? inputTokens)
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-recorded-cost-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.Zero);
+            var tokens = new TokenUsage(inputTokens, 100, 0, 0, 1000);
+            var recorded = new UsageCost(0.75m, "USD", "resolved");
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "unpriced-run", timestamp, model, "codex", tokens, "code", "file", "src/a.cs",
+                null, UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit, recorded),
+                TestContext.Current.CancellationToken);
+
+            Assert.Null(UsageLedger.EstimateCost(model, tokens, timestamp).Total);
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(recorded, Assert.Single(report.Recent).Cost);
+            Assert.Equal(0.75m, report.EstimatedCost);
+            Assert.Equal(0, report.UnpricedRuns);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task Unpriced_repricing_without_a_recorded_cost_stays_unpriced()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-no-cost-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.Zero);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "unknown-run", timestamp, "unknown-model", "codex",
+                new TokenUsage(1000, 100, 0, 0, 1000), "code", "file", "src/a.cs",
+                null, UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit),
+                TestContext.Current.CancellationToken);
+
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+            var cost = Assert.Single(report.Recent).Cost!;
+            Assert.Equal("unknownModel", cost.Status);
+            Assert.Null(cost.Total);
+            Assert.Null(report.EstimatedCost);
+            Assert.Equal(1, report.UnpricedRuns);
         }
         finally
         {

@@ -38,7 +38,7 @@ fresh input, cache reads and cache writes and applies the catalogue's
 Before version 4, Claude entries recorded fresh input only and no cache writes,
 and their stored cost treated cache reads as a share of the fresh input. On read,
 such an entry (any `cliType` `claude` with `schemaVersion` below 4) gets cache
-reads added to its `inputTokens`, is repriced, and carries an `accountingNote`
+reads added to its `inputTokens`, is repriced when the catalog can price it, and carries an `accountingNote`
 saying its cost is a lower bound; `GET /api/usage` counts these as
 `underPricedRuns`. This covers the 2026-09-28 agent-studio-dev sweep, which
 recorded USD 12.50 against USD 22.53 billed. The estimator ignores these entries
@@ -85,12 +85,13 @@ input count, the status is `ambiguousPromptSize`: `total` stays `null` rather
 than showing the cheap tier, and `lowerBound` and `upperBound` carry the
 base-tier and highest-reachable-tier totals. The cost cap counts such an
 operation at its upper bound. Entries are repriced at query time from the current
-dated catalog, including entries with stored cost estimates. Thus corrected
+dated catalog when it can resolve a total, including entries with stored cost estimates.
+If it cannot, a stored cost is retained; entries without one remain unpriced. Thus corrected
 historical tariffs appear in `GET /api/usage`, which returns `estimatedCost`,
 `costCurrency`, and `unpricedRuns` over the whole
-history. The synchronized Token Economy price snapshot is the only price source;
-when its validity window ends, operations become unpriced until the catalog is
-synchronized again (`npm run catalog:sync`).
+history. The synchronized Token Economy price snapshot supplies query-time prices;
+when it cannot price an operation, the recorded estimate remains available until the
+catalog is synchronized again (`npm run catalog:sync`).
 
 Budgets are cost budgets, not time budgets. Both caps count all input: the token
 cap adds input (including cache reads and writes) and output, and the cost cap

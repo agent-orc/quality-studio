@@ -149,7 +149,8 @@ public static class UsageLedger
 
     /// <summary>
     /// Reads every supported entry, normalized to the schema 4 token semantics and priced: entries
-    /// are priced at read time from their dated tariff, including entries with a stored cost.
+    /// are priced at read time from their dated tariff when possible, including entries with a stored
+    /// cost. An unpriced estimate falls back to the recorded cost, if one exists.
     /// Pre-schema-4 Claude entries whose token counts missed cache writes carry
     /// <see cref="UnderPricedNote"/>.
     /// </summary>
@@ -191,7 +192,7 @@ public static class UsageLedger
     /// <summary>
     /// Brings an entry to the schema 4 token semantics without rewriting the append-only file. Before
     /// schema 4 Claude's input count was fresh input only (cache reads were reported beside it, cache
-    /// writes not at all), so cache reads are added to the input and the cost is recomputed.
+    /// writes not at all), so cache reads are added to the input before repricing.
     /// </summary>
     internal static ReviewUsageEntry Normalize(ReviewUsageEntry entry)
     {
@@ -206,11 +207,17 @@ public static class UsageLedger
             return entry with
             {
                 Tokens = tokens,
-                Cost = EstimateCost(entry.Model, tokens, entry.Timestamp),
+                Cost = PriceOrRecorded(entry, tokens),
                 AccountingNote = UnderPricedNote,
             };
         }
-        return entry with { Cost = EstimateCost(entry.Model, entry.Tokens, entry.Timestamp) };
+        return entry with { Cost = PriceOrRecorded(entry, entry.Tokens) };
+    }
+
+    private static UsageCost PriceOrRecorded(ReviewUsageEntry entry, TokenUsage tokens)
+    {
+        var repriced = EstimateCost(entry.Model, tokens, entry.Timestamp);
+        return repriced.Total.HasValue ? repriced : entry.Cost ?? repriced;
     }
 
     /// <summary>
