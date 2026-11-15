@@ -1,14 +1,14 @@
 {
   "$schema": "model-routing-policy.schema.json",
   "schemaVersion": 1,
-  "policyVersion": "2026-10-21",
-  "evidenceAsOfDate": "2026-10-21",
+  "policyVersion": "2026-11-01",
+  "evidenceAsOfDate": "2026-11-01",
   "authority": {
     "repositoryPath": "docs/system/domains/model-routing-policy.md",
     "upstreamRepository": "agent-orc/agent-studio",
     "upstreamPath": "docs/system/domains/model-routing-policy.md",
-    "contentSha256": "241781f1c62ee971643036a1287067d9d11e541787430debf03ff3cd5b3d1363",
-    "synchronization": "Token Economy 2026-10-21 revision adds selectable Sonnet 5.5 and documented CLI version gates for Sonnet 5.5 and Haiku 5.5. Defaults, score bands, correctness floors, priors and fallbacks remain unchanged. The policy text also documents the Antigravity provider and test-only Gemini pins. TE-62 and TE-63 catalogue changes are included. No upstream update is claimed."
+    "contentSha256": "c1721ebf68f73c0b3ba27a566348999ff14af7177235600c5039799960dfcd0e",
+    "synchronization": "TE-74 provider refresh, 2026-11-01. 6.1 Terra is selectable as a provisional explicit pin. Specialized access-gated models are restricted. Routes, task-class priors, hard floors and fallbacks remain unchanged; this repository does not claim an upstream Agent Studio policy update."
   },
   "providers": [
     {
@@ -291,11 +291,11 @@
       "mediaCatalogModelId": "*",
       "trustModelId": "gpt-6.1-sol",
       "supportedThinkingLevels": [
-        "minimal",
         "low",
         "medium",
         "high",
-        "xhigh"
+        "xhigh",
+        "max"
       ],
       "routingStatus": "selectable",
       "evidenceStatus": "provisional",
@@ -304,7 +304,8 @@
       "workflowRoles": [
         "coreTask"
       ],
-      "note": "Additional supported model for explicit evaluation or operator pin only; no default route, task-class prior or fallback equivalence. Production Agent Studio Codex discovery on 2026-10-04 listed minimal/low/medium/high/xhigh (default xhigh). codex-cli 0.155.0 on this ChatGPT account returned HTTP 400 model not supported, so no level could be executed here; minimal is advertised but runtime support is unconfirmed. The OpenAI API model page separately says API minimal is unsupported. Language and media capability are unmeasured."
+      "note": "Selectable provisional explicit pin. OpenAI API model page lists low/medium/high/xhigh/max. Operator 2026-11-01 Codex 0.166.0 Pro probe executed; 0.155.0 refused. The 0.166.0 gate is a proven working floor, not the earliest possible release. No default tier or fallback; coding quality remains unmeasured.",
+      "minimumCliVersion": "0.166.0"
     },
     {
       "canonicalId": "gpt-6-luna",
@@ -422,7 +423,9 @@
       "evidenceStatus": "provisional",
       "provisional": true,
       "capabilityTier": "frontier",
-      "workflowRoles": ["coreTask"],
+      "workflowRoles": [
+        "coreTask"
+      ],
       "note": "Claude Code documents low/medium/high/xhigh/max with default medium: https://code.claude.com/docs/en/model-config (retrieved 2026-10-21). Minimum Claude Code 2.1.284; 2.1.281 returned unrecognized_model on 2026-09-29. Operator reports Claude Code 2.1.305 installed on TUFI2, agent-runner-01 and KORI review containers, with the KORI Dockerfile pinned; agent-runner-01 runner-credential claude -p --model claude-sonnet-5-5 answered on 2026-10-20. Selectable for explicit evaluation and operator-pinned core tasks only; no correctness-floor equivalence, default route, provider fallback or automatic migration."
     },
     {
@@ -786,6 +789,154 @@
       "capabilityTier": "frontier",
       "workflowRoles": [],
       "note": "Known to the CLI/price catalog but not a route in policy version 2026-07-24."
+    },
+    {
+      "canonicalId": "gpt-6.1-terra",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6.1-terra",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6.1-terra",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "routingStatus": "selectable",
+      "evidenceStatus": "provisional",
+      "provisional": true,
+      "capabilityTier": "frontier",
+      "workflowRoles": [
+        "coreTask"
+      ],
+      "note": "Explicit evaluation or operator pin only; 0.166.0 Pro operator probe executed on 2026-11-01, 0.155.0 refused. API reasoning none/low/medium/high/xhigh/max; Codex none is not a confirmed CLI effort. No default tier, prior, fallback or correctness equivalence. Compare identical coding cases against GPT-5.6 Terra before changing the 21\u201350 tier.",
+      "minimumCliVersion": "0.166.0"
+    },
+    {
+      "canonicalId": "gemini-4-carbon",
+      "aliases": [],
+      "providerId": "google",
+      "cliId": "antigravity",
+      "priceCatalogId": "gemini-4-carbon",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gemini-4-carbon",
+      "supportedThinkingLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Announcement-only internal reference. No public Gemini API model ID or tariff. Restricted; never selectable.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "gpt-6-rosalind",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-6-rosalind",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-6-rosalind",
+      "supportedThinkingLevels": [],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Provider approval or organization verification required; excluded from every recommendation and automatic route.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "gpt-5.6-cyber",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-5.6-cyber",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-5.6-cyber",
+      "supportedThinkingLevels": [],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Provider approval or organization verification required; excluded from every recommendation and automatic route.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "gpt-rosalind-research",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-rosalind-research",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-rosalind-research",
+      "supportedThinkingLevels": [],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Provider approval or organization verification required; excluded from every recommendation and automatic route.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "gpt-rosalind-discovery",
+      "aliases": [],
+      "providerId": "openai",
+      "cliId": "codex",
+      "priceCatalogId": "gpt-rosalind-discovery",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "gpt-rosalind-discovery",
+      "supportedThinkingLevels": [],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Provider approval or organization verification required; excluded from every recommendation and automatic route.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "claude-mythos-5-1",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-mythos-5-1",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-mythos-5-1",
+      "supportedThinkingLevels": [],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Provider approval or organization verification required; excluded from every recommendation and automatic route.",
+      "testOnly": true
+    },
+    {
+      "canonicalId": "claude-mythos-5",
+      "aliases": [],
+      "providerId": "anthropic",
+      "cliId": "claude-code",
+      "priceCatalogId": "claude-mythos-5",
+      "mediaCatalogModelId": "*",
+      "trustModelId": "claude-mythos-5",
+      "supportedThinkingLevels": [],
+      "routingStatus": "restricted",
+      "evidenceStatus": "unknown",
+      "provisional": false,
+      "capabilityTier": "frontier",
+      "workflowRoles": [],
+      "note": "Provider approval or organization verification required; excluded from every recommendation and automatic route.",
+      "testOnly": true
     }
   ],
   "routes": [

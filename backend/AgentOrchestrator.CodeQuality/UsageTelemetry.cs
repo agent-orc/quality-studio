@@ -149,8 +149,9 @@ public static class UsageLedger
 
     /// <summary>
     /// Reads every supported entry, normalized to the schema 4 token semantics and priced: entries
-    /// written before costs were recorded, and pre-schema-4 Claude entries whose stored cost
-    /// mispriced cache reads, are priced at read time; the latter carry <see cref="UnderPricedNote"/>.
+    /// are priced at read time from their dated tariff, including entries with a stored cost.
+    /// Pre-schema-4 Claude entries whose token counts missed cache writes carry
+    /// <see cref="UnderPricedNote"/>.
     /// </summary>
     public static async Task<IReadOnlyList<ReviewUsageEntry>> ReadAsync(string repositoryRoot,
         DateTimeOffset? since = null, string? kind = null, CancellationToken cancellationToken = default)
@@ -209,13 +210,13 @@ public static class UsageLedger
                 AccountingNote = UnderPricedNote,
             };
         }
-        return entry.Cost is null ? entry with { Cost = EstimateCost(entry.Model, entry.Tokens, entry.Timestamp) } : entry;
+        return entry with { Cost = EstimateCost(entry.Model, entry.Tokens, entry.Timestamp) };
     }
 
     /// <summary>
     /// Prices one operation at the catalog price valid at <paramref name="timestamp"/>. The result
-    /// is stored with the ledger entry so every cost the product incurs is visible where the tokens
-    /// are, and recomputed at query time for entries written before costs were recorded.
+    /// is stored with the ledger entry so the original estimate remains visible beside the tokens;
+    /// ledger queries recompute it using the current catalog and the operation timestamp.
     /// </summary>
     public static UsageCost EstimateCost(string model, TokenUsage tokens, DateTimeOffset timestamp,
         ModelPriceCatalog? catalog = null) =>

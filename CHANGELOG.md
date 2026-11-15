@@ -4,6 +4,16 @@ Product-level history. The rule library keeps its own in [`rules/CHANGELOG.md`](
 
 ## Unreleased
 
+### Changed — review catalog synced to Token Economy 0.3.9 (QS-136)
+
+- Synchronized the released `v0.3.9` routing and price files (commit `c8de755`, policy
+  `2026-11-01`). GPT-6.1 Terra and GPT-6.1 Sol are priced and selectable for explicit
+  runs as the policy permits; neither becomes a default or floor equivalent.
+- Corrected Claude Sonnet 5.5 cached-read pricing from $0.20 to $0.10 per million tokens
+  back to its 2026-09-28 tariff. Usage queries now reprice stored runs with the current
+  dated catalog, so a historical cached-read run reflects the correction.
+- QS-121's 0.3.7 catalog target is superseded by the QS-127 and QS-136 release syncs.
+
 ### Fixed — .NET build scans no longer wait for lingering build servers (QS-128)
 
 - The `roslyn-build-sarif` profile and the `dotnet-build` sensor pass `--disable-build-servers`.

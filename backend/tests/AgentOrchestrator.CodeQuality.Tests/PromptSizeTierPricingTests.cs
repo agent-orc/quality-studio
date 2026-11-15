@@ -5,7 +5,7 @@ using Json.Schema;
 namespace AgentOrchestrator.CodeQuality.Tests;
 
 /// <summary>
-/// Pins the Token Economy 0.3.8 price sync: every newly priced model is repriced at query time from
+/// Pins the Token Economy price sync: every newly priced model is repriced at query time from
 /// its dated tariff, and prompt-size tiers never let summed operation usage claim the cheap tier.
 /// </summary>
 public sealed class PromptSizeTierPricingTests
@@ -20,7 +20,8 @@ public sealed class PromptSizeTierPricingTests
     [InlineData("gemini-3.8-flash", "antigravity", "2026-09-02", "2026-09-02", "0.084")]
     [InlineData("gemini-3.8-flash", "antigravity", "2026-09-02", "2027-01-01", "0.168")]
     [InlineData("gpt-6.1-sol", "codex", "2026-09-29", "2026-09-29", "0.222")]
-    [InlineData("claude-sonnet-5-5", "claude", "2026-09-28", "2026-09-28", "0.224")]
+    [InlineData("gpt-6.1-terra", "codex", "2026-10-26", "2026-10-26", "0.111")]
+    [InlineData("claude-sonnet-5-5", "claude", "2026-09-28", "2026-09-28", "0.222")]
     [InlineData("claude-opus-5-5", "claude", "2026-09-22", "2026-09-22", "0.444")]
     [InlineData("gpt-6-sol", "codex", "2026-09-22", "2026-09-22", "0.224")]
     [InlineData("gpt-6-luna", "codex", "2026-09-22", "2026-09-22", "0.0112")]
@@ -48,6 +49,35 @@ public sealed class PromptSizeTierPricingTests
             Assert.Equal(0, report.UnpricedRuns);
             Assert.Equal("noPriceForDate",
                 UsageLedger.EstimateCost(modelId, SmallOperation, Day(launchDay).AddTicks(-1)).Status);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task Historical_sonnet_cache_read_run_with_stored_old_cost_shows_corrected_cost()
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-sonnet-cache-correction-");
+        try
+        {
+            var timestamp = Day("2026-09-28").AddHours(10);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "sonnet-before-correction", timestamp, "claude-sonnet-5-5", "claude", SmallOperation,
+                "code", "file", "src/a.cs", "review-sonnet", UsageLedger.CurrentSchemaVersion,
+                ReviewModelSource.Explicit, new UsageCost(0.224m, "USD", "resolved")),
+                TestContext.Current.CancellationToken);
+
+            var stored = Assert.Single(await File.ReadAllLinesAsync(
+                UsageLedger.GetLedgerPath(root.FullName, timestamp), TestContext.Current.CancellationToken));
+            using var document = JsonDocument.Parse(stored);
+            Assert.Equal(0.224m, document.RootElement.GetProperty("cost").GetProperty("total").GetDecimal());
+
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(0.222m, Assert.Single(report.Recent).Cost!.Total);
+            Assert.Equal(0.222m, report.EstimatedCost);
         }
         finally
         {
@@ -91,6 +121,9 @@ public sealed class PromptSizeTierPricingTests
         var sol = UsageLedger.EstimateCost("gpt-6.1-sol", new TokenUsage(272_001, 10_000, 0, 0, 1000), Day("2026-10-08"));
         Assert.Equal(ReviewPriceCatalog.AmbiguousPromptSize, sol.Status);
         Assert.True(sol.UpperBound > sol.LowerBound);
+        var terra = UsageLedger.EstimateCost("gpt-6.1-terra", new TokenUsage(272_001, 10_000, 0, 0, 1000), Day("2026-11-02"));
+        Assert.Equal(ReviewPriceCatalog.AmbiguousPromptSize, terra.Status);
+        Assert.True(terra.UpperBound > terra.LowerBound);
         Assert.Equal("resolved", UsageLedger.EstimateCost("gemini-4-argon", tokens, Day("2026-10-14")).Status);
     }
 

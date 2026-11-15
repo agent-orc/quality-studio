@@ -8,10 +8,15 @@ public sealed class ReviewModelCatalogTests
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {
         Assert.Equal("agent-orc/token-economy", catalog.Snapshot.SourceRepository);
-        Assert.Equal("c6d1de5fcf37cc25d047811138f4e12e71b8de1a", catalog.Snapshot.SourceCommit);
-        Assert.Equal("2026-10-21", catalog.Snapshot.PolicyVersion);
-        Assert.Equal(30, catalog.Snapshot.Models.Count);
-        Assert.All(catalog.Snapshot.Models, model => Assert.True(model.PriceAvailable));
+        Assert.Equal("c8de755d31c806960ab81bc77ba19f9842c1c522", catalog.Snapshot.SourceCommit);
+        Assert.Equal("2026-11-01", catalog.Snapshot.PolicyVersion);
+        Assert.Equal(38, catalog.Snapshot.Models.Count);
+        Assert.All(catalog.Snapshot.Models.Where(model => model.AvailableForNewRuns),
+            model => Assert.True(model.PriceAvailable));
+        var carbon = catalog.Find("gemini-4-carbon")!;
+        Assert.Equal("restricted", carbon.RoutingStatus);
+        Assert.False(carbon.PriceAvailable);
+        Assert.False(carbon.AvailableForNewRuns);
 
         var sol = Assert.Single(catalog.Snapshot.Models, model => model.ModelId == "gpt-5.6-sol");
         Assert.Equal("codex", sol.CliType);
@@ -24,6 +29,8 @@ public sealed class ReviewModelCatalogTests
     }
 
     [Theory]
+    [InlineData("gpt-6.1-terra", "gpt-6.1-terra", "codex", "codex", "low,medium,high,xhigh,max")]
+    [InlineData("gpt-6.1-sol", "gpt-6.1-sol", "codex", "codex", "low,medium,high,xhigh,max")]
     [InlineData("gpt-6-astra", "astra", "codex", "codex", "low,medium,high,xhigh,max,ultra")]
     [InlineData("claude-fable-5-1", "claude-fable-5-1", "claude-code", "claude", "low,medium,high,xhigh,max")]
     [InlineData("claude-haiku-5-5", "claude-haiku-5-5", "claude-code", "claude", "low,medium,high,xhigh,max")]

@@ -55,15 +55,17 @@ public sealed class UsageLedgerTests
                 Assert.False(second.RootElement.TryGetProperty("cost", out _));
             }
 
-            // Both shapes are queryable next to the older versions, and the report totals the
-            // stored cost plus the query-time price of the entry written without one.
+            // Both shapes are queryable next to the older versions. The stored estimate remains
+            // in the ledger file, while the report prices both entries using the current catalog.
             var report = await UsageLedger.QueryAsync(root.FullName, timestamp.AddMinutes(-1), "code",
                 cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal(2, report.Runs);
             Assert.Contains(report.Recent, entry =>
                 entry.RunId == "cli-run-4" && entry.ModelSource == ReviewModelSource.Explicit);
-            Assert.NotNull(report.EstimatedCost);
-            Assert.True(report.EstimatedCost > 0.5m, "the query-time price of the second entry is added to the stored cost");
+            var expected = UsageLedger.EstimateCost("gpt-5.6-luna", new TokenUsage(50, 10, 20, 2, 600), timestamp).Total
+                + UsageLedger.EstimateCost("gpt-5.6-sol", new TokenUsage(25, 5, 10, 1, 300), timestamp.AddMinutes(1)).Total;
+            Assert.Equal(expected, report.EstimatedCost);
+            Assert.NotEqual(0.5m, report.Recent.Single(entry => entry.RunId == "cli-run-3").Cost!.Total);
             Assert.Equal("USD", report.CostCurrency);
             Assert.Equal(0, report.UnpricedRuns);
         }

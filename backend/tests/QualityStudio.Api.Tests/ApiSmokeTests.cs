@@ -1049,12 +1049,18 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
 
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
-        Assert.Equal("2026-10-21", json.GetProperty("policyVersion").GetString());
-        Assert.Equal("c6d1de5fcf37cc25d047811138f4e12e71b8de1a", json.GetProperty("sourceCommit").GetString());
+        Assert.Equal("2026-11-01", json.GetProperty("policyVersion").GetString());
+        Assert.Equal("c8de755d31c806960ab81bc77ba19f9842c1c522", json.GetProperty("sourceCommit").GetString());
         var models = json.GetProperty("models").EnumerateArray().ToArray();
-        Assert.Equal(30, models.Length);
-        Assert.All(models, model => Assert.True(model.GetProperty("priceAvailable").GetBoolean()));
-        foreach (var (id, cli) in new[] { ("claude-fable-5-1", "claude"), ("claude-haiku-5-5", "claude") })
+        Assert.Equal(38, models.Length);
+        Assert.All(models.Where(model => model.GetProperty("availableForNewRuns").GetBoolean()),
+            model => Assert.True(model.GetProperty("priceAvailable").GetBoolean()));
+        var carbon = Assert.Single(models, model => model.GetProperty("modelId").GetString() == "gemini-4-carbon");
+        Assert.Equal("restricted", carbon.GetProperty("routingStatus").GetString());
+        Assert.False(carbon.GetProperty("priceAvailable").GetBoolean());
+        Assert.False(carbon.GetProperty("availableForNewRuns").GetBoolean());
+        foreach (var (id, cli) in new[] { ("claude-fable-5-1", "claude"), ("claude-haiku-5-5", "claude"),
+            ("gpt-6.1-terra", "codex"), ("gpt-6.1-sol", "codex") })
         {
             var supported = Assert.Single(models, model => model.GetProperty("modelId").GetString() == id);
             Assert.Equal(cli, supported.GetProperty("cliType").GetString());

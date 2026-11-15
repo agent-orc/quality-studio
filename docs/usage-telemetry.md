@@ -84,9 +84,10 @@ base rate, since no request can have been larger. Above it, or with an unknown
 input count, the status is `ambiguousPromptSize`: `total` stays `null` rather
 than showing the cheap tier, and `lowerBound` and `upperBound` carry the
 base-tier and highest-reachable-tier totals. The cost cap counts such an
-operation at its upper bound. Entries written
-before costs were recorded are priced at query time, so `GET /api/usage`
-returns `estimatedCost`, `costCurrency`, and `unpricedRuns` over the whole
+operation at its upper bound. Entries are repriced at query time from the current
+dated catalog, including entries with stored cost estimates. Thus corrected
+historical tariffs appear in `GET /api/usage`, which returns `estimatedCost`,
+`costCurrency`, and `unpricedRuns` over the whole
 history. The synchronized Token Economy price snapshot is the only price source;
 when its validity window ends, operations become unpriced until the catalog is
 synchronized again (`npm run catalog:sync`).

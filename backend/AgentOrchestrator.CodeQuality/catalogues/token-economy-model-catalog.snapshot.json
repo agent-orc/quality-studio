@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "upstreamRepository": "agent-orc/token-economy",
-  "upstreamCommit": "c6d1de5fcf37cc25d047811138f4e12e71b8de1a",
-  "policyVersion": "2026-10-21",
+  "upstreamCommit": "c8de755d31c806960ab81bc77ba19f9842c1c522",
+  "policyVersion": "2026-11-01",
   "files": {
-    "model-routing-policy.json": "db59051ea60d0f052439fdc3a9b17c203763c637b37de350d51c07ff426f9300",
-    "model-prices.json": "5007ff7361558d55c78b03d4f6017ea85eae523a3eadff9acf49de4ffbfae54b"
+    "model-routing-policy.json": "0d1392af95ac92da7fb16469090c79d14fc5850cc31ff7ef6c86724fff3fab4d",
+    "model-prices.json": "aff0f1181a7845879b1f67ea1f9ca28ef1ed366ccced9abddf0ac6f90d05cba5"
   }
 }

@@ -16,6 +16,8 @@ describe('ReviewActions', () => {
     thinkingLevels: ['low', 'medium', 'high', 'xhigh'],
     models: [
       { modelId: 'gpt-5.6-sol', aliases: ['sol'], cliType: 'codex', capabilityTier: 'frontier', suitability: 'Demanding reviews.', routingStatus: 'selectable', supportedThinkingLevels: ['low', 'medium', 'high', 'xhigh'], provisional: false, evidenceStatus: 'observational', note: 'Evidence note.', priceAvailable: false, availableForNewRuns: true },
+      { modelId: 'gpt-6.1-terra', aliases: [], cliType: 'codex', capabilityTier: 'frontier', suitability: 'Explicit evaluation.', routingStatus: 'selectable', supportedThinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], provisional: true, evidenceStatus: 'provisional', note: 'No default route.', priceAvailable: true, availableForNewRuns: true },
+      { modelId: 'gpt-6.1-sol', aliases: [], cliType: 'codex', capabilityTier: 'frontier', suitability: 'Explicit evaluation.', routingStatus: 'selectable', supportedThinkingLevels: ['low', 'medium', 'high', 'xhigh', 'max'], provisional: true, evidenceStatus: 'provisional', note: 'No default route.', priceAvailable: true, availableForNewRuns: true },
       { modelId: 'gpt-5.5', aliases: [], cliType: 'codex', capabilityTier: 'balanced', suitability: 'Unsupported.', routingStatus: 'unsupported', supportedThinkingLevels: ['medium'], provisional: false, evidenceStatus: 'unknown', note: 'Not qualified.', priceAvailable: false, availableForNewRuns: false },
       { modelId: 'claude-sonnet-5', aliases: [], cliType: 'claude', capabilityTier: 'frontier', suitability: 'Fallback.', routingStatus: 'fallbackOnly', supportedThinkingLevels: ['high'], provisional: true, evidenceStatus: 'provisional', note: 'Fallback only.', priceAvailable: true, availableForNewRuns: true },
     ],
@@ -60,6 +62,8 @@ describe('ReviewActions', () => {
     expect(options[1].textContent).toContain('gpt-5.6-sol');
     expect(options[1].textContent).toContain('frontier');
     expect(options[1].textContent).toContain('Demanding reviews');
+    expect(options.some(option => option.textContent?.includes('gpt-6.1-terra'))).toBeTrue();
+    expect(options.some(option => option.textContent?.includes('gpt-6.1-sol'))).toBeTrue();
     expect(options.some(option => option.textContent?.includes('gpt-5.5'))).toBeFalse();
     expect(options.some(option => option.textContent?.includes('claude-sonnet-5'))).toBeFalse();
   });
