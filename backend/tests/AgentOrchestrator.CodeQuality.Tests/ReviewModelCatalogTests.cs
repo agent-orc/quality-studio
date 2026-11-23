@@ -4,6 +4,86 @@ public sealed class ReviewModelCatalogTests
 {
     private readonly ReviewModelCatalog catalog = ReviewModelCatalog.Default;
 
+    [Theory]
+    [InlineData("gpt-6.1-sol", "0.166.0", null, true, true)]
+    [InlineData("gpt-6.1-sol", "0.165.0", null, true, false)]
+    [InlineData("gpt-6.1-sol", "0.166.0", null, false, false)]
+    [InlineData("gpt-6.1-sol", null, null, true, false)]
+    [InlineData("gpt-6-sol", null, null, true, true)]
+    [InlineData("gpt-6-sol", "0.166.0", null, false, false)]
+    [InlineData("claude-sonnet-5-5", null, "2.1.283", false, false)]
+    [InlineData("claude-sonnet-5-5", null, "2.1.284", false, true)]
+    [InlineData("claude-sonnet-5-5", null, "2.1.305", false, true)]
+    [InlineData("claude-sonnet-5-5", null, null, false, false)]
+    public void Installed_cli_support_gates_picker_and_explicit_selection_without_removing_prices(
+        string modelId, string? codexVersion, string? claudeVersion, bool listed, bool expectedAvailable)
+    {
+        var evidence = ReviewCliAvailability.FromOutput(
+            listed ? """{"models":[{"slug":"gpt-6-sol","visibility":"list"},{"slug":"gpt-6.1-sol","visibility":"list"}]}""" : "{}",
+            codexVersion, claudeVersion);
+        var local = new ReviewModelCatalog(evidence);
+        var option = local.Find(modelId)!;
+
+        Assert.Equal(expectedAvailable, option.AvailableForNewRuns);
+        Assert.True(option.PriceAvailable);
+        Assert.Equal(catalog.Snapshot.SourceCommit, local.Snapshot.SourceCommit);
+        if (expectedAvailable)
+            Assert.True(local.Resolve(option.CliType, modelId, "high").Catalogued);
+        else
+            Assert.Throws<ReviewModelSelectionException>(() => local.Resolve(option.CliType, modelId, "high"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("invalid JSON")]
+    [InlineData("[]")]
+    [InlineData("{\"models\":{}}")]
+    [InlineData("{\"models\":[{\"slug\":\"gpt-6.1-sol\",\"visibility\":\"hide\"}]}")]
+    public void Absent_malformed_or_hidden_codex_discovery_never_offers_a_gated_model(string? output)
+    {
+        var local = new ReviewModelCatalog(ReviewCliAvailability.FromOutput(output, "codex-cli 0.166.0", null));
+        Assert.False(local.Find("gpt-6.1-sol")!.AvailableForNewRuns);
+        Assert.False(local.Find("gpt-6-sol")!.AvailableForNewRuns);
+    }
+
+    [Theory]
+    [InlineData("gpt-6-sol", "low,medium,high,xhigh,max,ultra")]
+    [InlineData("gpt-5.6-sol", "low,medium,high,xhigh,max,ultra")]
+    [InlineData("gpt-5.6-terra", "low,medium,high,xhigh,max,ultra")]
+    [InlineData("gpt-6-luna", "low,medium,high,xhigh,max")]
+    [InlineData("gpt-5.6-luna", "low,medium,high,xhigh,max")]
+    public void Refreshed_codex_ladders_accept_the_advertised_levels_and_reject_minimal(
+        string modelId, string levels)
+    {
+        Assert.Equal(levels.Split(','), catalog.Find(modelId)!.SupportedThinkingLevels);
+        foreach (var level in levels.Split(',')) Assert.Equal(level, catalog.Resolve("codex", modelId, level).ThinkingLevel);
+        Assert.Throws<ReviewModelSelectionException>(() => catalog.Resolve("codex", modelId, "minimal"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Discovery_joins_read_only_cli_evidence_and_fails_closed_when_a_probe_fails(bool fail)
+    {
+        var evidence = await ReviewCliAvailability.DiscoverAsync(new DiscoveryRunner(fail), TestContext.Current.CancellationToken);
+        var local = new ReviewModelCatalog(evidence);
+        Assert.Equal(!fail, local.Find("gpt-6.1-sol")!.AvailableForNewRuns);
+        Assert.Equal(!fail, local.Find("claude-sonnet-5-5")!.AvailableForNewRuns);
+    }
+
+    private sealed class DiscoveryRunner(bool fail) : ISensorCommandRunner
+    {
+        public Task<SensorCommandResult> RunAsync(string executable, IReadOnlyList<string> arguments,
+            string workingDirectory, CancellationToken cancellationToken = default)
+        {
+            if (fail) throw new SecurityScannerUnavailableException("CLI unavailable");
+            var output = arguments.SequenceEqual(new[] { "debug", "models" })
+                ? """{"models":[{"slug":"gpt-6.1-sol","visibility":"list"}]}"""
+                : executable == "codex" ? "codex-cli 0.166.0" : "2.1.284 (Claude Code)";
+            return Task.FromResult(new SensorCommandResult(0, output, ""));
+        }
+    }
+
     [Fact]
     public void Snapshot_exposes_token_economy_provenance_and_capability_annotations()
     {

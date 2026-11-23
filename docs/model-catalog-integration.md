@@ -4,6 +4,15 @@ Quality Studio treats Token Economy's model-routing policy and price catalog as 
 authority for review model identity, capability, thinking levels, and routing status.
 The review UI does not maintain a second hand-written model list.
 
+The embedded snapshot is Token Economy **v0.3.9**, tagged commit
+`c8de755d31c806960ab81bc77ba19f9842c1c522`, with policy and evidence date
+**2026-11-01**. QS-136 already advanced this checkout beyond QS-121's requested
+v0.3.7 (`61f2fa3eda6bf15e98ac02ab54ff9d95bbe2ae36`, policy date 2026-10-04).
+QS-121 retains v0.3.9 so later model additions, dated tariffs, prompt-size tiers,
+and the Sonnet 5.5 cache-read correction remain available. Synchronization and
+upstream integrity checks use the clean v0.3.9 checkout; all catalogue hashes
+already match that tag, so no catalogue content or manifest hash changes are needed.
+
 ## Integration decision
 
 The preferred long-term integration is a `TokenEconomy` .NET package reference. The
@@ -42,14 +51,44 @@ with the package API and remove the snapshot as one migration.
 `GET /api/models` exposes every synchronized policy row for diagnostics. The picker
 offers only `selectable` and `fallbackOnly` rows and filters them by CLI (`codex`,
 `claude`). Unsupported, restricted, and deprecated rows remain visible in the API but
-cannot start a run. The current Token Economy policy has no Google provider rows, so
-Gemini and Antigravity show Runner default plus the explicit free-text escape hatch;
-Quality Studio does not invent a capability tier in that gap.
+cannot start a run. The host also joins the policy with read-only local CLI discovery
+when its catalog is first resolved. `codex debug models` must list `gpt-6-sol` and
+`gpt-6.1-sol` with `visibility: list` before they are offered. Policy rows with a
+`minimumCliVersion` require an installed version at least that high; Codex rows also
+require discovery to list the model. In this snapshot GPT-6.1 Sol requires Codex
+0.166.0 and Claude Sonnet 5.5 requires Claude Code 2.1.284. Missing, failed, or malformed
+probes do not establish support. A blocked model stays visible and priced in diagnostics,
+but `availableForNewRuns` is false and explicit selection is rejected. Restart the host
+after upgrading or changing CLI access to refresh this evidence. The library's
+`ReviewModelCatalog.Default` is the policy-only view; the API uses the local evidence
+view for both the picker and run validation.
+
+The September 29 ladder refresh remains in effect: GPT-6 Sol and GPT-5.6 Sol/Terra
+support low through max plus ultra; GPT-6 Luna and GPT-5.6 Luna support low through max.
+These models reject minimal. v0.3.7 advertised minimal through xhigh for GPT-6.1 Sol;
+the retained v0.3.9 policy supersedes that observation with low through max.
 
 A compatible unknown id remains accepted (`gpt-*` for Codex, `claude-*` for Claude,
 `gemini-*` for Gemini/Antigravity) so a newly released model is not blocked before the
 next catalog sync. Such an id has no asserted capability or price. Known non-routable
 models are never reclassified as custom ids.
+
+## Usage pricing
+
+`ReviewPriceCatalog.Default` contains GPT-6.1 Sol from 2026-09-29 and Claude Sonnet
+5.5 from 2026-09-28, independently of local CLI availability. Both currently have
+short-context rates of $2 input, $0.10 cache read, $2.50 cache write, and $10 output
+per million tokens. Sonnet's $0.10 cache-read rate includes the later upstream
+correction to the v0.3.7 snapshot's $0.20 transcription.
+
+Ledger queries resolve each entry against its operation date using the synchronized
+prices, replacing missing or stale recorded estimates without rewriting ledger history.
+`GET /api/usage` exposes the resulting `estimatedCost` and aggregate `costStatus`
+(`priced`, `partial`, or `unpriced`); individual successful estimates retain the
+existing resolver status `resolved`. For example, 80k total input including 20k cache
+reads and 10k cache writes, plus 10k output, costs $0.227 for either model at launch.
+Usage that cannot establish a prompt-size tier retains the existing ambiguous-price
+behavior rather than claiming a short-context estimate.
 
 The first picker choice is always the policy default. Choosing it sends no model or
 thinking override; the API then resolves the routing policy's route for the CLI

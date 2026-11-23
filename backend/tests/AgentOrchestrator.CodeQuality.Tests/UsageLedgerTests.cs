@@ -9,6 +9,46 @@ public sealed class UsageLedgerTests
     // the current schema comes from the shared catalogue that other ledger tests also validate with.
     private static readonly Lazy<JsonSchema> LedgerSchema = new(() => SchemaCatalogue.Get("usage-ledger.v4.schema.json"));
 
+    [Theory]
+    [InlineData("gpt-6.1-sol", "codex", false)]
+    [InlineData("gpt-6.1-sol", "codex", true)]
+    [InlineData("claude-sonnet-5-5", "claude", false)]
+    [InlineData("claude-sonnet-5-5", "claude", true)]
+    public async Task Snapshot_models_reprice_missing_and_stale_ledger_costs_without_rewriting_history(
+        string model, string cli, bool storedCost)
+    {
+        var root = Directory.CreateTempSubdirectory("quality-studio-usage-qs121-");
+        try
+        {
+            var timestamp = new DateTimeOffset(2026, 9, 29, 10, 0, 0, TimeSpan.Zero);
+            var tokens = new TokenUsage(80_000, 10_000, 20_000, 0, 1000, 10_000);
+            await UsageLedger.AppendAsync(root.FullName, new ReviewUsageEntry(
+                "snapshot-model-run", timestamp, model, cli, tokens, "code", "file", "src/a.cs",
+                null, UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit,
+                storedCost ? new UsageCost(99m, "USD", "resolved") : null),
+                TestContext.Current.CancellationToken);
+            var path = UsageLedger.GetLedgerPath(root.FullName, timestamp);
+            var original = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+
+            var report = await UsageLedger.QueryAsync(root.FullName,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // 50k fresh at $2 + 20k cache reads at $0.10 + 10k writes at $2.50 + 10k output at $10.
+            Assert.Equal(0.227m, report.EstimatedCost);
+            Assert.Equal("priced", report.CostStatus);
+            Assert.Equal(0, report.UnpricedRuns);
+            var cost = Assert.Single(report.Recent).Cost!;
+            Assert.Equal("resolved", cost.Status);
+            Assert.Equal(0.227m, cost.Total);
+            Assert.Equal("USD", cost.Currency);
+            Assert.Equal(original, await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
     [Fact]
     public async Task CurrentEntriesAttributeEveryOperationToAModelSourceAndCarryTheirCost()
     {
@@ -124,6 +164,7 @@ public sealed class UsageLedgerTests
             Assert.Equal("unknownModel", cost.Status);
             Assert.Null(cost.Total);
             Assert.Null(report.EstimatedCost);
+            Assert.Equal("unpriced", report.CostStatus);
             Assert.Equal(1, report.UnpricedRuns);
         }
         finally

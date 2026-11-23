@@ -47,7 +47,8 @@ builder.Services.AddSingleton<TreeProjectionCache>();
 builder.Services.AddSingleton<RepositorySnapshotPrewarmer>();
 builder.Services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<RepositorySnapshotPrewarmer>());
 builder.Services.AddSingleton<StalenessEvaluator>();
-builder.Services.AddSingleton<ReviewModelCatalog>();
+builder.Services.AddSingleton(_ => new ReviewModelCatalog(
+    ReviewCliAvailability.DiscoverAsync().GetAwaiter().GetResult()));
 builder.Services.AddSingleton<QualityReportBuilder>();
 builder.Services.AddSingleton<InputResolver>();
 builder.Services.AddSingleton<GuidelineStore>();

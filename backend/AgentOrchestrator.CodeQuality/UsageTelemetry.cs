@@ -78,7 +78,11 @@ public sealed record UsageReport(
     string? CostCurrency = null,
     int UnpricedRuns = 0,
     long CacheWriteInputTokens = 0,
-    int UnderPricedRuns = 0);
+    int UnderPricedRuns = 0)
+{
+    /// <summary>Aggregate pricing status; individual costs retain the price resolver's vocabulary.</summary>
+    public string CostStatus => EstimatedCost is null ? "unpriced" : UnpricedRuns > 0 ? "partial" : "priced";
+}
 
 /// <summary>Append-only, project-local token ledger independent of review metadata rewrites.</summary>
 public static class UsageLedger

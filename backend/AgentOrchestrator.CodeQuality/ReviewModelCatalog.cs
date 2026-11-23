@@ -107,9 +107,9 @@ public sealed class ReviewModelCatalog
     private readonly IReadOnlyDictionary<string, (string Model, string ThinkingLevel)> coreRoutes;
     private readonly IReadOnlyList<ProviderFallback> providerFallbacks;
 
-    public ReviewModelCatalog()
+    public ReviewModelCatalog(ReviewCliAvailability? cliAvailability = null)
     {
-        (Snapshot, thinkingRanks, coreRouteRanks, qualifyingRoutes, coreRoutes, providerFallbacks) = Load();
+        (Snapshot, thinkingRanks, coreRouteRanks, qualifyingRoutes, coreRoutes, providerFallbacks) = Load(cliAvailability);
         modelsByKey = new Dictionary<string, ReviewModelOption>(StringComparer.OrdinalIgnoreCase);
         foreach (var model in Snapshot.Models)
         {
@@ -164,7 +164,7 @@ public sealed class ReviewModelCatalog
 
         if (!catalogued.AvailableForNewRuns)
             throw new ReviewModelSelectionException(
-                $"Model '{catalogued.ModelId}' cannot start new reviews because its routing status is '{catalogued.RoutingStatus}'.");
+                $"Model '{catalogued.ModelId}' cannot start new reviews because its routing status is '{catalogued.RoutingStatus}' or the installed CLI does not support it.");
         if (KnownCliTypes.Contains(cli) && !string.Equals(catalogued.CliType, cli, StringComparison.Ordinal))
             throw new ReviewModelSelectionException($"Model '{catalogued.ModelId}' is routed through CLI '{catalogued.CliType}', not '{cli}'.");
         if (requestedThinking is not null &&
@@ -310,7 +310,7 @@ public sealed class ReviewModelCatalog
         Dictionary<string, int> CoreRouteRanks,
         IReadOnlyList<QualifyingRoute> QualifyingRoutes,
         IReadOnlyDictionary<string, (string Model, string ThinkingLevel)> CoreRoutes,
-        IReadOnlyList<ProviderFallback> ProviderFallbacks) Load()
+        IReadOnlyList<ProviderFallback> ProviderFallbacks) Load(ReviewCliAvailability? cliAvailability)
     {
         using var routing = JsonDocument.Parse(OpenResource(RoutingResource));
         using var prices = JsonDocument.Parse(OpenResource(PricesResource));
@@ -344,7 +344,9 @@ public sealed class ReviewModelCatalog
                 model.GetProperty("evidenceStatus").GetString()!,
                 model.GetProperty("note").GetString()!,
                 pricedModels.GetValueOrDefault(model.GetProperty("priceCatalogId").GetString()!),
-                NewRunStatuses.Contains(routingStatus));
+                NewRunStatuses.Contains(routingStatus) && (cliAvailability is null || cliAvailability.Allows(
+                    modelId, NormalizeCli(model.GetProperty("cliId").GetString()),
+                    model.TryGetProperty("minimumCliVersion", out var minimumVersion) ? minimumVersion.GetString() : null)));
         }).ToArray();
 
         var thinkingRanks = thinkingLevels

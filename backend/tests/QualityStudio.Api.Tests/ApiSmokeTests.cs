@@ -1006,6 +1006,66 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         }
     }
 
+    [Theory]
+    [InlineData("gpt-6.1-sol", "codex")]
+    [InlineData("claude-sonnet-5-5", "claude")]
+    public async Task Usage_prices_snapshot_model_entries_at_query_time(string model, string cli)
+    {
+        var timestamp = new DateTimeOffset(2026, 9, 29, 10, 0, 0, TimeSpan.Zero);
+        await UsageLedger.AppendAsync(repositoryRoot, new ReviewUsageEntry(
+            "snapshot-usage-api-run", timestamp, model, cli,
+            new TokenUsage(80_000, 10_000, 20_000, 0, 1000, 10_000), "performance", "file", "Sample.cs",
+            null, UsageLedger.CurrentSchemaVersion, ReviewModelSource.Explicit,
+            new UsageCost(null, null, "unknownModel")), TestContext.Current.CancellationToken);
+
+        using var client = application!.CreateClient();
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/usage?kind=performance", TestContext.Current.CancellationToken);
+
+        Assert.Equal(0.227m, json.GetProperty("estimatedCost").GetDecimal());
+        Assert.Equal("priced", json.GetProperty("costStatus").GetString());
+        Assert.Equal(0, json.GetProperty("unpricedRuns").GetInt32());
+        var recent = Assert.Single(json.GetProperty("recent").EnumerateArray());
+        Assert.Equal(model, recent.GetProperty("model").GetString());
+        Assert.Equal("resolved", recent.GetProperty("cost").GetProperty("status").GetString());
+    }
+
+    [Theory]
+    [InlineData("2.1.283", false, false)]
+    [InlineData("2.1.284", false, true)]
+    [InlineData("2.1.284", true, true)]
+    public async Task Models_and_review_validation_apply_local_cli_support(
+        string claudeVersion, bool codexListed, bool sonnetAvailable)
+    {
+        var evidence = ReviewCliAvailability.FromOutput(
+            codexListed ? """{"models":[{"slug":"gpt-6.1-sol","visibility":"list"}]}""" : "{}",
+            "codex-cli 0.166.0", claudeVersion);
+        using var host = application!.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<ReviewModelCatalog>();
+            services.AddSingleton(new ReviewModelCatalog(evidence));
+        }));
+        using var client = host.CreateClient();
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/models", TestContext.Current.CancellationToken);
+        var models = json.GetProperty("models").EnumerateArray().ToArray();
+        foreach (var (modelId, cli, available) in new[] {
+            ("gpt-6.1-sol", "codex", codexListed), ("claude-sonnet-5-5", "claude", sonnetAvailable) })
+        {
+            var model = Assert.Single(models, row => row.GetProperty("modelId").GetString() == modelId);
+            Assert.True(model.GetProperty("priceAvailable").GetBoolean());
+            Assert.Equal(available, model.GetProperty("availableForNewRuns").GetBoolean());
+            if (available) continue;
+            using var response = await client.PostAsJsonAsync("/api/review", new
+            {
+                path = "Sample.cs",
+                kind = "code",
+                cliType = cli,
+                model = modelId,
+                thinkingLevel = "high",
+            }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
     [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
@@ -1400,6 +1460,12 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
                 }));
             builder.ConfigureServices(services =>
             {
+                // Host-independent CLI evidence: actual discovery is exercised by catalog tests.
+                services.RemoveAll<ReviewModelCatalog>();
+                var codexModels = ReviewModelCatalog.Default.Snapshot.Models.Where(model => model.CliType == "codex")
+                    .Select(model => new { slug = model.ModelId, visibility = "list" });
+                services.AddSingleton(new ReviewModelCatalog(ReviewCliAvailability.FromOutput(
+                    JsonSerializer.Serialize(new { models = codexModels }), "codex-cli 0.166.0", "2.1.305 (Claude Code)")));
                 services.RemoveAll<QuotaService>();
                 services.AddSingleton(new QuotaService([]));
                 services.AddSingleton<GitleaksSecurityScanner, FakeSecurityScanner>();
