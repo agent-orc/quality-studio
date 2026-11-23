@@ -66,6 +66,12 @@ after upgrading or changing CLI access to refresh this evidence. The library's
 `ReviewModelCatalog.Default` is the policy-only view; the API uses the local evidence
 view for both the picker and run validation.
 
+Run-store tests use a fake executor and inject fixed CLI support evidence (Codex
+0.166.0 with the catalog's Codex models listed, Claude Code 2.1.305). This keeps
+cost-cap tests, including Haiku 5.5's ambiguous prompt-size upper bound, independent
+of the test host's installed CLIs. Catalog and API smoke tests exercise CLI gating
+separately, including rejected versions and missing model listings.
+
 The September 29 ladder refresh remains in effect: GPT-6 Sol and GPT-5.6 Sol/Terra
 support low through max plus ultra; GPT-6 Luna and GPT-5.6 Luna support low through max.
 These models reject minimal. v0.3.7 advertised minimal through xhigh for GPT-6.1 Sol;
