@@ -1099,13 +1099,7 @@ public sealed class ReviewRunStoreTests
                 }));
             builder.ConfigureServices(services =>
             {
-                // The fake executor never launches a CLI. Supply stable local support evidence
-                // so run-state and cost-cap assertions do not depend on the host's installed CLIs.
-                services.RemoveAll<ReviewModelCatalog>();
-                var codexModels = ReviewModelCatalog.Default.Snapshot.Models.Where(model => model.CliType == "codex")
-                    .Select(model => new { slug = model.ModelId, visibility = "list" });
-                services.AddSingleton(new ReviewModelCatalog(ReviewCliAvailability.FromOutput(
-                    JsonSerializer.Serialize(new { models = codexModels }), "codex-cli 0.166.0", "2.1.305 (Claude Code)")));
+                services.UseSupportedReviewModels();
                 services.RemoveAll<QuotaService>();
                 services.AddSingleton(new QuotaService([]));
                 if (executorFactory is not null)

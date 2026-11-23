@@ -185,7 +185,8 @@ public sealed class ReviewModelCatalog
     /// the policy's provider fallback for the recommended route; when the policy withholds every
     /// fallback from that route (a security floor, for example) it runs the strongest
     /// fallback-eligible claude model and the recommendation still names the floor that model does
-    /// not reach. A CLI the policy does not route returns null: the CLI's own default serves the run
+    /// not reach. An unavailable Codex recommendation is rejected, just like an explicit selection.
+    /// A CLI the policy does not route returns null: the CLI's own default serves the run
     /// and callers record <see cref="ReviewModelSource.RunnerDefault"/> instead of a guess.
     /// </summary>
     public ReviewModelSelection? ResolveDefault(string? cliType, ReviewModelRecommendation recommendation)
@@ -194,10 +195,9 @@ public sealed class ReviewModelCatalog
         var cli = NormalizeCli(cliType);
         if (cli == "codex")
         {
-            var recommended = Find(recommendation.RecommendedModel);
-            return recommended is { AvailableForNewRuns: true, CliType: "codex" }
-                ? new ReviewModelSelection(cli, recommended.ModelId, recommendation.RecommendedThinkingLevel, true)
-                : null;
+            // A policy route must pass the same CLI and thinking-level checks as an override.
+            // Returning null here would silently run the CLI's own, unverified default instead.
+            return Resolve(cli, recommendation.RecommendedModel, recommendation.RecommendedThinkingLevel);
         }
 
         var routeId = coreRoutes.FirstOrDefault(route =>

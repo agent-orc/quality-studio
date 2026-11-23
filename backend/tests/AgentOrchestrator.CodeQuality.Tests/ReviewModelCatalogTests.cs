@@ -397,6 +397,31 @@ public sealed class ReviewModelCatalogTests
         Assert.True(route.Catalogued);
     }
 
+    [Theory]
+    [InlineData("gpt-6-sol", null, false, false)]
+    [InlineData("gpt-6-sol", null, true, true)]
+    [InlineData("gpt-6.1-sol", "0.165.0", true, false)]
+    [InlineData("gpt-6.1-sol", "0.166.0", true, true)]
+    public void Codex_default_routes_apply_listing_and_minimum_version_checks(
+        string model, string? version, bool listed, bool available)
+    {
+        var output = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            models = listed ? new[] { new { slug = model, visibility = "list" } } : [],
+        });
+        var local = new ReviewModelCatalog(ReviewCliAvailability.FromOutput(output, version, null));
+        var recommendation = local.Recommend("security", ReviewLevel.File, 1) with
+        {
+            RecommendedModel = model,
+            RecommendedThinkingLevel = "high",
+        };
+
+        if (available)
+            Assert.Equal(local.Resolve("codex", model, "high"), local.ResolveDefault("codex", recommendation));
+        else
+            Assert.Throws<ReviewModelSelectionException>(() => local.ResolveDefault("codex", recommendation));
+    }
+
     [Fact]
     public void Default_route_for_claude_is_the_provider_fallback_declared_for_the_recommended_route()
     {

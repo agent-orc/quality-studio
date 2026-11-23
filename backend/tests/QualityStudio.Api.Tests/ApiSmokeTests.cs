@@ -1066,6 +1066,29 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
         }
     }
 
+    [Theory]
+    [InlineData("/api/review/estimate")]
+    [InlineData("/api/review")]
+    public async Task Default_codex_route_rejects_missing_listing_instead_of_using_runner_default(string endpoint)
+    {
+        using var host = application!.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<ReviewModelCatalog>();
+            services.AddSingleton(new ReviewModelCatalog(ReviewCliAvailability.FromOutput("{}", "0.166.0", null)));
+        }));
+        using var client = host.CreateClient();
+        using var response = await client.PostAsJsonAsync(endpoint, new
+        {
+            path = "Sample.cs",
+            kind = "code",
+            cliType = "codex",
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Contains("installed CLI", problem.GetProperty("detail").GetString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Usage_returns_filtered_ledger_aggregates_and_recent_entries()
     {
@@ -1460,12 +1483,7 @@ public sealed partial class ApiSmokeTests : IAsyncLifetime
                 }));
             builder.ConfigureServices(services =>
             {
-                // Host-independent CLI evidence: actual discovery is exercised by catalog tests.
-                services.RemoveAll<ReviewModelCatalog>();
-                var codexModels = ReviewModelCatalog.Default.Snapshot.Models.Where(model => model.CliType == "codex")
-                    .Select(model => new { slug = model.ModelId, visibility = "list" });
-                services.AddSingleton(new ReviewModelCatalog(ReviewCliAvailability.FromOutput(
-                    JsonSerializer.Serialize(new { models = codexModels }), "codex-cli 0.166.0", "2.1.305 (Claude Code)")));
+                services.UseSupportedReviewModels();
                 services.RemoveAll<QuotaService>();
                 services.AddSingleton(new QuotaService([]));
                 services.AddSingleton<GitleaksSecurityScanner, FakeSecurityScanner>();

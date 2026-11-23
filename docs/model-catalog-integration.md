@@ -66,7 +66,8 @@ after upgrading or changing CLI access to refresh this evidence. The library's
 `ReviewModelCatalog.Default` is the policy-only view; the API uses the local evidence
 view for both the picker and run validation.
 
-Run-store tests use a fake executor and inject fixed CLI support evidence (Codex
+API smoke and run-store tests share `ReviewModelTestServices.UseSupportedReviewModels`
+and inject fixed CLI support evidence (Codex
 0.166.0 with the catalog's Codex models listed, Claude Code 2.1.305). This keeps
 cost-cap tests, including Haiku 5.5's ambiguous prompt-size upper bound, independent
 of the test host's installed CLIs. Catalog and API smoke tests exercise CLI gating
@@ -107,7 +108,11 @@ name the model that actually served the run, tagged `modelSource: policy-default
 Codex this is the recommendation itself; for Claude it is the policy's provider fallback
 for the recommended route, or the strongest fallback-eligible Claude model when the policy
 withholds every fallback from that route (the recommendation still names the floor it
-does not reach). A CLI without policy rows keeps the runner default and is tagged
+does not reach). Codex policy defaults pass the same local CLI checks as explicit
+selections. A blocked recommendation (missing listing or insufficient CLI version)
+rejects preflight and run creation; it never silently substitutes the runner default.
+Claude fallback selection also filters candidates by local CLI availability.
+A CLI without policy rows keeps the runner default and is tagged
 `modelSource: runner-default`. The below-floor confirmation applies to explicit routes
 only. A selected thinking level is validated against the model policy and passed to
 CodingAgentRunner's first-class `ThinkingLevel` request field.
