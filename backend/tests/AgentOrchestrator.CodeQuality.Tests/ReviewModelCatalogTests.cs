@@ -46,6 +46,26 @@ public sealed class ReviewModelCatalogTests
         Assert.False(local.Find("gpt-6-sol")!.AvailableForNewRuns);
     }
 
+    [Fact]
+    public void Every_codex_policy_row_requires_listing_and_new_ids_follow_the_same_rule()
+    {
+        var missing = new ReviewModelCatalog(ReviewCliAvailability.FromOutput(null, "99.0.0", null));
+        Assert.All(missing.Snapshot.Models.Where(model => model.CliType == "codex"),
+            model => Assert.False(model.AvailableForNewRuns));
+
+        var rows = catalog.Snapshot.Models.Where(model => model.CliType == "codex")
+            .Select(model => new { slug = model.ModelId, visibility = "list" });
+        var listed = new ReviewModelCatalog(ReviewCliAvailability.FromOutput(
+            System.Text.Json.JsonSerializer.Serialize(new { models = rows }), "99.0.0", null));
+        Assert.All(listed.Snapshot.Models.Where(model => model.CliType == "codex"),
+            model => Assert.Equal(catalog.Find(model.ModelId)!.AvailableForNewRuns, model.AvailableForNewRuns));
+
+        var future = ReviewCliAvailability.FromOutput(
+            """{"models":[{"slug":"gpt-future-review","visibility":"list"}]}""", null, null);
+        Assert.True(future.Allows("gpt-future-review", "codex", null));
+        Assert.False(future.Allows("gpt-unlisted-review", "codex", null));
+    }
+
     [Theory]
     [InlineData("gpt-6-sol", "low,medium,high,xhigh,max,ultra")]
     [InlineData("gpt-5.6-sol", "low,medium,high,xhigh,max,ultra")]
@@ -69,6 +89,51 @@ public sealed class ReviewModelCatalogTests
         var local = new ReviewModelCatalog(evidence);
         Assert.Equal(!fail, local.Find("gpt-6.1-sol")!.AvailableForNewRuns);
         Assert.Equal(!fail, local.Find("claude-sonnet-5-5")!.AvailableForNewRuns);
+    }
+
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("launch")]
+    [InlineData("timeout")]
+    [InlineData("io")]
+    [InlineData("unavailable")]
+    public async Task Discovery_isolates_probe_failures_and_preserves_successful_evidence(string failure)
+    {
+        Exception exception = failure switch
+        {
+            "permission" => new UnauthorizedAccessException("Access denied"),
+            "launch" => new System.ComponentModel.Win32Exception("Could not start CLI"),
+            "timeout" => new OperationCanceledException("Probe timed out"),
+            "io" => new IOException("Could not read CLI output"),
+            _ => new SecurityScannerUnavailableException("CLI unavailable"),
+        };
+        var evidence = await ReviewCliAvailability.DiscoverAsync(
+            new FailingModelProbeRunner(exception), TestContext.Current.CancellationToken);
+        var local = new ReviewModelCatalog(evidence);
+        Assert.Empty(evidence.CodexModels);
+        Assert.Equal(new Version(0, 166, 0), evidence.CodexVersion);
+        Assert.False(local.Find("gpt-6.1-sol")!.AvailableForNewRuns);
+        Assert.True(local.Find("claude-sonnet-5-5")!.AvailableForNewRuns);
+    }
+
+    [Fact]
+    public async Task Discovery_propagates_caller_cancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ReviewCliAvailability.DiscoverAsync(
+            new FailingModelProbeRunner(new OperationCanceledException(cancellation.Token)), cancellation.Token));
+    }
+
+    private sealed class FailingModelProbeRunner(Exception failure) : ISensorCommandRunner
+    {
+        public async Task<SensorCommandResult> RunAsync(string executable, IReadOnlyList<string> arguments,
+            string workingDirectory, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            if (arguments.SequenceEqual(new[] { "debug", "models" })) throw failure;
+            return await new DiscoveryRunner(false).RunAsync(executable, arguments, workingDirectory, cancellationToken);
+        }
     }
 
     private sealed class DiscoveryRunner(bool fail) : ISensorCommandRunner

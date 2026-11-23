@@ -52,12 +52,15 @@ with the package API and remove the snapshot as one migration.
 offers only `selectable` and `fallbackOnly` rows and filters them by CLI (`codex`,
 `claude`). Unsupported, restricted, and deprecated rows remain visible in the API but
 cannot start a run. The host also joins the policy with read-only local CLI discovery
-when its catalog is first resolved. `codex debug models` must list `gpt-6-sol` and
-`gpt-6.1-sol` with `visibility: list` before they are offered. Policy rows with a
-`minimumCliVersion` require an installed version at least that high; Codex rows also
-require discovery to list the model. In this snapshot GPT-6.1 Sol requires Codex
-0.166.0 and Claude Sonnet 5.5 requires Claude Code 2.1.284. Missing, failed, or malformed
-probes do not establish support. A blocked model stays visible and priced in diagnostics,
+asynchronously during startup, with bounded probes and no synchronous wait on tasks.
+`codex debug models` must list each Codex model with `visibility: list` before it is
+offered; this rule applies to all Codex policy rows without a separate model-id list.
+Policy rows with a `minimumCliVersion` also require an installed version at least that
+high. In this snapshot GPT-6.1 Sol requires Codex 0.166.0 and Claude Sonnet 5.5 requires
+Claude Code 2.1.284. Missing, failed, or malformed
+probes do not establish support. Probe failures, including permission and timeout errors,
+supply no evidence for that probe; caller cancellation still propagates. A blocked model
+stays visible and priced in diagnostics,
 but `availableForNewRuns` is false and explicit selection is rejected. Restart the host
 after upgrading or changing CLI access to refresh this evidence. The library's
 `ReviewModelCatalog.Default` is the policy-only view; the API uses the local evidence

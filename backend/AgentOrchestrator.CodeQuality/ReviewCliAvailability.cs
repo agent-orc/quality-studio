@@ -8,9 +8,7 @@ public sealed record ReviewCliAvailability(
 {
     public bool Allows(string modelId, string cli, string? minimumVersion)
     {
-        if (cli == "codex" &&
-            (modelId is "gpt-6-sol" or "gpt-6.1-sol" || minimumVersion is not null) &&
-            !CodexModels.Contains(modelId)) return false;
+        if (cli == "codex" && !CodexModels.Contains(modelId)) return false;
 
         if (minimumVersion is null) return true;
         var installed = cli switch { "codex" => CodexVersion, "claude" => ClaudeVersion, _ => null };
@@ -36,8 +34,14 @@ public sealed record ReviewCliAvailability(
                     .ConfigureAwait(false);
                 return result.ExitCode == 0 ? result.StandardOutput : null;
             }
-            catch (Exception exception) when (exception is SecurityScannerUnavailableException or IOException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                throw;
+            }
+            catch (Exception)
+            {
+                // Discovery is optional evidence: launch, permission, timeout, and runner failures
+                // must not stop the host. Caller cancellation above still ends discovery.
                 return null;
             }
         }
